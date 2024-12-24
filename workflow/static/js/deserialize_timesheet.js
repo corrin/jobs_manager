@@ -46,8 +46,6 @@ document.addEventListener('DOMContentLoaded', function () {
             time_entries: transformedEntries,
             timesheet_date: timesheet_date
         };
-
-        console.log("Timesheet data set:", window.timesheet_data);  // Let's see this log
     } catch (error) {
         console.error('Error during deserialization or transformation:', error);
     }

@@ -1,0 +1,24 @@
+{% load crispy_forms_tags %}
+
+<!--
+    Form template for managing TimeEntry objects via modal. 
+    Loaded dynamically by AJAX in TimesheetEntryView. 
+--> 
+<form id="timesheet-form" method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="submit_form">
+    
+    {% if form.non_field_errors %}
+    <div class="alert alert-danger">
+        {{ form.non_field_errors }}
+    </div>
+    <div>
+    {% endif %}
+
+    {{ form|crispy }}
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Save Timesheet</button>
+    </div>
+</form>

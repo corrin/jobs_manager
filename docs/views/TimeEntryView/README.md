@@ -1,75 +1,117 @@
-# **Timesheet Entry View Documentation**
+# **Timesheet Entry View Documentation**
 
 ## **Overview**
 
-The `TimesheetEntryView` is a template based view that handles the display and management of timesheet entries for staff members. It provides functionality to view timesheet entries for a specific date and staff member, along with navigation between different staff members.
+The `TimesheetEntryView` is a Django template-based view that manages the display and interaction with timesheet entries for specific staff members on specific dates. It enables users to view, edit, and navigate timesheet data efficiently.
 
-## **Technical Details**
+## **Technical Details**
 
-### **View Type**
+### **View Type**
 
-- Extends Django's `TemplateView`
+- Extends Django's `TemplateView`
 - Template: `time_entries/timesheet_entry.html`
 
-### **GET Method**
+---
 
-Handles retrieval and display of timesheet data.
+## **GET Method**
+
+### **Purpose**
+Handles data retrieval and preparation for rendering the timesheet entry page, ensuring a user-friendly experience with dynamic navigation and data presentation.
 
 ### **Parameters**
 
-- `date`: Date in YYYY-MM-DD format
-- `staff_id`: ID of the staff member
+- `date`: Target date in `YYYY-MM-DD` format.
+- `staff_id`: ID of the staff member whose timesheet is being accessed.
 
-### **Data Processing**
+---
 
-1. **Date Validation**
-    - Converts string date to datetime object
-    - Validates date format
-2. **Staff Data**
-    - Retrieves staff member information
-    - Includes ID, name, and wage rate
-3. **Time Entries**
-    - Fetches existing entries for staff member on specified date
-    - Includes related job and client information
-4. **Jobs Data**
-    - Retrieves open jobs (status: quoting, approved, in_progress, special)
-    - Includes job details and client information
-5. **Staff Navigation**
-    - Determines next and previous staff members
-    - Implements wraparound navigation
+### **Workflow**
 
-### **Context Data**
+1. **Date Validation**:
+   - Parses the `date` parameter into a `datetime.date` object.
+   - Validates the format to ensure compliance with `YYYY-MM-DD`.
 
-- `staff_member`: Staff instance
-- `staff_member_json`: Serialized staff data
-- `timesheet_date`: Formatted date string
-- `scheduled_hours`: Staff's scheduled hours for the date
-- `timesheet_entries_json`: Serialized timesheet entries
-- `jobs_json`: Serialized jobs data
-- `next_staff`: Next staff member for navigation
-- `prev_staff`: Previous staff member for navigation
+2. **Staff Data Retrieval**:
+   - Ensures the `staff_id` is not excluded based on `EXCLUDED_STAFF_IDS`.
+   - Retrieves the staff member from the database, raising a 404 if not found.
 
-### **Models Used**
+3. **Timesheet Entries**:
+   - Queries the database for timesheet entries matching the `date` and `staff_id`.
+   - Includes related job and client information for richer context.
 
-- `Staff`: User model for staff members
-- `TimeEntry`: Time entry records
-- `Job`: Job information
+4. **Jobs Data**:
+   - Fetches all open jobs (statuses: quoting, approved, in progress, special).
+   - Provides job and client details for assignment options.
 
-Note: The POST method is not yet implemented in the provided code but is intended for saving time entries
+5. **Navigation Data**:
+   - Determines the next and previous staff members for seamless navigation.
+   - Implements wraparound logic for user convenience.
 
-## **Autosave Timesheet View**
+6. **Context Construction**:
+   - Prepares all necessary data for rendering the timesheet page:
+     - Staff member details.
+     - Serialized timesheet and job data.
+     - Navigation controls.
+
+---
+
+### **Context Data**
+
+- `staff_member`: The staff instance being viewed.
+- `staff_member_json`: Serialized details of the staff member.
+- `timesheet_date`: The formatted date string.
+- `scheduled_hours`: The staff member's scheduled hours for the date.
+- `timesheet_entries_json`: Serialized timesheet entries for the date.
+- `jobs_json`: Serialized list of open jobs.
+- `next_staff`: The next staff member for navigation.
+- `prev_staff`: The previous staff member for navigation.
+
+---
+
+### **Models Interaction**
+
+- **Staff**: Fetches staff details, including wage rates and availability.
+- **TimeEntry**: Handles querying timesheet entries for the specified staff and date.
+- **Job**: Provides details of open jobs for assignment and reference.
+
+---
+
+## **POST Method**
+
+### **Purpose**
+Manages interactions related to timesheet entries and paid absences, including form loading, submission, and entry creation.
+
+### **Actions Supported**
+
+- `load_form`: Dynamically loads the timesheet entry form.
+- `submit_form`: Validates and saves a new or updated timesheet entry.
+- `load_paid_absence`: Loads the form for managing paid absences.
+- `add_paid_absence`: Creates entries for paid absences, excluding weekends.
+
+### **Error Handling**
+
+- Validates input data for correct format and logical consistency.
+- Ensures all database operations (retrieval, creation, updates) handle missing or invalid records gracefully.
+
+---
+
+## **Autosave Timesheet View**
 
 ### **Purpose**
 
-Function-based view that handles automatic saving of timesheet entries through AJAX requests.
+A function-based view designed to handle automatic saving of timesheet entries through AJAX, ensuring real-time updates with minimal user intervention.
 
-### **Technical Details**
+---
 
-- **View Type** : Function-based view
-- **HTTP Method** : POST only
-- **Content Type** : JSON
+### **Technical Details**
 
-### **Request Data Structure**
+- **View Type**: Function-based view.
+- **HTTP Method**: POST.
+- **Content Type**: JSON.
+
+---
+
+### **Request Data Structure**
 
 ```json
 {
@@ -88,87 +130,64 @@ Function-based view that handles automatic saving of timesheet entries 
             "staff_id": "staff_id",
             "timesheet_date": "YYYY-MM-DD"
         }
-    ]
+    ],
+    "deleted_entries": ["entry_id_1", "entry_id_2"]
 }
-
 ```
 
-### **Processing Flow**
+### **Workflow**
 
-1. **Request Validation**
-    - Validates JSON format
-    - Checks for presence of time entries
-2. **Entry Processing**
-    - Handles both new and existing entries
-    - For existing entries:
-        - Updates description, hours, billable status, notes, and rate type
-    - For new entries:
-        - Creates complete TimeEntry record
-        - Links to job pricing and staff
-        - Sets wage and charge-out rates
+1. **Request Validation**:
+    - Ensures the JSON payload is properly formatted.
+    - Validates required fields in `time_entries` and `deleted_entries`.
+2. **Entry Processing**:
+    - Updates existing entries or creates new ones, ensuring no duplicates.
+    - Deletes entries marked for removal.
+3. **Response**:
+    - Returns success with updated entries or detailed errors for invalid data.
 
-### **Response Format**
+---
 
-- Success:
+### **Response Format**
+
+- **Success**:
     
-    `{"success": true}`
+    ```json
+    {"success": true, "updated_entries": [1, 2, 3]}
+    ```
     
-- Errors:
-    - Invalid JSON:  (400)
-        
-        `{"error": "Invalid JSON"}`
-        
-    - No entries:  (400)
-        
-        `{"error": "No time entries provided"}`
-        
-    - Other errors:  (500)
-        
-        `{"error": "error_message"}`
-        
+- **Error**:
+    
+    ```json
+    {"error": "Invalid JSON", "messages": ["Details of the error."]
+    ```
+---
 
-## **Updated Data Flow Diagram**
+## **Data Flow Diagram**
 
 ```mermaid
 flowchart TD
     A[User Request] --> B{Request Type}
-
     B -->|GET| C[TimesheetEntryView]
-    C --> D[Parse Date & Staff ID]
-    D --> E[Fetch Data]
-    E --> F[Render Template]
-
-    B -->|POST| G[autosave_timesheet_view]
-    G --> H{Valid JSON?}
-    H -->|No| I[Return 400]
-
-    H -->|Yes| J{Has Entries?}
-    J -->|No| K[Return 400]
-
-    J -->|Yes| L{Process Each Entry}
-    L -->|Existing| M[Update Entry]
-    L -->|New| N[Create Entry]
-
-    M --> O[Return Success]
-    N --> O
-
-    subgraph Error Handling
-    P[Exceptions] --> Q[Log Error]
-    Q --> R[Return Error Response]
-    end
+    C --> D[Fetch Data]
+    D --> E[Render Template]
+    B -->|POST| F[TimesheetEntryView]
+    F --> G{Action}
+    G -->|load_form| H[Load Timesheet Form]
+    G -->|submit_form| I[Validate and Save Entry]
+    G -->|load_paid_absence| J[Load Paid Absence Form]
+    G -->|add_paid_absence| K[Create Paid Absence Entries]
+    H --> L[Return Form HTML]
+    I --> M[Update Timesheet Grid]
+    J --> L
+    K --> M
 
 ```
 
-### **Error Handling**
+---
 
-- JSON parsing errors
-- Missing or invalid data validation
-- Database operation errors
-- Comprehensive error logging
+## **Error Handling**
 
-### **Models Interaction**
-
-- **TimeEntry** : Create and update operations
-- **Job** : Reference for job pricing
-- **Staff** : Reference for staff details and wage rates
-- **RateType** : Enum for wage rate multipliers
+- Handles JSON parsing errors.
+- Validates logical and relational constraints (e.g., staff and job associations).
+- Provides detailed feedback for errors during form submission or entry processing.

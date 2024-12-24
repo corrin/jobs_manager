@@ -8,25 +8,31 @@
 {% block content %}
 <div id="timesheet-daily-view-container">
     <h3>Timesheet Daily View</h3>
-    <div id="ag-grid-container" class="ag-theme-alpine" style="height: 500px; width: 100%;"></div>
 
-    <div id="staff-boxes-section" class="overview-section">
-    <div id="staff-boxes-container">
-        {% for staff in staff_data %}
-        <div class="staff-box">
-            Hello
-            <p class="staff-name">
-                <a href="{% url 'timesheet_entry' date=date staff_id=staff.staff_id %}" class="staff-name-link">
-                    {{ staff.name }}
-                </a>
-            </p>
-            <p class="staff-stats">
-                Scheduled: {{ staff.scheduled_hours }} hrs
-                Actual: {{ staff.actual_hours }} hrs
-            </p>
-            <div id="staff-chart-{{ staff.staff_id }}" class="staff-chart"></div>
-        </div>
-        {% endfor %}
+    <div id="staff-boxes-section" class="overview-section my-5">
+        <ol class="list-group list-group-numbered">
+            {% for staff in staff_data %}
+            <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="ms-2 me-auto">
+                    <div class="fw-bold">
+                        <a href="{% url 'timesheet_entry' date=date staff_id=staff.staff_id %}" class="text-decoration-none">
+                            {{ staff.name }} {{ staff.last_name }}
+                        </a>
+                    </div>
+                    <div class="staff-stats">
+                        <span class="text-muted">
+                            Scheduled: {{ staff.scheduled_hours }} hrs<br>
+                            Actual: {{ staff.actual_hours }} hrs
+                        </span>
+                    </div>
+                    <div id="staff-chart-{{ staff.staff_id }}" class="staff-chart mt-2"></div>
+                </div>
+                <span class="badge bg-primary rounded-pill">
+                    Staff actual hours: {{ staff.actual_hours }}
+                </span>
+            </li>
+            {% endfor %}
+        </ol>
     </div>
 </div>
 

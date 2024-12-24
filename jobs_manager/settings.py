@@ -131,10 +131,10 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
         "NAME": "msm_workflow",
-        "USER": "django_user",
+        "USER": os.getenv("MSM_DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD", "abcde"),
         "HOST": "localhost",
-        "PORT": "3306",
+        "PORT": os.getenv("DB_PORT"),
     },
     "TEST": {  # Optional, Django will create 'test_' + NAME by default
         "NAME": "test_msm_workflow",

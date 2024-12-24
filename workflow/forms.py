@@ -2,6 +2,7 @@
 import logging
 
 from django import forms
+from django.db.models import Q
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from workflow.models import (
@@ -64,26 +65,85 @@ class AdjustmentEntryForm(forms.ModelForm):
 
 class TimeEntryForm(forms.ModelForm):
     class Meta:
-        model = TimeEntry
-        widgets = {
-            "date": forms.DateInput(attrs={"type": "date"}),  # Keeps the date picker
-        }
-        exclude = [
-            "job_pricing"
-        ]  # Exclude job_pricing because it's set programmatically
+        # Rate types to match with parsed types in timesheet_entry.js
+        RATE_TYPE_CHOICES = [
+            (1.0, "Ord"),
+            (1.5, "Ovt"),
+            (2.0, "Dt"),
+            (0.0, "Unpaid"),
+        ]
 
-    def __init__(self, *args, **kwargs):
+        model = TimeEntry
+
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),  # Expand description field (with rows) for better readability
+            "wage_rate_multiplier": forms.Select(
+                choices=RATE_TYPE_CHOICES
+            ),  # Dropdown for rate type selection
+        }
+
+        fields = (
+            "staff",
+            "date",
+            "job_pricing",
+            "hours",
+            "wage_rate",
+            "wage_rate_multiplier",
+            "charge_out_rate",
+            "is_billable",
+            "description",
+            "note",
+        )
+    
+    def __init__(self, *args, staff_member=None, timesheet_date=None, **kwargs):
+        """
+        Form constructor. Main function is to prepopulate certain fields (such as the staff and its information, alongside with the date, which are all provided by the view)
+        """
         super().__init__(*args, **kwargs)
 
-        # Drop-down for staff
-        self.fields["staff"].queryset = Staff.objects.all()
+        self.fields["staff"].initial = staff_member
+        self.fields["staff"].widget = forms.HiddenInput()
+        self.fields["staff"].required = False
 
-        # Pre-populate wage_rate and charge_out_rate based on selected staff
-        if "instance" in kwargs and kwargs["instance"] and kwargs["instance"].staff:
-            staff = kwargs["instance"].staff
-            self.fields["wage_rate"].initial = staff.wage_rate
-            self.fields["charge_out_rate"].initial = staff.charge_out_rate
+        self.fields["date"].initial = timesheet_date
+        self.fields["date"].widget = forms.HiddenInput()
 
+        self.fields["job_pricing"].queryset = JobPricing.objects.select_related('job').filter(
+            job__status__in=["quoting", "approved", "in_progress", "special"]
+        ).order_by("job__name")
+        self.fields["job_pricing"].required = True
+
+        self.fields["wage_rate"].initial = staff_member.wage_rate
+        self.fields["wage_rate"].widget = forms.HiddenInput()
+
+        self.fields["wage_rate_multiplier"].initial = 1.0
+        self.fields["wage_rate_multiplier"].help_text = (
+            "Multiplier for hourly rate. Ord (1.0), Ovt (1.5), Dt (2.0), Unpaid (0.0)"
+        )
+
+        self.fields["charge_out_rate"].initial = 1.0
+        self.fields["charge_out_rate"].widget = forms.HiddenInput()
+    
+    def save(self, commit=True):
+        """
+        Set charge_out_rate based on job_pricing before saving.
+        Charge-out rates are managed via JobPricing and CompanyDefaults.
+        Staff wage rates are set above for consistency, but charge-out rates depend on the job's context, as defined in JobPricing.
+        """
+        instance = super().save(commit=False)
+        job_pricing = self.cleaned_data.get("job_pricing")
+
+        if job_pricing:
+            instance.charge_out_rate = job_pricing.job.charge_out_rate
+        else:
+            logger.error("Job Pricing is missing")
+            raise ValueError("Job Pricing is required to set charge_out_rate")
+
+        if commit:
+            instance.save()
+
+        return instance
+                      
 
 class StaffCreationForm(UserCreationForm):
     class Meta:
@@ -186,3 +246,8 @@ class InvoiceForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["raw_json"].widget.attrs["readonly"] = True
+
+
+class PaidAbsenceForm(forms.Form):
+    start_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    end_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))

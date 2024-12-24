@@ -6,13 +6,10 @@
 <link rel="stylesheet" href="{% static 'ag-grid-styles/ag-theme-alpine.css' %}">
 {% endblock %}
 
-
-
-
 {% block content %}
 
 <div class="container">
-    <h2>Timesheet Entry - {{ staff_member.get_display_full_name }} - {{ timesheet_date  }}</h2>
+    <h2>Timesheet Entry - {{ staff_member.get_display_full_name }} - {{ timesheet_date }}</h2>
 
     <div class="summary-section">
         <p>Scheduled Hours: {{ scheduled_hours }}</p>
@@ -20,13 +17,58 @@
     </div>
 
     <!-- AG Grid will be initialized here -->
+    <button id="new-timesheet-btn" class="btn btn-success mt-5 mb-1 me-1">New Timesheet</button>
+    <button id="open-paid-absence-modal" type="button" class="btn btn-warning mt-5 mb-1 ms-1">Add Paid Absence </button>
     <div id="timesheet-grid" class="ag-theme-alpine" style="height: 400px; width: 100%;">
     </div>
 
-    <div class="header-actions">
-    <a href="{% url 'timesheet_daily_view' date=timesheet_date %}" class="btn btn-secondary">
-        Back to Daily Overview
-    </a>
+    <!-- Add Paid Absence modal -->
+    <div class="modal fade" tabindex="-1" id="paidAbsenceModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Paid Leave</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- PaidAbsenceForm will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Timesheet modal -->
+    <div class="modal fade" id="timesheetModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">New Timesheet Entry</h5>
+                    <button type="button" class="close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body modal-lg">
+                    <!-- TimeEntryForm will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Messages will be loaded here -->
+    <div class="alert-container"></div>
+
+    <div class="header-actions d-flex justify-content-between mt-3 mb-5">
+        <a href="{% url 'timesheet_entry' date=timesheet_date staff_id=prev_staff.id %}" class="btn btn-primary">
+            {{ prev_staff.get_display_full_name }} <- Previous staff </a>
+                <a href="{% url 'timesheet_daily_view' date=timesheet_date %}"
+                    class="btn btn-secondary align-self-center">
+                    Back to Daily Overview
+                </a>
+                <a href="{% url 'timesheet_entry' date=timesheet_date staff_id=next_staff.id %}"
+                    class="btn btn-primary">
+                    Next staff -> {{ next_staff.get_display_full_name }}
+                </a>
+    </div>
 
     <!-- JSON Data -->
     <script id="timesheet-date" type="application/json">"{{ timesheet_date|escapejs }}"</script>
@@ -36,30 +78,30 @@
     <script id="timesheet-entries-data" type="application/json">
         {{ timesheet_entries_json|safe }}
     </script>
-        <script id="staff-data" type="application/json">
+    <script id="staff-data" type="application/json">
     {{ staff_member_json|safe }}
     </script>
 
 
     <!-- Debug context -->
-<div id="debug-context" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
-    <h3>Debug Context</h3>
+    <div id="debug-context" style="padding: 10px; border: 1px solid #ccc;">
+        <h3>Debug Context</h3>
 
-    <h4>Staff Member:</h4>
+        <h4>Staff Member:</h4>
         {{ staff_member_json|safe }}
 
-    <h4>Date:</h4>
-    <pre>{{ date }}</pre>
+        <h4>Date:</h4>
+        <pre>{{ date }}</pre>
 
-    <h4>Scheduled Hours:</h4>
-    <pre>{{ scheduled_hours }}</pre>
+        <h4>Scheduled Hours:</h4>
+        <pre>{{ scheduled_hours }}</pre>
 
-    <h4>Jobs Data:</h4>
-    <pre>{{ jobs_json|safe }}</pre>
+        <h4>Jobs Data:</h4>
+        <pre>{{ jobs_json|safe }}</pre>
 
-    <h4>Timesheet Entries:</h4>
-    <pre>{{ timesheet_entries_json|safe }}</pre>
-</div>
+        <h4>Timesheet Entries:</h4>
+        <pre>{{ timesheet_entries_json|safe }}</pre>
+    </div>
 </div>
 
 {% endblock %}
@@ -70,7 +112,4 @@
 <script src="{% static 'js/deserialize_timesheet.js' %}"></script>
 <script src="{% static 'js/timesheet_autosave.js' %}"></script>
 <script src="{% static 'js/timesheet_entry.js' %}"></script>
-
-<script>
-</script>
 {% endblock %}

@@ -1,5 +1,3 @@
-# time_entry.py
-
 import uuid
 from decimal import Decimal
 
@@ -21,13 +19,13 @@ class TimeEntry(models.Model):
         related_name="time_entries",
         help_text="The Staff member who did the work.  Null for estimates/quotes.",
         null=True,
-        blank=True,  # Allow null and blank for estimates and quotes
+        blank=True,  
     )
     date = models.DateField(
         null=True,
         blank=True,
         help_text="The date of the time entry.  Ie. the date the work was done.",
-    )  # Allow null and blank for estimates and quotes.
+    )  
     note = models.TextField(blank=True, null=True)
     is_billable = models.BooleanField(
         default=True,
@@ -66,11 +64,10 @@ class TimeEntry(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["created_at"]  # Default ordering by creation time
+        ordering = ["created_at"]  
 
     def save(self, *args, **kwargs):
-        # Ensure minutes and hours stay consistent
-        if self.items is not None and self.minutes_per_item is not None:
+        if self.hours == 0 and self.items is not None and self.minutes_per_item is not None:
             total_minutes = self.items * self.minutes_per_item
             self.hours = total_minutes / Decimal(60)
         super().save(*args, **kwargs)
