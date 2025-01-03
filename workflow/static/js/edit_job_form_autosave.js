@@ -341,7 +341,7 @@ export function handlePrintJob() {
 }
 
 // Autosave function to send data to the server
-function autosaveData() {
+export function autosaveData() {
     const collectedData = collectAllData();
 
     // Skip autosave if the job is not yet ready for saving
@@ -511,3 +511,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
 });
+
+
+function getAllRowData(gridApi) {
+    const rowData = [];
+    gridApi.forEachNode(node => rowData.push(node.data));
+    return rowData;
+}
+
+
+export function copyEstimateToQuote() {
+    const grids = ['TimeTable', 'MaterialsTable', 'AdjustmentsTable'];
+
+    grids.forEach(gridName => {
+        const estimateGridKey = `estimate${gridName}`;
+        const quoteGridKey = `quote${gridName}`;
+
+        const estimateGridApi = window.grids[estimateGridKey].api;
+        const quoteGridApi = window.grids[quoteGridKey].api;
+
+        const rowData = getAllRowData(estimateGridApi);
+        console.log("ROWDATA : ", rowData);
+        quoteGridApi.setGridOption('rowData',rowData);
+    });
+    autosaveData();  // Explicitly call autosaveData after copying
+}
+
