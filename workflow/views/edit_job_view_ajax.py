@@ -269,6 +269,40 @@ def process_month_end(request):
 @login_required
 @require_http_methods(["POST"])
 def add_job_event(request, job_id):
+    """
+    Create a new job event for a specific job.
+
+    This view handles the creation of manual note events for jobs. It requires 
+    authentication and accepts only POST requests with JSON payload.
+
+    Args:
+        request (HttpRequest): The HTTP request object containing:
+            - body (JSON): Request body with a 'description' field
+            - user: Authenticated user who will be set as staff
+        job_id (int): The ID of the job to create an event for
+
+    Returns:
+        JsonResponse: Response with different status codes:
+            - 201: Successfully created event, includes event details
+            - 400: Missing description or invalid JSON payload
+            - 404: Job not found
+            - 500: Unexpected server error
+
+    Response Format (201):
+        {
+            "success": true,
+            "event": {
+                "timestamp": "ISO-8601 formatted timestamp",
+                "event_type": "manual_note",
+                "description": "Event description",
+                "staff": "Staff display name or System"
+            }
+        }
+
+    Raises:
+        Job.DoesNotExist: When job_id doesn't match any job
+        json.JSONDecodeError: When request body contains invalid JSON
+    """
     try:
         logger.debug(f"Adding job event for job ID: {job_id}")
         job = get_object_or_404(Job, id=job_id)
@@ -309,4 +343,3 @@ def add_job_event(request, job_id):
     except Exception as e:
         logger.exception(f"Unexpected error creating job event for job {job_id}: {str(e)}")
         return JsonResponse({"error": "An unexpected error occurred"}, status=500)
-    

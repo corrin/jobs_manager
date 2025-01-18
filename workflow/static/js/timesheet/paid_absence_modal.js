@@ -36,13 +36,13 @@ export function initializePaidAbsenceModal(modalId, apiUrl) {
 
             const data = await response.json();
             if (!data.success) {
-                renderMessages(data.messages, 'time-entry');
+                renderMessages(data.messages);
             }
 
             modalContainer.innerHTML = data.form_html;
         } catch (error) {
             console.error("Error loading paid absence form:", error);
-            renderMessages([{ level: "error", message: "Failed to load form." }], 'time-entry');
+            renderMessages([{ level: "error", message: "Failed to load form." }]);
         }
     });
 
@@ -71,12 +71,12 @@ export function initializePaidAbsenceModal(modalId, apiUrl) {
                 const bootstrapModal = bootstrap.Modal.getInstance(modalElement);
                 bootstrapModal.hide();
                 
-                renderMessages(data.messages, 'time-entry');
+                renderMessages(data.messages);
             }
 
         } catch (error) {
             console.error("Error submitting paid absence:", error);
-            renderMessages([{ level: "error", message: "Failed to submit paid absence." }], 'time-entry');
+            renderMessages([{ level: "error", message: "Failed to submit paid absence." }]);
         }
     });
 }

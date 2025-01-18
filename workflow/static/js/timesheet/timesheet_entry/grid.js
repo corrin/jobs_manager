@@ -126,6 +126,7 @@ export const gridOptions = {
             editable: false
         },
         {
+            field: 'deleteIcon',
             headerName: '',
             width: 50,
             cellRenderer: deleteIconCellRenderer,
@@ -265,32 +266,55 @@ export const gridOptions = {
         debouncedAutosave();
         updateSummarySection();
     },
-    // Add new row when Enter is pressed on last row or stop editing if ESC is pressed
+    // Checks for the Shift + Enter shortcut, handle the creation of a new row through the Enter shortcut and check for ESC to stop editing
     onCellKeyDown: (params) => {
         const { event, api, node, column } = params;
 
-        if (event.key === 'Escape') {            
-            console.log('ESC pressed:', { node, column });
+        switch (event.key) {
+            case 'Escape':
+                console.log('ESC pressed:', { node, column });
 
-            if (!column.colDef.editable) {
-                console.log('Column is not editable, skipping');
-                return;
-            }
+                // Column is not editable, skipping
+                if (!column.colDef.editable) {
+                    return;
+                }
 
-            api.stopEditing(true); 
-            console.log('Editing canceled for column:', column.colId);
-        }
+                api.stopEditing(true);
+                break;
 
-        if (event.key === 'Enter') {
-            const isLastRow = api.getDisplayedRowCount() - 1 === params.rowIndex;
-            if (isLastRow) {
-                api.applyTransaction({ add: [createNewRow()] });
-                // Focus the first editable cell of the newly added row
-                const newRowIndex = api.getDisplayedRowCount() - 1;
-                api.setFocusedCell(newRowIndex, 'job_number');
-                debouncedAutosave();
-                updateSummarySection();
-            }
+            case 'Enter':
+                const isLastRow = api.getDisplayedRowCount() - 1 === params.rowIndex;
+
+                // Shift + Enter is a different shortcut
+                if (!event.shiftKey && isLastRow) {
+                    createNewRowShortcut(api);
+                }
+
+                // To switch the billable state of the entry through the Shift + Enter shortcut
+                if (column.colId === 'is_billable') {
+                    node.data.is_billable = !node.data.is_billable;
+                    api.refreshCells({
+                        rowNodes: [node],
+                        force: true
+                    });
+                }
+
+                // To delete a row through the Shift + Enter
+                if (column.colId === 'deleteIcon') {
+                    column.colDef.onCellClicked(params);
+                }
+
+                break;
         }
     },
 };
+
+function createNewRowShortcut(api) {
+    api.applyTransaction({ add: [createNewRow()] });
+
+    // Focus the first editable cell of the newly added row
+    const newRowIndex = api.getDisplayedRowCount() - 1;
+    api.setFocusedCell(newRowIndex, 'job_number');
+    debouncedAutosave();
+    updateSummarySection();
+}

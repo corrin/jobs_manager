@@ -324,36 +324,43 @@ document.addEventListener('DOMContentLoaded', function () {
     const timeGridOptions = {
         ...commonGridOptions,
         columnDefs: [
-            { headerName: 'Description', field: 'description', editable: true, flex: 2 },
+            {
+                headerName: 'Description',
+                field: 'description',
+                editable: true,
+                flex: 2,
+                cellRenderer: (params) => {
+                    // Render the description normally
+                    let content = `<span>${params.value || 'No Description'}</span>`;
+
+                    // Check if the 'link' field exists and append the action link
+                    if (params.data.link) {
+                        const linkLabel =
+                            params.data.link === '/timesheets/overview/'
+                                ? ''
+                                : 'View Timesheet';
+                        content += ` | <a href="${params.data.link}" target="_blank" class="action-link">${linkLabel}</a>`;
+                    }
+
+                    return content;
+                },
+            },
             { headerName: 'Items', field: 'items', editable: true, valueParser: numberParser },
             { headerName: 'Mins/Item', field: 'mins_per_item', editable: true, valueParser: numberParser },
             { headerName: 'Total Minutes', field: 'total_minutes', editable: false },
-            {
-                headerName: 'Actions',
-                field: 'link',
-                cellRenderer: (params) => {
-                    if (params.value) {
-                        if (params.value === '/timesheets/overview/') {
-                            return `<a href="${params.value}" target="_blank">Go to timesheets</a>`;
-                        }
-                        return `<a href="${params.value}" target="_blank">View Timesheet</a>`;
-                    }
-                    return 'N/A';
-                }
-            },
             {
                 headerName: 'Wage Rate',
                 field: 'wage_rate',
                 editable: true,
                 valueParser: numberParser,
-                valueFormatter: currencyFormatter
+                valueFormatter: currencyFormatter,
             },
             {
                 headerName: 'Charge Rate',
                 field: 'charge_out_rate',
                 editable: true,
                 valueParser: numberParser,
-                valueFormatter: currencyFormatter
+                valueFormatter: currencyFormatter,
             },
             trashCanColumn,
         ],
@@ -629,7 +636,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Contact Client feature coming soon!');
                 break;
 
-            // Only dynamic when creating manual notes: need to make it completely dynamic.
             case 'saveEventButton':
                 handleSaveEventButtonClick(jobId);
                 break;
@@ -685,10 +691,10 @@ function showQuoteModal(jobId, provider = 'gmail') {
     quoteModal.show();
 
     const sendQuoteButton = document.getElementById('sendQuoteEmailButton');
-    
+
     // Remove duplicated event listeners
     sendQuoteButton.replaceWith(sendQuoteButton.cloneNode(true));
-    
+
     document.getElementById('sendQuoteEmailButton').addEventListener('click', async () => {
         try {
             const data = await sendQuoteEmail(jobId, provider);
@@ -805,12 +811,10 @@ function handleSaveEventButtonClick(jobId) {
                 return;
             }
 
-            // Remove "No events found" message if it exists
             if (noEventsMessage) {
                 noEventsMessage.remove();
             }
 
-            // Add the new event to the timeline
             addEventToTimeline(data.event, jobEventsList);
 
             // Clear the input field and hide the modal

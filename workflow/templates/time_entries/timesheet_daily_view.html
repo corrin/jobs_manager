@@ -21,7 +21,7 @@
                     <div class="fw-bold">
                         <a href="{% url 'timesheet_entry' date=date staff_id=staff.staff_id %}"
                             class="text-decoration-none">
-                            {{ staff.name }} {{ staff.last_name }}
+                            {{ staff.name }}
                         </a>
                     </div>
                     <div class="staff-stats">
@@ -60,7 +60,7 @@
             <tr>
                 <td>
                     <a href="{% url 'timesheet_entry' date=date staff_id=staff.staff_id %}">
-                        {{ staff.name }} {{ staff.last_name }}
+                        {{ staff.name }}
                     </a>
                 </td>
                 <td>{{ staff.scheduled_hours|default:"0.0" }}</td>
