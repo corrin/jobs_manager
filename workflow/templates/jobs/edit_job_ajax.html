@@ -52,7 +52,6 @@
 
 <hr/>
 
-
     <!-- Attached Files Section -->
     <div class="job-files-section">
         <h2>Attached Files</h2>
@@ -77,6 +76,19 @@
                                     {{ file.filename }}
                                 </a>
                                 <span class="timestamp">({{ file.uploaded_at|date:"Y-m-d H:i" }})</span>
+                                <div class="file-actions">
+                                    <label class="print-checkbox">
+                                        <input type="checkbox" 
+                                               class="autosave-input print-on-jobsheet" 
+                                               name="jobfile_{{ file.id }}_print_on_jobsheet"
+                                               {% if file.print_on_jobsheet %}checked{% endif %}>
+                                        Print on Jobsheet
+                                    </label>
+                                    <button class="delete-file btn btn-sm btn-danger" 
+                                            data-file-id="{{ file.id }}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
@@ -117,6 +129,7 @@
     <!-- Save/Cancel Buttons -->
     <div class="action-buttons">
         <button type="button" class="btn btn-secondary" id="printJobButton">Print Job</button>
+        <button type="button" class="btn btn-secondary" id="printWorkshopButton">Print for Workshop</button>
         <button class="btn btn-primary" id="closeButton" onclick="window.location.href='/'">Close</button>
     </div>
 {% endblock %}

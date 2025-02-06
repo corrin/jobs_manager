@@ -2,7 +2,7 @@ import logging
 
 from rest_framework import serializers
 
-from workflow.models import Client, Job
+from workflow.models import Client, Job, JobFile
 from workflow.serializers.job_pricing_serializer import JobPricingSerializer
 
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ class JobSerializer(serializers.ModelSerializer):
         write_only=True,
     )
     job_status = serializers.CharField(source="status")
+    job_files = serializers.DictField(required=False)
 
     class Meta:
         model = Job
@@ -42,6 +43,7 @@ class JobSerializer(serializers.ModelSerializer):
             "paid",
             "quote_acceptance_date",
             "job_is_valid",
+            "job_files",
         ]
 
     def validate(self, attrs):
@@ -79,6 +81,17 @@ class JobSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         logger.debug(f"JobSerializer update called for instance {instance.id}")
         logger.debug(f"Validated data received: {validated_data}")
+
+        # Handle job files data
+        job_files_data = validated_data.pop('job_files', None)
+        if job_files_data:
+            for file_id, file_data in job_files_data.items():
+                try:
+                    job_file = JobFile.objects.get(id=file_id, job=instance)
+                    job_file.print_on_jobsheet = file_data.get('print_on_jobsheet', False)
+                    job_file.save()
+                except JobFile.DoesNotExist:
+                    logger.warning(f"JobFile with id {file_id} not found")
 
         # Handle basic job fields first
         for attr, value in validated_data.items():

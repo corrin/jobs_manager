@@ -20,6 +20,7 @@ class JobFile(models.Model):
         choices=[("active", "Active"), ("deleted", "Deleted")],
         default="active",
     )
+    print_on_jobsheet = models.BooleanField(default=False)
 
     @property
     def full_path(self):

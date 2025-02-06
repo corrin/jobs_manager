@@ -22,6 +22,18 @@ function collectAllData() {
         let value;
         if (element.type === 'checkbox') {
             value = element.checked;
+            // Special handling for job file print_on_jobsheet checkboxes
+            if (element.classList.contains('print-on-jobsheet')) {
+                // Extract file ID from the name attribute (jobfile_<id>_print_on_jobsheet)
+                const fileId = element.name.split('_')[1];
+                if (!data.job_files) {
+                    data.job_files = {};
+                }
+                data.job_files[fileId] = {
+                    print_on_jobsheet: value
+                };
+                return; // Skip adding this to the main data object
+            }
         } else {
             value = element.value.trim() === "" ? null : element.value;
         }
@@ -45,7 +57,6 @@ function collectAllData() {
     data.job_is_valid = checkJobValidity(data);
 
     return data;
-
 }
 
 function checkJobValidity(data) {
@@ -321,6 +332,72 @@ async function handlePDF(pdfBlob, mode, jobData) {
     }
 }
 
+function addJobDetailsToPDF(doc, jobData) {
+    let startY = 10;
+    
+    // Job Details section
+    doc.setFontSize(16);
+    doc.text("Job Details", 10, startY);
+    doc.setFontSize(12);
+    startY += 10;
+
+    // Add job details table
+    const jobDetailsData = [
+        ["Job Number", jobData.job_number || ''],
+        ["Client", jobData.client_name || ''],
+        ["Contact Person", jobData.contact_person || ''],
+        ["Contact Phone", jobData.contact_phone || ''],
+        ["Description", jobData.description || ''],
+    ];
+
+    doc.autoTable({
+        body: jobDetailsData,
+        startY: startY,
+    });
+
+    return doc.lastAutoTable.finalY + 10;
+}
+
+function exportJobToWorkshopPDF(jobData) {
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF();
+    
+    // Add job details
+    let startY = addJobDetailsToPDF(doc, jobData);
+
+    // Add files marked for printing
+    const printCheckboxes = document.querySelectorAll('.print-on-jobsheet:checked');
+    if (printCheckboxes.length > 0) {
+        doc.setFontSize(16);
+        doc.text("Attached Files", 10, startY);
+        doc.setFontSize(12);
+        startY += 10;
+
+        printCheckboxes.forEach(checkbox => {
+            const fileCard = checkbox.closest('.file-card');
+            const fileLink = fileCard.querySelector('a');
+            const fileName = fileLink.textContent.trim();
+            
+            doc.text(fileName, 10, startY);
+            startY += 10;
+
+            // If it's an image, try to add it to the PDF
+            if (fileName.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                const img = new Image();
+                img.src = fileLink.href;
+                try {
+                    doc.addImage(img, 'JPEG', 10, startY, 180, 0);
+                    startY += 100; // Adjust based on image height
+                } catch (error) {
+                    console.error('Failed to add image to PDF:', error);
+                }
+            }
+        });
+    }
+
+    return new Blob([doc.output("blob")], {type: "application/pdf"});
+}
+
 export function handlePrintJob() {
     try {
         // Collect the current job data
@@ -339,6 +416,33 @@ export function handlePrintJob() {
         console.error("Error during Print Job process:", error);
     }
 }
+
+export function handlePrintWorkshop() {
+    try {
+        // Collect the current job data
+        const collectedData = collectAllData();
+
+        // Validate the job before proceeding
+        if (!collectedData.job_is_valid) {
+            console.error("Job is not valid. Please complete all required fields before printing.");
+            return;
+        }
+
+        // Generate the workshop PDF
+        const pdfBlob = exportJobToWorkshopPDF(collectedData);
+        handlePDF(pdfBlob, 'preview', collectedData);
+    } catch (error) {
+        console.error("Error during Print Workshop process:", error);
+    }
+}
+
+// Add event listeners for print buttons
+document.addEventListener('DOMContentLoaded', function() {
+    const printWorkshopButton = document.getElementById('printWorkshopButton');
+    if (printWorkshopButton) {
+        printWorkshopButton.addEventListener('click', handlePrintWorkshop);
+    }
+});
 
 // Autosave function to send data to the server
 export function autosaveData() {
@@ -472,46 +576,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     });
-
-    // Function to validate all required fields before autosave
-    // Unused?
-    // function validateAllFields() {
-    //     let allValid = true;
-    //
-    //     autosaveInputs.forEach(input => {
-    //         if (input.hasAttribute('required') && input.type !== "checkbox" && input.value.trim() === '') {
-    //             // Add validation error for required fields that are empty
-    //             addValidationError(input, 'This field is required.');
-    //             allValid = false;
-    //         } else if (input.type === "checkbox" && input.hasAttribute('required') && !input.checked) {
-    //             // If a checkbox is required but not checked
-    //             addValidationError(input, 'This checkbox is required.');
-    //             allValid = false;
-    //         } else {
-    //             // Remove validation error if field is valid
-    //             removeValidationError(input);
-    //         }
-    //     });
-    //
-    //     return allValid;
-    // }
-
-    // // Function to add validation error to an input
-    // Unused?
-    // function addValidationError(element, message) {
-    //     element.classList.add('is-invalid');
-    //     if (!element.nextElementSibling || !element.nextElementSibling.classList.contains('invalid-feedback')) {
-    //         const errorDiv = document.createElement('div');
-    //         errorDiv.className = 'invalid-feedback';
-    //         errorDiv.innerText = message;
-    //         element.parentElement.appendChild(errorDiv);
-    //     }
-    // }
-
-    // Function to remove validation error from an input
-    // Unused?
-
-
 });
 
 
@@ -538,4 +602,3 @@ export function copyEstimateToQuote() {
     });
     autosaveData();  // Explicitly call autosaveData after copying
 }
-
