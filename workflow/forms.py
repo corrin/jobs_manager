@@ -204,6 +204,8 @@ class ClientForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["raw_json"].widget.attrs["readonly"] = True
+        self.fields["name"].required = True
+        self.fields["name"].widget.attrs["required"] = "required"
 
         if DEBUG_FORM:
             logger.debug(

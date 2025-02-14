@@ -33,6 +33,8 @@ matplotlib = "^3.10.0"
 django-redis = "^5.4.0"
 celery = "^5.4.0"
 pyngrok = "^7.2.3"
+thefuzz = "^0.22.1"
+python-levenshtein = "^0.26.1"
 
 [tool.poetry.scripts]
 post-install = "scripts.post_install:install_system_deps"  # Script to install system dependencies like poppler-utils

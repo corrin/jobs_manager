@@ -4,11 +4,13 @@ import time
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
+from django.conf import settings
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils import timezone
 from xero_python.accounting import AccountingApi
 
+from workflow.models import CompanyDefaults
 from workflow.api.xero.reprocess_xero import (
     set_client_fields,
     set_invoice_or_bill_fields,
@@ -26,7 +28,9 @@ logger = logging.getLogger("xero")
 
 def enqueue_client_sync_tasks():
     """
-    Enqueues synchronization of all clients to be processed by Celery
+    Enqueues synchronization of all clients to be processed.
+    If Celery is configured, tasks will be processed asynchronously.
+    If not, they will be processed synchronously.
     """
     clients_to_push = Client.objects.filter(
         django_updated_at__gt=models.F(
@@ -35,8 +39,12 @@ def enqueue_client_sync_tasks():
     )
 
     for client in clients_to_push:
-        sync_client_task.delay(client.id)  # Send each client as an asynchronous task
-        logger.info(f"Enqueued sync task for client {client.name}.")
+        if hasattr(settings, 'CELERY_BROKER_URL'):
+            sync_client_task.delay(client.id)  # Send each client as an asynchronous task
+            logger.info(f"Enqueued async sync task for client {client.name}.")
+        else:
+            sync_client_to_xero(client)  # Process synchronously
+            logger.info(f"Processed sync task for client {client.name}.")
 
 
 def apply_rate_limit_delay(response_headers):
@@ -453,8 +461,11 @@ def sync_clients(xero_contacts):
                     f"updated_at={client.xero_last_modified}"
                 )
 
-            # Queue synchronization for each client
-            sync_client_task.delay(client.id)
+            # Use Celery if configured (broker URL exists)
+            if hasattr(settings, 'CELERY_BROKER_URL'):
+                sync_client_task.delay(client.id)
+            else:
+                sync_client_to_xero(client)
 
         except Exception as e:
             logger.error(f"Error processing client: {str(e)}")
@@ -784,6 +795,20 @@ def single_sync_invoice(
         )
 
 
+def sync_xero_clients_only():
+    """Sync only client data from Xero."""
+    accounting_api = AccountingApi(api_client)
+    our_latest_contact = get_last_modified_time(Client)
+    
+    sync_xero_data(
+        xero_entity_type="contacts",
+        xero_api_function=accounting_api.get_contacts,
+        sync_function=sync_clients,
+        last_modified_time=our_latest_contact,
+        pagination_mode="page",
+    )
+
+
 def one_way_sync_all_xero_data():
     accounting_api = AccountingApi(api_client)
 
@@ -807,12 +832,10 @@ def one_way_sync_all_xero_data():
         pagination_mode="single",
     )
 
-    # Since clients seem to be the highest volume sync object, we continue to queue them
-    # to avoid hitting the Xero API call per minute limit.
     sync_xero_data(
         xero_entity_type="contacts",
         xero_api_function=accounting_api.get_contacts,
-        sync_function=sync_clients,  # Already enqueuing
+        sync_function=sync_clients,
         last_modified_time=our_latest_contact,
         pagination_mode="page",
     )
@@ -859,16 +882,25 @@ def one_way_sync_all_xero_data():
         pagination_mode="offset",
     )
 
-
 def synchronise_xero_data(delay_between_requests=1):
     """Bidirectional sync with Xero - pushes changes TO Xero, then pulls FROM Xero"""
     logger.info("Starting bi-directional Xero sync")
 
-    # PUSH changes TO Xero
-    # Queue client synchronization
-    enqueue_client_sync_tasks()
+    try:
+        # PUSH changes TO Xero
+        # Queue client synchronization
+        enqueue_client_sync_tasks()
 
-    # PULL changes FROM Xero using existing sync
-    one_way_sync_all_xero_data()
+        # PULL changes FROM Xero using existing sync
+        one_way_sync_all_xero_data()
 
+        # Log sync time
+        company_defaults, _ = CompanyDefaults.objects.get_or_create(company_name="default")
+        company_defaults.last_xero_sync = timezone.now()
+        company_defaults.save()
+
+        logger.info("Completed bi-directional Xero sync")
+    except Exception as e:
+        logger.error(f"Error during Xero sync: {str(e)}")
+        raise
     logger.info("Completed bi-directional Xero sync")

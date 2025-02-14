@@ -53,6 +53,21 @@ class Client(models.Model):
         # Add more checks as necessary for other fields
         return True
 
+    def get_last_invoice_date(self):
+        """
+        Get the date of the client's most recent invoice.
+        """
+        last_invoice = self.invoice_set.order_by('-date').first()
+        return last_invoice.date if last_invoice else None
+
+    def get_total_spend(self):
+        """
+        Calculate the total amount spent by the client (sum of all invoice totals).
+        """
+        return self.invoice_set.aggregate(
+            total=models.Sum('total_excl_tax')
+        )['total'] or 0
+
     def get_client_for_xero(self):
         """
         Return the client data in a format suitable for syncing to Xero.

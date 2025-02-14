@@ -28,6 +28,7 @@ class CompanyDefaults(models.Model):
     fri_end = models.TimeField(default="15:00")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_xero_sync = models.DateTimeField(null=True, blank=True, help_text="The last time Xero data was synchronized")
 
     class Meta:
         verbose_name = "Company Defaults"

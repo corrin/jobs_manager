@@ -97,6 +97,11 @@ urlpatterns = [
         name="refresh_xero_data",
     ),
     path(
+        "api/xero/disconnect/",
+        xero_view.xero_disconnect,
+        name="xero_disconnect",
+    ),
+    path(
         "api/xero/create_invoice/<uuid:job_id>",
         xero_view.create_xero_invoice,
         name="create_invoice",
