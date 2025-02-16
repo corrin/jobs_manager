@@ -4,6 +4,7 @@ import time
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
+from django.core.cache import cache
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils import timezone
@@ -119,8 +120,8 @@ def sync_xero_data(
             logger.info("Finished processing all items.")
             break
         else:
-            # Avoid hitting API rate limits.
-            time.sleep(20)
+            # Avoid hitting API rate limits
+            time.sleep(5)
 
 
 def get_last_modified_time(model):
@@ -882,6 +883,10 @@ def deep_sync_xero_data(days_back=30):
 
 def synchronise_xero_data(delay_between_requests=1):
     """Bidirectional sync with Xero - pushes changes TO Xero, then pulls FROM Xero"""
+    if not cache.add('xero_sync_lock', True, timeout=(60 * 60 * 4)):  # 4 hours
+        logger.info("Skipping sync - another sync is running")
+        return
+
     logger.info("Starting bi-directional Xero sync")
 
     try:
@@ -912,3 +917,5 @@ def synchronise_xero_data(delay_between_requests=1):
     except Exception as e:
         logger.error(f"Error during Xero sync: {str(e)}")
         raise
+    finally:
+        cache.delete('xero_sync_lock')

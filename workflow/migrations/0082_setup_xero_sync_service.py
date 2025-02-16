@@ -1,19 +1,26 @@
 from django.db import migrations
 import os
+import platform
 from pathlib import Path
+import subprocess
 
 def create_systemd_service(apps, schema_editor):
     """
-    Create the systemd service file for Xero sync if it doesn't exist.
+    Attempts to set up the Xero sync service, falling back to instructions if sudo fails.
     """
+    # Skip if not on Linux
+    if platform.system() != 'Linux':
+        print("Not on Linux, skipping systemd service setup")
+        return
+
     service_path = Path('/etc/systemd/system/xero-sync.service')
     
     # Only proceed if we're in a production environment
     if not service_path.parent.exists():
+        print("Not in production environment (no /etc/systemd), skipping service setup")
         return
 
-    if not service_path.exists():
-        service_content = """[Unit]
+    service_content = """[Unit]
 Description=Xero Sync Service
 After=network.target
 
@@ -28,34 +35,79 @@ Restart=always
 RestartSec=30
 
 [Install]
-WantedBy=multi-user.target
-"""
-        # Write service file
-        try:
-            with open(service_path, 'w') as f:
-                f.write(service_content)
-            
-            # Set up the service
-            os.system('systemctl daemon-reload')
-            os.system('systemctl enable xero-sync')
-            os.system('systemctl restart xero-sync')
-        except Exception as e:
-            print(f"Warning: Could not set up Xero sync service: {e}")
-            print("You may need to manually set up the service in production")
+WantedBy=multi-user.target"""
+
+    # Try using sudo first
+    try:
+        # Test if we have sudo access
+        test_sudo = subprocess.run(
+            ['sudo', '-n', 'true'],
+            capture_output=True,
+            text=True
+        )
+        
+        if test_sudo.returncode == 0:
+            # We have sudo access, proceed with automatic setup
+            subprocess.run(
+                ['sudo', 'bash', '-c', f'cat > {service_path}'],
+                input=service_content.encode(),
+                check=True
+            )
+            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
+            subprocess.run(['sudo', 'systemctl', 'enable', 'xero-sync'], check=True)
+            subprocess.run(['sudo', 'systemctl', 'restart', 'xero-sync'], check=True)
+            print("Successfully set up Xero sync service")
+            return
+    except Exception as e:
+        print(f"Automatic setup failed: {e}")
+
+    # If we get here, either sudo failed or we don't have access
+    print("\nTo set up the Xero sync service, run these commands as root:")
+    print("\n# Create service file")
+    print(f"cat > /etc/systemd/system/xero-sync.service << 'EOL'\n{service_content}\nEOL")
+    print("\n# Reload systemd and start service")
+    print("systemctl daemon-reload")
+    print("systemctl enable xero-sync")
+    print("systemctl start xero-sync")
+    print("\n# Verify it's running")
+    print("systemctl status xero-sync")
 
 def remove_systemd_service(apps, schema_editor):
     """
-    Remove the systemd service file if it exists.
+    Attempts to remove the Xero sync service, falling back to instructions if sudo fails.
     """
+    if platform.system() != 'Linux':
+        return
+
     service_path = Path('/etc/systemd/system/xero-sync.service')
-    if service_path.exists():
-        try:
-            os.system('systemctl stop xero-sync')
-            os.system('systemctl disable xero-sync')
-            service_path.unlink()
-            os.system('systemctl daemon-reload')
-        except Exception as e:
-            print(f"Warning: Could not remove Xero sync service: {e}")
+    if not service_path.exists():
+        return
+
+    try:
+        # Test if we have sudo access
+        test_sudo = subprocess.run(
+            ['sudo', '-n', 'true'],
+            capture_output=True,
+            text=True
+        )
+        
+        if test_sudo.returncode == 0:
+            # We have sudo access, proceed with automatic removal
+            subprocess.run(['sudo', 'systemctl', 'stop', 'xero-sync'], check=True)
+            subprocess.run(['sudo', 'systemctl', 'disable', 'xero-sync'], check=True)
+            subprocess.run(['sudo', 'rm', str(service_path)], check=True)
+            subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
+            print("Successfully removed Xero sync service")
+            return
+    except Exception as e:
+        print(f"Automatic removal failed: {e}")
+
+    # If we get here, either sudo failed or we don't have access
+    print("\nTo remove the Xero sync service, run these commands as root:")
+    print("systemctl stop xero-sync")
+    print("systemctl disable xero-sync")
+    print("rm /etc/systemd/system/xero-sync.service")
+    print("systemctl daemon-reload")
 
 class Migration(migrations.Migration):
     dependencies = [

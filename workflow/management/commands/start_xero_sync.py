@@ -13,8 +13,6 @@ class Command(BaseCommand):
     help = 'Starts the Xero sync scheduler that runs every hour'
 
     def handle(self, *args, **options):
-        scheduler = BlockingScheduler()
-        
         def xero_sync_job():
             try:
                 # Check if we have a valid Xero token
@@ -28,6 +26,9 @@ class Command(BaseCommand):
                 logger.info(f"Completed scheduled Xero sync at {timezone.now()}")
             except Exception as e:
                 logger.error(f"Error during scheduled Xero sync: {str(e)}")
+
+        # Initialize the scheduler
+        scheduler = BlockingScheduler()
 
         # Add the job to the scheduler
         scheduler.add_job(

@@ -112,7 +112,6 @@ def AddClient(request):
         form = ClientForm(initial={"name": name}) if name else ClientForm()
         return render(request, "clients/add_client.html", {"form": form})
 
-
     elif request.method == "POST":
         form = ClientForm(request.POST)
         if form.is_valid():

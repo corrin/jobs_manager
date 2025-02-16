@@ -64,6 +64,11 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "simple",
         },
+        "xero_console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
         "sql_file": {
             "level": "DEBUG",
             "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
@@ -88,7 +93,7 @@ LOGGING = {
             "propagate": False,
         },
         "xero": {
-            "handlers": ["xero_file"],
+            "handlers": ["xero_file", "xero_console"],
             "level": "DEBUG",
             "propagate": False,
         },
