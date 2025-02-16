@@ -248,7 +248,7 @@ class XeroDocumentCreator(ABC):
 
             logger.debug(f"Response Content: {response}")
             logger.debug(f"HTTP Status: {http_status}")
-            logger.debug(f"HTTP Headers: {http_headers}")
+            # logger.debug(f"HTTP Headers: {http_headers}")
         except Exception as e:
             logger.error(f"Error sending document to Xero: {str(e)}")
             if hasattr(e, "body"):

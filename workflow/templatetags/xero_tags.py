@@ -36,22 +36,35 @@ def get_xero_action():
 @register.simple_tag
 def check_xero_sync_needed():
     """
-    Checks if Xero sync is needed (hasn't been run in over 24 hours).
+    Checks if Xero sync is needed (hasn't been run in over 24 hours)
+    or if deep sync is needed (hasn't been run in over 30 days).
     Returns:
         dict: Contains 'needed' (bool) and 'message' (str)
     """
     try:
         company_defaults = CompanyDefaults.objects.first()
+        now = datetime.now(timezone.utc)
+
         if not company_defaults or not company_defaults.last_xero_sync:
             return {
                 'needed': True,
                 'message': 'Xero data has never been synchronized'
             }
         
-        if datetime.now(timezone.utc) - company_defaults.last_xero_sync > timedelta(days=1):
+        # Check regular sync (24 hours)
+        if now - company_defaults.last_xero_sync > timedelta(days=1):
             return {
                 'needed': True,
                 'message': 'Xero data is outdated, please run a Xero sync'
+            }
+
+        # Check deep sync (30 days)
+        if not company_defaults.last_xero_deep_sync or (
+            now - company_defaults.last_xero_deep_sync > timedelta(days=30)
+        ):
+            return {
+                'needed': True,
+                'message': 'Deep Xero sync needed (looking back 90 days)'
             }
         
         return {

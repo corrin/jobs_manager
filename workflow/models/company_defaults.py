@@ -29,6 +29,7 @@ class CompanyDefaults(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_xero_sync = models.DateTimeField(null=True, blank=True, help_text="The last time Xero data was synchronized")
+    last_xero_deep_sync = models.DateTimeField(null=True, blank=True, help_text="The last time a deep Xero sync was performed (looking back 90 days)")
 
     class Meta:
         verbose_name = "Company Defaults"

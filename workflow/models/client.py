@@ -41,16 +41,11 @@ class Client(models.Model):
     def validate_for_xero(self):
         """
         Validate if the client data is sufficient to sync to Xero.
+        Only name is required by Xero.
         """
         if not self.name:
             logger.error(f"Client {self.id} does not have a valid name.")
             return False
-        if not self.email and not self.phone:
-            logger.error(
-                f"Client {self.id} needs either a valid email or phone number."
-            )
-            return False
-        # Add more checks as necessary for other fields
         return True
 
     def get_last_invoice_date(self):

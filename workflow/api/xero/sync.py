@@ -4,7 +4,6 @@ import time
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from django.conf import settings
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils import timezone
@@ -21,30 +20,7 @@ from workflow.models import XeroJournal, Quote
 from workflow.models.client import Client
 from workflow.models.invoice import Bill, CreditNote, Invoice
 from workflow.models.xero_account import XeroAccount
-from workflow.tasks import sync_client_task
-
 logger = logging.getLogger("xero")
-
-
-def enqueue_client_sync_tasks():
-    """
-    Enqueues synchronization of all clients to be processed.
-    If Celery is configured, tasks will be processed asynchronously.
-    If not, they will be processed synchronously.
-    """
-    clients_to_push = Client.objects.filter(
-        django_updated_at__gt=models.F(
-            "xero_last_synced"
-        )  # This fixes the bug where all local clients were being pushed
-    )
-
-    for client in clients_to_push:
-        if hasattr(settings, 'CELERY_BROKER_URL'):
-            sync_client_task.delay(client.id)  # Send each client as an asynchronous task
-            logger.info(f"Enqueued async sync task for client {client.name}.")
-        else:
-            sync_client_to_xero(client)  # Process synchronously
-            logger.info(f"Processed sync task for client {client.name}.")
 
 
 def apply_rate_limit_delay(response_headers):
@@ -127,12 +103,7 @@ def sync_xero_data(
             return
 
         # Process the current batch of items
-        if callable(getattr(sync_function, "delay", None)):
-            # If it's a Celery task, enqueue it
-            sync_function.delay(items)
-        else:
-            # Otherwise, run it directly
-            sync_function(items)
+        sync_function(items)
 
         # Update parameters to ensure progress in pagination.
         if pagination_mode == "page":
@@ -149,7 +120,7 @@ def sync_xero_data(
             break
         else:
             # Avoid hitting API rate limits.
-            time.sleep(5)
+            time.sleep(20)
 
 
 def get_last_modified_time(model):
@@ -461,11 +432,7 @@ def sync_clients(xero_contacts):
                     f"updated_at={client.xero_last_modified}"
                 )
 
-            # Use Celery if configured (broker URL exists)
-            if hasattr(settings, 'CELERY_BROKER_URL'):
-                sync_client_task.delay(client.id)
-            else:
-                sync_client_to_xero(client)
+            sync_client_to_xero(client)
 
         except Exception as e:
             logger.error(f"Error processing client: {str(e)}")
@@ -809,26 +776,44 @@ def sync_xero_clients_only():
     )
 
 
-def one_way_sync_all_xero_data():
+def _sync_all_xero_data(use_latest_timestamps=True, days_back=30):
+    """
+    Internal function to sync all Xero data.
+    Args:
+        use_latest_timestamps: If True, use latest modification times. If False, use days_back.
+        days_back: Number of days to look back when use_latest_timestamps is False.
+    """
     accounting_api = AccountingApi(api_client)
 
-    our_latest_contact = get_last_modified_time(Client)
-    our_latest_invoice = get_last_modified_time(Invoice)
-    our_latest_bill = get_last_modified_time(Bill)
-    our_latest_credit_note = get_last_modified_time(CreditNote)
-    our_latest_account = get_last_modified_time(XeroAccount)
-    our_latest_journal = get_last_modified_time(XeroJournal)
-
-    # Just put here for lazy debugging since I can trigger this with a button
-    # invoice = Invoice.objects.filter(number="INV-54021").first()
-    # set_invoice_or_bill_fields(invoice, "INVOICE")
-    # reprocess_all()
+    if use_latest_timestamps:
+        # Use latest timestamps from our database
+        timestamps = {
+            'contact': get_last_modified_time(Client),
+            'invoice': get_last_modified_time(Invoice),
+            'bill': get_last_modified_time(Bill),
+            'credit_note': get_last_modified_time(CreditNote),
+            'account': get_last_modified_time(XeroAccount),
+            'journal': get_last_modified_time(XeroJournal),
+            'quote': get_last_modified_time(Quote),
+        }
+    else:
+        # Use fixed timestamp from days_back
+        older_time = (timezone.now() - timedelta(days=days_back)).isoformat()
+        timestamps = {
+            'contact': older_time,
+            'invoice': older_time,
+            'bill': older_time,
+            'credit_note': older_time,
+            'account': older_time,
+            'journal': older_time,
+            'quote': older_time,
+        }
 
     sync_xero_data(
         xero_entity_type="accounts",
         xero_api_function=accounting_api.get_accounts,
         sync_function=sync_accounts,
-        last_modified_time=our_latest_account,
+        last_modified_time=timestamps['account'],
         pagination_mode="single",
     )
 
@@ -836,7 +821,7 @@ def one_way_sync_all_xero_data():
         xero_entity_type="contacts",
         xero_api_function=accounting_api.get_contacts,
         sync_function=sync_clients,
-        last_modified_time=our_latest_contact,
+        last_modified_time=timestamps['contact'],
         pagination_mode="page",
     )
 
@@ -844,7 +829,7 @@ def one_way_sync_all_xero_data():
         xero_entity_type="invoices",
         xero_api_function=accounting_api.get_invoices,
         sync_function=sync_invoices,
-        last_modified_time=our_latest_invoice,
+        last_modified_time=timestamps['invoice'],
         additional_params={"where": 'Type=="ACCREC"'},
         pagination_mode="page",
     )
@@ -853,7 +838,7 @@ def one_way_sync_all_xero_data():
         xero_entity_type="invoices",
         xero_api_function=accounting_api.get_invoices,
         sync_function=sync_bills,
-        last_modified_time=our_latest_bill,
+        last_modified_time=timestamps['bill'],
         additional_params={"where": 'Type=="ACCPAY"'},
         pagination_mode="page",
     )
@@ -862,7 +847,7 @@ def one_way_sync_all_xero_data():
         xero_entity_type="quotes",
         xero_api_function=accounting_api.get_quotes,
         sync_function=sync_quotes,
-        last_modified_time=get_last_modified_time(Quote),
+        last_modified_time=timestamps['quote'],
         pagination_mode="page",
     )
 
@@ -870,7 +855,7 @@ def one_way_sync_all_xero_data():
         xero_entity_type="credit_notes",
         xero_api_function=accounting_api.get_credit_notes,
         sync_function=sync_credit_notes,
-        last_modified_time=our_latest_credit_note,
+        last_modified_time=timestamps['credit_note'],
         pagination_mode="page",
     )
 
@@ -878,9 +863,22 @@ def one_way_sync_all_xero_data():
         xero_entity_type="journals",
         xero_api_function=accounting_api.get_journals,
         sync_function=sync_journals,
-        last_modified_time=our_latest_journal,
+        last_modified_time=timestamps['journal'],
         pagination_mode="offset",
     )
+
+def one_way_sync_all_xero_data():
+    """Sync all Xero data using latest modification times."""
+    return _sync_all_xero_data(use_latest_timestamps=True)
+
+def deep_sync_xero_data(days_back=30):
+    """
+    Sync all Xero data using a longer time window.
+    Args:
+        days_back: Number of days to look back for changes.
+    """
+    logger.info(f"Starting deep sync looking back {days_back} days")
+    return _sync_all_xero_data(use_latest_timestamps=False, days_back=days_back)
 
 def synchronise_xero_data(delay_between_requests=1):
     """Bidirectional sync with Xero - pushes changes TO Xero, then pulls FROM Xero"""
@@ -889,18 +887,28 @@ def synchronise_xero_data(delay_between_requests=1):
     try:
         # PUSH changes TO Xero
         # Queue client synchronization
-        enqueue_client_sync_tasks()
+#        enqueue_client_sync_tasks()
+
+        company_defaults, _ = CompanyDefaults.objects.get_or_create(company_name="default")
+        now = timezone.now()
+
+        # Check if deep sync is needed (not run in last 30 days)
+        if (not company_defaults.last_xero_deep_sync or
+            (now - company_defaults.last_xero_deep_sync).days >= 30):
+            logger.info("Deep sync needed - looking back 90 days")
+            deep_sync_xero_data(days_back=90)
+            company_defaults.last_xero_deep_sync = now
+            company_defaults.save()
+            logger.info("Deep sync completed")
 
         # PULL changes FROM Xero using existing sync
         one_way_sync_all_xero_data()
 
         # Log sync time
-        company_defaults, _ = CompanyDefaults.objects.get_or_create(company_name="default")
-        company_defaults.last_xero_sync = timezone.now()
+        company_defaults.last_xero_sync = now
         company_defaults.save()
 
         logger.info("Completed bi-directional Xero sync")
     except Exception as e:
         logger.error(f"Error during Xero sync: {str(e)}")
         raise
-    logger.info("Completed bi-directional Xero sync")
