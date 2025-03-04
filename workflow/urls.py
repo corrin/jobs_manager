@@ -17,6 +17,7 @@ from workflow.views import (
     workshop_view,
     xero_view,
 )
+from workflow.views.create_job_view import create_job_api, create_job_form_view
 from workflow.views.job_file_view import JobFileView
 from workflow.views.report_view import CompanyProfitAndLossView, ReportsIndexView
 
@@ -47,7 +48,7 @@ urlpatterns = [
     ),
     path("api/get-env-variable/", server.get_env_variable, name="get_env_variable"),
     # path("api/get-job/", edit_job_view_ajax.get_job_api, name="get_job_api"),
-    path("api/create-job/", edit_job_view_ajax.create_job_api, name="create_job_api"),
+    path("api/create-job/", create_job_api, name="create_job_api"),
     path(
         "api/fetch_job_pricing/",
         edit_job_view_ajax.fetch_job_pricing_api,
@@ -148,7 +149,7 @@ urlpatterns = [
     # Job URLs
     # Job Pricing URLs
     # Entry URLs
-    path("job/", edit_job_view_ajax.create_job_view, name="create_job"),
+    path("job/create/", create_job_form_view, name="create_job"),
     path("job/<uuid:job_id>/", edit_job_view_ajax.edit_job_view_ajax, name="edit_job"),
     path(
         "job/<uuid:job_id>/workshop-pdf/",

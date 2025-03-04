@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create New Job{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Create New Job</h2>
+    <form id="createJobForm">
+        {% include "jobs/edit_job_detail_section.html" %}
+
+        <div class="row mt-4">
+            <div class="col-12 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-secondary" id="cancelButton">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveButton">Save & Continue</button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/job/client_lookup.js' %}"></script>
+<script src="{% static 'js/job/create_job.js' %}"></script>
+{% endblock %} 

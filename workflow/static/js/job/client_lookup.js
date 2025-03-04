@@ -3,7 +3,7 @@ import { debouncedAutosave } from "./edit_job_form_autosave.js";
 document.addEventListener("DOMContentLoaded", function () {
   const clientInput = document.getElementById("client_name");
   const suggestionsContainer = document.getElementById(
-    "clientSuggestionsContainer",
+    "clientSuggestionsContainer"
   );
 
   if (!clientInput || !suggestionsContainer) {

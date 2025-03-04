@@ -1,82 +1,55 @@
 <div class="job-details">
     <h2>Job Details</h2>
 
-    <input type="hidden" id="job_id" name="job_id" class="autosave-input" value="{{ job.id }}">
-    <input type="hidden" id="companyDefaults" data-wage-rate="{{ company_defaults.wage_rate }}"
-        data-charge-out-rate="{{ company_defaults.charge_out_rate }}">
-
     <div class="row mb-3">
-        <div class="col-md-6 position-relative">
-            <div class="form-group required-field">
-                <label for="client_name" class="form-label">Client</label>
-                <div class="d-flex gap-2">
-                    <input type="text" id="client_name" class="form-control" value="{{ job.client.name|default_if_none:'' }}">
-                    <input type="text" id="client_xero_id" name="client_xero_id" class="form-control autosave-input" style="width: 200px;"
-                        value="{{ job.client.xero_contact_id|default:'' }}" placeholder="Xero ID" required readonly>
-                </div>
-                <input type="hidden" id="client_id" name="client_id" class="autosave-input"
-                    value="{{ job.client.id|default:'' }}" required>
-            </div>
-            <div id="clientSuggestionsContainer" class="suggestions-container"></div>
-        </div>
-
         <div class="col-md-6">
-            <label id="job_number_label" for="job_number" class="form-label">Job Number</label>
-            <input type="text" id="job_number" name="job_number" class="form-control autosave-input"
-                value="{{ job.job_number }}" readonly>
+            <label for="client_name" class="form-label">Client</label>
+            <input type="text" id="client_name" name="client_name" class="form-control autosave-input"
+                value="{{ job.client.name|default_if_none:'' }}" autocomplete="off">
+            <input type="hidden" id="client_id" name="client_id" class="autosave-input"
+                value="{{ job.client.id|default_if_none:'' }}">
+            <input type="hidden" id="client_xero_id" name="client_xero_id" class="autosave-input"
+                value="{{ job.client.xero_contact_id|default_if_none:'' }}">
+            <div id="client_suggestions" class="suggestions-container"></div>
         </div>
-    </div>
-
-    <div class="row mb-12">
-        <div class="col-md-12 required-field">
-            <label for="job_name" class="form-label">Job Name</label>
-            <input type="text" id="job_name" name="name" class="form-control autosave-input"
-                value="{{ job.name|default_if_none:'' }}" required>
+        <div class="col-md-6">
+            <label for="name" class="form-label">Job Name</label>
+            <input type="text" id="name" name="name" class="form-control autosave-input"
+                value="{{ job.name|default_if_none:'' }}">
         </div>
     </div>
 
     <div class="row mb-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label for="contact_person" class="form-label">Contact Name</label>
             <input type="text" id="contact_person" name="contact_person" class="form-control autosave-input"
                 value="{{ job.contact_person|default_if_none:'' }}">
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label for="contact_phone" class="form-label">Phone Number</label>
             <input type="text" id="contact_phone" name="contact_phone" class="form-control autosave-input"
                 value="{{ job.contact_phone|default_if_none:'' }}">
         </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <label for="order_number" class="form-label">Order Number</label>
             <input type="text" id="order_number" name="order_number" class="form-control autosave-input"
-                value="{{ job.order_number|default:'' }}">
-        </div>
-        <div class="col-md-6">
-            <label for="date_created" class="form-label">Job Creation Date</label>
-            <input type="hidden" id="date_created_iso" name="date_created_iso" class="autosave-input"
-                value="{{ job.created_at|date:'c' }}">
-            <input type="text" id="date_created" class="form-control utc-time"
-                data-utc="{{ job.created_at|date:'c' }}" disabled>
+                value="{{ job.order_number|default_if_none:'' }}">
         </div>
     </div>
 
     <div class="row mb-3">
         <div class="col-md-12">
-            <label for="materialGaugeQuantity">Material / Gauge / Quantity</label>
-            <textarea id="material_gauge_quantity" name="material_gauge_quantity"
-                class="form-control autoresizeTextarea autosave-input"
-                rows="1">{{ job.material_gauge_quantity|default_if_none:'' }}</textarea>
+            <label for="job_description" class="form-label">Description</label>
+            <textarea id="job_description" name="description" class="form-control autosave-input"
+                rows="3">{{ job.description|default_if_none:'' }}</textarea>
         </div>
     </div>
 
     <div class="row mb-3">
         <div class="col-md-12">
-            <label for="description">Job Description</label>
-            <textarea id="job_description" name="description" class="form-control autoresizeTextarea autosave-input"
-                rows="1">{{ job.description|default_if_none:'' }}</textarea>
+            <label for="material_gauge_quantity" class="form-label">Material / Gauge / Quantity</label>
+            <textarea id="material_gauge_quantity" name="material_gauge_quantity" class="form-control autosave-input"
+                rows="3">{{ job.material_gauge_quantity|default_if_none:'' }}</textarea>
         </div>
     </div>
 

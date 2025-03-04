@@ -1,0 +1,18 @@
+<input type="hidden" id="job_id" name="job_id" class="autosave-input" value="{{ job.id }}">
+<input type="hidden" id="companyDefaults" data-wage-rate="{{ company_defaults.wage_rate }}"
+    data-charge-out-rate="{{ company_defaults.charge_out_rate }}">
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label id="job_number_label" for="job_number" class="form-label">Job Number</label>
+        <input type="text" id="job_number" name="job_number" class="form-control autosave-input"
+            value="{{ job.job_number }}" readonly>
+    </div>
+    <div class="col-md-6">
+        <label for="date_created" class="form-label">Job Creation Date</label>
+        <input type="hidden" id="date_created_iso" name="date_created_iso" class="autosave-input"
+            value="{{ job.created_at|date:'c' }}">
+        <input type="text" id="date_created" class="form-control utc-time"
+            data-utc="{{ job.created_at|date:'c' }}" disabled>
+    </div>
+</div> 
