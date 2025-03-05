@@ -3,6 +3,10 @@
 
 {% block title %}Create New Job{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/client_lookup.css' %}">
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <h2>Create New Job</h2>
@@ -19,7 +23,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script src="{% static 'js/job/client_lookup.js' %}"></script>
-<script src="{% static 'js/job/create_job.js' %}"></script>
+{% block extra_js %}
+<script type="module" src="{% static 'js/job/client_lookup.js' %}"></script>
+<script type="module" src="{% static 'js/job/create_job.js' %}"></script>
 {% endblock %} 

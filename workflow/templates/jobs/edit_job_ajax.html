@@ -9,6 +9,7 @@
 
 {% block content %}
 <!-- Job Details Section -->
+{% include "jobs/job_identifiers.html" %}
 {% include "jobs/edit_job_detail_section.html" %}
 <p class="d-none" id="job-client-name">{{ client_name }}</p>
 <p class="d-none" id="job-created-at">{{ created_at }}</p>

@@ -1,30 +1,35 @@
 <div class="job-details">
     <h2>Job Details</h2>
 
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <label for="client_name" class="form-label">Client</label>
-            <input type="text" id="client_name" name="client_name" class="form-control autosave-input"
-                value="{{ job.client.name|default_if_none:'' }}" autocomplete="off">
-            <input type="hidden" id="client_id" name="client_id" class="autosave-input"
-                value="{{ job.client.id|default_if_none:'' }}">
-            <input type="hidden" id="client_xero_id" name="client_xero_id" class="autosave-input"
-                value="{{ job.client.xero_contact_id|default_if_none:'' }}">
-            <div id="client_suggestions" class="suggestions-container"></div>
-        </div>
-        <div class="col-md-6">
-            <label for="name" class="form-label">Job Name</label>
-            <input type="text" id="name" name="name" class="form-control autosave-input"
-                value="{{ job.name|default_if_none:'' }}">
+    <div class="row mb-12">
+        <div class="col-md-12 required-field">
+            <label for="job_name" class="form-label">Job Name</label>
+            <input type="text" id="job_name" name="name" class="form-control autosave-input"
+                value="{{ job.name|default_if_none:'' }}" required>
         </div>
     </div>
 
     <div class="row mb-3">
-        <div class="col-md-4">
-            <label for="contact_person" class="form-label">Contact Name</label>
-            <input type="text" id="contact_person" name="contact_person" class="form-control autosave-input"
-                value="{{ job.contact_person|default_if_none:'' }}">
+        <div class="col-md-6 position-relative">
+            <div class="form-group required-field">
+                <label for="client_name" class="form-label">Client</label>
+                <input type="text" id="client_name" class="form-control" value="{{ job.client.name|default_if_none:'' }}">
+                <input type="hidden" id="client_id" name="client_id" class="autosave-input"
+                    value="{{ job.client.id|default:'' }}" required>
+                <input type="hidden" id="client_xero_id" name="client_xero_id" class="autosave-input"
+                    value="{{ job.client.xero_contact_id|default:'' }}">
+            </div>
+            <div id="clientSuggestionsContainer" class="suggestions-container"></div>
         </div>
+
+        <div class="col-md-6 required-field">
+            <label for="contact_person" class="form-label">Contact</label>
+            <input type="text" id="contact_person" name="contact_person" class="form-control autosave-input"
+                value="{{ job.contact_person|default_if_none:'' }}" required>
+        </div>
+    </div>
+
+    <div class="row mb-3">
         <div class="col-md-4">
             <label for="contact_phone" class="form-label">Phone Number</label>
             <input type="text" id="contact_phone" name="contact_phone" class="form-control autosave-input"
