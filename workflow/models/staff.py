@@ -92,7 +92,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         help_text="Standard hours for Sunday, 0 for non-working day",
     )
 
-    ims_payroll_id: str = models.CharField(max_length=100, unique=True)  # type: ignore
+    ims_payroll_id: str = models.CharField(max_length=100, unique=True, null=True, blank=True)  # type: ignore
     is_active: bool = models.BooleanField(default=True)  # type: ignore
     is_staff: bool = models.BooleanField(default=False)  # type: ignore
     date_joined: datetime = models.DateTimeField(default=timezone.now)  # type: ignore
@@ -109,7 +109,6 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         "first_name",
         "last_name",
         # "charge_out_rate",
-        "ims_payroll_id",
     ]
 
     class Meta:

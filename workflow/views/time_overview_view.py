@@ -34,7 +34,6 @@ logger.setLevel(logging.DEBUG)
 # Disable matplotlib debug logging without affecting other loggers
 logging.getLogger("matplotlib").propagate = False
 
-
 # Excluding app users ID's to avoid them being loaded in timesheet views because they do not have entries
 # (Valerie and Corrin included as they are not supposed to enter hours)
 EXCLUDED_STAFF_IDS = [
@@ -42,10 +41,11 @@ EXCLUDED_STAFF_IDS = [
     "b50dd08a-58ce-4a6c-b41e-c3b71ed1d402",
     "d335acd4-800e-517a-8ff4-ba7aada58d14",
     "e61e2723-26e1-5d5a-bd42-bbd318ddef81",
-    # ID's for the same account on different environments
-    "843589ac-6d64-4056-91af-aefb25fbe8ea",
-    "7b467c53-78c5-4020-95f0-138f1f1bafc8"
 ]
+
+# Also excluding users that don't have IMS id
+excluded_staff = Staff.objects.filter(ims_payroll_id__isnull=True).values_list("id", flat=True)
+EXCLUDED_STAFF_IDS.extend(excluded_staff)
 
 # Jobs that won't make part of the graphic
 EXCLUDED_JOBS = [
