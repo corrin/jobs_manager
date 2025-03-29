@@ -1,11 +1,17 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load xero_tags %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/xero_sync.css' %}">
 {% endblock %}
 
 {% block content %}
+<!-- Initialize XERO_ENTITIES for JavaScript -->
+<script>
+    window.XERO_ENTITIES = {{ XERO_ENTITIES|safe }};
+</script>
+
 <div class="sync-container">
     <h1 class="sync-title">Xero Sync Progress</h1>
 
@@ -49,42 +55,14 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr id="row-accounts">
-                        <td>Accounts</td>
+                    {% for entity in XERO_ENTITIES %}
+                    <tr id="row-{{ entity }}">
+                        <td>{{ entity|title|replace:"_," }}</td>
                         <td class="last-sync">-</td>
                         <td class="status status-pending">Pending</td>
                         <td class="records" style="text-align: right">0</td>
                     </tr>
-                    <tr id="row-contacts">
-                        <td>Contacts</td>
-                        <td class="last-sync">-</td>
-                        <td class="status status-pending">Pending</td>
-                        <td class="records" style="text-align: right">0</td>
-                    </tr>
-                    <tr id="row-invoices">
-                        <td>Invoices</td>
-                        <td class="last-sync">-</td>
-                        <td class="status status-pending">Pending</td>
-                        <td class="records" style="text-align: right">0</td>
-                    </tr>
-                    <tr id="row-bills">
-                        <td>Bills</td>
-                        <td class="last-sync">-</td>
-                        <td class="status status-pending">Pending</td>
-                        <td class="records" style="text-align: right">0</td>
-                    </tr>
-                    <tr id="row-journals">
-                        <td>Journals</td>
-                        <td class="last-sync">-</td>
-                        <td class="status status-pending">Pending</td>
-                        <td class="records" style="text-align: right">0</td>
-                    </tr>
-                    <tr id="row-credit-notes">
-                        <td>Credit Notes</td>
-                        <td class="last-sync">-</td>
-                        <td class="status status-pending">Pending</td>
-                        <td class="records" style="text-align: right">0</td>
-                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -115,11 +93,11 @@
 {% block extra_js %}
 <script src="{% static 'js/xero_sync.js' %}"></script>
 <script>
-document.getElementById('toggle-log').addEventListener('click', function() {
-    const logContent = document.getElementById('sync-log');
-    const chevron = document.querySelector('.chevron');
-    logContent.classList.toggle('hidden');
-    chevron.classList.toggle('expanded');
-});
+    document.getElementById('toggle-log').addEventListener('click', function() {
+        const logContent = document.getElementById('sync-log');
+        const chevron = document.querySelector('.chevron');
+        logContent.classList.toggle('hidden');
+        chevron.classList.toggle('expanded');
+    });
 </script>
 {% endblock %} 

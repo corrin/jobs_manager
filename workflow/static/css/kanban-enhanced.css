@@ -580,36 +580,7 @@
   background-size: 400% 100%;
 }
 
-/* Month end modal styling */
-#monthEndModal .modal-content {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-}
-
-#jobSelector {
-  height: 200px;
-  border-radius: var(--border-radius);
-  border: 1px solid #e2e8f0;
-  padding: 0.5rem;
-  transition: all var(--transition-speed) ease;
-  box-shadow: var(--input-shadow);
-}
-
-#jobSelector:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.25);
-}
-
-#jobSelector option {
-  padding: 0.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-#jobSelector option:last-child {
-  border-bottom: none;
-}
-
-/* Styling for job tooltip */ 
+/* Styling for job tooltip */
 .job-tooltip {
   position: absolute;
   background-color: rgba(0, 0, 0, 0.8);

@@ -1,0 +1,137 @@
+/* Purchases styles */
+
+.formset-row {
+    margin-bottom: 1rem;
+    padding: 1rem;
+}
+
+.delete-row {
+    cursor: pointer;
+    color: #dc3545;
+}
+
+.add-row {
+    margin-top: 1rem;
+}
+
+/* Purchase order list styling */
+.purchase-order-card {
+    transition: all 0.2s ease-in-out;
+}
+
+.purchase-order-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Status indicators */
+.status-draft {
+    background-color: #e9ecef;
+}
+
+.status-submitted {
+    background-color: #cff4fc;
+}
+
+.status-partially-received {
+    background-color: #fff3cd;
+}
+
+.status-fully-received {
+    background-color: #d1e7dd;
+}
+
+.status-void {
+    background-color: #f8d7da;
+}
+
+/* Supplier lookup styling */
+.suggestions-container {
+    position: absolute;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    z-index: 1000;
+    margin-top: 0.25rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.suggestion-item:hover {
+    background-color: #f8f9fa;
+}
+
+.suggestion-item.add-new-supplier {
+    font-weight: 500;
+    color: #0d6efd;
+    background-color: #f0f7ff;
+}
+
+.suggestion-item.add-new-supplier:hover {
+    background-color: #e0f0ff;
+}
+
+/* Purchase order specific styling */
+
+/* Grid styling to match timesheet pattern */
+#purchase-order-lines-grid.ag-theme-alpine {
+    --ag-header-background-color: rgba(67, 97, 238, 0.15);
+    --ag-header-foreground-color: var(--primary-color);
+    --ag-selected-row-background-color: rgba(67, 97, 238, 0.15);
+    --ag-row-hover-color: rgba(67, 97, 238, 0.08);
+    --ag-background-color: rgba(255, 255, 255, 0.5);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all var(--transition-speed) ease;
+    --ag-row-height: 40px;
+}
+
+#purchase-order-lines-grid.ag-theme-alpine .ag-root-wrapper {
+    border-radius: var(--border-radius);
+}
+
+/* Delete icon styling */
+.delete-icon, button.delete-icon {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--danger-color);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    z-index: 2;
+    min-width: 24px;
+    min-height: 24px;
+    transition: all 0.2s ease;
+}
+
+.delete-icon:hover {
+    background-color: rgba(247, 37, 133, 0.1);
+    transform: scale(1.1);
+}
+
+/* Ensure no extra margins in cells with buttons */
+.ag-cell-last-right-pinned,
+.ag-cell:last-child {
+    justify-content: center;
+    padding: 0 8px !important;
+}
+
+/* Ensure the grid can expand and contract properly */
+#purchase-order-lines-grid.ag-theme-alpine .ag-root-wrapper,
+#purchase-order-lines-grid.ag-theme-alpine .ag-root {
+    height: auto !important;
+    overflow: visible;
+} 

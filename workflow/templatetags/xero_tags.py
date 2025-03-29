@@ -7,6 +7,18 @@ from workflow.api.xero.xero import get_token
 
 register = template.Library()
 
+# List of entities in the order they should be processed
+XERO_ENTITIES = [
+    'accounts',
+    'contacts',
+    'invoices',
+    'bills',
+    'journals',
+    'credit_notes',
+    'quotes',
+    'purchase_orders'
+]
+
 @register.simple_tag
 def get_xero_action():
     """
@@ -77,3 +89,12 @@ def check_xero_sync_needed():
             'needed': False,
             'message': None
         }
+
+@register.simple_tag
+def get_xero_entities():
+    return XERO_ENTITIES
+
+@register.filter
+def replace(value, arg):
+    """Replace hyphens and underscores with spaces and capitalize words"""
+    return value.replace('-', ' ').replace('_', ' ').title()

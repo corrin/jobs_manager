@@ -233,18 +233,52 @@ class TimesheetOverviewView(TemplateView):
             total_staff_ovt_hours = 0
             billable_hours = 0
 
+            total_staff_standard_hours = 0
+            total_staff_time_and_half_hours = 0
+            total_staff_double_time_hours = 0
+            total_staff_annual_leave_hours = 0
+            total_staff_sick_leave_hours = 0
+            total_staff_other_leave_hours = 0
+
             for day in week_days:
                 if export_to_ims:
                     daily_data = self._get_ims_data(staff_member, day)
                 else:
                     daily_data = self._get_daily_data(staff_member, day)
+                
                 weekly_hours.append(daily_data["daily_summary"])
                 total_staff_std_hours += daily_data["hours"]
+                
                 if export_to_ims:
+                    # Add overtime hours
                     total_staff_ovt_hours += daily_data["overtime"]
-                billable_hours += daily_data.get("billable_hours", 0)
+                    
+                    # Aggregate hours by type
+                    total_staff_standard_hours += daily_data["daily_summary"].get("standard_hours", 0)
+                    total_staff_time_and_half_hours += daily_data["daily_summary"].get("time_and_half_hours", 0)
+                    total_staff_double_time_hours += daily_data["daily_summary"].get("double_time_hours", 0)
 
-            staff_data.append({
+                    # Check for leave type and add to appropriate total
+                    if daily_data["daily_summary"].get("status") == "Leave":
+                        leave_type = daily_data["daily_summary"].get("leave_type", "").lower()
+                        leave_hours = daily_data["leave_hours"]
+
+                        if "annual" in leave_type:
+                            total_staff_annual_leave_hours += leave_hours
+                        if "sick" in leave_type:
+                            total_staff_sick_leave_hours += leave_hours
+                        if "other" in leave_type:
+                            total_staff_other_leave_hours += leave_hours
+                
+                billable_hours += daily_data.get("billable_hours", 0)
+            
+            total_leave_hours = (
+                total_staff_annual_leave_hours +
+                total_staff_sick_leave_hours +
+                total_staff_other_leave_hours
+            )
+
+            staff_entry = {
                 "staff_id": staff_member.id,
                 "name": staff_member.get_display_full_name(),
                 "weekly_hours": weekly_hours,
@@ -252,7 +286,20 @@ class TimesheetOverviewView(TemplateView):
                 "total_overtime": total_staff_ovt_hours,
                 "billable_percentage": self._calculate_percentage(billable_hours, total_staff_std_hours),
                 "total_billable_hours": billable_hours,
-            })
+            }
+
+            if export_to_ims:
+                staff_entry.update({
+                    "total_standard_hours": total_staff_standard_hours,
+                    "total_time_and_half_hours": total_staff_time_and_half_hours,
+                    "total_double_time_hours": total_staff_double_time_hours,
+                    "total_annual_leave_hours": total_staff_annual_leave_hours,
+                    "total_sick_leave_hours": total_staff_sick_leave_hours,
+                    "total_other_leave_hours": total_staff_other_leave_hours,
+                    "total_leave_hours": total_leave_hours,
+                })
+
+            staff_data.append(staff_entry)
 
             total_hours += (total_staff_std_hours + total_staff_ovt_hours)
             total_billable_hours += billable_hours
@@ -319,19 +366,32 @@ class TimesheetOverviewView(TemplateView):
             daily_billable_hours = sum(
                 entry.hours for entry in time_entries if entry.is_billable
             )
-            has_paid_leave = time_entries.filter(
-                job_pricing__job__name__icontains="Leave"
-            ).exists()
+            
+            leave_entries = time_entries.filter(job_pricing__job__name__icontains="Leave")
+            has_paid_leave = leave_entries.exists()
+            leave_type = None
+            leave_hours = Decimal(0)
+
+            if has_paid_leave:
+                if leave_entries.count() > 1:
+                    logger.warning(f"Multiple leave entries found for {staff_member} on {day}")
+                    leave_type = leave_entries.first().job_pricing.job.name
+                else:
+                    leave_type = leave_entries.first().job_pricing.job.name
+
+                leave_hours = sum(entry.hours for entry in leave_entries)
+            
+            non_leave_entries = time_entries.exclude(job_pricing__job__name__icontains="Leave")
 
             # Convert scheduled_hours to Decimal before calculation
             overtime = Decimal(daily_hours) - Decimal(scheduled_hours) if daily_hours > scheduled_hours else 0
             
-            # Accumulate hours by rate type
+            # Accumulate hours by rate type ONLY for non-leave entries
             standard_hours = Decimal(0)
             time_and_half_hours = Decimal(0)
             double_time_hours = Decimal(0)
             unpaid_hours = Decimal(0)
-            for entry in time_entries:
+            for entry in non_leave_entries:
                 multiplier = Decimal(entry.wage_rate_multiplier)
                 match multiplier:
                     case 1.0:
@@ -347,15 +407,18 @@ class TimesheetOverviewView(TemplateView):
                 "hours": daily_hours,
                 "billable_hours": daily_billable_hours,
                 "overtime": overtime,
+                "leave_hours": leave_hours,
                 "daily_summary": {
                     "day": day,
                     "hours": daily_hours,
                     "status": self._get_status(daily_hours, scheduled_hours, has_paid_leave),
+                    "leave_type": leave_type if leave_type else None,
                     "standard_hours": standard_hours,
                     "time_and_half_hours": time_and_half_hours,
                     "double_time_hours": double_time_hours,
                     "unpaid_hours": unpaid_hours,
                     "overtime": overtime,
+                    "leave_hours": leave_hours
                 },
             }
         except Exception as e:
@@ -366,6 +429,7 @@ class TimesheetOverviewView(TemplateView):
                 "hours": 0,
                 "billable_hours": 0,
                 "overtime": 0,
+                "leave_hours": 0,
                 "daily_summary": {
                     "day": day,
                     "hours": 0,
@@ -373,6 +437,7 @@ class TimesheetOverviewView(TemplateView):
                     "standard_hours": 0,
                     "time_and_half_hours": 0,
                     "double_time_hours": 0,
+                    "leave_hours": 0,
                     "unpaid_hours": 0,
                 },
             }
@@ -588,11 +653,24 @@ class TimesheetOverviewView(TemplateView):
                 {"success": False, "messages": extract_messages(request)}, status=400
             )
 
-        leave_jobs = {
-            "annual": "eecdc751-0207-4f00-a47a-ca025a7cf935",
-            "sick": "4dd8ec04-35a0-4c99-915f-813b6b8a3584",
-            "other": "cd2085c7-0793-403e-b78d-63b3c134e59d",
+        # Get leave job IDs dynamically instead of hardcoding them
+        leave_jobs = {}
+        leave_types = {
+            "annual": "Annual Leave",
+            "sick": "Sick Leave",
+            "other": "Other Leave"
         }
+        
+        for leave_key, leave_name in leave_types.items():
+            job = Job.objects.filter(name=leave_name).first()
+            if job:
+                leave_jobs[leave_key] = str(job.id)
+            else:
+                logger.error(f"Leave job '{leave_name}' not found in database")
+                messages.error(request, f"Leave type '{leave_name}' not configured in system.")
+                return JsonResponse(
+                    {"success": False, "messages": extract_messages(request)}, status=400
+                )
 
         job_pricing = JobPricing.objects.filter(job_id=leave_jobs[leave_type]).first()
         if not job_pricing:

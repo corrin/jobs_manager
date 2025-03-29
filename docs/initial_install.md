@@ -1,15 +1,96 @@
 # Initial Installation Guide
 
-## Requirements
+This guide details the steps required to set up the Jobs Manager application for local development. The setup involves configuring several external services **before** initializing the application itself. **Xero integration is mandatory** for the application's core functionality.
 
-- **Python 3.12+**  
-- **[Poetry](https://python-poetry.org/)** (manages Python dependencies)  
-- **Node.js + npm** (manages JavaScript dependencies)  
-- **MariaDB 11.5.2** (locally)
+**Core Dependencies:**
 
-## Installation Steps
+*   Python 3.12+
+*   [Poetry](https://python-poetry.org/)
+*   Node.js + npm
+*   MariaDB Server & Client (Version 11.5.2+ recommended)
+*   [ngrok](https://ngrok.com/) Client
 
-### 1. Clone and Install Dependencies
+## Defining Your Application Name
+
+To maintain consistency throughout this guide, choose a name for your application based on your company or project. For example, if your company is "MSM Sheetmetal", a suitable app name might be `msm_workflow`.
+
+This "App Name" will be used to construct:
+
+*   Your MariaDB database name (e.g., `<your-app-name>`)
+*   Your MariaDB database username (e.g., `<your-app-name>`)
+*   Part of your ngrok subdomain (e.g., `<your-app-name>-dev.ngrok-free.app`). Note that ngrok's free tier may not guarantee your requested name, so you might need to tweak it slightly.
+*   Part of your Xero App name (e.g., `<your-app-name> Development`).
+
+**Decide on your App Name now and use it consistently throughout this guide.** We'll refer to it as `<your-app-name>`.
+
+## Phase 1: Prerequisites & External Service Setup
+
+Complete these steps first to gather all necessary credentials and configurations. **Note down the details you create in each step** (passwords, domains, IDs, secrets) as you will need them later.
+
+### Step 1: Install Core Software
+
+Ensure you have installed Python, Poetry, Node.js/npm, the MariaDB server/client, and the ngrok client on your development machine. Follow the official installation instructions for each tool specific to your operating system.
+
+### Step 2: Set Up MariaDB Database
+
+The application requires a dedicated database and user.
+
+1.  Log into your MariaDB server as root (or another privileged user):
+    ```bash
+    # Example for Linux/macOS using sudo
+    sudo mysql -u root -p
+    # Windows might involve opening the MariaDB client/shell directly
+    ```
+2.  Run the following SQL commands. **Choose a strong password** for the database user and **record it securely**:
+    ```sql
+    -- Replace <your-app-name> with your chosen application name
+    CREATE DATABASE <your-app-name>;
+    -- Replace <your-app-name> with your chosen application name
+    -- Replace 'your-strong-password' with your chosen password
+    CREATE USER '<your-app-name>'@'localhost' IDENTIFIED BY 'your-strong-password';
+    GRANT ALL PRIVILEGES ON <your-app-name>.* TO '<your-app-name>'@'localhost';
+    FLUSH PRIVILEGES;
+    EXIT;
+    ```
+    *   **Details to Record:** Database name (`<your-app-name>`), DB username (`<your-app-name>`), DB password (`your-strong-password`).
+
+### Step 3: Set Up ngrok
+
+`ngrok` creates a secure tunnel to your local machine, providing a public HTTPS URL needed for Xero's callbacks.
+
+1.  **Sign up/Log in:** Create an account at [ngrok.com](https://ngrok.com/).
+2.  **Install & Authenticate:** Follow their instructions to install the ngrok client and connect it to your account using your authtoken (`ngrok config add-authtoken <your_token>`).
+3.  **Choose Your Static Domain:** You need a predictable hostname.
+    *   *Free Plan:* You can use a static domain provided on the free tier (e.g., `<your-app-name>-dev.ngrok-free.app`). Find this option in your ngrok dashboard.
+    *   *Paid Plan:* You can configure a custom static domain.
+    *   **Decide on your domain name now.** You will need it for the Xero setup in the next step.
+    *   **Detail to Record:** Your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
+    *   **Note your region:** Also note the ngrok region you intend to use (e.g., `au`, `us`, `eu`).
+
+### Step 4: Set Up Xero Developer Account & App
+
+The application syncs data with Xero. You need to register a Xero application.
+
+1.  **Sign up/Log in:** Go to the Xero Developer Portal: [https://developer.xero.com/](https://developer.xero.com/) and create an account or log in.
+2.  **Create a New App:**
+    *   Click "New App".
+    *   Give it a name (e.g., `<your-app-name> Development`).
+    *   Select "Web app" as the integration type.
+    *   Company or Practice Name: Enter your details.
+    *   **OAuth 2.0 Redirect URI:** This is critical. Enter the URL formed by your ngrok domain from Step 3, followed by `/xero/callback`.
+        *   Example: `https://<your-app-name>-dev.ngrok-free.app/xero/callback`
+        *   *(Make sure to use HTTPS and replace the example domain with your actual ngrok domain)*.
+    *   Agree to the terms and conditions and create the app.
+3.  **Get Credentials:** Once the app is created, navigate to its configuration page.
+    *   **Details to Record:** Copy the **Client ID** and the **Client Secret**. Keep the Client Secret confidential.
+
+*You should now have recorded: DB credentials, your ngrok domain & region, and your Xero Client ID & Client Secret.*
+
+## Phase 2: Application Installation & Configuration
+
+Now that the external services are prepared, set up the application code.
+
+### Step 5: Clone Repository & Install Dependencies
 
 ```bash
 git clone https://github.com/corrin/jobs_manager.git
@@ -18,85 +99,142 @@ poetry install
 npm install
 ```
 
-### 2. Database Setup
+### Step 6: Configure Environment (`.env`) File
 
-Our application expects a **MariaDB 11.5.2** (or MySQL-compatible) database.
-
-1. Install MariaDB locally (e.g., `sudo apt install mariadb-server` on Ubuntu).
-2. Create a database and user:
-    ```sql
-    CREATE DATABASE msm_workflow;
-    CREATE USER 'msm_user'@'localhost' IDENTIFIED BY 'your-password';
-    GRANT ALL PRIVILEGES ON msm_workflow.* TO 'msm_user'@'localhost';
-    FLUSH PRIVILEGES;
-    ```
-
-### 3. Environment Setup
-
-1. Copy `.env.example` to `.env` in the project root
-2. Update the values according to your environment (the example file includes explanatory comments)
-3. Make sure to update the database credentials to match what you created in step 2
-
-### 4. Initialize the Application
-
-1. Activate virtual environment:
+1.  Copy the example environment file:
     ```bash
-    venv\Scripts\activate # or "source venv\bin\activate" in Linux
+    cp .env.example .env # Linux/macOS
+    # copy .env.example .env # Windows
     ```
+2.  Open the `.env` file in a text editor.
+3.  **Populate with Recorded Details:** Fill in the following values using the details you recorded in Phase 1:
+    *   `DATABASE_URL`: Construct using your DB user, password, and name (e.g., `mysql://<your-app-name>:your-strong-password@localhost:3306/<your-app-name>`).
+    *   `NGROK_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
+    *   `XERO_CLIENT_ID`: Paste your Xero app's Client ID.
+    *   `XERO_CLIENT_SECRET`: Paste your Xero app's Client Secret.
+    *   Review other settings and adjust if needed (e.g., `DJANGO_SECRET_KEY` should be changed for any non-local testing).
 
-2. Apply database migrations:
+### Step 7: Initialize Application & Database Schema
+
+1.  Activate the Python virtual environment:
+    ```bash
+    poetry shell
+    ```
+2.  Apply database migrations:
     ```bash
     python manage.py migrate
     ```
-
-3. Collect static files:
-    ```bash
-    python manage.py collectstatic
-    ```
-
-4. Load initial data (optional):
+3.  Load essential initial data fixtures:
     ```bash
     python manage.py loaddata workflow/fixtures/initial_data.json
-    # This way, you'll be seeding the database with some standard users, a default company and a default admin with credentials "defaultadmin@example.com:Default-admin-password"
     ```
+    **Default Admin Credentials:**
+    *   **Username:** `defaultadmin@example.com`
+    *   **Password:** `Default-admin-password`
 
-### 5. Start the Development Server
-
-```bash
-python manage.py runserver
-```
-
-The application will be available at http://127.0.0.1:8000
-
-### 6. Xero Integration (Optional)
-
-If you need Xero integration for local development:
-
-1. Run ngrok for OAuth callbacks:
+4.  Load essential job data fixtures:
     ```bash
-    python manage.py launch_ngrok
+    python manage.py create_shop_jobs
     ```
-    This makes your local server available at msm-workflow.ngrok-free.app
 
-2. Update your `.env` file with the Xero OAuth settings
+## Phase 3: Running the Application & Connecting Xero
+
+### Step 8: Start Ngrok Tunnel
+
+1.  Open a **new, separate terminal window**.
+2.  Run the `ngrok` command using the domain and region you recorded:
+    ```bash
+    # Replace <your-region> with your ngrok region (e.g., au, us, eu)
+    # Replace <your-ngrok-domain> with the hostname from Step 3 / your .env file
+    # Replace <django-port> with the port Django runs on (default: 8000)
+    ngrok http --region=<your-region> --domain=<your-ngrok-domain> <django-port>
+
+    # Example:
+    # ngrok http --region=au --domain=<your-app-name>-dev.ngrok-free.app 8000
+    ```
+3.  Keep this ngrok terminal open. It forwards traffic from your public ngrok URL to your local development server.
+
+### Step 9: Start Development Server
+
+1.  Go back to your **original terminal window** (where `poetry shell` is active).
+2.  Start the Django development server, binding to `0.0.0.0` to accept connections from ngrok:
+    ```bash
+    python manage.py runserver 0.0.0.0:8000
+    # Or specify a different port if 8000 is in use: python manage.py runserver 0.0.0.0:8001
+    # (Ensure the port matches the one used in the ngrok command)
+    ```
+
+### Step 10: Connect Application to Xero
+
+1.  **Access Application:** Open your web browser and navigate to your public ngrok URL (e.g., `https://<your-app-name>-dev.ngrok-free.app`).
+2.  **Log In:** Use the default admin credentials (`defaultadmin@example.com` / `Default-admin-password`).
+3.  **Initiate Xero Connection:** Find the "Connect to Xero" or similar option (likely in Settings/Admin). Click it.
+4.  **Authorize in Xero:** You'll be redirected to Xero. Log in if needed. **Crucially, select and authorize the "Demo Company (Global)"**. Do *not* use your live company data for development.
+5.  **Obtain Xero Tenant ID:** After authorization, you need the ID of the Demo Company.
+    *   Go to the Xero API Explorer: [https://api-explorer.xero.com/accounting/organisation/getorganisations](https://api-explorer.xero.com/accounting/organisation/getorganisations)
+    *   Ensure you are logged into the Explorer with the same Xero account. Authorize the Explorer to use your app if prompted.
+    *   Click "Send request".
+    *   Find the "Demo Company (Global)" in the response JSON and copy its `OrganisationID`.
+6.  **Configure Tenant ID in App:**
+    *   Back in the Jobs Manager application (via the ngrok URL), go to "Admin > Edit Company Defaults" (or similar).
+    *   Paste the copied `OrganisationID` into the "Xero Tenant ID" field and save.
+7.  **Perform Initial Xero Data Sync:**
+    *   Navigate to the Xero section (e.g., "Xero > Refresh Xero Data").
+    *   Start the sync. This pulls initial data (like contacts) from the Demo Company.
+
+You now have a fully configured local development environment.
 
 ## Production-like Setup
 
-For a production-like environment with Xero/Dropbox integration:
+For running in a mode closer to production:
 
-1. Set `DJANGO_ENV=production_like` in your environment
-2. Ensure Redis is installed and running (required for caching)
-3. Start Celery for background tasks
-4. Run with Gunicorn instead of the development server:
+1.  Set the environment variable `DJANGO_ENV=production_like` in your `.env` file.
+2.  Ensure **Redis** is installed and running (used for caching/Celery). Configure connection details in `.env`.
+3.  Start **Celery** worker(s) for handling background tasks (check project specifics).
+4.  **Collect Static Files:** Before deploying, run `python manage.py collectstatic --noinput` to gather static assets into the `STATIC_ROOT` directory.
+5.  Run using **Gunicorn** (or another WSGI server):
     ```bash
     gunicorn --bind 0.0.0.0:8000 jobs_manager.wsgi
     ```
+    *(In actual production, this would run behind a reverse proxy like Nginx, which would serve the collected static files).*
+
+## Resetting the Database (Wipe and Reload)
+
+To wipe the local database and start fresh:
+
+1.  **Create/Ensure Reset Script:** Have a script `scripts/reset_database.sql` containing:
+    ```sql
+    -- WARNING: This script DROPS the database!
+    DROP DATABASE IF EXISTS <your-app-name>;
+    CREATE DATABASE <your-app-name>;
+    -- Use the SAME password as in your .env file
+    GRANT ALL PRIVILEGES ON <your-app-name>.* TO '<your-app-name>'@'localhost' IDENTIFIED BY 'your-strong-password';
+    FLUSH PRIVILEGES;
+    ```
+    *(Replace `<your-app-name>` with your application name and `your-strong-password` with your actual DB password)*.
+
+2.  **Execute Reset Script:** (You might need MariaDB root password)
+    ```bash
+    mariadb -u root -p -e "source scripts/reset_database.sql"
+    ```
+
+3.  **Re-initialize Application:** (Activate `poetry shell` if needed)
+    ```bash
+    python manage.py migrate
+    python manage.py loaddata workflow/fixtures/initial_data.json
+    python manage.py create_shop_jobs
+    ```
+
+4.  **Re-Connect Xero:** After resetting, you **must** repeat **Steps 10.4 through 10.7** (Authorize Xero in the app, get Tenant ID via API Explorer, set Tenant ID in app, sync data).
 
 ## Troubleshooting
 
-If you encounter any issues:
+If you encounter issues:
 
-1. Ensure all dependencies are installed (`poetry install` and `npm install`)
-2. Verify database connection settings in `.env`
-3. Check the Django debug page for detailed error messages when in development mode
-4. Review logs in the `logs/` directory for SQL and Xero integration issues
+1.  **Dependencies:** Rerun `poetry install`, `npm install`. Check for errors.
+2.  **.env File:** Verify `DATABASE_URL`, Xero keys, `NGROK_DOMAIN`.
+3.  **Database:** Is MariaDB running? Do credentials in `.env` match the `CREATE USER` command?
+4.  **Migrations:** Run `python manage.py migrate`. Any errors?
+5.  **ngrok:** Is the ngrok terminal running without errors? Does the domain match Xero's redirect URI and `.env`? Is the port correct?
+6.  **Xero Config:** Double-check Redirect URI in Xero Dev portal. Check Client ID/Secret.
+7.  **Django Debug Page/Logs:** Look for detailed errors when `DEBUG=True`. Check `logs/` directory.

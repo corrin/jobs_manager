@@ -9,43 +9,11 @@
 
 {% block content %}
 
-<div id="monthEndModal" class="modal fade" tabindex="-1" role="dialog">
-  <div class="modal-dialog" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Select Jobs for Month-End Processing</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <form id="monthEndForm">
-          <label for="jobSelector" class="form-label">Jobs</label>
-          <select id="jobSelector" class="form-select" multiple>
-            {% for job in jobs %}
-            <option value="{{ job.id }}">{{ job.name }}</option>
-            {% endfor %}
-          </select>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-dismiss="modal">
-          <i class="bi bi-x-circle me-1"></i>Close
-        </button>
-        <button type="button" id="confirmMonthEnd" class="btn btn-primary">
-          <i class="bi bi-calendar-check me-1"></i>Process
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <div class="search-container">
   <div class="simple-search-container">
     <input type="text" id="search" class="form-control"
       placeholder="🔍 Search jobs (name, description, client, contact, creator)...">
     <div class="left-container">
-      <button id="monthEndButton" class="btn btn-primary btn-sm">
-        <i class="bi bi-calendar-month me-1"></i>Month End
-      </button>
       <button type="button" id="advancedSearchButton" class="btn btn-info btn-sm hover-lift">
         <i class="bi bi-search me-1"></i>Advanced Search
       </button>

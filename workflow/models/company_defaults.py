@@ -15,6 +15,7 @@ class CompanyDefaults(models.Model):
     )  # rate per hour
 
     starting_job_number = models.IntegerField(default=1, help_text="Helper field to set the starting job number based on the latest paper job")
+    starting_po_number = models.IntegerField(default=1, help_text="Helper field to set the starting purchase order number")
 
     # Xero integration
     xero_tenant_id = models.CharField(max_length=100, null=True, blank=True, help_text="The Xero tenant ID to use for this company")

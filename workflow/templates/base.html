@@ -33,6 +33,15 @@
                             <a class="nav-link {% if '/timesheet/' in request.path %}active{% endif %}" href="{% url 'timesheet_overview' %}">Timesheets</a>
                         </li>
                         <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if '/purchase-orders/' in request.path %}active{% endif %}" href="#" id="purchasesMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Purchases
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="purchasesMenu">
+                                <li><a class="dropdown-item" href="{% url 'purchase_orders' %}">Purchase Orders</a></li>
+                                <li><a class="dropdown-item" href="{% url 'delivery_receipts' %}">Delivery Receipts</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
                             {% check_xero_sync_needed as xero_sync %}
                             <a class="nav-link dropdown-toggle" href="{% url 'xero_index' %}" id="xeroMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 Xero {% if xero_sync.needed %}<span class="badge bg-warning text-dark">!</span>{% endif %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'new_purchase_order' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-2"></i>New Purchase Order
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>PO Number</th>
+                            <th>Supplier</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for purchase_order in purchase_orders %}
+                        <tr>
+                            <td>{{ purchase_order.po_number }}</td>
+                            <td>{{ purchase_order.supplier.name }}</td>
+                            <td>{{ purchase_order.order_date }}</td>
+                            <td>{{ purchase_order.get_status_display }}</td>
+                            <td>
+                                <a href="{% url 'edit_purchase_order' purchase_order.id %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No purchase orders found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

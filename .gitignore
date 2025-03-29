@@ -95,7 +95,7 @@ dmypy.json
 *.swp
 *.swo
 *~
-/workflow/fixtures/
+# /workflow/fixtures/ # I am adding fixtures to git now I've anonymised them
 /.__debug_sql.lock
 /node_modules/
 

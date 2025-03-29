@@ -154,6 +154,9 @@ def set_client_fields(client, new_from_xero=False):
 
     raw_data = client.raw_json
 
+    if "_contacts" in raw_data and raw_data["_contacts"]:
+        raw_data = raw_data["_contacts"][0]
+
     # Extract basic client fields from raw JSON
     client.name = raw_data.get("_name")
     client.email = raw_data.get("_email_address")
@@ -184,6 +187,9 @@ def set_client_fields(client, new_from_xero=False):
     if new_from_xero:
         client.django_created_at = client.xero_last_modified
         client.django_updated_at = client.xero_last_modified
+
+    xero_contact_id = raw_data.get("_contact_id")
+    client.xero_contact_id = xero_contact_id
 
     # Save the updated client information
     client.save()

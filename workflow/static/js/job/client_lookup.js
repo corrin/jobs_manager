@@ -1,3 +1,17 @@
+/**
+ * Client lookup component for Job module
+ * 
+ * This JS module provides client search functionality with suggestions.
+ * It is used for job creation/editing.
+ * 
+ * Note: A virtually identical version of this component exists at:
+ * workflow/static/js/purchases/client_lookup.js
+ *  
+ * Make sure you update both files if you make any changes.
+ * 
+ * Shared component for consistency across the application.
+ */
+
 import { debouncedAutosave } from "./edit_job_form_autosave.js";
 
 document.addEventListener("DOMContentLoaded", function () {

@@ -52,7 +52,16 @@ class Command(BaseCommand):
                 return
             
             logger.info(f"Starting scheduled Xero sync at {timezone.now()}")
-            synchronise_xero_data()
+            # Consume the generator to execute the sync process
+            for message in synchronise_xero_data():
+                entity = message.get('entity', 'unknown')
+                msg = message.get('message', '')
+                severity = message.get('severity', 'info')
+                
+                # Log important messages
+                if severity in ['error', 'warning'] or 'Starting' in msg or 'Completed' in msg:
+                    logger.info(f"[{severity.upper()}] {entity}: {msg}")
+            
             logger.info(f"Completed scheduled Xero sync at {timezone.now()}")
 
         # Get sync interval from environment variable (default to 1 hour)
@@ -92,3 +101,4 @@ class Command(BaseCommand):
                 pass
         except (KeyboardInterrupt, SystemExit):
             scheduler.shutdown()
+            

@@ -95,6 +95,14 @@ LOGGING = {
             "backupCount": 5,
             "formatter": "verbose",
         },
+        "purchase_file": {
+            "level": "DEBUG",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/purchase_debug.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django.db.backends": {
@@ -109,6 +117,11 @@ LOGGING = {
         },
         "xero_python": {
             "handlers": ["xero_file", "console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "workflow.views.purchase_order_view": {
+            "handlers": ["purchase_file", "console"],
             "level": "DEBUG",
             "propagate": False,
         },

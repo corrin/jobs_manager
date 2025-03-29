@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'ag-grid-styles/ag-theme-alpine.css' %}">
+<link rel="stylesheet" href="{% static 'css/enhanced-grid.css' %}">
+<link rel="stylesheet" href="{% static 'css/purchases.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    {% csrf_token %}
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ title }}</h1>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'purchase_orders' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Purchase Orders
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <form id="purchase-order-details-form">
+                <div class="row">
+                    <div class="col-md-6 mb-3 position-relative">
+                        <label for="client_name" class="form-label">Supplier</label>
+                        <div class="d-flex gap-2">
+                            <input type="text" id="client_name" class="form-control" placeholder="Search for supplier...">
+                            <input type="hidden" id="client_id" name="client_id" class="autosave-input">
+                            <input type="hidden" id="client_xero_id" name="client_xero_id" class="autosave-input">
+                        </div>
+                        <div id="clientSuggestionsContainer" class="suggestions-container"></div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="po_number" class="form-label">PO Number</label>
+                        <input type="text" id="po_number" name="po_number" class="form-control" readonly placeholder="Will be auto-generated">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="reference" class="form-label">Reference</label>
+                        <input type="text" id="reference" name="reference" class="form-control autosave-input" placeholder="Optional reference">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label for="order_date" class="form-label">Order Date</label>
+                        <input type="date" class="form-control" id="order_date" name="order_date" readonly>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="expected_delivery" class="form-label">Expected Delivery</label>
+                        <input type="date" id="expected_delivery" name="expected_delivery" class="form-control autosave-input">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label for="status" class="form-label">Status</label>
+                        <select id="status" name="status" class="form-select autosave-input">
+                            <option value="draft">Draft</option>
+                            <option value="submitted">Submitted to Supplier</option>
+                            <option value="partially_received">Partially Received</option>
+                            <option value="fully_received">Fully Received</option>
+                            <option value="void">Voided</option>
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            <h4 class="card-title">Line Items</h4>
+            <div class="instruction">Enter the job, description, quantity, and unit cost for each item.</div>
+        </div>
+        <div class="card-body">
+            <div class="card keyboard-shortcuts-card mb-3">
+                <div class="card-header" data-bs-toggle="collapse" data-bs-target="#keyboardShortcuts"
+                    aria-expanded="false" aria-controls="keyboardShortcuts">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-keyboard me-2"></i>Keyboard Shortcuts & <i class="bi bi-lightbulb me-2"></i>Tips</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                </div>
+                <div id="keyboardShortcuts" class="collapse">
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6 col-lg-3">
+                                <div class="d-flex align-items-center">
+                                    <span class="keyboard-shortcut-badge me-2">Tab</span>
+                                    <small>Add new row at end</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <div class="d-flex align-items-center">
+                                    <span class="keyboard-shortcut-badge me-2">Enter</span>
+                                    <small>Add new row</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <div class="d-flex align-items-center">
+                                    <span class="keyboard-shortcut-badge me-2">Esc</span>
+                                    <small>Cancel editing</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-3">
+                                <div class="d-flex align-items-center">
+                                    <span class="keyboard-shortcut-badge me-2">Arrow Keys</span>
+                                    <small>Navigate cells</small>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Choose "TBC" for unit costs that aren't yet known
+                                </small>
+                            </div>
+                            <div class="col-12">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>Use arrow keys to navigate between cells. Press Tab or Enter on the last cell to add a new row.
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AG Grid will be initialized here -->
+            <div id="purchase-order-lines-grid" class="ag-theme-alpine" style="width: 100%;">
+                <!-- Grid will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="container-fluid d-flex flex-row gap-2">
+        <!-- Current Jobs Section -->
+        <div class="flex-grow-1" style="flex-basis: 65%">
+            <h4 class="text-center mb-3">Current Jobs</h4>
+            <div id="current-jobs" class="current-jobs-container">
+                <div class="row row-cols-1 g-3 w-100" id="jobs-list">
+                    <!-- Dynamic job cards will be added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="flex-grow-1" style="flex-basis: 35%">
+            <h4 class="text-center mb-3">Summary</h4>
+            <div id="summary-section" class="summary-section">
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th class="text-center">Category</th>
+                            <th class="text-center">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-table-body" class="align-self-center justify-self-center">
+                        <!-- Rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="d-flex justify-content-end gap-2">
+        <button id="submit-purchase-order" class="btn btn-primary">
+            <i class="bi bi-send me-2"></i>Submit to Xero
+        </button>
+        <a href="{% url 'purchase_orders' %}" class="btn btn-secondary">
+            <i class="bi bi-x-circle me-2"></i>Cancel
+        </a>
+    </div>
+    
+    <!-- Messages will be loaded here -->
+    <div id="purchase-order-messages" class="alert-container mt-3"></div>
+</div>
+
+<!-- Hidden form for submission -->
+<form id="purchase-order-submit-form" method="post">
+    {% csrf_token %}
+    <input type="hidden" id="purchase_order_id" name="purchase_order_id" value="{{ purchase_order_id|default:'' }}">
+    <input type="hidden" id="purchase_order_data" name="purchase_order_data">
+    <input type="hidden" id="line_items_data" name="line_items_data">
+</form>
+
+<!-- JSON Data -->
+<script id="jobs-data" type="application/json">
+    {{ jobs_json|safe }}
+</script>
+<script id="line-items-data" type="application/json">
+    {{ line_items_json|safe }}
+</script>
+<script id="purchase-order-data" type="application/json">
+    {{ purchase_order_json|safe }}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- AG Grid Script -->
+<script src="{% static 'ag-grid-community/ag-grid-community.min.js' %}"></script>
+<script type="module" src="{% static 'js/purchases/client_lookup.js' %}"></script>
+<script type="module" src="{% static 'js/purchases/messages.js' %}"></script>
+<script type="module" src="{% static 'js/purchases/purchase_order_autosave.js' %}"></script>
+<script type="module" src="{% static 'js/purchases/job_section.js' %}"></script>
+<script type="module" src="{% static 'js/purchases/summary.js' %}"></script>
+<script type="module" src="{% static 'js/purchases/purchase_order_form.js' %}"></script>
+{% endblock %} 

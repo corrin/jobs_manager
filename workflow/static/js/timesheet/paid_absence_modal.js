@@ -4,7 +4,7 @@ import { getCookie } from "./timesheet_entry/utils.js";
 /**
  * Initializes the Paid Absence Modal.
  * @param {string} modalId - The ID of the modal (e.g., "paidAbsenceModal").
- * @param {string} apiUrl - The URL to fetch the paid absence form.
+ * @param {string} apiUrl - The URL to fetch the form.
  */
 export function initializePaidAbsenceModal(modalId, apiUrl) {
   const modal = document.getElementById(modalId);
@@ -14,16 +14,16 @@ export function initializePaidAbsenceModal(modalId, apiUrl) {
   }
 
   const paidAbsenceButton = document.querySelector(
-    '[data-bs-target="#' + modalId + '"]',
+    '[data-bs-target="#' + modalId + '"]'
   );
   const modalContainer = modal.querySelector(".modal-body");
-  const form = modal.querySelector("form");
 
-  if (!paidAbsenceButton || !modalContainer || !form) {
-    console.error(`Paid Absence modal elements not found in '${modalId}'.`);
+  if (!paidAbsenceButton || !modalContainer) {
+    console.error(`Modal elements not found in '${modalId}'.`);
     return;
   }
 
+  // Load the form when the button is clicked
   paidAbsenceButton.addEventListener("click", async () => {
     try {
       const response = await fetch(apiUrl, {
@@ -39,23 +39,39 @@ export function initializePaidAbsenceModal(modalId, apiUrl) {
       const data = await response.json();
       if (!data.success) {
         renderMessages(data.messages);
+        return;
       }
 
+      // Insert the form HTML
       modalContainer.innerHTML = data.form_html;
+      
+      // Now that the form exists, add the event listener
+      setupFormSubmissionListener(modal, apiUrl);
+      
     } catch (error) {
-      console.error("Error loading paid absence form:", error);
+      console.error("Error loading form:", error);
       renderMessages([{ level: "error", message: "Failed to load form." }]);
     }
   });
+}
 
+/**
+ * Configure the form submission listener
+ */
+function setupFormSubmissionListener(modal, apiUrl) {
+  const form = modal.querySelector("form#paid-absence-form");
+  
+  if (!form) {
+    console.error("Form not found after loading");
+    return;
+  }
+  
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    const form = event.target;
+    
     const formData = new FormData(form);
-
     formData.append("action", "submit_paid_absence");
-
+    
     try {
       const response = await fetch(apiUrl, {
         method: "POST",
@@ -64,22 +80,26 @@ export function initializePaidAbsenceModal(modalId, apiUrl) {
           "X-CSRFToken": getCookie("csrftoken"),
         },
         body: new URLSearchParams(formData),
-        action: "submit_paid_absence",
       });
-
+      
       const data = await response.json();
+      
+      // Show success or error messages
+      renderMessages(data.messages || [{ level: "error", message: "Invalid server response" }]);
+      
       if (data.success) {
-        const modalElement = document.getElementById("paidAbsenceModal");
-        const bootstrapModal = bootstrap.Modal.getInstance(modalElement);
-        bootstrapModal.hide();
-
-        renderMessages(data.messages);
+        // Close the modal
+        const modalInstance = bootstrap.Modal.getInstance(modal);
+        modalInstance.hide();
+        
+        // If necessary, reload the page after success
+        if (data.reload) {
+          window.location.reload();
+        }
       }
     } catch (error) {
-      console.error("Error submitting paid absence:", error);
-      renderMessages([
-        { level: "error", message: "Failed to submit paid absence." },
-      ]);
+      console.error("Error submitting form:", error);
+      renderMessages([{ level: "error", message: "Failed to submit form." }]);
     }
   });
 }

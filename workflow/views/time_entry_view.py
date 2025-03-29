@@ -248,9 +248,7 @@ class TimesheetEntryView(TemplateView):
                         Value(1, output_field=IntegerField()),
                         function="substring_index",
                         output_field=CharField(),
-                    )
-                )
-                .annotate(
+                    ),
                     display_full_name=Concat(
                         "display_first_name",
                         Value(" "),
@@ -258,7 +256,7 @@ class TimesheetEntryView(TemplateView):
                         output_field=CharField(),
                     )
                 )
-                .order_by("display_full_name")
+                .order_by("last_name", "display_first_name")
             )
             staff_list = list(staff_queryset.values("id", "display_full_name"))
             cache.set(cache_key, staff_list, timeout=cache_timeout)

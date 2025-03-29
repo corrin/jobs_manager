@@ -1,3 +1,4 @@
+import uuid
 from django.contrib.messages import get_messages
 
 
@@ -104,8 +105,6 @@ def get_excluded_staff():
     Returns:
         list: A list of staff IDs (as strings) who are excluded from the scheduling system
     """
-    from workflow.models import Staff
-
     # Static list of excluded staff IDs
     static_excluded_ids = [
         "a9bd99fa-c9fb-43e3-8b25-578c35b56fa6",
@@ -116,15 +115,20 @@ def get_excluded_staff():
     
     # Delaying database query execution
     from django.apps import apps
+    from django.db.utils import ProgrammingError, OperationalError
     
-    # Only access the database when applications are ready
     if apps.ready:
-        # Get the Staff model dynamically only when needed
-        Staff = apps.get_model("workflow", "Staff")
-        dynamic_excluded_ids = [
-            str(staff.id) for staff in Staff.objects.filter(ims_payroll_id__isnull=True)
-        ]
-        return static_excluded_ids + dynamic_excluded_ids
+        try:
+            # Get the Staff model dynamically only when needed
+            # This is so the installation process can run without the database being ready
+            from workflow.models import Staff
+            dynamic_excluded_ids = [
+                str(staff.id) for staff in Staff.objects.filter(ims_payroll_id__isnull=True)
+            ]
+            return static_excluded_ids + dynamic_excluded_ids
+        except (ProgrammingError, OperationalError):
+            # If the table doesn't exist yet (during migrations), return only static IDs
+            return static_excluded_ids
     
     # Return only static IDs if apps are not ready
     return static_excluded_ids

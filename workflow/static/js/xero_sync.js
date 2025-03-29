@@ -1,11 +1,6 @@
 'use strict';
 
-// Constants for entity names and their order
-const ENTITIES = ['accounts', 'contacts', 'invoices', 'bills', 'journals', 'credit-notes'];
-const TOTAL_ENTITIES = ENTITIES.length;
-
 // UI Elements
-const closeButton = document.getElementById('close-button');
 const currentEntity = document.getElementById('current-entity');
 const entityProgress = document.getElementById('entity-progress');
 const entityPercent = document.getElementById('entity-percent');
@@ -18,135 +13,263 @@ function formatLastSync(lastSync) {
     return new Date(lastSync).toLocaleString();
 }
 
+function formatEntityName(entity) {
+    return entity
+        .replace(/_/g, ' ')  // Replace underscores with spaces
+        .replace(/-/g, ' ')  // Replace hyphens with spaces
+        .split(' ')          // Split into words
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))  // Capitalize each word
+        .join(' ');          // Join words back together
+}
+
 class XeroSyncProgress {
     constructor() {
-        this.eventSource = new EventSource('/api/xero/sync-stream/');
-        this.eventSource.onmessage = this.handleMessage.bind(this);
-        this.eventSource.onerror = this.handleError.bind(this);
-        this.retryCount = 0;
-        this.maxRetries = 3;
-        
-        // Request initial sync info
-        fetch('/api/xero/sync-info/')
-            .then(response => response.json())
-            .then(data => {
-                // Update last sync times
-                if (data.last_syncs) {
-                    Object.entries(data.last_syncs).forEach(([entity, lastSync]) => {
-                        updateEntityRow(entity, { 
-                            lastSync,
-                            status: 'Pending'  // Ensure status stays as Pending
-                        });
-                    });
-                }
-                
-                // Update sync range info
-                if (data.sync_range) {
-                    document.getElementById('sync-range').textContent = data.sync_range;
-                }
-            })
-            .catch(error => console.error('Error fetching sync info:', error));
+        this.overallProgress = 0;
+        this.currentEntityProgress = 0;
+        this.currentEntity = null;
+        this.totalEntities = window.XERO_ENTITIES.length;
+        this.processedEntities = 0;
+        this.eventSource = null;
+        this.isInitialized = false;
+        this.initializeSyncStatus();
+        this.initializeSync();
     }
 
-    handleMessage(event) {
-        try {
-            const message = JSON.parse(event.data);
-            addLogMessage(message);
-            
-            // Update sync range info if provided
-            if (message.entity === 'sync' && message.message.includes('looking back')) {
-                document.getElementById('sync-range').textContent = message.message;
-            }
-            
-            if (message.entity && message.entity !== 'sync') {
-                const currentStatus = entityStats[message.entity]?.status;
-                if (currentStatus === 'Pending') {
-                    handleEntityChange(message.entity);
-                }
-                
-                if (message.progress !== null) {
-                    updateEntityProgress(message.entity, message.progress);
-                }
-                
-                if (message.progress === 1) {
-                    handleEntityCompletion(message.entity, true, message.lastSync);
-                }
-
-                // Update lastSync time and records whenever provided
-                const updates = {};
-                if (message.lastSync) {
-                    updates.lastSync = message.lastSync;
-                }
-                
-                // Extract records updated from message
-                const recordsMatch = message.message.match(/Processed (\d+)/);
-                if (recordsMatch) {
-                    updates.recordsUpdated = parseInt(recordsMatch[1], 10);
-                }
-                
-                if (Object.keys(updates).length > 0) {
-                    updateEntityRow(message.entity, updates);
-                }
-            }
-            
-            // Update overall progress
-            updateOverallProgress();
-            
-            if (message.message === 'Sync stream ended') {
-                this.disconnect();
-                syncComplete(true);
-                updateOverallProgress(); // Update one final time
-            }
-            
-            if (message.severity === 'error') {
-                if (message.entity && message.entity !== 'sync') {
-                    handleEntityCompletion(message.entity, false, message.lastSync);
-                }
-                syncComplete(false);
-            }
-
-            // Reset retry count on successful message
-            this.retryCount = 0;
-        } catch (e) {
-            console.error('Error processing message:', e);
-            addLogMessage({
-                datetime: new Date().toISOString(),
-                severity: 'error',
-                message: `Error processing message: ${e}`,
-            });
-        }
-    }
-
-    handleError(error) {
-        this.eventSource?.close();
+    async initializeSync() {
+        // Check if a sync is already running
+        const response = await fetch('/api/xero/sync-info/');
+        const data = await response.json();
         
-        if (this.retryCount < this.maxRetries) {
-            this.retryCount++;
-            addLogMessage({
-                datetime: new Date().toISOString(),
-                severity: 'warning',
-                message: `Connection lost. Retrying in ${this.retryCount} seconds...`,
-            });
-            setTimeout(() => this.connect(), 1000 * this.retryCount);
+        if (data.sync_in_progress) {
+            // If a sync is running, connect to its stream
+            this.connectToStream();
         } else {
-            addLogMessage({
-                datetime: new Date().toISOString(),
-                severity: 'error',
-                message: 'Max retries reached. Please refresh the page to try again.',
-            });
+            // Start a new sync and wait for it to be ready
+            const syncResponse = await fetch('/api/xero/sync/');
+            if (!syncResponse.ok) {
+                throw new Error('Failed to start sync');
+            }
+            // Wait a moment for the sync to be ready
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            this.connectToStream();
         }
     }
 
-    connect() {
+    connectToStream() {
         this.eventSource = new EventSource('/api/xero/sync-stream/');
-        this.eventSource.onmessage = this.handleMessage.bind(this);
-        this.eventSource.onerror = this.handleError.bind(this);
+        
+        this.eventSource.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            this.handleSyncEvent(data);
+        };
+
+        this.eventSource.onerror = (error) => {
+            console.error('EventSource error:', error);
+            this.eventSource.close();
+            this.showError('Connection to sync stream lost');
+        };
+    }
+
+    handleSyncEvent(data) {
+        // Add message to log
+        this.addLogMessage(data);
+
+        // Update current entity if this is an entity-specific event
+        if (data.entity && data.entity !== "sync") {
+            this.currentEntity = data.entity;
+        }
+
+        // Update individual entity progress if we have a progress value
+        if (data.progress !== null) {
+            this.updateEntityProgress(data.entity, data.progress);
+        }
+
+        // If we see a completion message, mark that entity as done
+        if (data.message.includes("No items to sync") || data.message.includes("Processed") || data.message.includes("Completed sync of")) {
+            this.processedEntities++;
+            this.overallProgress = (this.processedEntities / this.totalEntities) * 100;
+            this.updateOverallProgress();
+            this.updateEntityProgress(data.entity, 1.0);  // Set entity progress to 100%
+            this.updateEntityRow(data.entity, {
+                status: 'Completed',
+                lastSync: new Date().toISOString()
+            });
+        }
+
+        // If we see "Sync stream ended", close the connection gracefully
+        if (data.message === "Sync stream ended") {
+            this.eventSource.close();
+        }
+    }
+
+    updateOverallProgress() {
+        const overallBar = document.getElementById('overall-progress');
+        const overallPercent = document.getElementById('overall-percent');
+        const currentEntityLabel = document.getElementById('current-entity');
+
+        if (overallBar && overallPercent) {
+            overallBar.style.width = `${this.overallProgress}%`;
+            overallPercent.textContent = `${Math.round(this.overallProgress)}%`;
+        }
+
+        if (currentEntityLabel) {
+            currentEntityLabel.textContent = this.currentEntity ? 
+                formatEntityName(this.currentEntity) : 
+                'None';
+        }
+    }
+
+    updateEntityProgress(entity, progress) {
+        const entityBar = document.getElementById('entity-progress');
+        const entityPercent = document.getElementById('entity-percent');
+
+        if (entityBar && entityPercent) {
+            entityBar.style.width = `${progress * 100}%`;
+            entityPercent.textContent = `${Math.round(progress * 100)}%`;
+        }
+    }
+
+    updateEntityRow(entity, updates = {}) {
+        // Fail loudly if we get an unexpected entity
+        if (!window.XERO_ENTITIES.includes(entity)) {
+            console.error(`Unexpected entity type received: ${entity}`);
+            throw new Error(`Unexpected entity type: ${entity}`);
+        }
+        
+        const row = document.getElementById(`row-${entity}`);
+        if (!row) {
+            console.error(`Missing row for entity: ${entity}`);
+            throw new Error(`Missing row for entity: ${entity}`);
+        }
+
+        // Update our stats object
+        entityStats[entity] = { ...entityStats[entity], ...updates };
+        const stats = entityStats[entity];
+
+        // Update the row cells
+        if (updates.lastSync) {
+            const lastSyncDate = new Date(updates.lastSync);
+            row.querySelector('.last-sync').textContent = formatLastSync(updates.lastSync);
+        }
+        if (updates.status) {
+            const statusCell = row.querySelector('.status');
+            statusCell.textContent = updates.status;
+            
+            // Update status classes
+            statusCell.className = 'status'; // Reset classes
+            switch (updates.status) {
+                case 'In Progress':
+                    statusCell.classList.add('status-in-progress');
+                    break;
+                case 'Completed':
+                    statusCell.classList.add('status-completed');
+                    break;
+                case 'Error':
+                    statusCell.classList.add('status-error');
+                    break;
+                default:
+                    statusCell.classList.add('status-pending');
+            }
+        }
+        if (updates.recordsUpdated !== undefined) {
+            row.querySelector('.records').textContent = updates.recordsUpdated;
+        }
+    }
+
+    addLogMessage(message) {
+        const logContainer = document.getElementById('sync-log');
+        if (!logContainer) return;
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `log-entry ${message.severity || 'info'}`;
+        
+        // Format timestamp
+        const timestamp = new Date(message.datetime).toLocaleTimeString();
+        
+        // Extract record count if present in message
+        const recordMatch = message.message.match(/Updated (\d+) records?/i);
+        if (recordMatch && message.entity) {
+            this.updateEntityRow(message.entity, { recordsUpdated: parseInt(recordMatch[1], 10) });
+        }
+        
+        messageDiv.textContent = `[${timestamp}] ${message.message}`;
+        logContainer.appendChild(messageDiv);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    showError(message) {
+        const logContainer = document.getElementById('sync-log');
+        if (!logContainer) return;
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'log-entry error';
+        errorDiv.textContent = `ERROR ${message}`;
+        logContainer.appendChild(errorDiv);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    handleEntityChange(entity) {
+        // Update current entity display
+        if (currentEntity) {
+            currentEntity.textContent = formatEntityName(entity);
+        }
+        
+        // Reset entity progress
+        this.currentEntityProgress = 0;
+        this.updateEntityProgress(entity, 0);
+        
+        // Update status
+        this.updateEntityRow(entity, {
+            status: 'In Progress',
+            lastSync: new Date().toISOString()
+        });
+    }
+
+    handleEntityCompletion(entity, success = true, lastSync = null) {
+        completedEntities++;
+        this.updateEntityRow(entity, {
+            status: success ? 'Completed' : 'Error',
+            lastSync: lastSync || new Date().toISOString()
+        });
+    }
+
+    syncComplete(success = true) {
+        if (success) {
+            // Could add success indicator here if needed
+        }
     }
 
     disconnect() {
         if (this.eventSource) {
             this.eventSource.close();
-            this.eventSource = null;
+        }
+    }
+
+    async initializeSyncStatus() {
+        // Initialize the sync status table with current state
+        window.XERO_ENTITIES.forEach(entity => {
+            this.updateEntityRow(entity, {
+                status: 'Pending',
+                lastSync: '-',
+                recordsUpdated: 0
+            });
+        });
+
+        // Get last sync times from server
+        try {
+            const response = await fetch('/api/xero/sync-info/');
+            const data = await response.json();
+            
+            // Update each entity with its last sync time
+            Object.entries(data.last_syncs).forEach(([entity, lastSync]) => {
+                if (lastSync) {
+                    this.updateEntityRow(entity, {
+                        lastSync: lastSync
+                    });
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching last sync times:', error);
         }
     }
 }
@@ -155,149 +278,17 @@ class XeroSyncProgress {
 let completedEntities = 0;
 let entityStats = {};
 
-// Initialize stats for each entity
-ENTITIES.forEach(entity => {
-    entityStats[entity] = {
-        status: 'Pending',
-        lastSync: '-',
-        recordsUpdated: 0
-    };
-});
-
-// Disable close button initially
-closeButton.disabled = true;
-closeButton.classList.add('opacity-50', 'cursor-not-allowed');
-
-function updateEntityProgress(entity, progress) {
-    entityProgress.style.width = `${progress * 100}%`;
-    entityPercent.textContent = `${Math.round(progress * 100)}%`;
-}
-
-function updateEntityRow(entity, updates = {}) {
-    const row = document.getElementById(`row-${entity}`);
-    if (!row) return;
-
-    // Update our stats object
-    entityStats[entity] = { ...entityStats[entity], ...updates };
-    const stats = entityStats[entity];
-
-    // Update the row cells
-    if (updates.lastSync) {
-        const lastSyncDate = new Date(updates.lastSync);
-        row.querySelector('.last-sync').textContent = formatLastSync(updates.lastSync);
-    }
-    if (updates.status) {
-        const statusCell = row.querySelector('.status');
-        statusCell.textContent = updates.status;
-        
-        // Update status classes
-        statusCell.className = 'status'; // Reset classes
-        switch (updates.status) {
-            case 'In Progress':
-                statusCell.classList.add('status-in-progress');
-                break;
-            case 'Completed':
-                statusCell.classList.add('status-completed');
-                break;
-            case 'Error':
-                statusCell.classList.add('status-error');
-                break;
-            default:
-                statusCell.classList.add('status-pending');
-        }
-    }
-    if (updates.recordsUpdated !== undefined) {
-        row.querySelector('.records').textContent = updates.recordsUpdated;
-    }
-}
-
-function addLogMessage(message) {
-    const logEntry = document.createElement('div');
-    logEntry.className = 'log-entry';
-    
-    // Format timestamp
-    const timestamp = new Date(message.datetime).toLocaleTimeString();
-    
-    // Style based on severity
-    switch (message.severity) {
-        case 'error':
-            logEntry.classList.add('error');
-            break;
-        case 'warning':
-            logEntry.classList.add('warning');
-            break;
-        case 'success':
-            logEntry.classList.add('success');
-            break;
-    }
-    
-    // Extract record count if present in message
-    const recordMatch = message.message.match(/Updated (\d+) records?/i);
-    if (recordMatch && message.entity) {
-        updateEntityRow(message.entity, { recordsUpdated: parseInt(recordMatch[1], 10) });
-    }
-    
-    logEntry.textContent = `[${timestamp}] ${message.message}`;
-    syncLog.appendChild(logEntry);
-    syncLog.scrollTop = syncLog.scrollHeight;
-}
-
-function handleEntityChange(entity) {
-    // Update current entity display
-    currentEntity.textContent = entity.charAt(0).toUpperCase() + entity.slice(1);
-    
-    // Reset entity progress
-    entityProgress.style.width = '0%';
-    entityPercent.textContent = '0%';
-    
-    // Update status
-    updateEntityRow(entity, {
-        status: 'In Progress',
-        lastSync: new Date().toISOString()
-    });
-}
-
-function handleEntityCompletion(entity, success = true, lastSync = null) {
-    completedEntities++;
-    updateEntityRow(entity, {
-        status: success ? 'Completed' : 'Error',
-        lastSync: lastSync || new Date().toISOString()
-    });
-}
-
-function syncComplete(success = true) {
-    closeButton.disabled = false;
-    closeButton.classList.remove('opacity-50', 'cursor-not-allowed');
-    
-    if (success) {
-        closeButton.classList.remove('btn-secondary');
-        closeButton.classList.add('btn-success');
-    }
-}
-
-// Add function to calculate and update overall progress
-function updateOverallProgress() {
-    const entities = Object.keys(entityStats);
-    let completedCount = 0;
-    
-    entities.forEach(entity => {
-        if (entityStats[entity].status === 'Completed') {
-            completedCount++;
-        }
-    });
-    
-    const progress = (completedCount / entities.length) * 100;
-    const overallProgressBar = document.getElementById('overall-progress');
-    const overallPercent = document.getElementById('overall-percent');
-    
-    if (overallProgressBar && overallPercent) {
-        overallProgressBar.style.width = `${progress}%`;
-        overallPercent.textContent = `${Math.round(progress)}%`;
-    }
-}
-
-// Start the sync progress when the page loads
+// Initialize when the page loads
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize stats for each entity
+    window.XERO_ENTITIES.forEach(entity => {
+        entityStats[entity] = {
+            status: 'Pending',
+            lastSync: '-',
+            recordsUpdated: 0
+        };
+    });
+
     window.xeroSyncProgress = new XeroSyncProgress();
 
     // Clean up when the page is unloaded

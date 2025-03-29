@@ -1,55 +1,50 @@
+import os
+import shlex
+import subprocess
+from typing import Any
+
 from django.core.management.base import BaseCommand
-from dotenv import load_dotenv
-from pyngrok import ngrok
 
 
 class Command(BaseCommand):
-    help = "Launches ngrok tunnel with configured domain"
+    help = "Starts ngrok tunnel using the ngrok CLI"
 
-    def handle(self, *args, **options):
-        # Load environment variables
-        load_dotenv()
+    def handle(self, *args: Any, **kwargs: Any) -> None:
+        ngrok_domain = os.environ.get("NGROK_DOMAIN", "msm-workflow.ngrok-free.app")
+        django_port = os.environ.get("DJANGO_PORT", "8000")
 
-        # Get preferred and fallback domains
-        PREFERRED_DOMAIN = "msm-workflow"
-        FALLBACK_DOMAIN = "measured-enormously-man"
+        # Create ngrok command with the custom domain
+        ngrok_command = f"ngrok http --region=au --domain={ngrok_domain} {django_port}"
 
+        # Start ngrok process
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Starting ngrok with command: '{ngrok_command}'..."
+            )
+        )
+        # We don't capture the process, just launch it.
+        # It will run until manually stopped or the parent terminal closes.
         try:
-            # Try preferred domain first
-            self.stdout.write("Attempting to start ngrok tunnel...")
-            try:
-                tunnel = ngrok.connect(8000, domain=PREFERRED_DOMAIN, region="au")
-                self.stdout.write(
-                    self.style.SUCCESS(f"Tunnel established at: {tunnel.public_url}")
+            subprocess.Popen(shlex.split(ngrok_command))
+            self.stdout.write(
+                self.style.SUCCESS(
+                    "ngrok process launched. Check the ngrok console/UI for status."
                 )
-            except Exception as e:
-                if "failed to start tunnel" in str(e):
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f"Could not use preferred domain ({PREFERRED_DOMAIN}), "
-                            f"falling back to: {FALLBACK_DOMAIN}"
-                        )
-                    )
-                    tunnel = ngrok.connect(8000, domain=FALLBACK_DOMAIN)
-                    self.stdout.write(
-                        self.style.SUCCESS(
-                            f"Tunnel established at: {tunnel.public_url}"
-                        )
-                    )
-                else:
-                    raise e
-
-            # Keep the tunnel open
-            ngrok_process = ngrok.get_ngrok_process()
-            try:
-                # Block until CTRL-C
-                ngrok_process.proc.wait()
-            except KeyboardInterrupt:
-                self.stdout.write(self.style.WARNING("\nShutting down ngrok tunnel..."))
-                ngrok.kill()
-
+            )
+            self.stdout.write(
+                self.style.WARNING(
+                    "This command only launches ngrok. It does not block or wait. "
+                    "Run the Django server separately if needed."
+                )
+            )
+        except FileNotFoundError:
+            self.stdout.write(
+                self.style.ERROR(
+                    "Error: 'ngrok' command not found. "
+                    "Make sure ngrok is installed and in your system's PATH."
+                )
+            )
         except Exception as e:
             self.stdout.write(
-                self.style.ERROR(f"Failed to establish ngrok tunnel: {e}")
+                self.style.ERROR(f"Failed to launch ngrok process: {e}")
             )
-            ngrok.kill()

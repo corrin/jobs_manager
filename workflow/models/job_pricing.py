@@ -127,14 +127,12 @@ class JobPricing(models.Model):
             # Save first so we have a primary key
             super().save(*args, **kwargs)
 
-            # Create default entries
-            TimeEntry.objects.create(
-                job_pricing=self, wage_rate=wage_rate, charge_out_rate=charge_out_rate
-            )
-
-            MaterialEntry.objects.create(job_pricing=self)
-
-            AdjustmentEntry.objects.create(job_pricing=self)
+            # # Create default entries - REMOVED to prevent automatic creation
+            # TimeEntry.objects.create(
+            #     job_pricing=self, wage_rate=wage_rate, charge_out_rate=charge_out_rate
+            # )
+            # MaterialEntry.objects.create(job_pricing=self)
+            # AdjustmentEntry.objects.create(job_pricing=self)
         else:
             # Normal save for existing instances
             super().save(*args, **kwargs)

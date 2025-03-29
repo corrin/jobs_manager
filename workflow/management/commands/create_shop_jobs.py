@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from workflow.models import Client, Job
+from workflow.models import Client, Job, CompanyDefaults
 
 
 class Command(BaseCommand):
@@ -44,8 +44,9 @@ class Command(BaseCommand):
             },
         ]
 
-        # Get the shop client
-        shop_client = Client.objects.get(name="Demo Shop")
+        # Get the shop client from company defaults
+        company_name = CompanyDefaults.objects.first().pk
+        shop_client = Client.objects.get(name=f"{company_name} Shop")
 
         # Iterate through the shop jobs and create them
         for idx, job_details in enumerate(shop_jobs, start=1):

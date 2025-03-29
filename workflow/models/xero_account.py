@@ -1,6 +1,6 @@
 import uuid
-
 from django.db import models
+from django.utils import timezone
 
 
 class XeroAccount(models.Model):
@@ -23,6 +23,7 @@ class XeroAccount(models.Model):
         default=False
     )  # Boolean for enable payments to account
     xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
     raw_json = models.JSONField()  # Store the raw API response for reference
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)

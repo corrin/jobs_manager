@@ -1,3 +1,13 @@
+/**
+ * Job Cell Editor for Timesheets
+ *
+ * Note: A similar version of this component exists at:
+ * workflow/static/js/purchases/job_cell_editor.js
+ *
+ * Make sure you update both files if you make any changes.
+ *
+ * Shared component for consistency across the application.
+ */
 export class ActiveJobCellEditor {
   init(params) {
     this.value = params.value;
