@@ -67,14 +67,14 @@
                         </tr>
                     </thead>
                     <tbody id="pendingItems">
-                        {% for line in purchase_order.lines.all %}
+                        {% for line in purchase_order.po_lines.all %}
                             {% if line.received_quantity < line.quantity %}
                             <tr data-line-id="{{ line.id }}">
                                 <td>
                                     <input type="checkbox" class="form-check-input line-checkbox" 
                                            data-line-id="{{ line.id }}">
                                 </td>
-                                <td>{{ line.job.display_name }}</td>
+                                <td>{{ line.job }}</td>
                                 <td>{{ line.description }}</td>
                                 <td>{{ line.quantity }}</td>
                                 <td>${{ line.unit_cost }}</td>
@@ -128,14 +128,14 @@
                         </tr>
                     </thead>
                     <tbody id="receivedItems">
-                        {% for line in purchase_order.lines.all %}
+                        {% for line in purchase_order.po_lines.all %}
                             {% if line.received_quantity > 0 %}
                             <tr data-line-id="{{ line.id }}">
                                 <td>
                                     <input type="checkbox" class="form-check-input line-checkbox" 
                                            data-line-id="{{ line.id }}">
                                 </td>
-                                <td>{{ line.job.display_name }}</td>
+                                <td>{{ line.job }}</td>
                                 <td>{{ line.description }}</td>
                                 <td>{{ line.quantity }}</td>
                                 <td>
@@ -167,124 +167,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Select All checkboxes
-    const selectAllPending = document.getElementById('selectAllPending');
-    const selectAllReceived = document.getElementById('selectAllReceived');
-    const pendingCheckboxes = document.querySelectorAll('#pendingItems .line-checkbox');
-    const receivedCheckboxes = document.querySelectorAll('#receivedItems .line-checkbox');
-    
-    selectAllPending.addEventListener('change', function() {
-        pendingCheckboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-    });
-    
-    selectAllReceived.addEventListener('change', function() {
-        receivedCheckboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-    });
-
-    // Move Selected buttons
-    document.getElementById('moveSelectedToReceived').addEventListener('click', function() {
-        pendingCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                const lineId = checkbox.dataset.lineId;
-                const row = document.querySelector(`#pendingItems tr[data-line-id="${lineId}"]`);
-                if (row) {
-                    const orderedQty = parseInt(row.querySelector('td:nth-child(4)').textContent);
-                    moveRowToReceived(row, orderedQty);
-                }
-            }
-        });
-    });
-
-    document.getElementById('moveAllToReceived').addEventListener('click', function() {
-        pendingCheckboxes.forEach(checkbox => {
-            checkbox.checked = true;
-            const lineId = checkbox.dataset.lineId;
-            const row = document.querySelector(`#pendingItems tr[data-line-id="${lineId}"]`);
-            if (row) {
-                const orderedQty = parseInt(row.querySelector('td:nth-child(4)').textContent);
-                moveRowToReceived(row, orderedQty);
-            }
-        });
-    });
-
-    document.getElementById('moveSelectedToPending').addEventListener('click', function() {
-        receivedCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                const lineId = checkbox.dataset.lineId;
-                const row = document.querySelector(`#receivedItems tr[data-line-id="${lineId}"]`);
-                if (row) {
-                    moveRowToPending(row);
-                }
-            }
-        });
-    });
-
-    document.getElementById('moveAllToPending').addEventListener('click', function() {
-        receivedCheckboxes.forEach(checkbox => {
-            checkbox.checked = true;
-            const lineId = checkbox.dataset.lineId;
-            const row = document.querySelector(`#receivedItems tr[data-line-id="${lineId}"]`);
-            if (row) {
-                moveRowToPending(row);
-            }
-        });
-    });
-
-    // Helper functions
-    function moveRowToReceived(row, orderedQty) {
-        const tbody = document.getElementById('receivedItems');
-        const newRow = row.cloneNode(true);
-        
-        // Add received quantity input
-        const receivedCell = document.createElement('td');
-        receivedCell.innerHTML = `<input type="number" class="form-control form-control-sm received-qty" 
-                                       value="${orderedQty}" min="0" max="${orderedQty}"
-                                       data-line-id="${row.dataset.lineId}">`;
-        
-        // Insert after the "Ordered" cell
-        const orderedCell = newRow.querySelector('td:nth-child(4)');
-        newRow.insertBefore(receivedCell, orderedCell.nextSibling);
-        
-        tbody.appendChild(newRow);
-        row.remove();
-    }
-
-    function moveRowToPending(row) {
-        const tbody = document.getElementById('pendingItems');
-        const newRow = row.cloneNode(true);
-        
-        // Remove received quantity cell
-        const receivedCell = newRow.querySelector('td:nth-child(5)');
-        newRow.removeChild(receivedCell);
-        
-        tbody.appendChild(newRow);
-        row.remove();
-    }
-
-    // Form submission
-    document.getElementById('saveChanges').addEventListener('click', async function() {
-        const receivedQuantities = {};
-        document.querySelectorAll('.received-qty').forEach(input => {
-            receivedQuantities[input.dataset.lineId] = input.value;
-        });
-
-        const form = document.getElementById('deliveryReceiptForm');
-        form.querySelector('#receivedQuantities').value = JSON.stringify(receivedQuantities);
-
-        try {
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: {
-                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            });
+<script src="{% static 'js/purchases/delivery_receipt_form.js' %}"></script>
 
             if (response.ok) {
                 window.location.href = "{% url 'delivery_receipts' %}";

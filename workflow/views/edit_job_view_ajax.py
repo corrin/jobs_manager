@@ -5,12 +5,13 @@ from django.contrib.auth.decorators import login_required
 from django.forms import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 
 from workflow.enums import JobPricingType, JobPricingStage
 from workflow.helpers import DecimalEncoder, get_company_defaults
-from workflow.models import Job, JobEvent
+from workflow.models import Job, JobEvent, Quote, Invoice
 from workflow.serializers import JobPricingSerializer, JobSerializer
 from workflow.services.file_service import sync_job_folder
 from workflow.services.job_service import (
@@ -118,6 +119,14 @@ def edit_job_view_ajax(request, job_id=None):
     else:
         raise ValueError("Job ID is required to edit a job")
 
+    # Fetch related Quote and Invoice if they exist
+    related_quote = Quote.objects.filter(job=job).first()
+    related_invoice = Invoice.objects.filter(job=job).first()
+    job_quoted = related_quote is not None
+    job_invoiced = related_invoice is not None
+    quote_online_url = related_quote.online_url if related_quote else None
+    invoice_online_url = related_invoice.online_url if related_invoice else None
+
     # Fetch All Job Pricing Revisions for Each Pricing Stage
     historical_job_pricings = get_historical_job_pricings(job)
 
@@ -178,6 +187,14 @@ def edit_job_view_ajax(request, job_id=None):
             # Add to totals
             material_cost_total += cost
             material_revenue_total += revenue
+
+            # Generate PO URL if applicable
+            po_url = None
+            if entry.purchase_order_line and entry.purchase_order_line.purchase_order:
+                try:
+                    po_url = reverse('edit_purchase_order', kwargs={'pk': entry.purchase_order_line.purchase_order.id})
+                except Exception as e:
+                    logger.error(f"Error generating PO URL for material entry {entry.id}: {e}")
             
             # Create entry object
             material_entries.append({
@@ -188,6 +205,7 @@ def edit_job_view_ajax(request, job_id=None):
                 'revenue': revenue,
                 'unit_cost': unit_cost,
                 'unit_revenue': unit_revenue,
+                'po_url': po_url,  # <-- Add the PO URL here
             })
         
         # Assign with prefixed keys
@@ -268,10 +286,10 @@ def edit_job_view_ajax(request, job_id=None):
         "job": job,
         "job_id": job.id,
         "events": events,
-        "quoted": job.quoted,
-        "invoiced": job.invoiced,
-        "quote_url": job.quote.online_url if job.quoted else None,
-        "invoice_url": job.invoice.online_url if job.invoiced else None,
+        "quoted": job_quoted,
+        "invoiced": job_invoiced,
+        "quote_url": quote_online_url,
+        "invoice_url": invoice_online_url,
         "client_name": job.client.name if job.client else "No Client",
         "created_at": job.created_at.isoformat(),
         "complex_job": job.complex_job,

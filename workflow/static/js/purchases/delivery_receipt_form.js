@@ -1,328 +1,186 @@
-/**
- * Delivery Receipt Form Handling
- * 
- * Uses AG Grid for line items management, focusing on received quantities
- */
-
-import { renderMessages } from './messages.js';
-import { updateJobsList } from './job_section.js';
-import { updateSummarySection } from './summary.js';
-
-// Track autosave state
-let lastAutosaveSuccess = true;
-
-// Helper function to convert status code to display name
-function getStatusDisplay(status) {
-    const statusMap = {
-        'draft': 'Draft',
-        'submitted': 'Submitted to Supplier',
-        'partially_received': 'Partially Received',
-        'fully_received': 'Fully Received',
-        'void': 'Voided'
-    };
-    return statusMap[status] || status;
-}
-
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded');
+    // Select All checkboxes
+    const selectAllPending = document.getElementById('selectAllPending');
+    const selectAllReceived = document.getElementById('selectAllReceived');
+    // Removed static NodeList declarations for pendingCheckboxes and receivedCheckboxes
     
-    // Parse JSON data
-    const jobsDataElement = document.getElementById('jobs-data');
-    const lineItemsDataElement = document.getElementById('line-items-data');
-    const purchaseOrderDataElement = document.getElementById('purchase-order-data');
+    selectAllPending.addEventListener('change', function() {
+        // Query dynamically inside the handler
+        document.querySelectorAll('#pendingItems .line-checkbox').forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
     
-    // Store data globally
-    window.purchaseData = {
-        jobs: jobsDataElement ? JSON.parse(jobsDataElement.textContent) : [],
-        lineItems: lineItemsDataElement ? JSON.parse(lineItemsDataElement.textContent) : [],
-        purchaseOrder: purchaseOrderDataElement ? JSON.parse(purchaseOrderDataElement.textContent) : {}
-    };
-    
-    console.log('Purchase order data loaded:', window.purchaseData);
-    
-    // Initialize grid only if we have the container
-    const gridDiv = document.querySelector('#delivery-receipt-lines-grid');
-    if (!gridDiv) {
-        console.error('Grid container not found');
-        return;
-    }
+    selectAllReceived.addEventListener('change', function() {
+         // Query dynamically inside the handler
+        document.querySelectorAll('#receivedItems .line-checkbox').forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
 
-    // Define grid columns
-    const columnDefs = [
-        {
-            field: 'job_display_name',
-            headerName: 'Job',
-            flex: 2,
-            editable: false
-        },
-        {
-            field: 'description',
-            headerName: 'Description',
-            flex: 2,
-            editable: false
-        },
-        {
-            field: 'quantity',
-            headerName: 'Ordered Qty',
-            flex: 1,
-            editable: false,
-            valueFormatter: params => params.value.toFixed(2)
-        },
-        {
-            field: 'received_quantity',
-            headerName: 'Received Qty',
-            flex: 1,
-            editable: true,
-            valueFormatter: params => params.value.toFixed(2),
-            cellStyle: params => {
-                if (params.value > params.data.quantity) {
-                    return { color: 'red' };
+    // Move Selected buttons
+    document.getElementById('moveSelectedToReceived').addEventListener('click', function() {
+        // Query for currently checked checkboxes in the pending table
+        document.querySelectorAll('#pendingItems .line-checkbox:checked').forEach(checkbox => {
+            const lineId = checkbox.dataset.lineId;
+            const row = checkbox.closest('tr'); // More reliable way to get the row
+            if (row) { // Check if row was found
+                const orderedQtyCell = row.querySelector('td:nth-child(4)'); // Get the specific cell
+                if (orderedQtyCell) { // Check if cell exists
+                    const orderedQty = parseInt(orderedQtyCell.textContent);
+                    moveRowToReceived(row, orderedQty);
+                } else {
+                    console.error('Could not find ordered quantity cell for pending row:', row);
                 }
-                return null;
+            } else {
+                 console.error('Could not find row for checked pending checkbox:', checkbox);
             }
-        },
-        {
-            field: 'unit_cost',
-            headerName: 'Unit Cost',
-            flex: 1,
-            editable: false,
-            valueFormatter: params => params.value ? params.value.toFixed(2) : 'TBC'
-        }
-    ];
+        });
+    });
 
-    // Grid options
-    const gridOptions = {
-        columnDefs: columnDefs,
-        rowData: window.purchaseData.lineItems,
-        defaultColDef: {
-            sortable: true,
-            filter: true,
-            resizable: true,
-        },
-        onCellValueChanged: onCellValueChanged,
-        onGridReady: onGridReady,
-        suppressRowClickSelection: true,
-        rowHeight: 40,
-        domLayout: 'autoHeight'
-    };
+    document.getElementById('moveAllToReceived').addEventListener('click', function() {
+        // Query for all rows in the pending table
+        document.querySelectorAll('#pendingItems tr[data-line-id]').forEach(row => {
+            const lineId = row.dataset.lineId;
+            // No need to check checkbox, move all
+            const orderedQtyCell = row.querySelector('td:nth-child(4)'); // Get the specific cell
+            if (orderedQtyCell) { // Check if cell exists
+                const orderedQty = parseInt(orderedQtyCell.textContent);
+                moveRowToReceived(row, orderedQty);
+            } else {
+                console.error('Could not find ordered quantity cell for pending row:', row);
+            }
+        });
+    });
 
-    // Initialize the grid
-    new agGrid.Grid(gridDiv, gridOptions);
-    window.grid = gridOptions;
+    document.getElementById('moveSelectedToPending').addEventListener('click', function() {
+        // Query for currently checked checkboxes in the received table
+        document.querySelectorAll('#receivedItems .line-checkbox:checked').forEach(checkbox => {
+            const lineId = checkbox.dataset.lineId;
+            const row = checkbox.closest('tr'); // More reliable way to get the row
+            if (row) {
+                moveRowToPending(row);
+            } else {
+                console.error('Could not find row for checked received checkbox:', checkbox);
+            }
+        });
+    });
 
-    // If we have an existing purchase order, populate the form
-    if (window.purchaseData.purchaseOrder && window.purchaseData.purchaseOrder.id) {
-        // Set the purchase order ID
-        document.getElementById('purchase_order_id').value = window.purchaseData.purchaseOrder.id;
-        
-        // Set the PO number
-        if (window.purchaseData.purchaseOrder.po_number) {
-            document.getElementById('po_number').value = window.purchaseData.purchaseOrder.po_number;
-        }
-        
-        // Set the supplier
-        if (window.purchaseData.purchaseOrder.supplier) {
-            document.getElementById('client_id').value = window.purchaseData.purchaseOrder.supplier;
-            document.getElementById('client_name').value = window.purchaseData.purchaseOrder.supplier_name;
-        }
-        
-        // Set the dates
-        if (window.purchaseData.purchaseOrder.order_date) {
-            document.getElementById('order_date').value = window.purchaseData.purchaseOrder.order_date.split('T')[0];
-        }
-        
-        if (window.purchaseData.purchaseOrder.expected_delivery) {
-            document.getElementById('expected_delivery').value = window.purchaseData.purchaseOrder.expected_delivery.split('T')[0];
-        }
-        
-        if (window.purchaseData.purchaseOrder.status) {
-            document.getElementById('status').value = window.purchaseData.purchaseOrder.status;
-        }
-    }
+    document.getElementById('moveAllToPending').addEventListener('click', function() {
+        // Query for all rows in the received table
+        document.querySelectorAll('#receivedItems tr[data-line-id]').forEach(row => {
+            const lineId = row.dataset.lineId;
+            // No need to check checkbox, move all
+            moveRowToPending(row);
+        });
+    });
 
-    // Set up the submit button handler
-    const submitButton = document.getElementById('submit-delivery-receipt');
-    if (submitButton) {
-        submitButton.addEventListener('click', handleSubmit);
-    }
-
-    // Initialize the jobs list
-    updateJobsList(window.purchaseData.jobs);
-});
-
-/**
- * Handle cell value changes in the grid
- */
-function onCellValueChanged(event) {
-    const data = event.data;
-    const field = event.column.colId;
-    
-    if (field === 'received_quantity') {
-        const receivedQty = parseFloat(event.newValue) || 0;
-        const orderedQty = parseFloat(data.quantity);
-        
-        // Validate received quantity
-        if (receivedQty < 0) {
-            event.api.refreshCells({
-                rowNodes: [event.node],
-                columns: ['received_quantity'],
-                force: true
-            });
+    // Helper functions
+    function moveRowToReceived(row, orderedQty) {
+        const tbody = document.getElementById('receivedItems');
+        // Check if the row is already in the target table (prevent infinite loops if clicked fast)
+        if (tbody.querySelector(`tr[data-line-id="${row.dataset.lineId}"]`)) {
+            console.warn(`Row ${row.dataset.lineId} already in receivedItems. Skipping move.`);
             return;
         }
+        const newRow = row.cloneNode(true);
         
-        // Update the data
-        data.received_quantity = receivedQty;
+        // Add received quantity input
+        const receivedCell = document.createElement('td');
+        receivedCell.innerHTML = `<input type="number" class="form-control form-control-sm received-qty"
+                                       value="${orderedQty}" min="0" max="${orderedQty}"
+                                       data-line-id="${row.dataset.lineId}">`;
         
-        // Update summary section
-        updateSummarySection(window.purchaseData.lineItems);
-    }
-}
-
-/**
- * Handle grid ready event
- */
-function onGridReady(event) {
-    // Auto-size columns to fit content
-    event.api.sizeColumnsToFit();
-    
-    // Update summary section
-    updateSummarySection(window.purchaseData.lineItems);
-}
-
-/**
- * Handle form submission
- */
-async function handleSubmit() {
-    const submitButton = document.getElementById('submit-delivery-receipt');
-    const messagesContainer = document.getElementById('delivery-receipt-messages');
-    
-    try {
-        // Disable submit button
-        submitButton.disabled = true;
-        
-        // Collect data
-        const data = collectDeliveryReceiptData();
-        
-        // Validate data
-        if (!validateDeliveryReceiptData(data)) {
-            throw new Error('Invalid data. Please check the received quantities.');
-        }
-        
-        // Submit data
-        const response = await submitDeliveryReceiptData(data);
-        
-        if (response.success) {
-            // Show success message
-            renderMessages(messagesContainer, [{
-                type: 'success',
-                message: 'Delivery receipt completed successfully.'
-            }]);
-            
-            // Redirect after a short delay
-            setTimeout(() => {
-                window.location.href = response.redirect_url;
-            }, 1500);
+        // Insert after the "Ordered" cell
+        const orderedCell = newRow.querySelector('td:nth-child(4)');
+        if (orderedCell) { // Ensure ordered cell exists before inserting
+             newRow.insertBefore(receivedCell, orderedCell.nextSibling);
         } else {
-            throw new Error(response.error || 'Failed to complete delivery receipt.');
+             console.error('Could not find 4th cell (ordered qty) in row to insert after:', newRow);
+             // Fallback: append to end? Or handle error differently?
+             newRow.appendChild(receivedCell);
         }
-    } catch (error) {
-        console.error('Error submitting delivery receipt:', error);
-        renderMessages(messagesContainer, [{
-            type: 'error',
-            message: error.message
-        }]);
-    } finally {
-        // Re-enable submit button
-        submitButton.disabled = false;
+                
+        tbody.appendChild(newRow);
+        row.remove();
     }
-}
 
-/**
- * Collect all data from the delivery receipt form and grid
- */
-function collectDeliveryReceiptData() {
-    const purchaseOrderId = document.getElementById('purchase_order_id').value;
-    
-    // Collect line items from the grid
-    const lineItems = [];
-    if (window.grid) {
-        window.grid.api.forEachNode(node => {
-            lineItems.push({
-                id: node.data.id,
-                received_quantity: node.data.received_quantity
-            });
-        });
+    function moveRowToPending(row) {
+        const tbody = document.getElementById('pendingItems');
+         // Check if the row is already in the target table (prevent infinite loops if clicked fast)
+        if (tbody.querySelector(`tr[data-line-id="${row.dataset.lineId}"]`)) {
+            console.warn(`Row ${row.dataset.lineId} already in pendingItems. Skipping move.`);
+            return;
+        }
+        const newRow = row.cloneNode(true);
+        // Remove received quantity cell (should be 5th cell in received table row)
+        const receivedCell = newRow.querySelector('td:nth-child(5)');
+        if (receivedCell && receivedCell.querySelector('.received-qty')) { // Check it's the correct cell
+             newRow.removeChild(receivedCell);
+        } else {
+             console.warn('Could not find 5th cell (received qty) to remove, or it was already removed:', newRow);
+        }
+                
+        tbody.appendChild(newRow);
+        row.remove();
     }
-    
-    return {
-        purchase_order_id: purchaseOrderId,
-        line_items: lineItems
-    };
-}
 
-/**
- * Validate the delivery receipt data
- */
-function validateDeliveryReceiptData(data) {
-    if (!data.purchase_order_id) {
-        throw new Error('Purchase order ID is required.');
-    }
-    
-    if (!data.line_items || data.line_items.length === 0) {
-        throw new Error('No line items found.');
-    }
-    
-    // Check if any received quantities are invalid
-    for (const item of data.line_items) {
-        const lineItem = window.purchaseData.lineItems.find(li => li.id === item.id);
-        if (!lineItem) continue;
+    // Store all line IDs initially present
+    const allLineIds = new Set();
+    document.querySelectorAll('#pendingItems tr[data-line-id], #receivedItems tr[data-line-id]').forEach(row => {
+        allLineIds.add(row.dataset.lineId);
+    });
+
+    // Form submission
+    document.getElementById('saveChanges').addEventListener('click', async function() {
+        const receivedQuantities = {};
         
-        if (item.received_quantity < 0) {
-            throw new Error('Received quantity cannot be negative.');
-        }
-        
-        if (item.received_quantity > lineItem.quantity) {
-            throw new Error(`Received quantity cannot exceed ordered quantity for item: ${lineItem.description}`);
-        }
-    }
-    
-    return true;
-}
-
-/**
- * Submit the delivery receipt data to the server
- */
-async function submitDeliveryReceiptData(data) {
-    const form = document.getElementById('delivery-receipt-submit-form');
-    const formData = new FormData(form);
-    
-    // Add the data to the form
-    formData.append('purchase_order_data', JSON.stringify(data));
-    
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': getCsrfToken()
+        allLineIds.forEach(lineId => {
+            const receivedRow = document.querySelector(`#receivedItems tr[data-line-id="${lineId}"]`);
+            // Correct logic for saveChanges starts here:
+            if (receivedRow) {
+                const input = receivedRow.querySelector('.received-qty');
+                if (input) {
+                    receivedQuantities[lineId] = input.value;
+                } else {
+                    // Should not happen if row is in received, but good to handle
+                    console.warn(`Missing quantity input for received line ID: ${lineId}`);
+                    receivedQuantities[lineId] = 0;
+                }
+            } else {
+                // If the row is not in receivedItems, it must be in pendingItems (or was never moved)
+                // Its received quantity should be 0
+                receivedQuantities[lineId] = 0;
             }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Error submitting data:', error);
-        throw error;
-    }
-}
+            // Correct logic for saveChanges ends here.
+        }); // This }); corresponds to the forEach starting on line 307
 
-/**
- * Get the CSRF token from the page
- */
-function getCsrfToken() {
-    return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-} 
+        const form = document.getElementById('deliveryReceiptForm');
+        // Get CSRF token from the hidden input in the main form
+        const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value; 
+        form.querySelector('#receivedQuantities').value = JSON.stringify(receivedQuantities);
+
+        try {
+            // Use the current URL as the action if form.action is not set
+            const formAction = form.action || window.location.href;
+            const response = await fetch(formAction, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-CSRFToken': csrfToken // Use the retrieved token
+                }
+            });
+
+            if (response.ok) {
+                // TODO: This URL should ideally be passed from the template, not hardcoded.
+                window.location.href = "/delivery-receipts/"; 
+            } else {
+                const data = await response.json();
+                alert(data.error || 'An error occurred while saving the delivery receipt.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while saving the delivery receipt.');
+        }
+    });
+});

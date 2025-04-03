@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
-    name: str = models.CharField(max_length=100, null=False, blank=False)
+    name = models.CharField(max_length=100, null=False, blank=False)
 
-    id: uuid.UUID = models.UUIDField(
+    id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
     )
 
@@ -55,24 +55,24 @@ class Job(models.Model):
         null=True,
         related_name="jobs",  # Allows reverse lookup of jobs for a client
     )
-    order_number: str | None = models.CharField(
+    order_number = models.CharField(
         max_length=100, null=True, blank=True
     )
-    contact_person: str | None = models.CharField(
+    contact_person = models.CharField(
         max_length=100, null=True, blank=True
     )
-    contact_phone: str | None = models.CharField(
+    contact_phone = models.CharField(
         max_length=15,
         null=True,
         blank=True,
     )
-    job_number: int = models.IntegerField(unique=True)  # Job 1234
-    material_gauge_quantity: str = models.TextField(
+    job_number = models.IntegerField(unique=True)  # Job 1234
+    material_gauge_quantity = models.TextField(
         blank=True,
         null=True,
         help_text="DEPRECATED - Use notes field instead. Content will be automatically migrated.",
     )
-    description: str = models.TextField(
+    description = models.TextField(
         blank=True,
         null=True,
         help_text="This becomes the first line item on the invoice",
