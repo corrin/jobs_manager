@@ -6,6 +6,9 @@ import logging
 from workflow.models.purchase import PurchaseOrder, PurchaseOrderLine
 from workflow.models.stock import Stock
 from workflow.models.job import JobPricing
+from workflow.models.material_entry import MaterialEntry
+from workflow.models.company_defaults import CompanyDefaults
+from workflow.enums import JobPricingStage
 
 logger = logging.getLogger(__name__)
 
@@ -53,42 +56,101 @@ def process_delivery_receipt(purchase_order_id: str, received_quantities: dict) 
                 logger.debug(f"Updating line item {line_id} with received quantity {received_qty}")
                 line.received_quantity = received_qty
                 line.save()
+
+                # --- Handle Job Pricing (MaterialEntry) ---
+                existing_material_entry = None # Initialize
+                if line.job:
+                    # Get the 'reality' pricing for the job
+                    try:
+                        reality_pricing = JobPricing.objects.get(
+                            job=line.job,
+                            pricing_stage=JobPricingStage.REALITY
+                        )
+                    except JobPricing.DoesNotExist:
+                        logger.error(f"CRITICAL: 'Reality' JobPricing not found for job {line.job.id} while processing PO {purchase_order.po_number}, line {line.id}. Cannot modify material cost.")
+                        raise ValueError(f"Reality pricing missing for job {line.job.id}")
+
+                    # Find existing MaterialEntry for this PO line on this job
+                    existing_material_entry = MaterialEntry.objects.filter(
+                        job_pricing=reality_pricing,
+                        purchase_order_line=line
+                    ).first()
+
+                    if received_qty > 0:
+                        # Create or update MaterialEntry
+                        if existing_material_entry:
+                            logger.debug(f"Updating existing MaterialEntry for line {line_id} on job {line.job.id}")
+                            existing_material_entry.quantity = received_qty
+                            existing_material_entry.description = f"Received: {line.description}" # Keep description updated
+                            existing_material_entry.save()
+                        else:
+                            logger.debug(f"Creating new MaterialEntry for line {line_id} on job {line.job.id}")
+                            # Fetch company defaults to apply markup
+                            defaults = CompanyDefaults.get_instance()
+                            markup_multiplier = Decimal("1.0") + defaults.materials_markup
+                            default_unit_revenue = (line.unit_cost * markup_multiplier).quantize(Decimal("0.01"))
+                            
+                            # Create the MaterialEntry and store it for potential stock check later
+                            existing_material_entry = MaterialEntry.objects.create(
+                                job_pricing=reality_pricing,
+                                description=f"Received: {line.description}",
+                                quantity=received_qty,
+                                unit_cost=line.unit_cost,
+                                unit_revenue=default_unit_revenue, # Set default revenue with markup
+                                item_code=line.item_code,
+                                purchase_order_line=line # Link to the PurchaseOrderLine
+                            )
+                    elif existing_material_entry:
+                        # Received quantity is 0, remove the existing MaterialEntry
+                        logger.debug(f"Received quantity is 0 for line {line_id}. Deleting existing MaterialEntry on job {line.job.id}")
+                        existing_material_entry.delete()
+                        existing_material_entry = None # Clear it as it's deleted
+
+                else: # No associated job
+                    logger.warning(f"Line item {line_id} has no associated job - skipping job pricing")
+
+
+                # --- Handle Stock Entry ---
+                # TODO: Refine stock handling - should we update/delete stock entries if quantity changes or becomes 0?
+                # Current logic: Create stock if received_qty > 0 and no existing Stock entry found for this PO source/description/(job).
                 
-                # Create stock entry
+                should_create_stock = False
                 if received_qty > 0:
-                    logger.debug(f"Creating stock entry for line {line_id}")
-                    # TODO: Need to verify stock model fields and requirements
+                    # Check if a stock entry already exists for this specific receipt context
+                    stock_filter_kwargs = {
+                        "source": "purchase_order",
+                        "source_id": purchase_order.id, # Assuming source_id links to PO Header
+                        "description": line.description,
+                        # Potentially add unit_cost or item_code if needed for uniqueness
+                    }
+                    if line.job:
+                        stock_filter_kwargs["job"] = line.job
+                    else:
+                        stock_filter_kwargs["job__isnull"] = True # Explicitly check for no job
+
+                    if not Stock.objects.filter(**stock_filter_kwargs).exists():
+                        should_create_stock = True
+
+                if should_create_stock:
+                    logger.debug(f"Creating stock entry for line {line_id} (Job: {line.job.id if line.job else 'None'})")
                     logger.warning("Stock creation needs verification of model fields and requirements")
                     Stock.objects.create(
-                        job=line.job,
+                        job=line.job, # Will be None if no job
                         description=line.description,
                         quantity=received_qty,
                         unit_cost=line.unit_cost,
                         date=timezone.now(),
                         source="purchase_order",
-                        source_id=purchase_order.id,
+                        source_id=purchase_order.id, # Link to PO Header
+                        # Consider linking to PO Line ID as well if needed for uniqueness/tracking
                         notes=f"Received from PO {purchase_order.po_number}"
                     )
-                    
-                    # Add to job's reality pricing
-                    if line.job:
-                        logger.debug(f"Adding expense to job {line.job.id} for line {line_id}")
-                        # TODO: Need to verify job pricing model fields and requirements
-                        logger.warning("Job pricing creation needs verification of model fields and requirements")
-                        JobPricing.objects.create(
-                            job=line.job,
-                            category="material",
-                            description=f"Received: {line.description}",
-                            quantity=received_qty,
-                            unit_cost=line.unit_cost,
-                            total_cost=received_qty * line.unit_cost,
-                            date=timezone.now(),
-                            source="purchase_order",
-                            source_id=purchase_order.id
-                        )
-                    else:
-                        logger.warning(f"Line item {line_id} has no associated job - skipping job pricing")
-                
+                elif received_qty == 0:
+                     # TODO: Add logic here to find and potentially delete the corresponding Stock entry
+                     # Requires identifying the correct stock entry (e.g., using PO line ID if added to Stock model, or the filter args above)
+                     logger.warning(f"Received quantity is 0 for line {line_id}. Corresponding Stock entry might need manual adjustment or deletion.")
+
+
                 total_received += received_qty
                 total_ordered += line.quantity
             

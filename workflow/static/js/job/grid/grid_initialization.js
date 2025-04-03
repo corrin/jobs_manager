@@ -178,7 +178,7 @@ function getSpecificGridOptions(
     case "TimeTable":
       return getTimeTableOptions(section, timeGridOptions);
     case "MaterialsTable":
-      return materialsGridOptions;
+      return getMaterialsTableOptions(section, materialsGridOptions);
     case "AdjustmentsTable":
       return adjustmentsGridOptions;
     default:
@@ -215,6 +215,25 @@ function getTimeTableOptions(section, baseTimeGridOptions) {
     return col;
   });
   return options;
+}
+
+/**
+ * Adjusts MaterialsTable options for "reality" section (non-editable) or normal
+ * @private
+ */
+function getMaterialsTableOptions(section, baseMaterialsGridOptions) {
+  if (section === "reality") {
+    // Create clone to avoid mutating the original
+    const options = JSON.parse(JSON.stringify(baseMaterialsGridOptions));
+    options.columnDefs.forEach((col) => {
+        col.editable = false; // Make all columns non-editable for reality
+    });
+    // Remove columns without a 'field' property (like the trash can column)
+    options.columnDefs = options.columnDefs.filter(col => col.field);
+    return options;
+  }
+  // Normal case (Estimate/Quote) - return base options as is
+  return baseMaterialsGridOptions;
 }
 
 /**

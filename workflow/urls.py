@@ -53,9 +53,9 @@ from workflow.views import (
     time_entry_view,
     time_overview_view,
     workshop_view,
-    xero_view,
     job_management_view,
 )
+from workflow.views.xero import xero_view
 from workflow.views.job_file_view import JobFileView
 from workflow.views.report_view import CompanyProfitAndLossView, ReportsIndexView
 from workflow.views import password_views
@@ -206,6 +206,11 @@ urlpatterns = [
         "api/xero/sync-info/",
         xero_view.get_xero_sync_info,
         name="xero_sync_info",
+    ),
+    path(
+        "api/xero/delete_purchase_order/<uuid:purchase_order_id>",  # <-- New URL
+        xero_view.delete_xero_purchase_order,
+        name="delete_xero_purchase_order",
     ),
     path(
         "api/xero/sync/",
