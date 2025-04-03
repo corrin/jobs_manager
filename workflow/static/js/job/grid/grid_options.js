@@ -468,7 +468,16 @@ export function createAdvancedMaterialsGridOptions(
         field: "description",
         editable: true,
         flex: 2,
-        maxWidth: 335
+        maxWidth: 335,
+        cellRenderer: (params) => {
+          const description = params.value || "No Description";
+          if (params.data && params.data.po_url) {
+            // If po_url exists, render as a link opening in a new tab
+            return `<a href="${params.data.po_url}" target="_blank" class="action-link">${description}</a>`;
+          }
+          // Otherwise, just render the text
+          return description;
+        }
       },
       {
         headerName: "Qtd.",
@@ -663,9 +672,18 @@ export function createSimpleMaterialsGridOptions(
       {
         headerName: "Materials",
         field: "description",
-        editable: false,
+        editable: false, // Keep editable as false for simple view
         flex: 2,
-        maxWidth: 390
+        maxWidth: 390,
+        cellRenderer: (params) => {
+          const description = params.value || "No Description";
+          if (params.data && params.data.po_url) {
+            // If po_url exists, render as a link opening in a new tab
+            return `<a href="${params.data.po_url}" target="_blank" class="action-link">${description}</a>`;
+          }
+          // Otherwise, just render the text
+          return description;
+        }
       },
       {
         headerName: "Cost ($)",

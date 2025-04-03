@@ -18,9 +18,10 @@ from .job_event import JobEvent
 from .job_file import JobFile
 from .job_pricing import JobPricing, QuotePricing
 from .material_entry import MaterialEntry
-from .purchase import PurchaseOrder, PurchaseOrderLine, Purchase, PurchaseLine
+from .purchase import PurchaseOrder, PurchaseOrderLine 
 from .quote import Quote
 from .staff import StaffManager, Staff
+from .stock import Stock
 from .time_entry import TimeEntry
 from .xero_account import XeroAccount
 from .xero_journal import XeroJournal, XeroJournalLineItem
@@ -47,11 +48,10 @@ __all__ = [
     "MaterialEntry",
     "PurchaseOrder",
     "PurchaseOrderLine",
-    "Purchase",
-    "PurchaseLine",
     "Quote",
     "StaffManager",
     "Staff",
+    "Stock",
     "TimeEntry",
     "XeroAccount",
     "XeroJournal",

@@ -10,7 +10,11 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid"
+     id="deliveryReceiptContainer"
+     data-stock-holding-job-id="{{ stock_holding_job_id|default:'' }}"
+     data-stock-holding-job-name="{{ stock_holding_job_name|default:'Stock Holding Job' }}"
+     data-job-list="{{ job_list_json|escapejs }}"> {# Add job list data #}
     {% csrf_token %}
     <div class="row mb-4">
         <div class="col">
@@ -67,14 +71,14 @@
                         </tr>
                     </thead>
                     <tbody id="pendingItems">
-                        {% for line in purchase_order.lines.all %}
+                        {% for line in purchase_order.po_lines.all %}
                             {% if line.received_quantity < line.quantity %}
                             <tr data-line-id="{{ line.id }}">
                                 <td>
                                     <input type="checkbox" class="form-check-input line-checkbox" 
                                            data-line-id="{{ line.id }}">
                                 </td>
-                                <td>{{ line.job.display_name }}</td>
+                                <td>{{ line.job }}</td>
                                 <td>{{ line.description }}</td>
                                 <td>{{ line.quantity }}</td>
                                 <td>${{ line.unit_cost }}</td>
@@ -116,32 +120,48 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover">
+                <table class="table table-hover allocation-table"> <!-- Add class for styling/JS -->
                     <thead>
                         <tr>
-                            <th style="width: 40px"></th>
+                            <th style="width: 40px"></th> <!-- Checkbox -->
                             <th>Job</th>
                             <th>Description</th>
                             <th>Ordered</th>
-                            <th>Received</th>
+                            <th>Total Received</th> <!-- Renamed -->
+                            <th>Allocation Details</th> <!-- New Column -->
                             <th>Unit Cost</th>
                         </tr>
                     </thead>
                     <tbody id="receivedItems">
-                        {% for line in purchase_order.lines.all %}
+                        {% for line in purchase_order.po_lines.all %}
                             {% if line.received_quantity > 0 %}
-                            <tr data-line-id="{{ line.id }}">
+                            <tr data-line-id="{{ line.id }}" data-ordered-qty="{{ line.quantity }}" data-unit-cost="{{ line.unit_cost }}" data-line-job-id="{{ line.job.id|default:'' }}" data-line-job-name="{{ line.job|default:'None' }}">
                                 <td>
-                                    <input type="checkbox" class="form-check-input line-checkbox" 
+                                    <input type="checkbox" class="form-check-input line-checkbox"
                                            data-line-id="{{ line.id }}">
                                 </td>
-                                <td>{{ line.job.display_name }}</td>
+                                <td>{{ line.job|default:"N/A" }}</td> <!-- Display original job -->
                                 <td>{{ line.description }}</td>
                                 <td>{{ line.quantity }}</td>
                                 <td>
-                                    <input type="number" class="form-control form-control-sm received-qty" 
-                                           value="{{ line.received_quantity }}" min="0" max="{{ line.quantity }}"
-                                           data-line-id="{{ line.id }}">
+                                    <!-- Input for TOTAL received quantity -->
+                                    <input type="number" class="form-control form-control-sm total-received-qty"
+                                           value="{{ line.received_quantity }}" min="0"
+                                           data-line-id="{{ line.id }}" step="any" required>
+                                </td>
+                                <td class="allocation-details-cell">
+                                    <!-- Default display (will be replaced by JS on split) -->
+                                    <div class="default-allocation-display">
+                                        <span class="allocation-summary">
+                                            Allocated: {{ line.received_quantity }} to {{ line.job|default:"Worker Admin" }}
+                                        </span>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary split-allocation-btn ms-2">Split</button>
+                                    </div>
+                                    <!-- Container for dynamic allocation rows (hidden initially) -->
+                                    <div class="allocation-editor" style="display: none;">
+                                        <!-- JS will populate this -->
+                                        <button type="button" class="btn btn-sm btn-success add-allocation-row-btn mb-1">Add Allocation</button>
+                                    </div>
                                 </td>
                                 <td>${{ line.unit_cost }}</td>
                             </tr>
@@ -167,124 +187,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Select All checkboxes
-    const selectAllPending = document.getElementById('selectAllPending');
-    const selectAllReceived = document.getElementById('selectAllReceived');
-    const pendingCheckboxes = document.querySelectorAll('#pendingItems .line-checkbox');
-    const receivedCheckboxes = document.querySelectorAll('#receivedItems .line-checkbox');
-    
-    selectAllPending.addEventListener('change', function() {
-        pendingCheckboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-    });
-    
-    selectAllReceived.addEventListener('change', function() {
-        receivedCheckboxes.forEach(checkbox => {
-            checkbox.checked = this.checked;
-        });
-    });
-
-    // Move Selected buttons
-    document.getElementById('moveSelectedToReceived').addEventListener('click', function() {
-        pendingCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                const lineId = checkbox.dataset.lineId;
-                const row = document.querySelector(`#pendingItems tr[data-line-id="${lineId}"]`);
-                if (row) {
-                    const orderedQty = parseInt(row.querySelector('td:nth-child(4)').textContent);
-                    moveRowToReceived(row, orderedQty);
-                }
-            }
-        });
-    });
-
-    document.getElementById('moveAllToReceived').addEventListener('click', function() {
-        pendingCheckboxes.forEach(checkbox => {
-            checkbox.checked = true;
-            const lineId = checkbox.dataset.lineId;
-            const row = document.querySelector(`#pendingItems tr[data-line-id="${lineId}"]`);
-            if (row) {
-                const orderedQty = parseInt(row.querySelector('td:nth-child(4)').textContent);
-                moveRowToReceived(row, orderedQty);
-            }
-        });
-    });
-
-    document.getElementById('moveSelectedToPending').addEventListener('click', function() {
-        receivedCheckboxes.forEach(checkbox => {
-            if (checkbox.checked) {
-                const lineId = checkbox.dataset.lineId;
-                const row = document.querySelector(`#receivedItems tr[data-line-id="${lineId}"]`);
-                if (row) {
-                    moveRowToPending(row);
-                }
-            }
-        });
-    });
-
-    document.getElementById('moveAllToPending').addEventListener('click', function() {
-        receivedCheckboxes.forEach(checkbox => {
-            checkbox.checked = true;
-            const lineId = checkbox.dataset.lineId;
-            const row = document.querySelector(`#receivedItems tr[data-line-id="${lineId}"]`);
-            if (row) {
-                moveRowToPending(row);
-            }
-        });
-    });
-
-    // Helper functions
-    function moveRowToReceived(row, orderedQty) {
-        const tbody = document.getElementById('receivedItems');
-        const newRow = row.cloneNode(true);
-        
-        // Add received quantity input
-        const receivedCell = document.createElement('td');
-        receivedCell.innerHTML = `<input type="number" class="form-control form-control-sm received-qty" 
-                                       value="${orderedQty}" min="0" max="${orderedQty}"
-                                       data-line-id="${row.dataset.lineId}">`;
-        
-        // Insert after the "Ordered" cell
-        const orderedCell = newRow.querySelector('td:nth-child(4)');
-        newRow.insertBefore(receivedCell, orderedCell.nextSibling);
-        
-        tbody.appendChild(newRow);
-        row.remove();
-    }
-
-    function moveRowToPending(row) {
-        const tbody = document.getElementById('pendingItems');
-        const newRow = row.cloneNode(true);
-        
-        // Remove received quantity cell
-        const receivedCell = newRow.querySelector('td:nth-child(5)');
-        newRow.removeChild(receivedCell);
-        
-        tbody.appendChild(newRow);
-        row.remove();
-    }
-
-    // Form submission
-    document.getElementById('saveChanges').addEventListener('click', async function() {
-        const receivedQuantities = {};
-        document.querySelectorAll('.received-qty').forEach(input => {
-            receivedQuantities[input.dataset.lineId] = input.value;
-        });
-
-        const form = document.getElementById('deliveryReceiptForm');
-        form.querySelector('#receivedQuantities').value = JSON.stringify(receivedQuantities);
-
-        try {
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form),
-                headers: {
-                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            });
+<script src="{% static 'js/purchases/delivery_receipt_form.js' %}"></script>
 
             if (response.ok) {
                 window.location.href = "{% url 'delivery_receipts' %}";

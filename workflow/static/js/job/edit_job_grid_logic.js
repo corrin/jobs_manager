@@ -18,7 +18,7 @@
  *   also included here, as it is required for proper calculation and data refresh.
  *
  * - AG Grid Version Compatibility:
- *   Ensure that changes align with AG Grid version 32.2.1. Be aware of deprecated properties
+ *   Ensure that changes align with AG Grid version 33.0.2. Be aware of deprecated properties
  *   and avoid using older APIs that may not be compatible with this version.
  *
  * Important Notes:

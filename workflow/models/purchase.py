@@ -64,8 +64,8 @@ class PurchaseOrder(models.Model):
         # Generate the next number
         next_number = max(starting_number, int(highest_po) + 1)
         
-        # Return with PO prefix
-        return f"PO-{next_number}"
+        # Return with PO prefix and zero-padding (e.g., PO-0013)
+        return f"PO-{next_number:04d}"
 
     def save(self, *args, **kwargs):
         """Save the model and auto-generate PO number if none exists."""
@@ -76,9 +76,9 @@ class PurchaseOrder(models.Model):
 
     def reconcile(self):
         """Check received quantities against ordered quantities."""
-        for line in self.lines.all():
+        for line in self.po_lines.all():
             total_received = sum(
-                purchase_line.quantity for purchase_line in line.received_lines.all()
+                po_line.quantity for po_line in line.received_lines.all()
             )
             if total_received > line.quantity:
                 return "Over"
@@ -95,7 +95,7 @@ class PurchaseOrderLine(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     purchase_order = models.ForeignKey(
-        PurchaseOrder, on_delete=models.CASCADE, related_name="lines"
+        PurchaseOrder, on_delete=models.CASCADE, related_name="po_lines"
     )
     job = models.ForeignKey(
         "Job",
@@ -116,51 +116,3 @@ class PurchaseOrderLine(models.Model):
         default=0,
         help_text="Total quantity received against this line",
     )
-
-
-class Purchase(models.Model):
-    """Record of materials actually received."""
-
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    supplier = models.ForeignKey(
-        "Client", on_delete=models.PROTECT, related_name="purchases"
-    )
-    purchase_order = models.ForeignKey(
-        PurchaseOrder, on_delete=models.PROTECT, null=True, blank=True
-    )
-    received_date = models.DateField()
-    bill = models.ForeignKey(
-        "Bill",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        help_text="Associated Xero bill once reconciled",
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-
-class PurchaseLine(models.Model):
-    """Records what was actually received against a PO line"""
-
-    purchase = models.ForeignKey(
-        Purchase, on_delete=models.CASCADE, related_name="lines"
-    )
-    po_line = models.ForeignKey(
-        PurchaseOrderLine, on_delete=models.PROTECT, related_name="received_lines"
-    )
-    quantity = models.DecimalField(max_digits=10, decimal_places=2)
-
-    def save(self, *args, **kwargs):
-        # Validate received quantity
-        total_received = (
-            sum(line.quantity for line in self.po_line.received_lines.all())
-            + self.quantity
-        )
-
-        if total_received > self.po_line.quantity:
-            raise ValueError(
-                f"Total received ({total_received}) would exceed "
-                f"ordered quantity ({self.po_line.quantity})"
-            )
-        super().save(*args, **kwargs)

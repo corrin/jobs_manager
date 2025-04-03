@@ -135,6 +135,12 @@
             <div id="simpleRealityAdjustmentsTable" class="ag-theme-alpine price-entry-table hover-lift simple-pricing-table"></div>
         </div>
         <div id="simpleRealityTotalsTable" class="ag-theme-alpine price-entry-table hover-lift totals-table simple-pricing-table"></div>
+        
+        <div class="mt-3">
+            <a href="{% url 'use_stock' %}?job_id={{ job_id }}" class="btn btn-success" target="_blank">
+                <i class="bi bi-plus-circle me-1"></i> Add Stock
+            </a>
+        </div>
     </div>
 
     <div class="table-container">

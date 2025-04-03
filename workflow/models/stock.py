@@ -1,13 +1,16 @@
 from decimal import Decimal
+import uuid
 from django.db import models
 from django.utils import timezone
 import logging
 
+from workflow.enums import MetalType
 from workflow.models.job import Job
 
 logger = logging.getLogger(__name__)
 
 class Stock(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     """
     Model for tracking inventory items.
     Each stock item represents a quantity of material that can be assigned to jobs.
@@ -48,22 +51,57 @@ class Stock(models.Model):
     source = models.CharField(
         max_length=50,
         choices=[
-            ('purchase_order', 'Purchase Order'),
-            ('split', 'Split from another stock item'),
-            ('manual', 'Manual Entry'),
+            ('purchase_order', 'Purchase Order Receipt'),
+            ('split_from_stock', 'Split/Offcut from Stock'),
+            ('manual', 'Manual Adjustment/Stocktake'),
         ],
-        help_text="Source of the stock item"
+        help_text="Origin of this stock item"
     )
-    
-    source_id = models.CharField(
-        max_length=100,
-        help_text="ID of the source item (e.g., PO number)"
+        
+    source_purchase_order_line = models.ForeignKey(
+        'PurchaseOrderLine',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='stock_generated',
+        help_text="The PO line this stock originated from (if source='purchase_order')"
     )
-    
+    source_parent_stock = models.ForeignKey(
+        'self', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='child_stock_splits',
+        help_text="The parent stock item this was split from (if source='split_from_stock')"
+    )
+    location = models.TextField(
+        blank=True,
+        help_text="Where we are keeping this"
+    )
     notes = models.TextField(
         blank=True,
         help_text="Additional notes about the stock item"
     )
+    metal_type = models.CharField(
+        max_length=100,
+        choices=MetalType.choices,
+        default=MetalType.UNSPECIFIED,
+        blank=True,
+        help_text="Type of metal"
+    )
+    alloy = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Alloy specification (e.g., 304, 6061)"
+    )
+    specifics = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Specific details (e.g., m8 countersunk socket screw)"
+    )
+    is_active = models.BooleanField(default=True, db_index=True, help_text="False when quantity reaches zero or item is fully consumed/transformed")
     
     # TODO: Add fields for:
     # - Location
@@ -94,42 +132,18 @@ class Stock(models.Model):
         super().save(*args, **kwargs)
         logger.info(f"Saved stock item: {self.description}")
     
-    def split(self, split_quantity: Decimal) -> 'Stock':
+    # Stock holding job name
+    STOCK_HOLDING_JOB_NAME = "Worker Admin"
+    _stock_holding_job = None
+    
+    @classmethod
+    def get_stock_holding_job(cls):
         """
-        Split this stock item into two items.
-        
-        Args:
-            split_quantity: The quantity to split off into a new item
-            
-        Returns:
-            The new stock item created from the split
+        Returns the job designated for holding general stock.
+        This is a utility method to avoid repeating the job lookup across the codebase.
+        Uses a class-level cache to avoid repeated database queries.
         """
-        logger.debug(f"Splitting stock item {self.id} - quantity: {split_quantity}")
-        
-        if split_quantity <= 0:
-            raise ValueError("Split quantity must be positive")
-            
-        if split_quantity >= self.quantity:
-            raise ValueError("Split quantity must be less than current quantity")
-        
-        # Calculate the proportion of the split
-        proportion = split_quantity / self.quantity
-        
-        # Create new stock item
-        new_stock = Stock.objects.create(
-            job=self.job,
-            description=self.description,
-            quantity=split_quantity,
-            unit_cost=self.unit_cost,
-            date=timezone.now(),
-            source='split',
-            source_id=str(self.id),
-            notes=f"Split from stock item {self.id}"
-        )
-        
-        # Update this stock item
-        self.quantity -= split_quantity
-        self.save()
-        
-        logger.info(f"Split stock item {self.id} into {new_stock.id}")
-        return new_stock 
+        if cls._stock_holding_job is None:
+            cls._stock_holding_job = Job.objects.get(name=cls.STOCK_HOLDING_JOB_NAME)
+        return cls._stock_holding_job
+    

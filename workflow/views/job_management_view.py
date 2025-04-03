@@ -17,7 +17,6 @@ def is_staff(user):
     return user.is_staff
 
 
-@login_required
 @user_passes_test(is_staff)
 def month_end_view(request: HttpRequest) -> HttpResponse:
     """

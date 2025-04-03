@@ -47,3 +47,16 @@ class RateType(models.TextChoices):
             self.UNPAID: Decimal("0.0"),
         }
         return multipliers[self]
+
+
+class MetalType(models.TextChoices):
+    STAINLESS_STEEL = "stainless_steel", "Stainless Steel"
+    MILD_STEEL = "mild_steel", "Mild Steel"
+    ALUMINUM = "aluminum", "Aluminum"
+    BRASS = "brass", "Brass"
+    COPPER = "copper", "Copper"
+    TITANIUM = "titanium", "Titanium"
+    ZINC = "zinc", "Zinc"
+    GALVANIZED = "galvanized", "Galvanized"
+    UNSPECIFIED = "unspecified", "Unspecified"
+    OTHER = "other", "Other"

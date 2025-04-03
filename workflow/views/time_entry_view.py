@@ -18,7 +18,7 @@ from workflow.models import Job, Staff, TimeEntry
 from workflow.serializers.time_entry_serializer import (
     TimeEntryForTimeEntryViewSerializer as TimeEntrySerializer,
 )
-from workflow.utils import extract_messages, get_jobs_data, get_excluded_staff
+from workflow.utils import extract_messages, get_jobs_data, get_excluded_staff, get_active_jobs
 
 logger = logging.getLogger(__name__)
 
@@ -167,9 +167,10 @@ class TimesheetEntryView(TemplateView):
             for entry in time_entries
         ]
 
-        open_jobs = Job.objects.filter(
-            status__in=["quoting", "approved", "in_progress", "special"]
-        ).select_related("client", "latest_estimate_pricing", "latest_reality_pricing")
+        # Use the refactored utility function to get active jobs
+        open_jobs = get_active_jobs() # Already includes select_related('client')
+        # Add other select_related if needed specifically here
+        open_jobs = open_jobs.select_related("latest_estimate_pricing", "latest_reality_pricing")
 
         jobs_data = [
             {

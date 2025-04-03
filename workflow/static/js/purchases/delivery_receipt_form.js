@@ -1,328 +1,453 @@
-/**
- * Delivery Receipt Form Handling
- * 
- * Uses AG Grid for line items management, focusing on received quantities
- */
-
-import { renderMessages } from './messages.js';
-import { updateJobsList } from './job_section.js';
-import { updateSummarySection } from './summary.js';
-
-// Track autosave state
-let lastAutosaveSuccess = true;
-
-// Helper function to convert status code to display name
-function getStatusDisplay(status) {
-    const statusMap = {
-        'draft': 'Draft',
-        'submitted': 'Submitted to Supplier',
-        'partially_received': 'Partially Received',
-        'fully_received': 'Fully Received',
-        'void': 'Voided'
-    };
-    return statusMap[status] || status;
-}
-
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded');
-    
-    // Parse JSON data
-    const jobsDataElement = document.getElementById('jobs-data');
-    const lineItemsDataElement = document.getElementById('line-items-data');
-    const purchaseOrderDataElement = document.getElementById('purchase-order-data');
-    
-    // Store data globally
-    window.purchaseData = {
-        jobs: jobsDataElement ? JSON.parse(jobsDataElement.textContent) : [],
-        lineItems: lineItemsDataElement ? JSON.parse(lineItemsDataElement.textContent) : [],
-        purchaseOrder: purchaseOrderDataElement ? JSON.parse(purchaseOrderDataElement.textContent) : {}
-    };
-    
-    console.log('Purchase order data loaded:', window.purchaseData);
-    
-    // Initialize grid only if we have the container
-    const gridDiv = document.querySelector('#delivery-receipt-lines-grid');
-    if (!gridDiv) {
-        console.error('Grid container not found');
-        return;
+    // Get container and stock holding job info (assumed to be provided by template)
+    const container = document.getElementById('deliveryReceiptContainer');
+    const STOCK_HOLDING_JOB_ID = container.dataset.stockHoldingJobId;
+    const STOCK_HOLDING_JOB_NAME = container.dataset.stockHoldingJobName;
+    // Parse the job list from the data attribute
+    let ALLOCATABLE_JOBS = [];
+    try {
+        ALLOCATABLE_JOBS = JSON.parse(container.dataset.jobList || '[]');
+    } catch (e) {
+        console.error("Failed to parse job list data:", e);
+        // Handle error - maybe disable allocation?
     }
 
-    // Define grid columns
-    const columnDefs = [
-        {
-            field: 'job_display_name',
-            headerName: 'Job',
-            flex: 2,
-            editable: false
-        },
-        {
-            field: 'description',
-            headerName: 'Description',
-            flex: 2,
-            editable: false
-        },
-        {
-            field: 'quantity',
-            headerName: 'Ordered Qty',
-            flex: 1,
-            editable: false,
-            valueFormatter: params => params.value.toFixed(2)
-        },
-        {
-            field: 'received_quantity',
-            headerName: 'Received Qty',
-            flex: 1,
-            editable: true,
-            valueFormatter: params => params.value.toFixed(2),
-            cellStyle: params => {
-                if (params.value > params.data.quantity) {
-                    return { color: 'red' };
+    // Select All checkboxes
+    const selectAllPending = document.getElementById('selectAllPending');
+    const selectAllReceived = document.getElementById('selectAllReceived');
+    // Removed static NodeList declarations for pendingCheckboxes and receivedCheckboxes
+    
+    selectAllPending.addEventListener('change', function() {
+        // Query dynamically inside the handler
+        document.querySelectorAll('#pendingItems .line-checkbox').forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+    
+    selectAllReceived.addEventListener('change', function() {
+         // Query dynamically inside the handler
+        document.querySelectorAll('#receivedItems .line-checkbox').forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+    // Move Selected buttons
+    document.getElementById('moveSelectedToReceived').addEventListener('click', function() {
+        // Query for currently checked checkboxes in the pending table
+        document.querySelectorAll('#pendingItems .line-checkbox:checked').forEach(checkbox => {
+            const lineId = checkbox.dataset.lineId;
+            const row = checkbox.closest('tr'); // More reliable way to get the row
+            if (row) { // Check if row was found
+                const orderedQtyCell = row.querySelector('td:nth-child(4)'); // Get the specific cell
+                if (orderedQtyCell) { // Check if cell exists
+                    const orderedQty = parseInt(orderedQtyCell.textContent);
+                    moveRowToReceived(row, orderedQty);
+                } else {
+                    console.error('Could not find ordered quantity cell for pending row:', row);
                 }
-                return null;
+            } else {
+                 console.error('Could not find row for checked pending checkbox:', checkbox);
             }
-        },
-        {
-            field: 'unit_cost',
-            headerName: 'Unit Cost',
-            flex: 1,
-            editable: false,
-            valueFormatter: params => params.value ? params.value.toFixed(2) : 'TBC'
-        }
-    ];
+        });
+    });
 
-    // Grid options
-    const gridOptions = {
-        columnDefs: columnDefs,
-        rowData: window.purchaseData.lineItems,
-        defaultColDef: {
-            sortable: true,
-            filter: true,
-            resizable: true,
-        },
-        onCellValueChanged: onCellValueChanged,
-        onGridReady: onGridReady,
-        suppressRowClickSelection: true,
-        rowHeight: 40,
-        domLayout: 'autoHeight'
-    };
+    document.getElementById('moveAllToReceived').addEventListener('click', function() {
+        // Query for all rows in the pending table
+        document.querySelectorAll('#pendingItems tr[data-line-id]').forEach(row => {
+            const lineId = row.dataset.lineId;
+            // No need to check checkbox, move all
+            const orderedQtyCell = row.querySelector('td:nth-child(4)'); // Get the specific cell
+            if (orderedQtyCell) { // Check if cell exists
+                const orderedQty = parseInt(orderedQtyCell.textContent);
+                moveRowToReceived(row, orderedQty);
+            } else {
+                console.error('Could not find ordered quantity cell for pending row:', row);
+            }
+        });
+    });
 
-    // Initialize the grid
-    new agGrid.Grid(gridDiv, gridOptions);
-    window.grid = gridOptions;
+    document.getElementById('moveSelectedToPending').addEventListener('click', function() {
+        // Query for currently checked checkboxes in the received table
+        document.querySelectorAll('#receivedItems .line-checkbox:checked').forEach(checkbox => {
+            const lineId = checkbox.dataset.lineId;
+            const row = checkbox.closest('tr'); // More reliable way to get the row
+            if (row) {
+                moveRowToPending(row);
+            } else {
+                console.error('Could not find row for checked received checkbox:', checkbox);
+            }
+        });
+    });
 
-    // If we have an existing purchase order, populate the form
-    if (window.purchaseData.purchaseOrder && window.purchaseData.purchaseOrder.id) {
-        // Set the purchase order ID
-        document.getElementById('purchase_order_id').value = window.purchaseData.purchaseOrder.id;
-        
-        // Set the PO number
-        if (window.purchaseData.purchaseOrder.po_number) {
-            document.getElementById('po_number').value = window.purchaseData.purchaseOrder.po_number;
-        }
-        
-        // Set the supplier
-        if (window.purchaseData.purchaseOrder.supplier) {
-            document.getElementById('client_id').value = window.purchaseData.purchaseOrder.supplier;
-            document.getElementById('client_name').value = window.purchaseData.purchaseOrder.supplier_name;
-        }
-        
-        // Set the dates
-        if (window.purchaseData.purchaseOrder.order_date) {
-            document.getElementById('order_date').value = window.purchaseData.purchaseOrder.order_date.split('T')[0];
-        }
-        
-        if (window.purchaseData.purchaseOrder.expected_delivery) {
-            document.getElementById('expected_delivery').value = window.purchaseData.purchaseOrder.expected_delivery.split('T')[0];
-        }
-        
-        if (window.purchaseData.purchaseOrder.status) {
-            document.getElementById('status').value = window.purchaseData.purchaseOrder.status;
-        }
-    }
+    document.getElementById('moveAllToPending').addEventListener('click', function() {
+        // Query for all rows in the received table
+        document.querySelectorAll('#receivedItems tr[data-line-id]').forEach(row => {
+            const lineId = row.dataset.lineId;
+            // No need to check checkbox, move all
+            moveRowToPending(row);
+        });
+    });
 
-    // Set up the submit button handler
-    const submitButton = document.getElementById('submit-delivery-receipt');
-    if (submitButton) {
-        submitButton.addEventListener('click', handleSubmit);
-    }
-
-    // Initialize the jobs list
-    updateJobsList(window.purchaseData.jobs);
-});
-
-/**
- * Handle cell value changes in the grid
- */
-function onCellValueChanged(event) {
-    const data = event.data;
-    const field = event.column.colId;
+    // Helper functions
+    function moveRowToReceived(row, orderedQty) {
+        const tbody = document.getElementById('receivedItems');
+        const lineId = row.dataset.lineId; // Get lineId from original row
     
-    if (field === 'received_quantity') {
-        const receivedQty = parseFloat(event.newValue) || 0;
-        const orderedQty = parseFloat(data.quantity);
-        
-        // Validate received quantity
-        if (receivedQty < 0) {
-            event.api.refreshCells({
-                rowNodes: [event.node],
-                columns: ['received_quantity'],
-                force: true
-            });
+        // Check if the row is already in the target table
+        if (tbody.querySelector(`tr[data-line-id="${lineId}"]`)) {
+            console.warn(`Row ${lineId} already in receivedItems. Skipping move.`);
             return;
         }
-        
-        // Update the data
-        data.received_quantity = receivedQty;
-        
-        // Update summary section
-        updateSummarySection(window.purchaseData.lineItems);
-    }
-}
-
-/**
- * Handle grid ready event
- */
-function onGridReady(event) {
-    // Auto-size columns to fit content
-    event.api.sizeColumnsToFit();
     
-    // Update summary section
-    updateSummarySection(window.purchaseData.lineItems);
-}
-
-/**
- * Handle form submission
- */
-async function handleSubmit() {
-    const submitButton = document.getElementById('submit-delivery-receipt');
-    const messagesContainer = document.getElementById('delivery-receipt-messages');
-    
-    try {
-        // Disable submit button
-        submitButton.disabled = true;
-        
-        // Collect data
-        const data = collectDeliveryReceiptData();
-        
-        // Validate data
-        if (!validateDeliveryReceiptData(data)) {
-            throw new Error('Invalid data. Please check the received quantities.');
+        // Clone the basic row structure (we'll modify cells)
+        const newRow = row.cloneNode(true);
+        // Clear existing content except checkbox cell if needed, or rebuild
+        while (newRow.cells.length > 1) { // Keep checkbox cell
+            newRow.deleteCell(1);
         }
-        
-        // Submit data
-        const response = await submitDeliveryReceiptData(data);
-        
-        if (response.success) {
-            // Show success message
-            renderMessages(messagesContainer, [{
-                type: 'success',
-                message: 'Delivery receipt completed successfully.'
-            }]);
-            
-            // Redirect after a short delay
-            setTimeout(() => {
-                window.location.href = response.redirect_url;
-            }, 1500);
+    
+        // --- Rebuild cells according to the new structure ---
+    
+        // Get data from original row and global stock job constants
+        const originalPoLineJobId = row.dataset.lineJobId || ''; // Use data attributes added in HTML
+        const originalPoLineJobName = row.dataset.lineJobName || ''; // Use data attributes added in HTML
+        const description = row.cells[2].textContent; // Assuming description is 3rd cell in pending
+        const unitCost = row.dataset.unitCost || '0.00'; // Use data attribute
+
+        // Determine the default allocation target
+        const defaultTargetJobId = originalPoLineJobId || STOCK_HOLDING_JOB_ID;
+        const defaultTargetJobName = originalPoLineJobName || STOCK_HOLDING_JOB_NAME;
+    
+        // 2. Job Cell (Display Only - Shows original intended job from PO)
+        const jobCell = newRow.insertCell();
+        jobCell.textContent = originalPoLineJobName || 'N/A'; // Show original PO line job or N/A
+    
+        // 3. Description Cell
+        const descCell = newRow.insertCell();
+        descCell.textContent = description;
+    
+        // 4. Ordered Cell
+        const orderedCell = newRow.insertCell();
+        orderedCell.textContent = orderedQty;
+    
+        // 5. Total Received Cell (Input)
+        const totalReceivedCell = newRow.insertCell();
+        totalReceivedCell.innerHTML = `<input type="number" class="form-control form-control-sm total-received-qty"
+                                              value="${orderedQty}" min="0"
+                                              data-line-id="${lineId}" step="any" required>`; // Default to ordered qty
+    
+        // 6. Allocation Details Cell
+        const allocationCell = newRow.insertCell();
+        allocationCell.classList.add('allocation-details-cell');
+        // Set initial data attribute to store the default allocation
+        const defaultAllocation = [{ jobId: defaultTargetJobId, quantity: orderedQty }];
+        allocationCell.dataset.currentAllocation = JSON.stringify(defaultAllocation);
+
+        allocationCell.innerHTML = `
+            <div class="default-allocation-display">
+                <span class="allocation-summary">
+                    Allocated: ${orderedQty} to ${defaultTargetJobName}
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary split-allocation-btn ms-2">Split</button>
+            </div>
+            <div class="allocation-editor" style="display: none;">
+                 <!-- JS will populate this -->
+                 <div class="allocation-rows-container mb-1"></div> <!-- Container for rows -->
+                 <button type="button" class="btn btn-sm btn-success add-allocation-row-btn">Add Allocation</button>
+            </div>`;
+    
+        // 7. Unit Cost Cell
+        const costCell = newRow.insertCell();
+        costCell.textContent = `$${unitCost}`;
+    
+        // Append the fully constructed row
+        tbody.appendChild(newRow);
+        row.remove(); // Remove original row from pending
+    }
+
+    function moveRowToPending(row) {
+        const tbody = document.getElementById('pendingItems');
+         // Check if the row is already in the target table (prevent infinite loops if clicked fast)
+        if (tbody.querySelector(`tr[data-line-id="${row.dataset.lineId}"]`)) {
+            console.warn(`Row ${row.dataset.lineId} already in pendingItems. Skipping move.`);
+            return;
+        }
+        const newRow = row.cloneNode(true);
+        // Remove received quantity cell (should be 5th cell in received table row)
+        const receivedCell = newRow.querySelector('td:nth-child(5)');
+        if (receivedCell && receivedCell.querySelector('.received-qty')) { // Check it's the correct cell
+             newRow.removeChild(receivedCell);
         } else {
-            throw new Error(response.error || 'Failed to complete delivery receipt.');
+             console.warn('Could not find 5th cell (received qty) to remove, or it was already removed:', newRow);
         }
-    } catch (error) {
-        console.error('Error submitting delivery receipt:', error);
-        renderMessages(messagesContainer, [{
-            type: 'error',
-            message: error.message
-        }]);
-    } finally {
-        // Re-enable submit button
-        submitButton.disabled = false;
+                
+        tbody.appendChild(newRow);
+        row.remove();
     }
-}
 
-/**
- * Collect all data from the delivery receipt form and grid
- */
-function collectDeliveryReceiptData() {
-    const purchaseOrderId = document.getElementById('purchase_order_id').value;
-    
-    // Collect line items from the grid
-    const lineItems = [];
-    if (window.grid) {
-        window.grid.api.forEachNode(node => {
-            lineItems.push({
-                id: node.data.id,
-                received_quantity: node.data.received_quantity
-            });
+    // --- Event Listener for Split Button ---
+    const receivedItemsBody = document.getElementById('receivedItems');
+
+    receivedItemsBody.addEventListener('click', function(event) {
+        if (event.target.classList.contains('split-allocation-btn')) {
+            const button = event.target;
+            const allocationCell = button.closest('.allocation-details-cell');
+            if (!allocationCell) return;
+
+            const defaultDisplay = allocationCell.querySelector('.default-allocation-display');
+            const editor = allocationCell.querySelector('.allocation-editor');
+            const rowsContainer = editor.querySelector('.allocation-rows-container');
+            const currentAllocationData = JSON.parse(allocationCell.dataset.currentAllocation || '[]');
+
+            // Hide default, show editor
+            defaultDisplay.style.display = 'none';
+            editor.style.display = 'block';
+
+            // Populate editor
+            renderAllocationEditor(rowsContainer, currentAllocationData);
+        }
+
+        if (event.target.classList.contains('add-allocation-row-btn')) {
+             const button = event.target;
+             const editor = button.closest('.allocation-editor');
+             const rowsContainer = editor.querySelector('.allocation-rows-container');
+             // Add a new blank row (or based on some logic)
+             addAllocationRow(rowsContainer); // We'll define this next
+        }
+        
+        // Add listener for removing allocation rows later if needed
+        if (event.target.classList.contains('remove-allocation-row-btn')) {
+             event.target.closest('.allocation-row').remove();
+             // Add logic to update total validation if needed
+             addValidationListeners(event.target.closest('.allocation-editor')); // Revalidate on remove
+        }
+    });
+
+    // --- Helper Functions for Allocation Editor ---
+
+    function renderAllocationEditor(container, allocationData) {
+        container.innerHTML = ''; // Clear existing rows
+        if (allocationData.length === 0) {
+            // If no data (shouldn't happen with default), add one blank row
+            addAllocationRow(container);
+        } else {
+            allocationData.forEach(alloc => addAllocationRow(container, alloc.jobId, alloc.quantity));
+        }
+        // Add validation listeners after rendering
+        addValidationListeners(container.closest('.allocation-editor'));
+    }
+
+    function addAllocationRow(container, targetJobId = '', quantity = '') {
+        // TODO: Need a way to get the list of available jobs (including Worker Admin)
+        // This might require passing job list data from the template similar to STOCK_HOLDING_JOB info
+        // Or making an AJAX call. For now, using a placeholder select.
+        
+        
+        // Build job options dynamically from the ALLOCATABLE_JOBS array
+        let jobOptionsHtml = '<option value="">Select Job...</option>';
+        ALLOCATABLE_JOBS.forEach(job => {
+            // Check if this job is the stock holding job to add '(Stock)'
+            const isStockJob = job.id === STOCK_HOLDING_JOB_ID;
+            const displayName = isStockJob ? `${job.name} (Stock)` : job.name;
+            const selectedAttr = job.id === targetJobId ? 'selected' : '';
+            jobOptionsHtml += `<option value="${job.id}" ${selectedAttr}>${displayName}</option>`;
         });
-    }
-    
-    return {
-        purchase_order_id: purchaseOrderId,
-        line_items: lineItems
-    };
-}
+        // --- End Dynamic Options ---
 
-/**
- * Validate the delivery receipt data
- */
-function validateDeliveryReceiptData(data) {
-    if (!data.purchase_order_id) {
-        throw new Error('Purchase order ID is required.');
-    }
-    
-    if (!data.line_items || data.line_items.length === 0) {
-        throw new Error('No line items found.');
-    }
-    
-    // Check if any received quantities are invalid
-    for (const item of data.line_items) {
-        const lineItem = window.purchaseData.lineItems.find(li => li.id === item.id);
-        if (!lineItem) continue;
-        
-        if (item.received_quantity < 0) {
-            throw new Error('Received quantity cannot be negative.');
+        const rowDiv = document.createElement('div');
+        rowDiv.innerHTML = `
+            <div class="col">
+                <select class="form-select form-select-sm allocation-job" required>
+                    ${jobOptionsHtml}
+                </select>
+            </div>
+            <div class="col-auto" style="width: 100px;">
+                <input type="number" class="form-control form-control-sm allocation-qty"
+                       value="${quantity}" min="0" step="any" required>
+            </div>
+            <div class="col-auto">
+                <button type="button" class="btn btn-sm btn-danger remove-allocation-row-btn">&times;</button>
+            </div>
+        `;
+        // Pre-select the job if targetJobId is provided and matches an option
+        const selectElement = rowDiv.querySelector('.allocation-job');
+        if (targetJobId) {
+             // Find the option with the matching value and select it
+             const optionToSelect = Array.from(selectElement.options).find(opt => opt.value === targetJobId);
+             if (optionToSelect) {
+                 optionToSelect.selected = true;
+             } else {
+                 console.warn(`Job ID ${targetJobId} not found in options for allocation row.`);
+                 // Optionally add it dynamically if job list is comprehensive?
+             }
+        } else if (!targetJobId && quantity === '') {
+             // If it's a truly new blank row, maybe default to stock? Or leave blank?
+             // selectElement.value = STOCK_HOLDING_JOB_ID; // Example: Default new rows to stock
         }
-        
-        if (item.received_quantity > lineItem.quantity) {
-            throw new Error(`Received quantity cannot exceed ordered quantity for item: ${lineItem.description}`);
-        }
-    }
-    
-    return true;
-}
 
-/**
- * Submit the delivery receipt data to the server
- */
-async function submitDeliveryReceiptData(data) {
-    const form = document.getElementById('delivery-receipt-submit-form');
-    const formData = new FormData(form);
+
+        container.appendChild(rowDiv);
+        // Add listener to the new quantity input
+        const newQtyInput = rowDiv.querySelector('.allocation-qty');
+        if(newQtyInput) {
+            newQtyInput.addEventListener('input', () => addValidationListeners(container.closest('.allocation-editor')));
+        }
+    }
     
-    // Add the data to the form
-    formData.append('purchase_order_data', JSON.stringify(data));
-    
-    try {
-        const response = await fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': getCsrfToken()
+    function addValidationListeners(editorElement) {
+        const row = editorElement.closest('tr');
+        if (!row) return; // Exit if row not found
+        const totalReceivedInput = row.querySelector('.total-received-qty');
+        if (!totalReceivedInput) return; // Exit if total input not found
+
+        const validateAllocations = () => {
+            let allocatedSum = 0;
+            editorElement.querySelectorAll('.allocation-qty').forEach(input => {
+                allocatedSum += parseFloat(input.value || 0);
+            });
+            
+            const totalReceived = parseFloat(totalReceivedInput.value || 0);
+            const saveButton = document.getElementById('saveChanges'); // Get save button
+            
+            // Simple visual feedback - could be enhanced
+            if (Math.abs(allocatedSum - totalReceived) > 0.001) { // Allow for floating point issues
+                 editorElement.classList.add('is-invalid'); // Style the container
+                 if(saveButton) saveButton.disabled = true; // Disable save if invalid
+            } else {
+                 editorElement.classList.remove('is-invalid');
+                 if(saveButton) saveButton.disabled = false; // Enable save if valid
+            }
+            // Update the dataset on the parent cell
+            updateAllocationData(editorElement.closest('.allocation-details-cell'));
+        };
+
+        // Remove previous listeners to avoid duplicates if re-rendering
+        totalReceivedInput.removeEventListener('input', validateAllocations);
+        totalReceivedInput.addEventListener('input', validateAllocations);
+        
+        editorElement.querySelectorAll('.allocation-qty').forEach(input => {
+            input.removeEventListener('input', validateAllocations);
+            input.addEventListener('input', validateAllocations);
+        });
+        // Initial validation run
+        validateAllocations();
+    }
+
+    function updateAllocationData(allocationCell) {
+        if (!allocationCell) return;
+        const editor = allocationCell.querySelector('.allocation-editor');
+        if (!editor || editor.style.display === 'none') {
+            // If editor isn't visible, data comes from default (already set)
+            // Or maybe clear it if we want to force re-split? For now, do nothing.
+            return;
+        }
+
+        const allocationData = [];
+        editor.querySelectorAll('.allocation-row').forEach(row => {
+            const jobSelect = row.querySelector('.allocation-job');
+            const qtyInput = row.querySelector('.allocation-qty');
+            if (jobSelect && qtyInput && jobSelect.value && parseFloat(qtyInput.value || 0) > 0) {
+                allocationData.push({
+                    jobId: jobSelect.value,
+                    quantity: parseFloat(qtyInput.value)
+                });
             }
         });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        return await response.json();
-    } catch (error) {
-        console.error('Error submitting data:', error);
-        throw error;
+        allocationCell.dataset.currentAllocation = JSON.stringify(allocationData);
+        // Update the summary span as well?
+        // const summarySpan = allocationCell.querySelector('.allocation-summary');
+        // if(summarySpan) summarySpan.textContent = `Split (${allocationData.length} allocations)`;
     }
-}
 
-/**
- * Get the CSRF token from the page
- */
-function getCsrfToken() {
-    return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
-} 
+    // --- End Helper Functions ---
+
+    // Store all line IDs initially present
+    const allLineIds = new Set();
+    document.querySelectorAll('#pendingItems tr[data-line-id], #receivedItems tr[data-line-id]').forEach(row => {
+        allLineIds.add(row.dataset.lineId);
+    });
+
+    // Form submission
+    document.getElementById('saveChanges').addEventListener('click', async function(event) {
+        event.preventDefault(); // Prevent default form submission
+        const lineAllocationsData = {};
+
+        // Clear previous validation states potentially set by backend errors later
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+
+        allLineIds.forEach(lineId => {
+            const receivedRow = document.querySelector(`#receivedItems tr[data-line-id="${lineId}"]`);
+            
+            if (receivedRow) {
+                const totalReceivedInput = receivedRow.querySelector('.total-received-qty');
+                const totalReceived = parseFloat(totalReceivedInput.value || 0);
+                const allocationCell = receivedRow.querySelector('.allocation-details-cell');
+                
+                // Ensure latest allocation data is stored in the dataset before reading
+                updateAllocationData(allocationCell);
+                const currentAllocations = JSON.parse(allocationCell.dataset.currentAllocation || '[]');
+
+                lineAllocationsData[lineId] = {
+                    total_received: totalReceived,
+                    allocations: currentAllocations
+                };
+
+            } else {
+                // Line is still in pending
+                lineAllocationsData[lineId] = {
+                    total_received: 0,
+                    allocations: []
+                };
+            }
+        });
+
+        // Basic check if any allocation data was generated (optional)
+        if (Object.keys(lineAllocationsData).length === 0) {
+             console.warn("No allocation data found to submit.");
+             // Maybe alert the user?
+             return;
+        }
+
+        // Proceed with submission - Backend will handle validation
+        const form = document.getElementById('deliveryReceiptForm');
+        const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]').value;
+        const hiddenInput = form.querySelector('#receivedQuantities'); // Find the original input
+        
+        // Ensure the hidden input exists before modifying
+        if (hiddenInput) {
+            hiddenInput.name = 'line_allocations'; // Rename input
+            hiddenInput.value = JSON.stringify(lineAllocationsData);
+        } else {
+            console.error("Hidden input field '#receivedQuantities' not found!");
+            alert("Error preparing form data. Cannot save."); // Inform user
+            return;
+        }
+
+        // Disable save button during submission
+        event.target.disabled = true;
+        event.target.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+
+        try {
+            // Use the current URL as the action if form.action is not set
+            const formAction = form.action || window.location.href;
+            const response = await fetch(formAction, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-CSRFToken': csrfToken // Use the retrieved token
+                }
+            });
+
+            if (response.ok) {
+                // TODO: This URL should ideally be passed from the template, not hardcoded.
+                window.location.href = "/delivery-receipts/"; 
+            } else {
+                const data = await response.json();
+                alert(data.error || 'An error occurred while saving the delivery receipt.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while saving the delivery receipt.');
+        }
+    });
+});
