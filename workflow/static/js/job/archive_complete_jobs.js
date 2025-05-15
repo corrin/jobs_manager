@@ -2,7 +2,7 @@
  * Archive Complete Jobs Grid Management
  * Manages the interface for archiving completed jobs
  */
-import { renderMessages } from '../timesheet/timesheet_entry/messages.js';
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js";
 
 // State management
 let availableJobs = [];

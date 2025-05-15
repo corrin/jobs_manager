@@ -9,7 +9,7 @@ from workflow.enums import JobPricingStage
 from workflow.models import JobPricing
 from workflow.serializers.adjustment_entry_serializer import AdjustmentEntrySerializer
 from workflow.serializers.material_entry_serializer import MaterialEntrySerializer
-from workflow.serializers.time_entry_serializer import (
+from timesheet.serializers import (
     TimeEntryForJobPricingSerializer as TimeEntrySerializer,
 )
 

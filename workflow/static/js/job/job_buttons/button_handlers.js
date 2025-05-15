@@ -19,7 +19,6 @@ import {
   calculateTotalCost,
   calculateTotalRevenue,
 } from "../grid/grid_utils.js";
-import { renderMessages } from "../../timesheet/timesheet_entry/messages.js";
 
 /**
  * Handles all button clicks on the page by identifying which action to trigger

@@ -7,7 +7,7 @@ import {
 } from "./grid/grid_utils.js";
 import { uploadJobFile, checkExistingJobFile } from "./job_file_handling.js";
 import { calculateSimpleTotals } from "./grid/revenue_cost_options.js";
-import { renderMessages } from "../timesheet/timesheet_entry/messages.js";
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js";
 import { debugLog } from "../env.js";
 import { initHistoricalNavigation } from "./historical_pricing_navigation.js";
 

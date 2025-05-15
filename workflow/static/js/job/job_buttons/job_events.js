@@ -1,5 +1,5 @@
 import { addEventToTimeline } from "./button_utils.js";
-import { renderMessages } from "../../timesheet/timesheet_entry/messages.js";
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js";
 
 /**
  * Responsible for saving new job events to the backend and adding the created event to the UI timeline.

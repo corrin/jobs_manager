@@ -1,0 +1,73 @@
+/* General Styles for Timesheet Overview Page */
+
+#timesheet-overview-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.overview-section {
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 20px;
+  background-color: #f9f9f9;
+  height: 400px;
+}
+
+/* Specific Styles for Days, Staff, and Job Overview Sections */
+
+#days-section,
+#staff-section,
+#job-section {
+  position: relative;
+}
+
+h3 {
+  margin-bottom: 10px;
+  font-size: 1.5em;
+  text-align: center;
+}
+
+.loading-message {
+  text-align: center;
+  font-size: 1.2em;
+  color: #777;
+  padding: 20px;
+}
+
+#days-container {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.day-box {
+  border: 1px solid #ccc;
+  padding: 10px;
+  width: calc(14% - 10px); /* Adjust width to fit 7 boxes per row with gap */
+  text-align: center;
+  background-color: #f0f0f0;
+  border-radius: 5px;
+}
+.day-name-link {
+  text-decoration: none;
+  color: #007bff;
+}
+
+/* Chart Container Styles */
+#days-chart,
+#staff-chart,
+#job-chart {
+  width: 100%;
+  height: 300px;
+}
+
+/* Responsive Styling */
+@media (max-width: 768px) {
+  #timesheet-overview-container {
+    grid-template-columns: 1fr;
+  }
+  .overview-section {
+    height: auto;
+  }
+}

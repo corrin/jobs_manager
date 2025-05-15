@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-from workflow.models import TimeEntry
+from timesheet.models import TimeEntry
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-import { renderMessages } from "../../timesheet/timesheet_entry/messages.js";
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js"
 import { capitalize } from "../grid/grid_utils.js";
 
 /**

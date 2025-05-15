@@ -1,5 +1,5 @@
 import { sendQuoteEmail } from "./email_handlers.js";
-import { renderMessages } from "../../timesheet/timesheet_entry/messages.js";
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js"
 
 /**
  * Manages modals that display instructions to users, such as the quote sending modal.

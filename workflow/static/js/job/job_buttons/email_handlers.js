@@ -1,4 +1,4 @@
-import { renderMessages } from "../../timesheet/timesheet_entry/messages.js";
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js"
 
 /**
  * Centralizes all email-related logic, such as sending quotes and opening email clients.

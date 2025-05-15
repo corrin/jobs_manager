@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<!-- AG Grid Styles -->
+<link rel="stylesheet" href="{% static 'ag-grid-styles/ag-theme-alpine.css' %}">
+<link rel="stylesheet" href="{% static 'css/enhanced-grid.css' %}">
+<link rel="stylesheet" href="{% static 'timesheet/css/timesheet-enhanced.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+    <div class="timesheet-daily-header">
+        <h2 class="timesheet-daily-date">Timesheet Entry - {{ staff_member.get_display_full_name }} - {{ timesheet_date }}</h2>
+        
+        <div class="timesheet-daily-controls">
+            <a href="{% url 'timesheet:timesheet_entry' date=timesheet_date staff_id=prev_staff.id %}" class="btn btn-primary">
+                <i class="bi bi-arrow-left me-1"></i>{{ prev_staff.name }}
+            </a>
+            <a href="{% url 'timesheet:timesheet_daily_view' date=timesheet_date %}"
+                class="btn btn-secondary align-self-center">
+                <i class="bi bi-list me-1"></i>Daily Overview
+            </a>
+            <a href="{% url 'timesheet:timesheet_entry' date=timesheet_date staff_id=next_staff.id %}"
+                class="btn btn-primary">
+                {{ next_staff.name }} <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="card keyboard-shortcuts-card mb-3">
+        <div class="card-header" data-bs-toggle="collapse" data-bs-target="#keyboardShortcuts"
+            aria-expanded="false" aria-controls="keyboardShortcuts">
+            <div class="d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-keyboard me-2"></i>Keyboard Shortcuts & <i class="bi bi-lightbulb me-2"></i>Tips</span>
+                <i class="bi bi-chevron-down"></i>
+            </div>
+        </div>
+        <div id="keyboardShortcuts" class="collapse">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <div class="d-flex align-items-center">
+                            <span class="keyboard-shortcut-badge me-2">Shift + Enter</span>
+                            <small>Edit/Confirm cell changes</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="d-flex align-items-center">
+                            <span class="keyboard-shortcut-badge me-2">Enter</span>
+                            <small>Add new row below</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="d-flex align-items-center">
+                            <span class="keyboard-shortcut-badge me-2">Esc</span>
+                            <small>Cancel editing</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <div class="d-flex align-items-center">
+                            <span class="keyboard-shortcut-badge me-2">Tab</span>
+                            <small>Move to next cell</small>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle me-1"></i>Use arrow keys to navigate between cells and within the
+                            jobs dropdown list
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- AG Grid will be initialized here -->
+    <div id="timesheet-grid" class="ag-theme-alpine timesheet-grid">
+    </div>
+
+    <!-- Messages will be loaded here -->
+    <div id="time-entry" class="alert-container mt-3"></div>
+
+    <hr>
+
+    <div class="container-fluid d-flex flex-row gap-2">
+        <!-- Current Jobs Section -->
+        <div class="flex-grow-1" style="flex-basis: 65%">
+            <h4 class="text-center mb-3">Current Jobs</h4>
+            <div id="current-jobs" class="current-jobs-container">
+                <div class="row row-cols-1 g-3 w-100" id="jobs-list">
+                    <!-- Dynamic job cards will be added here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Section -->
+        <div class="flex-grow-1" style="flex-basis: 35%">
+            <h4 class="text-center mb-3">Summary</h4>
+            <div id="summary-section" class="summary-section">
+                <table class="summary-table">
+                    <tr>
+                        <th class="text-center">Category</th>
+                        <th class="text-center">Details</th>
+                    </tr>
+                    </thead>
+                    <tbody id="summary-table-body" class="align-self-center justify-self-center">
+                        <!-- Rows will be dynamically added here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- JSON Data -->
+    <script id="timesheet-date" type="application/json">"{{ timesheet_date|escapejs }}"</script>
+    <script id="jobs-data" type="application/json">
+        {{ jobs_json|safe }}
+    </script>
+    <script id="timesheet-entries-data" type="application/json">
+        {{ timesheet_entries_json|safe }}
+    </script>
+    <script id="staff-data" type="application/json">
+    {{ staff_member_json|safe }}
+    </script>
+
+    <hr>
+
+    {% endblock %}
+
+    {% block extra_js %}
+    <!-- AG Grid Script -->
+    <script src="{% static 'ag-grid-community/ag-grid-community.min.js' %}"></script>
+    <script src="{% static 'timesheet/js/deserialize_timesheet.js' %}"></script>
+    <script type="module" src="{% static 'timesheet/js/timesheet_entry/timesheet_autosave.js' %}"></script>
+    <script type="module" src="{% static 'timesheet/js/timesheet_entry/timesheet_entry.js' %}"></script>
+    {% endblock %}

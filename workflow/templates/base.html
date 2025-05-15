@@ -30,7 +30,7 @@
                             <a class="nav-link {% if request.path == '/create_job/' %}active{% endif %}" href="{% url 'create_job' %}">Create Job</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if '/timesheet/' in request.path %}active{% endif %}" href="{% url 'timesheet_overview' %}">Timesheets</a>
+                            <a class="nav-link {% if '/timesheet/' in request.path %}active{% endif %}" href="{% url 'timesheet:timesheet_overview' %}">Timesheets</a>
                         </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle {% if '/purchase-orders/' in request.path %}active{% endif %}" href="#" id="purchasesMenu" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -150,7 +150,7 @@
     </script>
     <script type="module" src="{% static 'js/env.js' %}"></script>
     <script src="{% static 'js/time_conversion.js' %}"></script>
-    <script type="module" src="{% static 'js/timesheet/timesheet_entry/messages.js' %}"></script>
+    <script type="module" src="{% static 'timesheet/js/timesheet_entry/messages.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>

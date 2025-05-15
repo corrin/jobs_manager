@@ -1,7 +1,7 @@
 import { Environment } from "./env.js";
 import { setupAdvancedSearch } from "./job/advanced_search.js";
 
-import { renderMessages } from "./timesheet/timesheet_entry/messages.js"
+import { renderMessages } from "/static/timesheet/js/timesheet_entry/messages.js"
 
 console.log("kanban.js load started");
 

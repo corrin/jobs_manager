@@ -138,6 +138,8 @@ function loadAdvJobTime(entries) {
     const hours = (entry.total_minutes / 60).toFixed(1);
     const formattedTotalMinutes = `${entry.total_minutes} (${hours} hours)`;
 
+    console.log("[-loadAdvJobTime] entry:", entry);
+
     return {
       description: entry.description,
       items: entry.items,
@@ -150,6 +152,8 @@ function loadAdvJobTime(entries) {
         entry.timesheet_date && entry.staff_id
           ? `/timesheets/day/${entry.timesheet_date}/${entry.staff_id}`
           : "/timesheets/overview/",
+      staff_name:
+        entry.staff_name,
     };
   });
 }

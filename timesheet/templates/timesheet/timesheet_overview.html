@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'timesheet/css/timesheet-enhanced.css' %}">
+{% endblock %}
+
+{% block content %}
+
+<div id="timesheet-overview-container" class="container-fluid mt-4">
+
+    <!-- Modal for Paid Absence -->
+    <div class="modal fade" id="paidAbsenceModal" tabindex="-1" aria-labelledby="paidAbsenceModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paidAbsenceModalLabel">Add Paid Absence</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                <!-- Form will be loaded here through AJAX -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="timesheet-header">
+        <h1 class="timesheet-title">
+            Timesheet Overview
+        </h1>
+        <div class="week-navigation">
+            <div class="btn-group" role="group" aria-label="Week navigation" style="width: 450px;">
+                <a href="{{ prev_week_url }}"
+                    class="btn btn-outline-primary rounded-start-2 d-flex align-items-center justify-content-center week-nav-btn"
+                    style="width: 150px; height: 42px;"
+                    id="prevWeekLink">
+                    <i class="bi bi-chevron-left"></i> Previous Week
+                </a>
+                <button class="btn btn-outline-primary week-nav-btn" data-bs-toggle="modal" data-bs-target="#weekPickerModal"
+                    style="width: 150px; height: 42px;">
+                    <i class="bi bi-calendar2-week me-1"></i>Change Week
+                </button>
+                <a href="{{ next_week_url }}"
+                    class="btn btn-outline-primary rounded-end-2 d-flex align-items-center justify-content-center week-nav-btn"
+                    style="width: 150px; height: 42px;"
+                    id="nextWeekLink">
+                    Next Week <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+            <span id="current-week-display"
+                class="timesheet-date-display">
+                {{ week_days.0|date:"jS F Y" }} - {{ week_days|last|date:"jS F Y" }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Calendar modal -->
+    <div class="modal fade" id="weekPickerModal" tabindex="-1" aria-labelledby="weekPickerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="weekPickerModalLabel">Select a Week</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="week-calendar" class="d-flex flex-column align-items-center">
+                        <!-- Personalized calendar will be generated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-12">
+        <div class="card timesheet-card">
+            <div class="card-header timesheet-card-header d-flex justify-content-between align-items-center">
+                <h5>Weekly Staff Summary</h5>
+                <div class="form-check form-switch d-flex align-items-center">
+                    <input class="form-check-input form-check-input-lg" type="checkbox" role="switch" id="exportToIMS" unchecked>
+                    <label class="form-check-label mx-2 fw-bold form-check-label-lg" for="exportToIMS">
+                        Toggle weekly overview to IMS export
+                    </label>
+                </div>
+            </div>
+            <div class="card-body timesheet-card-body">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-success mt-2 paid-absence-btn" data-bs-toggle="modal"
+                        data-bs-target="#paidAbsenceModal">
+                        <i class="bi bi-plus-circle me-1"></i>Add Paid Absence
+                    </button>
+                    <!-- Messages will be loaded here -->
+                    <div class="alert-container mt-2 flex-shrink-0" style="width: fit-content;"></div>
+                </div>
+                <table class="table table-bordered table-striped" id="overviewTable">
+                    <thead>
+                        <tr>
+                            <th>Staff</th>
+                            {% for day in week_days %}
+                            <th><a href="{% url 'timesheet:timesheet_daily_view' date=day %}" class="animated-link">{{ day|date:"D" }}</a></th>
+                            {% endfor %}
+                            <th>Total</th>
+                            <th>Billable%</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for staff in staff_data %}
+                        <tr>
+                            <td>{{ staff.name }}</td>
+                            {% for day_data in staff.weekly_hours %}
+                            <td>{{ day_data.hours|default:"-" }}
+                                <small class="text-muted">{{ day_data.status }}</small>
+                            </td>
+                            {% endfor %}
+                            <td><strong>{{ staff.total_hours }}</strong></td>
+                            <td><span class="badge bg-primary-subtle text-primary">{{ staff.billable_percentage }}%</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card timesheet-card col-12 mt-5">
+        <div class="card-header timesheet-card-header text-center">
+            <h5>Job Overview - Open Jobs: <span class="badge bg-primary">{{ job_count }}</span></h5>
+        </div>
+        <div class="card-body timesheet-card-body">
+            <div class="container">
+                <div class="text-center">
+                    <div class="d-flex justify-content-center overflow-auto">
+                        <div class="w-150">
+                            {{ graphic|safe }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'timesheet/js/timesheet_overview.js' %}"></script>
+{% endblock %}

@@ -29,7 +29,8 @@ INSTALLED_APPS = [
     "workflow",
     "simple_history",
     "accounts",
-    "rest_framework"
+    "rest_framework",
+    "timesheet"
 ]
 
 CRISPY_TEMPLATE_PACK = "bootstrap5"
@@ -199,8 +200,10 @@ TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [
+            
             os.path.join(BASE_DIR, "workflow/templates"),
             os.path.join(BASE_DIR, "accounts/templates"),
+            os.path.join(BASE_DIR, "timesheet/templates"),
         ],
         "APP_DIRS": True,
         "OPTIONS": {

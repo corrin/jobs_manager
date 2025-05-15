@@ -159,3 +159,4 @@ def get_machine_id(path="/etc/machine-id"):
     except Exception as e:
         logger.error(f"Error reading machine ID file {path}: {e}")
         return None
+    

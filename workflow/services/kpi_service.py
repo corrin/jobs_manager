@@ -18,12 +18,14 @@ from django.utils import timezone
 
 from logging import getLogger
 
-from workflow.models import TimeEntry, CompanyDefaults, Job
+from workflow.models import CompanyDefaults
 from workflow.models.adjustment_entry import AdjustmentEntry
 from workflow.models.material_entry import MaterialEntry
 from workflow.utils import get_nz_tz
 
 from accounts.utils import get_excluded_staff
+
+from timesheet.models import TimeEntry
 
 logger = getLogger(__name__)
 

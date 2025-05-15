@@ -378,6 +378,12 @@ export function createAdvancedTimeGridOptions(
             if (linkLabel === "") {
               return `<span class="text-warning">Not found for this entry.</span>`;
             }
+
+            console.log("[-ADVANCED-GRID-CREATION-]: params data: ", params.data);
+            if (params.data.staff_name) {
+              return `<a href='${params.data.link}' target='_blank' class='action-link'>${linkLabel} (${params.data.staff_name})</a>`;
+            }
+
             return `<a href='${params.data.link}' target='_blank' class='action-link'>${linkLabel}</a>`;
           }
           return "Not found for this entry.";
