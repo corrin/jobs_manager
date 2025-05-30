@@ -45,7 +45,7 @@
             <input type="hidden" id="contact_person_name_hidden" name="contact_person" class="autosave-input" value="{{ job.contact_person|default_if_none:'' }}">
             <input type="hidden" id="contact_person_email_hidden" name="contact_email" class="autosave-input" value="{{ job.contact_email|default_if_none:'' }}">
             
-            <div class="mt-2">
+            <div class="d-none">
                 <button type="button" id="manage_xero_contact_persons_button" class="btn btn-sm btn-outline-secondary" style="display:none;">
                     Add/Edit Contact Persons in Xero
                 </button>

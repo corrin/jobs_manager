@@ -1557,14 +1557,20 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const clientXeroIdField = document.getElementById('client_xero_id');
         if (clientXeroIdField && clientXeroIdField.value) {
-          manageXeroContactsButton.style.display = 'inline-block';
-          manageXeroContactsButton.dataset.xeroContactId = clientXeroIdField.value;
+          const manageOption = new Option("--- Add/Edit Contact Persons in Xero ---", "__XERO_MANAGE_CONTACTS__");
+          manageOption.classList.add('xero-manage-option');
+          
+          contactSelect.appendChild(manageOption);
+          contactSelect.dataset.xeroContactId = clientXeroIdField.value;
         }
+
+        contactSelect.dispatchEvent(new Event('change')); 
       })
       .catch(error => {
         console.error('populateContactPersonDropdown: Error fetching contact persons:', error);
         // Use populateSelectWithOptions for consistent error display
         populateSelectWithOptions(contactSelect, [], () => ({}), 'Error loading contacts', null);
+        contactSelect.dispatchEvent(new Event('change'));
       });
   }
 
@@ -1703,6 +1709,23 @@ document.addEventListener("DOMContentLoaded", function () {
   if (contactSelect) {
       contactSelect.addEventListener('change', function () {
           const selectedOption = this.options[this.selectedIndex];
+
+          if (selectedOption && selectedOption.value === "__XERO_MANAGE_CONTACTS__") {
+            const xeroContactId = this.dataset.xeroContactId;
+            if (xeroContactId) {
+                window.open(`https://go.xero.com/Contacts/View.aspx?contactID=${xeroContactId}`, '_blank');
+            } else {
+                alert('Client Xero ID not found. Please select a client synced with Xero.');
+            }
+
+            this.value = ''; // Reset the select
+            if (contactNameHidden) contactNameHidden.value = '';
+            if (contactEmailHidden) contactEmailHidden.value = '';
+
+            debouncedAutosave();
+            return;
+          }
+
           if (selectedOption && selectedOption.value) {
               contactNameHidden.value = selectedOption.dataset.contactName || selectedOption.text.split(' (')[0]; // Fallback if data-contact-name is not set
               contactEmailHidden.value = selectedOption.value;
