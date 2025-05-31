@@ -1,6 +1,8 @@
 import decimal
 import json
+import logging
 import os
+import uuid
 from decimal import Decimal
 
 from django.conf import settings
@@ -21,6 +23,9 @@ class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, decimal.Decimal):
             return float(obj)
+        elif isinstance(obj, uuid.UUID):
+            logging.error("You found a bug! UUIDs should not be here. UUID: %s", obj)
+            return str(obj)
         return super(DecimalEncoder, self).default(obj)
 
 

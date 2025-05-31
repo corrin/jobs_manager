@@ -380,9 +380,9 @@ class TimesheetOverviewView(TemplateView):
             if has_paid_leave:
                 if leave_entries.count() > 1:
                     logger.warning(f"Multiple leave entries found for {staff_member} on {day}")
-                    leave_type = leave_entries.first().job_pricing.job.name
+                    leave_type = leave_entries.first().part.job_pricing.job.name
                 else:
-                    leave_type = leave_entries.first().job_pricing.job.name
+                    leave_type = leave_entries.first().part.job_pricing.job.name
 
                 leave_hours = sum(entry.hours for entry in leave_entries)
             
@@ -690,7 +690,7 @@ class TimesheetOverviewView(TemplateView):
                 continue
 
             TimeEntry.objects.create(
-                job_pricing=job_pricing,
+                part=job_pricing.get_default_part(),
                 staff=staff_member,
                 date=date,
                 hours=8,
@@ -786,7 +786,7 @@ class TimesheetDailyView(TemplateView):
             )
 
             shop_hours = sum(
-                entry.hours for entry in time_entries if entry.job_pricing.job.shop_job
+                entry.hours for entry in time_entries if entry.part.job_pricing.job.shop_job
             )
 
             missing_hours = (
@@ -831,7 +831,7 @@ class TimesheetDailyView(TemplateView):
                     "alert": alert,
                     "entries": [
                         {
-                            "job_name": entry.job_pricing.job.name,
+                            "job_name": entry.part.job_pricing.job.name,
                             "hours": entry.hours,
                             "is_billable": entry.is_billable,
                         }

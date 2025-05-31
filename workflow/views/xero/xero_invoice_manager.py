@@ -16,7 +16,8 @@ from .xero_helpers import format_date, parse_xero_api_error_message # Assuming f
 # Import models
 from workflow.models import Invoice, Client
 from job.models import Job
-from workflow.enums import InvoiceStatus, JobPricingType
+from workflow.enums import InvoiceStatus
+from job.enums import JobPricingMethodology
 from xero_python.accounting.models import LineItem, Invoice as XeroInvoice
 from xero_python.exceptions import AccountingBadRequestException, ApiException # If specific exceptions handled
 
@@ -66,20 +67,20 @@ class XeroInvoiceManager(XeroDocumentManager):
 
     def get_line_items(self):
         """
-        Generates invoice-specific LineItems based on job pricing type.
+        Generates invoice-specific LineItems based on job pricing method.
         """
         if not self.job:
              raise ValueError("Job is required to generate invoice line items.")
 
-        pricing_type: JobPricingType = self.job.pricing_type
+        pricing_method: JobPricingMethodology = self.job.pricing_methodology
 
-        match pricing_type:
-            case JobPricingType.TIME_AND_MATERIALS:
+        match pricing_method:
+            case JobPricingMethodology.TIME_AND_MATERIALS:
                 return self._get_time_and_materials_line_items()
-            case JobPricingType.FIXED_PRICE:
+            case JobPricingMethodology.FIXED_PRICE:
                 return self._get_fixed_price_line_items()
             case _:
-                raise ValueError(f"Unknown pricing type for job {self.job.id}: {pricing_type}")
+                raise ValueError(f"Unknown pricing method for job {self.job.id}: {pricing_method}")
 
     def _get_time_and_materials_line_items(self):
         """

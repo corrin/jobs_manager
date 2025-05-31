@@ -10,16 +10,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="historicalstaff",
-            name="ims_payroll_id",
-            field=models.CharField(
-                blank=True, db_index=True, max_length=100, null=True
-            ),
-        ),
-        migrations.AlterField(
-            model_name="staff",
-            name="ims_payroll_id",
-            field=models.CharField(blank=True, max_length=100, null=True, unique=True),
+        # Staff models moved to accounts app - these changes are already there
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[],
         ),
     ]

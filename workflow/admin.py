@@ -45,7 +45,9 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
                     "materials_markup",
                     "charge_out_rate",
                     "wage_rate",
-                    "starting_job_number"
+                    "starting_job_number",
+                    "starting_po_number",
+                    "po_prefix"
                 )
             },
         ),
@@ -70,6 +72,15 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
                     ("thu_start", "thu_end"),
                     ("fri_start", "fri_end"),
                 )
+            },
+        ),
+        (
+            "Quote Templates",
+            {
+                "fields": (
+                    "master_quote_template_url",
+                ),
+                "description": "URL to the master Google Sheets quote template that will be duplicated for new quotes.",
             },
         ),
         (

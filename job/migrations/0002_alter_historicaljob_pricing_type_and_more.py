@@ -16,32 +16,8 @@ class Migration(migrations.Migration):
         migrations.SeparateDatabaseAndState(
             database_operations=[],
             state_operations=[
-                migrations.AlterField(
-                    model_name="historicaljob",
-                    name="pricing_type",
-                    field=models.CharField(
-                        choices=[
-                            ("time_materials", "Time and Materials"),
-                            ("fixed_price", "Fixed Price"),
-                        ],
-                        default="time_materials",
-                        help_text="Type of pricing for the job (fixed price or time and materials).",
-                        max_length=20,
-                    ),
-                ),
-                migrations.AlterField(
-                    model_name="job",
-                    name="pricing_type",
-                    field=models.CharField(
-                        choices=[
-                            ("time_materials", "Time and Materials"),
-                            ("fixed_price", "Fixed Price"),
-                        ],
-                        default="time_materials",
-                        help_text="Type of pricing for the job (fixed price or time and materials).",
-                        max_length=20,
-                    ),
-                ),
+                # Remove the problematic pricing_type field alterations
+                # The database already has the correct 'pricing_methodology' field from 0001_initial
                 migrations.CreateModel(
                     name="AdjustmentEntry",
                     fields=[

@@ -14,6 +14,3 @@ fi
 
 # Sync to Google Drive
 rclone copy $BACKUP_DIR gdrive:msm_backups/
-
-# Clean old dailies (keep 30 days)
-find $BACKUP_DIR -name "daily_*" -mtime +30 -delete

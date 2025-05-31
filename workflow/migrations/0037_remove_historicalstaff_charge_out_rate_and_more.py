@@ -13,22 +13,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name="historicalstaff",
-            name="charge_out_rate",
-        ),
-        migrations.RemoveField(
-            model_name="staff",
-            name="charge_out_rate",
-        ),
-        migrations.AlterField(
-            model_name="historicalstaff",
-            name="wage_rate",
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
-        ),
-        migrations.AlterField(
-            model_name="staff",
-            name="wage_rate",
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
+        # Staff models moved to accounts app - these changes are already in accounts.0001_initial
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[],
         ),
     ]

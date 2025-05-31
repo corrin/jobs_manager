@@ -7,7 +7,7 @@ from django.db import models
 from django.db.models import Max
 from simple_history.models import HistoricalRecords  # type: ignore
 
-from job.enums import JobPricingType
+from job.enums import JobPricingType, JobPricingMethodology
 from job.helpers import get_company_defaults
 
 # We say . rather than job.models to avoid going through init,
@@ -26,6 +26,12 @@ class Job(models.Model):
 
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
+    )
+    
+    linked_quote = models.URLField(
+        null=True,
+        blank=True,
+        help_text="URL to a linked Google Sheets quote"
     )
 
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [
@@ -114,10 +120,10 @@ class Job(models.Model):
         )
     )
 
-    pricing_type = models.CharField(
+    pricing_methodology = models.CharField(
         max_length=20,
-        choices=JobPricingType.choices,
-        default=JobPricingType.TIME_AND_MATERIALS,
+        choices=JobPricingMethodology.choices,
+        default=JobPricingMethodology.TIME_AND_MATERIALS,
         help_text="Type of pricing for the job (fixed price or time and materials).",
     )
 
@@ -261,13 +267,13 @@ class Job(models.Model):
             #  Create the initial JobPricing instances
             logger.debug("Creating related JobPricing entries.")
             self.latest_estimate_pricing = JobPricing.objects.create(
-                pricing_stage="estimate", job=self
+                pricing_type="estimate", job=self
             )
             self.latest_quote_pricing = JobPricing.objects.create(
-                pricing_stage="quote", job=self
+                pricing_type="quote", job=self
             )
             self.latest_reality_pricing = JobPricing.objects.create(
-                pricing_stage="reality", job=self
+                pricing_type="reality", job=self
             )
             logger.debug("Initial pricings created successfully.")
 

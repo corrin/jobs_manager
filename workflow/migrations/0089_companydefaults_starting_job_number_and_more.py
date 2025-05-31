@@ -20,19 +20,11 @@ class Migration(migrations.Migration):
             name='collected',
             field=models.BooleanField(default=False),
         ),
-        migrations.AddField(
-            model_name='historicalstaff',
-            name='password_needs_reset',
-            field=models.BooleanField(default=False),
-        ),
+        # HistoricalStaff field moved to accounts app - already exists there
         migrations.AddField(
             model_name='job',
             name='collected',
             field=models.BooleanField(default=False),
         ),
-        migrations.AddField(
-            model_name='staff',
-            name='password_needs_reset',
-            field=models.BooleanField(default=False),
-        ),
+        # Staff field moved to accounts app - already exists there
     ]

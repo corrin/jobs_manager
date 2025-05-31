@@ -114,7 +114,7 @@ Fetches details of a job and its latest pricing information.
 
 ### Description
 
-Fetches pricing data for a specific job based on the provided `pricing_type`.
+Fetches pricing data for a specific job based on the provided `pricing_methodology`.
 
 ### Method
 
@@ -123,7 +123,7 @@ Fetches pricing data for a specific job based on the provided `pricing_type`.
 ### Parameters
 
 - `job_id`: ID of the job.
-- `pricing_type`: Type of pricing data to retrieve.
+- `pricing_methodology`: Type of pricing data to retrieve.
 
 ### Responses
 

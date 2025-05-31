@@ -1,113 +1,146 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
+import re
 import shutil
 import subprocess
 from datetime import datetime, timedelta
 
-# --- Config ---
-LOCAL_BACKUP_ROOT = "/var/backups/jobs_manager"
-RCLONE_REMOTE = "gdrive:msm_backups"
-DRY_RUN = "--delete" not in sys.argv
-# ---------------
-
-now = datetime.now()
-RECENT_LIMIT = now - timedelta(hours=24)
-DAILY_LIMIT = now - timedelta(days=7)
+# Configuration
+BASE = "/var/backups/jobs_manager"
+REMOTE = "gdrive:msm_backups"
 
 
-def parse_timestamp(dir_name):
-    """
-    Parse directory name of form YYYYMMDD_HHMMSS to datetime, else None.
-    """
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Prune timestamped backups under " + BASE
+    )
+    parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="Actually remove old backups; omit for dry-run."
+    )
+    return parser.parse_args()
+
+
+def list_backup_dirs(root):
     try:
-        return datetime.strptime(dir_name, "%Y%m%d_%H%M%S")
-    except ValueError:
-        return None
+        return os.listdir(root)
+    except FileNotFoundError:
+        sys.exit(f"ERROR: backup root not found: {root}")
 
 
-def rclone_delete_dir(timestamp_dir):
-    """
-    Delete (purge) a remote timestamped folder.
-    """
-    remote_path = f"{RCLONE_REMOTE}/{timestamp_dir}"
-    cmd = ["rclone", "purge", remote_path]
-    if DRY_RUN:
-        print(f"[DRY RUN] Would delete remote: {remote_path}")
+def validate_entries(root, entries):
+    if not entries:
+        sys.exit(f"ERROR: no backups found in {root}")
+    pattern = re.compile(r"^\d{8}_\d{6}$")
+    for name in entries:
+        path = os.path.join(root, name)
+        if not os.path.isdir(path) or not pattern.match(name):
+            sys.exit(f"ERROR: unexpected entry in '{root}': {name}")
+
+
+def parse_timestamps(entries):
+    pairs = []
+    for name in entries:
+        ts = datetime.strptime(name, "%Y%m%d_%H%M%S")
+        pairs.append((name, ts))
+    return sorted(pairs, key=lambda x: x[1])
+
+
+def compute_keep_set(pairs, now):
+    keep = set()
+    cut24 = now - timedelta(hours=24)
+    cut7 = now - timedelta(days=7)
+
+    # Always keep newest
+    keep.add(pairs[-1][0])
+
+    # Keep last 24h
+    keep |= {n for n, ts in pairs if ts > cut24}
+
+    # One per day for past week
+    seen_days = set()
+    for n, ts in reversed(pairs):
+        if cut24 >= ts > cut7:
+            d = ts.date()
+            if d not in seen_days:
+                keep.add(n)
+                seen_days.add(d)
+
+    # One oldest per month beyond a week
+    months = {}
+    for n, ts in pairs:
+        key = (ts.year, ts.month)
+        if key not in months or ts < months[key][1]:
+            months[key] = (n, ts)
+    keep |= {n for n, _ in months.values()}
+
+    return keep
+
+
+def delete_and_purge(root, pairs, keep, dry_run):
+    to_delete = [name for name, _ in pairs if name not in keep]
+    print("To delete locally and purge from remote:", sorted(to_delete))
+    for name in to_delete:
+        local_path = os.path.join(root, name)
+        remote_path = f"{REMOTE}/{name}"
+        if dry_run:
+            print(f"[DRY] Would remove local: {local_path}")
+            print(f"[DRY] Would purge remote: {remote_path}")
+        else:
+            print(f"Removing local: {local_path}")
+            shutil.rmtree(local_path)
+            print(f"Purging remote: {remote_path}")
+            subprocess.run(["rclone", "purge", remote_path], check=False)
+
+
+def sync_remote(root, dry_run):
+    # Normalize remote listing and compare to local dirs
+    rem_list = subprocess.check_output(
+        ["rclone", "lsf", REMOTE], universal_newlines=True
+    ).splitlines()
+    # strip trailing slashes for directories
+    rem_names = [entry.rstrip('/') for entry in rem_list]
+    local_names = os.listdir(root)
+    remote_only = sorted(set(rem_names) - set(local_names))
+
+    # Display remote-only entries
+    if remote_only:
+        print("Remote-only entries that would be deleted from Drive:")
+        for entry in remote_only:
+            print("   ", entry)
     else:
-        print(f"Deleting remote: {remote_path}")
-        subprocess.run(cmd, check=False)
+        print("No remote-only entries.")
 
+    # Skip actual sync in dry-run
+    if dry_run:
+        return
 
-def delete_local_dir(path):
-    """
-    Remove a local backup directory.
-    """
-    if DRY_RUN:
-        print(f"[DRY RUN] Would delete local: {path}")
-    else:
-        print(f"Deleting local: {path}")
-        shutil.rmtree(path)
+    # Perform real sync
+    print(f"Syncing {root} → {REMOTE} --delete-excluded")
+    subprocess.run(
+        ["rclone", "sync", root, REMOTE, "--delete-excluded"],
+        check=False
+    )
 
 
 def main():
-    # Gather all timestamped subdirectories
-    entries = [d for d in os.listdir(LOCAL_BACKUP_ROOT)
-               if os.path.isdir(os.path.join(LOCAL_BACKUP_ROOT, d))]
-    dirs = []
-    for d in entries:
-        ts = parse_timestamp(d)
-        if ts:
-            dirs.append((d, ts))
+    args = parse_arguments()
+    dry_run = not args.delete
 
-    if not dirs:
-        print("No valid backup directories found.")
-        return
+    entries = list_backup_dirs(BASE)
+    validate_entries(BASE, entries)
+    pairs = parse_timestamps(entries)
 
-    # Sort oldest → newest
-    dirs.sort(key=lambda x: x[1])
+    now = datetime.now()
+    keep = compute_keep_set(pairs, now)
 
-    keep = set()
-    # 1) Always keep the latest
-    latest = max(dirs, key=lambda x: x[1])[0]
-    keep.add(latest)
+    print("Keeping:", sorted(keep))
 
-    # 2) Keep all from last 24h
-    for name, ts in dirs:
-        if ts > RECENT_LIMIT:
-            keep.add(name)
-
-    # 3) One per day for past week
-    seen_days = set()
-    for name, ts in reversed(dirs):
-        if RECENT_LIMIT >= ts > DAILY_LIMIT:
-            day_key = (ts.year, ts.month, ts.day)
-            if day_key not in seen_days:
-                keep.add(name)
-                seen_days.add(day_key)
-
-    # 4) One per month (oldest)
-    month_groups = {}
-    for name, ts in dirs:
-        month_key = (ts.year, ts.month)
-        if month_key not in month_groups or ts < month_groups[month_key][1]:
-            month_groups[month_key] = (name, ts)
-    for name, _ in month_groups.values():
-        keep.add(name)
-
-    # Report
-    print("\n--- Kept backups ---")
-    for name in sorted(keep):
-        print(f"Keeping: {name}")
-    print("--- End keep list ---\n")
-
-    # Delete unneeded
-    for name, _ in dirs:
-        if name in keep:
-            continue
-        full_path = os.path.join(LOCAL_BACKUP_ROOT, name)
-        delete_local_dir(full_path)
-        rclone_delete_dir(name)
+    delete_and_purge(BASE, pairs, keep, dry_run)
+    sync_remote(BASE, dry_run)
 
 
 if __name__ == "__main__":

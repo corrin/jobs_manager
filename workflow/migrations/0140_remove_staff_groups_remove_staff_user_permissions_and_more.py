@@ -31,34 +31,11 @@ class Migration(migrations.Migration):
                 max_length=30,
             ),
         ),
+        # Staff model already moved to accounts app in initial migration
+        # No operations needed since it's already a proxy model
         migrations.SeparateDatabaseAndState(
-            database_operations=[],  # Nenhuma operação no banco
-            state_operations=[
-                migrations.RemoveField(
-                    model_name="staff",
-                    name="groups",
-                ),
-                migrations.RemoveField(
-                    model_name="staff",
-                    name="user_permissions",
-                ),
-                migrations.DeleteModel(
-                    name="HistoricalStaff",
-                ),
-                migrations.DeleteModel(
-                    name="Staff",
-                ),
-                migrations.CreateModel(
-                    name="Staff",
-                    fields=[],
-                    options={
-                        "proxy": True,
-                        "indexes": [],
-                        "constraints": [],
-                    },
-                    bases=("accounts.staff",),
-                ),
-            ],
+            database_operations=[],
+            state_operations=[],
         ),
         migrations.AlterField(
             model_name="historicaljob",

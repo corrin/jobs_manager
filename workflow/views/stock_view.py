@@ -9,7 +9,7 @@ from django.views.decorators.http import require_http_methods
 
 from workflow.models import Stock, CompanyDefaults
 from job.models import Job, JobPricing, MaterialEntry
-from workflow.enums import JobPricingStage
+from workflow.enums import JobPricingType
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def consume_stock_api_view(request):
             logger.warning(f"Attempted to consume {quantity_used} from stock {stock_item_id} with only {stock_item.quantity} available.")
             return JsonResponse({'error': f"Quantity used exceeds available stock ({stock_item.quantity})."}, status=400)
 
-        reality_pricing = JobPricing.objects.filter(job=job, pricing_stage=JobPricingStage.REALITY).first()
+        reality_pricing = JobPricing.objects.filter(job=job, pricing_type=JobPricingType.REALITY).first()
         if not reality_pricing:
              logger.error(f"CRITICAL: 'Reality' JobPricing not found for job {job.id} during stock consumption.")
              # Return 500 as this is a system setup issue
@@ -59,7 +59,7 @@ def consume_stock_api_view(request):
 
         # --- Perform Database Operations ---
         material_entry = MaterialEntry.objects.create(
-            job_pricing=reality_pricing,
+            part=reality_pricing.get_default_part(),
             source_stock=stock_item,
             description=f"Consumed: {stock_item.description}",
             quantity=quantity_used,

@@ -169,7 +169,7 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                         logger.info(f"Created Stock entry {stock_item.id} for line {line.id}, allocated to Job {target_job.id}, qty {alloc_qty}.")
                     else:
                         material_entry = MaterialEntry.objects.create(
-                            job_pricing=target_job.latest_reality_pricing,
+                            part=target_job.latest_reality_pricing.get_default_part(),
                             description=line.description,
                             quantity=alloc_qty,
                             unit_cost=line.unit_cost,

@@ -366,7 +366,7 @@ def autosave_timesheet_view(request):
 
                 try:
                     entry = TimeEntry.objects.get(id=entry_id)
-                    related_jobs.add(entry.job_pricing.job_id)
+                    related_jobs.add(entry.part.job_pricing.job_id)
                     messages.success(request, "Timesheet deleted successfully")
                     entry.delete()
                     logger.debug(f"Entry with ID {entry_id} deleted successfully")
@@ -449,14 +449,15 @@ def autosave_timesheet_view(request):
                             raise ValueError("Staff ID not provided")
                     # Identify old job before changing
                     old_job_id = (
-                        entry.job_pricing.job.id if entry.job_pricing.job else None
+                        entry.part.job_pricing.job.id if entry.part.job_pricing.job else None
                     )
                     old_job = Job.objects.get(id=old_job_id) if old_job_id else None
 
-                    if job_id != str(entry.job_pricing.job.id):
+                    if job_id != str(entry.part.job_pricing.job.id):
                         logger.info(f"Job for entry {entry_id} changed to {job_id}")
                         new_job = Job.objects.get(id=job_id)
-                        entry.job_pricing = new_job.latest_reality_pricing
+                        # TODO: recall time entry view doesn't yet have the ability to choose a part
+                        entry.part = new_job.latest_reality_pricing.get_default_part()
 
                     # Update existing entry
                     entry.description = description
@@ -478,7 +479,7 @@ def autosave_timesheet_view(request):
                     related_jobs.add(job_id)
                     entry.save()
                     updated_entries.append(entry)
-                    job = entry.job_pricing.job
+                    job = entry.part.job_pricing.job
 
                     scheduled_hours = entry.staff.get_scheduled_hours(target_date)
                     if scheduled_hours < hours:
@@ -542,8 +543,13 @@ def autosave_timesheet_view(request):
                 minutes_per_item_val = sanitize_decimal_input(entry_data.get("mins_per_item", 0))
                 charge_out_rate_val = sanitize_decimal_input(job_data.get("charge_out_rate", 0))
 
+                # At the moment timesheets don't support selecting which part the person worked on
+                # We might add this in the future, but for now let's just put all time entries on the 
+                # default part
+                default_part = job_pricing.get_default_part()
+                
                 entry = TimeEntry.objects.create(
-                    job_pricing=job_pricing,
+                    part=default_part,
                     staff=staff,
                     date=target_date,
                     description=description,

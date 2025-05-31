@@ -104,3 +104,4 @@ dmypy.json
 .yaml
 Dockerfile
 logs/.*.lock
+django-integrations-*.json

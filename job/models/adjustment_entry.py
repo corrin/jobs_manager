@@ -7,12 +7,13 @@ class AdjustmentEntry(models.Model):
     """For when costs are manually added to a job"""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    job_pricing = models.ForeignKey(
-        "JobPricing",
+    part = models.ForeignKey(
+        "Part",
         on_delete=models.CASCADE,
-        null=False,
+        null=False,  # Required after migration
         blank=False,
         related_name="adjustment_entries",
+        help_text="The part this adjustment entry belongs to",
     )
     description = models.CharField(max_length=200, null=False, blank=True, default="")
     cost_adjustment = models.DecimalField(
@@ -32,7 +33,5 @@ class AdjustmentEntry(models.Model):
         db_table = "workflow_adjustmententry"
 
     def __str__(self):
-        return (
-            f"Adjustment for {self.job_pricing.job.name} - "
-            f"{self.description or 'No Description'}"
-        )
+        job_name = self.part.job_pricing.job.name
+        return f"Adjustment for {job_name} - {self.description or 'No Description'}"

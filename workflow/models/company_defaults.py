@@ -17,6 +17,13 @@ class CompanyDefaults(models.Model):
     starting_po_number = models.IntegerField(default=1, help_text="Helper field to set the starting purchase order number")
     po_prefix = models.CharField(max_length=10, default="PO-", help_text="Prefix for purchase order numbers (e.g., PO-, JO-)")
 
+    # Quote templates
+    master_quote_template_url = models.URLField(
+        null=True,
+        blank=True,
+        help_text="URL to the master Google Sheets quote template"
+    )
+
     # Xero integration
     xero_tenant_id = models.CharField(max_length=100, null=True, blank=True, help_text="The Xero tenant ID to use for this company")
 

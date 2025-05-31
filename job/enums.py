@@ -2,16 +2,16 @@ from django.db import models
 from decimal import Decimal
 
 
-class JobPricingStage(models.TextChoices):
+class JobPricingType(models.TextChoices):
     """
-    Define the different stages of job pricing calculations
+    Define the different types of job pricing calculations
     """
     ESTIMATE = 'estimate', 'Estimate'
     QUOTE = 'quote', 'Quote'
     REALITY = 'reality', 'Reality'
 
 
-class JobPricingType(models.TextChoices):
+class JobPricingMethodology(models.TextChoices):
     """
     Define the pricing methodology used for a job
     """

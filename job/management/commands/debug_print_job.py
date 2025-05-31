@@ -15,16 +15,16 @@ class Command(BaseCommand):
         # Get the job
         job = Job.objects.get(id=job_id)
 
-        # Pricing stages to iterate over
-        pricing_stages = ["estimate", "quote", "reality"]
+        # Pricing types to iterate over
+        pricing_types = ["estimate", "quote", "reality"]
 
-        # Loop through each pricing stage and print the details
-        for stage in pricing_stages:
-            job_pricing = JobPricing.objects.get(job=job, pricing_stage=stage)
-            self.stdout.write(f"\n=== {stage.capitalize()} ===")
+        # Loop through each pricing type and print the details
+        for pt in pricing_types:
+            job_pricing = JobPricing.objects.get(job=job, pricing_type=pt)
+            self.stdout.write(f"\n=== {pt.capitalize()} ===")
 
             # General Pricing Information
-            self.stdout.write(f"Job Pricing Stage: {job_pricing.pricing_stage}")
+            self.stdout.write(f"Job Pricing Stage: {job_pricing.pricing_type}")
 
             # Print Material Entries
             for material in job_pricing.material_entries.all():

@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("workflow", "0076_remove_jobpricing_pricing_type_and_more"),
+        ("workflow", "0076_1_rename_job_pricing_stage_to_pricing_type"),
         ("workflow", "0078_alter_quote_job"),
     ]
 

@@ -11,14 +11,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="historicalstaff",
-            name="created_at",
-            field=models.DateTimeField(default=django.utils.timezone.now),
-        ),
-        migrations.AlterField(
-            model_name="staff",
-            name="created_at",
-            field=models.DateTimeField(default=django.utils.timezone.now),
+        # Staff models moved to accounts app - these changes are already there
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[],
         ),
     ]

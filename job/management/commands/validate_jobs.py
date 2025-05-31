@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Q
 from job.models import Job, JobPricing
-from workflow.enums import JobPricingStage
+from workflow.enums import JobPricingType
 
 
 class Command(BaseCommand):
@@ -43,7 +43,7 @@ class Command(BaseCommand):
 
         # 2. Check for reality pricing with no timesheets
         reality_pricing_without_time = JobPricing.objects.filter(
-            pricing_stage=JobPricingStage.REALITY,
+            pricing_type=JobPricingType.REALITY,
             time_entries__isnull=True
         ).select_related('job')
 

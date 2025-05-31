@@ -16,14 +16,9 @@ class Migration(migrations.Migration):
                 related_name="assigned_jobs", to=settings.AUTH_USER_MODEL
             ),
         ),
-        migrations.AddField(
-            model_name="staff",
-            name="icon",
-            field=models.ImageField(blank=True, null=True, upload_to="staff_icons/"),
+        # Staff models moved to accounts app - these changes are already there
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[],
         ),
-        migrations.AddField(
-            model_name="historicalstaff",
-            name="icon",
-            field=models.ImageField(blank=True, null=True, upload_to="staff_icons/")
-        )
     ]

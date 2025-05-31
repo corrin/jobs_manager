@@ -8,11 +8,9 @@ from timesheet.models import TimeEntry
 logger = logging.getLogger(__name__)
 
 
-class TimeEntryForJobPricingSerializer(serializers.ModelSerializer):
+class TimeEntrySerializer(serializers.ModelSerializer):
     """
-    Serializer used for JobPricing context.
-    Includes the original fields of TimeEntrySerializer and adds staff_id and
-    timesheet_date to display a link for the timesheet in edit_job_view_ajax.html
+    Basic TimeEntry serializer for use with Parts.
     """
 
     total_minutes = serializers.SerializerMethodField()
@@ -27,6 +25,7 @@ class TimeEntryForJobPricingSerializer(serializers.ModelSerializer):
         model = TimeEntry
         fields = [
             "id",
+            "part",
             "description",
             "items",
             "minutes_per_item",
@@ -37,7 +36,12 @@ class TimeEntryForJobPricingSerializer(serializers.ModelSerializer):
             "cost",
             "staff_id",
             "timesheet_date",
-            "staff_name"
+            "staff_name",
+            "hours",
+            "date",
+            "note",
+            "is_billable",
+            "wage_rate_multiplier"
         ]
 
     def get_total_minutes(self, obj):
@@ -56,7 +60,6 @@ class TimeEntryForJobPricingSerializer(serializers.ModelSerializer):
         return obj.cost
 
     def get_staff_id(self, obj):
-        logger.warning(f"TimeEntry {obj.id} has no associated staff.")
         return str(obj.staff.id) if obj.staff else None
 
     def get_timesheet_date(self, obj):
@@ -67,6 +70,15 @@ class TimeEntryForJobPricingSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+        
+        # Convert UUID id field to string for JSON serialization
+        if 'id' in representation and representation['id']:
+            representation['id'] = str(representation['id'])
+        
+        # Convert part UUID to string if present
+        if 'part' in representation and representation['part']:
+            representation['part'] = str(representation['part'])
+            
         logger.debug(f"Serialized TimeEntry: {representation}")
         return representation
 
@@ -106,6 +118,7 @@ class TimeEntryForTimeEntryViewSerializer(serializers.ModelSerializer):
             "wage_rate",
             "charge_out_rate",
             "job_pricing_id",
+            "part",
             "job_number",
             "job_name",
             "hours",
@@ -125,13 +138,13 @@ class TimeEntryForTimeEntryViewSerializer(serializers.ModelSerializer):
         return obj.cost
 
     def get_job_pricing_id(self, obj):
-        return str(obj.job_pricing.id)
+        return str(obj.part.job_pricing.id)
 
     def get_job_number(self, obj):
-        return obj.job_pricing.job.job_number
+        return obj.part.job_pricing.job.job_number
 
     def get_job_name(self, obj):
-        return obj.job_pricing.job.name
+        return obj.part.job_pricing.job.name
 
     def get_hours(self, obj):
         return float(obj.hours)
@@ -140,12 +153,12 @@ class TimeEntryForTimeEntryViewSerializer(serializers.ModelSerializer):
         return obj.date.strftime("%Y-%m-%d")
 
     def get_hours_spent(self, obj):
-        return obj.job_pricing.total_hours
+        return obj.part.job_pricing.total_hours
 
     def get_estimated_hours(self, obj):
         return (
-            obj.job_pricing.job.latest_estimate_pricing.total_hours
-            if obj.job_pricing.job.latest_estimate_pricing
+            obj.part.job_pricing.job.latest_estimate_pricing.total_hours
+            if obj.part.job_pricing.job.latest_estimate_pricing
             else 0
         )
 

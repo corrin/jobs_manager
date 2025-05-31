@@ -10,7 +10,7 @@
         "wage_rate": "32.00",
         "starting_job_number": 1,
         "starting_po_number": 1,
-        "po_prefix": "PO-",
+        "po_prefix": "JO",
         "xero_tenant_id": "31d41e67-acad-400e-b2a9-aa6bb5e557a3",
         "anthropic_api_key": null,
         "gemini_api_key": null,

@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name="jobpricing",
-            options={"ordering": ["-created_at", "pricing_stage"]},
+            options={"ordering": ["-created_at", "pricing_type"]},
         ),
         migrations.AddField(
             model_name="jobpricing",

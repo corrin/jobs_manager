@@ -9,10 +9,10 @@ class Migration(migrations.Migration):
     dependencies = [("workflow", "0135_job_people_staff_icon_and_more")]
 
     operations = [
-        migrations.AlterField(
-            model_name="historicalstaff",
-            name="icon",
-            field=models.TextField(blank=True, max_length=100, null=True),
+        # Staff models moved to accounts app - these changes are already there
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[],
         ),
         migrations.AlterField(
             model_name="job",

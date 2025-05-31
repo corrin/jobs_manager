@@ -15,7 +15,7 @@ from workflow.models import (
     CompanyDefaults
 )
 from job.models import Job, JobPricing, TimeEntry
-from workflow.enums import JobPricingStage
+from workflow.enums import JobPricingType
 from workflow.models.client import Client
 from workflow.utils import get_nz_tz
 
@@ -240,7 +240,8 @@ class Command(BaseCommand):
         
         try:
             # Import models here to avoid circular imports
-            from workflow.models import Client, Job
+            from workflow.models import Client
+            from job.models import Job
             
             # Create company defaults if needed
             if not CompanyDefaults.objects.exists():
@@ -321,7 +322,7 @@ class Command(BaseCommand):
             # Get or create reality pricing for the job
             job_pricing, created = JobPricing.objects.get_or_create(
                 job=job,
-                pricing_stage=JobPricingStage.REALITY,
+                pricing_type=JobPricingType.REALITY,
                 defaults={'is_historical': False}
             )
             shop_job_pricings.append(job_pricing)
@@ -343,7 +344,7 @@ class Command(BaseCommand):
             # Get or create reality pricing for the job
             job_pricing, created = JobPricing.objects.get_or_create(
                 job=job,
-                pricing_stage=JobPricingStage.REALITY,
+                pricing_type=JobPricingType.REALITY,
                 defaults={'is_historical': False}
             )
             regular_job_pricings.append(job_pricing)
@@ -416,8 +417,8 @@ class Command(BaseCommand):
         return categories
     
     def _get_job_pricings(self, relaxed=False):
-        """Get active job pricings with reality stage"""
-        qs = JobPricing.objects.filter(pricing_stage=JobPricingStage.REALITY)
+        """Get active job pricings with reality type"""
+        qs = JobPricing.objects.filter(pricing_type=JobPricingType.REALITY)
         if relaxed:
             qs = qs.filter(job__status__in=[
                 "approved", "in_progress", "special", "quoting", "on_hold"
@@ -463,7 +464,7 @@ class Command(BaseCommand):
         # Get job pricings that have time entries on this date, if any
         jobs_with_time = []
         for jp in job_pricings:
-            if TimeEntry.objects.filter(job_pricing=jp, date=day_date).exists():
+            if TimeEntry.objects.filter(part__job_pricing=jp, date=day_date).exists():
                 jobs_with_time.append(jp)
         
         # Use jobs with time entries if available, otherwise use random selection
@@ -482,7 +483,7 @@ class Command(BaseCommand):
                 unit_rev = (unit_cost * Decimal(str(markup))).quantize(Decimal("1.00"))
 
                 MaterialEntry.objects.create(
-                    job_pricing = jp,
+                    part=jp.get_default_part(),
                     description = f"MAT {random.randint(1000, 9999)}",
                     unit_cost   = unit_cost,
                     unit_revenue= unit_rev,
@@ -493,10 +494,11 @@ class Command(BaseCommand):
                 created += 1
         
         # Create a fallback entry if nothing was created
+        # BUG??
         if created == 0 and job_pricings:
             jp = random.choice(job_pricings)
             MaterialEntry.objects.create(
-                job_pricing = jp,
+                part=jp.get_default_part(),
                 description = "Fallback material",
                 unit_cost   = Decimal("50.00"),
                 unit_revenue= Decimal("75.00"),
@@ -524,7 +526,7 @@ class Command(BaseCommand):
         # Get job pricings that have time entries on this date, if any
         jobs_with_time = []
         for jp in job_pricings:
-            if TimeEntry.objects.filter(job_pricing=jp, date=day_date).exists():
+            if TimeEntry.objects.filter(part__job_pricing=jp, date=day_date).exists():
                 jobs_with_time.append(jp)
         
         # Use jobs with time entries if available, otherwise use random selection
@@ -544,7 +546,7 @@ class Command(BaseCommand):
                 cost_adj = self._rand_decimal(*cat_cfg["cost"]) if random.random() < 0.8 else Decimal("0.00")
 
                 AdjustmentEntry.objects.create(
-                    job_pricing     = jp,
+                    part=jp.get_default_part(),
                     description     = f"ADJ {random.randint(1000, 9999)}",
                     price_adjustment= price_adj,
                     cost_adjustment = cost_adj,
@@ -557,7 +559,7 @@ class Command(BaseCommand):
         if created == 0 and job_pricings:
             jp = random.choice(job_pricings)
             AdjustmentEntry.objects.create(
-                job_pricing     = jp,
+                part=jp.get_default_part(),
                 description     = "Fallback adjustment",
                 price_adjustment= self._rand_decimal(*cat_cfg["price"]),
                 cost_adjustment = self._rand_decimal(*cat_cfg["cost"]) if random.random() < 0.7 else Decimal("0.00"),
@@ -622,7 +624,7 @@ class Command(BaseCommand):
                         
                         # Create the time entry
                         TimeEntry.objects.create(
-                            job_pricing=jp,
+                            part=jp.get_default_part(),
                             staff=staff,
                             date=day_date,
                             hours=Decimal(str(hours)),
@@ -653,7 +655,7 @@ class Command(BaseCommand):
                         
                         # Create the time entry
                         TimeEntry.objects.create(
-                            job_pricing=jp,
+                            part=jp.get_default_part(),
                             staff=staff,
                             date=day_date,
                             hours=Decimal(str(hours)),

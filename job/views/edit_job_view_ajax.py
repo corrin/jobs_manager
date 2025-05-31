@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 from django.db import transaction
 
-from job.enums import JobPricingType, JobPricingStage
+from job.enums import JobPricingMethodology, JobPricingType
 from job.helpers import DecimalEncoder, get_company_defaults
 from workflow.models import Quote, Invoice
 from job.serializers import JobPricingSerializer, JobSerializer
@@ -22,6 +22,7 @@ from job.services.job_service import (
     get_latest_job_pricings,
     archive_and_reset_job_pricing,
 )
+from workflow.services.google_sheets_service import create_quote_from_template
 
 logger = logging.getLogger(__name__)
 DEBUG_JSON = False  # Toggle for JSON debugging
@@ -142,7 +143,7 @@ def edit_job_view_ajax(request, job_id=None):
         }
         
         # Determine which pricing section this historical record belongs to
-        section_prefix = pricing.pricing_stage
+        section_prefix = pricing.pricing_type
         
         # Process time entries
         time_entries = []
@@ -297,7 +298,7 @@ def edit_job_view_ajax(request, job_id=None):
         "client_name": job.client.name if job.client else "No Client",
         "created_at": job.created_at.isoformat(),
         "complex_job": job.complex_job,
-        "pricing_type": job.pricing_type,
+        "pricing_methodology": job.pricing_methodology,
         "company_defaults": company_defaults,
         "job_files": job_files,
         "has_only_summary_pdf": has_only_summary,
@@ -572,48 +573,48 @@ def toggle_complex_job(request):
 
 @require_http_methods(["POST"])
 @transaction.atomic
-def toggle_pricing_type(request):
+def toggle_pricing_methodology(request):
     try:
         data = json.loads(request.body)
         if not isinstance(data, dict):
             return JsonResponse({"error": "Invalid request format"}, status=400)
 
         job_id = data.get("job_id")
-        new_type = data.get("pricing_type")
+        new_method = data.get("pricing_methodology")
 
-        logger.info(f"[toggle_pricing_type]: data: {data}")
+        logger.info(f"[toggle_pricing_method]: data: {data}")
 
-        if job_id is None or new_type is None:
+        if job_id is None or new_method is None:
             return JsonResponse(
-                {"error": "Missing required fields: job_id and pricing_type"}, status=400
+                {"error": "Missing required fields: job_id and pricing_methodology"}, status=400
             )
 
-        if new_type not in [choice[0] for choice in JobPricingType.choices]:
+        if new_method not in [choice[0] for choice in JobPricingMethodology.choices]:
             return JsonResponse(
-                {"error": "Invalid pricing type value"}, status=400
+                {"error": "Invalid pricing methodology value"}, status=400
             )
 
         job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
 
-        match (new_type):
-            case JobPricingType.TIME_AND_MATERIALS:
-                new_type = JobPricingType.TIME_AND_MATERIALS
-            case JobPricingType.FIXED_PRICE:
-                new_type = JobPricingType.FIXED_PRICE
+        match (new_method):
+            case JobPricingMethodology.TIME_AND_MATERIALS:
+                new_method = JobPricingMethodology.TIME_AND_MATERIALS
+            case JobPricingMethodology.FIXED_PRICE:
+                new_method = JobPricingMethodology.FIXED_PRICE
             case _:
                 return JsonResponse(
-                    {"error": "Invalid pricing type value"}, status=400
+                    {"error": "Invalid pricing method value"}, status=400
                 )
 
         # Update job
-        job.pricing_type = new_type
+        job.pricing_methodology = new_method
         job.save()
 
         return JsonResponse(
             {
                 "success": True,
                 "job_id": job_id,
-                "pricing_type": new_type,
+                "pricing_methodology": new_method,
                 "message": "Pricing type updated successfully",
             }
         )
@@ -636,7 +637,7 @@ def delete_job(request, job_id):
     job = get_object_or_404(Job, id=job_id)
     
     # Get the latest reality pricing record
-    reality_pricing = job.pricings.filter(pricing_stage=JobPricingStage.REALITY, is_historical=False).first()
+    reality_pricing = job.pricings.filter(pricing_type=JobPricingType.REALITY, is_historical=False).first()
     
     # If there's a reality pricing with a total above zero, it has real costs or revenue
     if reality_pricing and (reality_pricing.total_revenue > 0 or reality_pricing.total_cost > 0):
@@ -663,3 +664,60 @@ def delete_job(request, job_id):
             "message": f"An error occurred while deleting the job: {str(e)}"
         }, status=500)
 
+
+@require_http_methods(["POST"])
+def create_linked_quote_api(request, job_id):
+    """
+    Create a new linked quote from the master template for a job.
+    
+    Args:
+        request: The HTTP request
+        job_id: The UUID of the job
+        
+    Returns:
+        JsonResponse with the URL of the newly created quote
+    """
+    try:
+        # Get the job
+        job = get_object_or_404(Job, id=job_id)
+        
+        # Get the client name
+        client_name = job.client.name if job.client else "No Client"
+        
+        # Create a new quote from the template
+        quote_url = create_quote_from_template(job.job_number, client_name)
+        
+        # Update the job with the new quote URL
+        job.linked_quote = quote_url
+        job.save(staff=request.user)
+        
+        # Create a job event to record this action
+        JobEvent.objects.create(
+            job=job,
+            event_type="linked_quote_created",
+            description=f"Created linked quote spreadsheet",
+            staff=request.user,
+        )
+        
+        # Return the URL of the new quote
+        return JsonResponse({
+            "success": True,
+            "quote_url": quote_url,
+            "message": "Linked quote created successfully"
+        })
+        
+    except ValueError as e:
+        # This will catch the error if the master template URL is not set
+        logger.error(f"Error creating linked quote: {str(e)}")
+        return JsonResponse({
+            "success": False,
+            "error": str(e)
+        }, status=400)
+        
+    except Exception as e:
+        # Catch all other exceptions
+        logger.exception(f"Unexpected error creating linked quote: {str(e)}")
+        return JsonResponse({
+            "success": False,
+            "error": "An unexpected error occurred creating a linked quote."
+        }, status=500)

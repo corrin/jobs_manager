@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("workflow", "0146_delete_adjustmententry_delete_materialentry"),
+        ("workflow", "0150_client_all_phones"),
     ]
 
     operations = [

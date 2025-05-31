@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
                             ),
                         ),
                         (
-                            "pricing_stage",
+                            "pricing_type",
                             models.CharField(
                                 choices=[
                                     ("estimate", "Estimate"),
@@ -45,7 +45,7 @@ class Migration(migrations.Migration):
                                     ("reality", "Reality"),
                                 ],
                                 default="estimate",
-                                help_text="Stage of the job pricing (estimate, quote, or reality).",
+                                help_text="Type of the job pricing (estimate, quote, or reality).",
                                 max_length=20,
                             ),
                         ),
@@ -62,7 +62,7 @@ class Migration(migrations.Migration):
                     ],
                     options={
                         "db_table": "workflow_jobpricing",
-                        "ordering": ["-created_at", "pricing_stage"],
+                        "ordering": ["-created_at", "pricing_type"],
                     },
                 ),
                 migrations.CreateModel(
@@ -135,14 +135,14 @@ class Migration(migrations.Migration):
                             models.DecimalField(decimal_places=2, max_digits=10),
                         ),
                         (
-                            "pricing_type",
+                            "pricing_methodology",
                             models.CharField(
                                 choices=[
                                     ("fixed_price", "Fixed Price"),
                                     ("time_materials", "Time & Materials"),
                                 ],
                                 default="time_materials",
-                                help_text="Type of pricing for the job (fixed price or time and materials).",
+                                help_text="Methodology for pricing the job (fixed price or time and materials).",
                                 max_length=20,
                             ),
                         ),
@@ -404,14 +404,14 @@ class Migration(migrations.Migration):
                             models.DecimalField(decimal_places=2, max_digits=10),
                         ),
                         (
-                            "pricing_type",
+                            "pricing_methodology",
                             models.CharField(
                                 choices=[
                                     ("fixed_price", "Fixed Price"),
                                     ("time_materials", "Time & Materials"),
                                 ],
                                 default="time_materials",
-                                help_text="Type of pricing for the job (fixed price or time and materials).",
+                                help_text="Methodology for pricing the job (fixed price or time and materials).",
                                 max_length=20,
                             ),
                         ),

@@ -43,10 +43,7 @@ class Migration(migrations.Migration):
             name="materialentry",
             options={"ordering": ["created_at"]},
         ),
-        migrations.AlterModelOptions(
-            name="staff",
-            options={"ordering": ["first_name", "last_name"]},
-        ),
+        # Staff model moved to accounts app - options already set there
         migrations.AlterModelOptions(
             name="timeentry",
             options={"ordering": ["created_at"]},
@@ -116,22 +113,7 @@ class Migration(migrations.Migration):
             ),
             preserve_default=False,
         ),
-        migrations.AddField(
-            model_name="historicalstaff",
-            name="created_at",
-            field=models.DateTimeField(
-                blank=True, default=django.utils.timezone.now, editable=False
-            ),
-            preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name="historicalstaff",
-            name="updated_at",
-            field=models.DateTimeField(
-                blank=True, default=django.utils.timezone.now, editable=False
-            ),
-            preserve_default=False,
-        ),
+        # HistoricalStaff fields moved to accounts app - already exist there
         migrations.AddField(
             model_name="invoice",
             name="django_created_at",
@@ -166,19 +148,7 @@ class Migration(migrations.Migration):
             name="updated_at",
             field=models.DateTimeField(auto_now=True),
         ),
-        migrations.AddField(
-            model_name="staff",
-            name="created_at",
-            field=models.DateTimeField(
-                auto_now_add=True, default=django.utils.timezone.now
-            ),
-            preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name="staff",
-            name="updated_at",
-            field=models.DateTimeField(auto_now=True),
-        ),
+        # Staff fields moved to accounts app - already exist there
         migrations.AddField(
             model_name="timeentry",
             name="created_at",

@@ -78,6 +78,8 @@
         </div>
     </div>
 
+    <input type="hidden" id="linked_quote" name="linked_quote" value="{{ job.linked_quote|default:'' }}">
+
     <input type="hidden" id="material_gauge_quantity" name="material_gauge_quantity" 
     class="autosave-input" value="{{ job.material_gauge_quantity|default_if_none:'' }}">
 

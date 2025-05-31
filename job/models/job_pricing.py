@@ -1,11 +1,12 @@
-# workflow/models/job_pricing.py
+# job/models/job_pricing.py
 import logging
 import uuid
 from decimal import Decimal
 
 from django.db import models, transaction
 
-from job.enums import JobPricingStage
+from job.enums import JobPricingType
+from .part import Part
 
 logger = logging.getLogger(__name__)
 
@@ -18,10 +19,10 @@ class JobPricing(models.Model):
         related_name="pricings",
     )
 
-    pricing_stage = models.CharField(
+    pricing_type = models.CharField(
         max_length=20,
-        choices=JobPricingStage.choices,
-        default=JobPricingStage.ESTIMATE,
+        choices=JobPricingType.choices,
+        default=JobPricingType.ESTIMATE,
         help_text="Stage of the job pricing (estimate, quote, or reality).",
     )
 
@@ -35,27 +36,39 @@ class JobPricing(models.Model):
         default=False
     )  # New field to indicate historical records
 
+    default_part = models.OneToOneField(
+        "Part",
+        on_delete=models.CASCADE,
+        null=True,  # Note, only NULL during the migration.  It should be non-null after
+        blank=True,
+        related_name="default_for_job_pricing",
+        help_text="The default 'Main Work' part for this JobPricing"
+    )
+
     class Meta:
         ordering = [
             "-created_at",
-            "pricing_stage",
-        ]  # Orders by newest entries first, and then by stage
+            "pricing_type",
+        ]  # Orders by newest entries first, and then by type
         db_table = "workflow_jobpricing"
 
     @property
     def material_entries(self):
-        """Returns all MaterialEntries related to this JobPricing"""
-        return self.materialentries_set.all()
+        """Returns all MaterialEntries related to this JobPricing through all parts"""
+        from job.models import MaterialEntry
+        return MaterialEntry.objects.filter(part__job_pricing=self)
 
     @property
     def time_entries(self):
-        """Returns all TimeEntries related to this JobPricing"""
-        return self.timeentries_set.all()
+        """Returns all TimeEntries related to this JobPricing through all parts"""
+        from timesheet.models import TimeEntry
+        return TimeEntry.objects.filter(part__job_pricing=self)
 
     @property
     def adjustment_entries(self):
-        """Returns all AdjustmentEntries related to this JobPricing"""
-        return self.adjustmententries_set.all()
+        """Returns all AdjustmentEntries related to this JobPricing through all parts"""
+        from job.models import AdjustmentEntry
+        return AdjustmentEntry.objects.filter(part__job_pricing=self)
 
     @property
     def total_time_cost(self):
@@ -113,9 +126,23 @@ class JobPricing(models.Model):
 
             # Save first so we have a primary key
             super().save(*args, **kwargs)
+            
+            # Create the default part immediately after saving
+            if not self.default_part:
+                self.default_part = Part.objects.create(
+                    job_pricing=self,
+                    name="Main Work",
+                    description="Default part for time entries"
+                )
+                # Save again to update the default_part reference
+                super().save(update_fields=['default_part'])
         else:
             # Normal save for existing instances
             super().save(*args, **kwargs)
+
+    def get_default_part(self):
+        """Get the default 'Main Work' part for this JobPricing."""
+        return self.default_part
 
     @property
     def total_hours(self) -> Decimal:
@@ -129,7 +156,7 @@ class JobPricing(models.Model):
         material_entries = self.material_entries.all()
         adjustment_entries = self.adjustment_entries.all()
 
-        logger.debug(f"\nEntries for JobPricing {self.id} ({self.pricing_stage}):")
+        logger.debug(f"\nEntries for JobPricing {self.id} ({self.pricing_type}):")
         logger.debug("\nTime Entries:")
         for entry in time_entries:
             logger.debug(
@@ -173,7 +200,7 @@ class JobPricing(models.Model):
         job = self.job
         job_name = job.name if job else "No Job"
         job_name_str = (
-            f"{job_name} - " f"{self.get_pricing_stage_display()}" f"{revision_str}"
+            f"{job_name} - " f"{self.get_pricing_type_display()}" f"{revision_str}"
         )
         return job_name_str
 
@@ -189,7 +216,7 @@ def snapshot_and_add_time_entry(job_pricing, hours_worked):
     # Create a snapshot of the current JobPricing before modifying it
     snapshot_pricing = JobPricing.objects.create(
         job=job_pricing.job,
-        pricing_stage=job_pricing.pricing_stage,
+        pricing_type=job_pricing.pricing_type,
         created_at=job_pricing.created_at,
         updated_at=job_pricing.updated_at,
     )
@@ -197,26 +224,30 @@ def snapshot_and_add_time_entry(job_pricing, hours_worked):
     # Copy related time entries to the snapshot
     for time_entry in job_pricing.time_entries.all():
         TimeEntry.objects.create(
-            job_pricing=snapshot_pricing, hours_worked=time_entry.hours_worked
+            part=snapshot_pricing.get_default_part(),
+            hours_worked=time_entry.hours_worked
         )
 
     # Copy related materials and adjustments if necessary
     for material_entry in job_pricing.material_entries.all():
         MaterialEntry.objects.create(
-            job_pricing=snapshot_pricing,
+            part=snapshot_pricing.get_default_part(),
             material=material_entry.material,
             quantity=material_entry.quantity,
         )
 
     for adjustment_entry in job_pricing.adjustment_entries.all():
         AdjustmentEntry.objects.create(
-            job_pricing=snapshot_pricing,
+            part=snapshot_pricing.get_default_part(),
             description=adjustment_entry.description,
             amount=adjustment_entry.amount,
         )
 
     # Now, add the new time entry to the current (updated) JobPricing
-    TimeEntry.objects.create(job_pricing=job_pricing, hours_worked=hours_worked)
+    TimeEntry.objects.create(
+        part=job_pricing.get_default_part(),
+        hours_worked=hours_worked
+    )
 
     return snapshot_pricing  # Return the snapshot to track it if needed
 

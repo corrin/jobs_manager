@@ -55,9 +55,9 @@ urlpatterns = [
         name="toggle_complex_job",
     ),
     path(
-        "api/job/toggle-pricing-type/",
-        edit_job_view_ajax.toggle_pricing_type,
-        name="toggle_pricing_type",
+        "api/job/toggle-pricing-methodology/",
+        edit_job_view_ajax.toggle_pricing_methodology,
+        name="toggle_pricing_methodology",
     ),
     path(
         "api/job/completed/",
@@ -90,6 +90,11 @@ urlpatterns = [
         "api/company_defaults/",
         edit_job_view_ajax.get_company_defaults_api,
         name="company_defaults_api",
+    ),
+    path(
+        "api/job/<uuid:job_id>/create-linked-quote/",
+        edit_job_view_ajax.create_linked_quote_api,
+        name="create_linked_quote_api",
     ),
     
     # Job view endpoints
