@@ -53,7 +53,7 @@ class JobSerializer(serializers.ModelSerializer):
             "job_is_valid",
             "job_files",
             "charge_out_rate",
-            "pricing_type",
+            "pricing_methodology",
         ]
 
     def validate(self, attrs):

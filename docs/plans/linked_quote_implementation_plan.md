@@ -149,18 +149,102 @@ All JobPricing records will always have at least one Part (“Main Work” if no
 ### Ticket 5: Update UI for Parts in Job Edit Page
 **Goal**: Modify the UI to display and manage parts.
 
-1. Update the job edit page to show parts as expandable sections
+1. Update the job edit page to show parts as rows in a single table
 2. Add UI controls to add/edit/delete parts
 3. Ensure the default "Other Work" part is always present
 4. Update the grid logic to handle the parts structure
 
-**Technical Details**:
-- Modify the edit_job_ajax.html template to support parts
-- Update the grid initialization in edit_job_grid_logic.js
-- Add new JavaScript functions for managing parts
-- Ensure the UI gracefully handles jobs with and without parts
+**Major UI Shift**: Rather than having a single table for time, materials, and adjustments, we will have a single table for parts. This table will have a column for the Part Name, Time (hours), Time Cost, Time Retail, Material Cost, Material Retail, Adjustment Cost, Adjustment Retail. The itemized pricing toggle changes visibility: false shows total across all parts, true shows one row per part.
 
-**Now Test**: Create a new job, add multiple parts, and verify they display correctly and can be edited.
+#### **Ticket 5.1: Core UI Table Structure & Default Part Display**
+
+*   **Goal**: Establish the foundational HTML structure in `edit_job_ajax.html` for a single parts entry table, and ensure the default "Other Work" part is always present as a row.
+*   **Tasks**:
+    1.  Modify `edit_job_ajax.html` to remove the existing time, material, and adjustment tables.
+    2.  Introduce a new single table structure (e.g., a `div` for the grid) that will house the parts data.
+    3.  Ensure that if no parts are explicitly defined for a job, a default "Other Work" part is represented as a row in this new table.
+    4.  Define the initial table headers for the new structure: "Part Name, Time (hours), Time Cost, Time Retail, Material Cost, Material Retail, Adjustment Cost, Adjustment Retail".
+*   **Technical Details**:
+    *   Focus on `job/templates/jobs/edit_job_ajax.html`.
+    *   This ticket focuses on the HTML scaffolding, not the dynamic grid population yet.
+*   **Now Test**: Verify that the job edit page loads, the old tables are gone, and a new table structure is present with the correct headers. Confirm that a row representing "Other Work" is visible by default if no other parts exist.
+
+#### **Ticket 5.2: Part Management UI Controls (Add/Edit/Delete)**
+
+*   **Goal**: Implement the client-side UI controls and associated JavaScript functions for adding, editing, and deleting parts, integrated directly into the single parts table's row operations.
+*   **Tasks**:
+    1.  Implement functionality to add new part rows (e.g., by pressing Enter on the last row, or a similar grid-native mechanism).
+    2.  Implement functionality to delete part rows (e.g., via a trash can icon within the row, or a similar grid-native mechanism).
+    3.  Ensure that editing part details (e.g., Part Name) is handled directly within the grid cells.
+    4.  Implement JavaScript functions to handle these row-based actions, including dynamically updating the single parts table.
+    5.  Integrate with the backend API endpoints for creating, updating, and deleting `Part` objects (assuming these API endpoints are already available from Ticket 4).
+*   **Technical Details**:
+    *   Focus on `job/static/job/js/edit_job_grid_logic.js` and potentially `job/static/job/js/grid/grid_options.js` to configure grid behavior for row addition/deletion.
+    *   Utilize existing AJAX patterns for communication with the Django backend.
+*   **Now Test**: Verify that new part rows can be added (e.g., by pressing Enter), existing part rows can be deleted (e.g., via a trash can icon), and part details can be edited directly in the grid. Confirm these changes persist after page refresh.
+
+#### **Ticket 5.3: Grid Logic, Itemized Pricing Toggle, & Editability**
+
+*   **Goal**: Adapt the existing grid logic in `edit_job_grid_logic.js` to populate the single parts table with data, correctly implement the itemized pricing toggle, and manage grid editability based on the number of parts.
+*   **Tasks**:
+    1.  Refactor `edit_job_grid_logic.js` to initialize and manage the *single* parts grid.
+    2.  Update grid data sources to fetch all parts and their associated time, material, and adjustment entry data.
+    3.  Configure grid column definitions to match the new structure: "Part Name, Time (hours), Time Cost, Time Retail, Material Cost, Material Retail, Adjustment Cost, Adjustment Retail".
+    4.  Implement the logic for the "itemized pricing toggle":
+        *   If `false`, the grid should display a single summary row aggregating all costs across all parts.
+        *   If `true`, the grid should display one row for each part.
+    5.  **Crucially, implement editability logic**:
+        *   If the job has **multiple parts** AND the "itemized pricing toggle" is `false` (summary view), the grid must be marked **non-editable**.
+        *   Display a message to the user, e.g., "Pricing of multiple parts requires itemized pricing."
+        *   Otherwise (single part, or multiple parts with itemized pricing true), the grid should be editable.
+    6.  Ensure existing grid functionalities (e.g., editing cells, calculations) work correctly within this new single-table, parts-based structure when editable.
+*   **Technical Details**:
+    *   Heavy modifications to `job/static/job/js/edit_job_grid_logic.js`.
+    *   Potential changes to `job/static/job/js/grid/grid_options.js` for new column definitions, data aggregation, and editability settings.
+    *   Requires understanding how the backend now provides data (nested parts with entries).
+*   **Now Test**: Verify that the single grid correctly displays data grouped by parts (when itemized), and that the itemized pricing toggle switches between the summary view and the per-part view as expected. Test editing values within the grid and ensure they update correctly when editable. Crucially, test a job with multiple parts where itemized pricing is off, and confirm the grid is non-editable with the correct message.
+
+#### **Ticket 5.4: UI Graceful Handling & Data Consistency**
+
+*   **Goal**: Ensure the UI gracefully handles jobs with and without parts, and that data consistency is maintained during UI interactions and saves.
+*   **Tasks**:
+    1.  Review all UI components and JavaScript logic to ensure they function correctly for jobs created *before* the parts migration (which would have a single "Main Work" part) and new jobs.
+    2.  Implement client-side validation for part names and other fields within the grid.
+    3.  Ensure that when entries (time, material, adjustment) are added or edited via the grid, they are correctly associated with the respective part row.
+    4.  Verify that the autosave functionality (`edit_job_form_autosave.js`) correctly handles the new parts table structure when saving job data.
+    5.  Perform comprehensive end-to-end testing of the entire job edit page with the new parts UI.
+*   **Technical Details**:
+    *   Cross-cutting concerns affecting `edit_job_ajax.html`, `edit_job_grid_logic.js`, `edit_job_form_autosave.js`, and any new part-related JavaScript files.
+    *   Focus on robust error handling and user feedback.
+*   **Now Test**: Create new jobs, add multiple parts, add entries to different parts, and verify all data is saved and displayed correctly. Test existing jobs to ensure they still function as expected with the "Other Work" part.
+
+### Visualizing the UI Shift (Corrected High-Level)
+
+```mermaid
+graph TD
+    A[Job Edit Page] --> B{Itemized Pricing Toggle}
+    B -- False --> C[Single Parts Table (Summary View)]
+    C -- Columns --> C1(Total Time Hours)
+    C -- Columns --> C2(Total Time Cost)
+    C -- Columns --> C3(Total Material Cost)
+    C -- Columns --> C4(Total Adjustment Cost)
+    C -- If Multiple Parts --> C5(Non-Editable & Message)
+
+    B -- True --> D[Single Parts Table (Itemized View)]
+    D -- Rows --> D1[Part 1 Row: "Other Work"]
+    D1 -- Columns --> D1A(Part Name)
+    D1 -- Columns --> D1B(Time Hours)
+    D1 -- Columns --> D1C(Time Cost)
+    D1 -- Columns --> D1D(Material Cost)
+    D1 -- Columns --> D1E(Adjustment Cost)
+    D -- Rows --> D2[Part 2 Row: "Custom Part A"]
+    D2 -- Columns --> D2A(Part Name)
+    D2 -- Columns --> D2B(Time Hours)
+    D2 -- Columns --> D2C(Time Cost)
+    D2 -- Columns --> D2D(Material Cost)
+    D2 -- Columns --> D2E(Adjustment Cost)
+    D --> D3[Add/Edit/Delete Part Controls (via row operations)]
+```
 
 ### Ticket 6: Implement Readonly Tables for Linked Quotes
 **Goal**: Make appropriate tables readonly when a job has a linked quote.

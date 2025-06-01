@@ -174,10 +174,10 @@ export function toggleGrid(source = "manual") {
 }
 
 /**
- * Toggles the pricing type UI elements and updates the pricing type on the server
+ * Toggles the pricing methodology UI elements and updates the pricing methodology on the server
  * @param {Event} event - DOM event object or object with value property
  */
-export function togglePricingType(event) {
+export function togglePricingMethodology(event) {
   if (!event) return;
 
   // Extract value from either event.target.value (DOM event) or event.value
@@ -192,7 +192,7 @@ export function togglePricingType(event) {
   }
 
   // Make API call to update pricing type on the server
-  fetch("/api/job/toggle-pricing-type/", {
+  fetch("/api/job/toggle-pricing-methodology/", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -200,7 +200,7 @@ export function togglePricingType(event) {
     },
     body: JSON.stringify({
       job_id: jobId,
-      pricing_type: newType,
+      pricing_methodology: newType,
     }),
   })
     .then((response) => response.json())
