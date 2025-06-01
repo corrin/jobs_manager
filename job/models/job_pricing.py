@@ -12,37 +12,44 @@ logger = logging.getLogger(__name__)
 
 
 class JobPricing(models.Model):
+    """
+    Represents a specific pricing version (estimate, quote, or reality) for a Job.
+    Each JobPricing instance acts as a container for a collection of 'Part' instances,
+    which in turn hold the detailed time, material, and adjustment entries.
+    """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(
         "Job",
         on_delete=models.CASCADE,
-        related_name="pricings",
+        related_name="job_pricings", # Changed related_name for clarity
+        help_text="The Job to which this pricing instance (collection of parts) belongs."
     )
 
     pricing_type = models.CharField(
         max_length=20,
         choices=JobPricingType.choices,
         default=JobPricingType.ESTIMATE,
-        help_text="Stage of the job pricing (estimate, quote, or reality).",
+        help_text="The type of pricing this instance represents (estimate, quote, or reality)."
     )
 
     revision_number = models.PositiveIntegerField(
-        default=1, help_text="Tracks the revision number for friendlier quotes"
+        default=1, help_text="Tracks the revision number for this specific pricing type."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     is_historical = models.BooleanField(
-        default=False
-    )  # New field to indicate historical records
+        default=False,
+        help_text="Indicates if this JobPricing instance is a historical record, not the latest active one."
+    )
 
     default_part = models.OneToOneField(
         "Part",
         on_delete=models.CASCADE,
-        null=True,  # Note, only NULL during the migration.  It should be non-null after
+        null=True,
         blank=True,
         related_name="default_for_job_pricing",
-        help_text="The default 'Main Work' part for this JobPricing"
+        help_text="The default 'Main Work' part associated with this JobPricing instance. This part typically holds general time and material entries for the given pricing type."
     )
 
     class Meta:
@@ -136,12 +143,15 @@ class JobPricing(models.Model):
                 )
                 # Save again to update the default_part reference
                 super().save(update_fields=['default_part'])
+                logger.debug(f"JobPricing {self.id} default_part created and linked: {self.default_part.id}")
         else:
             # Normal save for existing instances
             super().save(*args, **kwargs)
+            logger.debug(f"JobPricing {self.id} saved (existing instance). Default part: {self.default_part.id if self.default_part else 'None'}")
 
     def get_default_part(self):
         """Get the default 'Main Work' part for this JobPricing."""
+        logger.debug(f"Getting default part for JobPricing {self.id}: {self.default_part.id if self.default_part else 'None'}")
         return self.default_part
 
     @property
@@ -191,6 +201,7 @@ class JobPricing(models.Model):
             )
 
     def __str__(self):
+        """Returns a string representation of the JobPricing instance, including job name, pricing type, and revision."""
         # Only bother displaying revision if there is one
         if self.revision_number > 1:
             revision_str = f" - Revision {self.revision_number}"

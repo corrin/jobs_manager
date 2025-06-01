@@ -14,7 +14,7 @@ class Command(BaseCommand):
         django_port = os.environ.get("DJANGO_PORT", "8000")
 
         # Create ngrok command with the custom domain
-        ngrok_command = f"ngrok http  --region=au --domain={ngrok_domain} {django_port}"
+        ngrok_command = f"ngrok http --region=au --domain={ngrok_domain} http://localhost:{django_port}"
 
         # Start ngrok process
         self.stdout.write(

@@ -127,13 +127,15 @@ class Job(models.Model):
         help_text="Type of pricing for the job (fixed price or time and materials).",
     )
 
-    # Direct relationships for estimate, quote, reality
+    # One-to-one relationships to JobPricing instances, each representing a collection of parts
+    # for a specific pricing type (estimate, quote, reality) for this job.
     latest_estimate_pricing = models.OneToOneField(
         "JobPricing",
         on_delete=models.CASCADE,
         null=True,
         blank=False,
         related_name="latest_estimate_for_job",
+        help_text="The latest JobPricing instance representing the estimate for this job, containing its associated parts."
     )
 
     latest_quote_pricing = models.OneToOneField(
@@ -142,6 +144,7 @@ class Job(models.Model):
         null=True,
         blank=False,
         related_name="latest_quote_for_job",
+        help_text="The latest JobPricing instance representing the quote for this job, containing its associated parts."
     )
 
     latest_reality_pricing = models.OneToOneField(
@@ -150,12 +153,15 @@ class Job(models.Model):
         null=True,
         blank=False,
         related_name="latest_reality_for_job",
+        help_text="The latest JobPricing instance representing the reality (actual) pricing for this job, containing its associated parts."
     )
 
+    # Many-to-many relationship to store historical JobPricing instances for this job.
     archived_pricings = models.ManyToManyField(
         "JobPricing",
         related_name="archived_pricings_for_job",
         blank=True,
+        help_text="Historical JobPricing instances for this job, preserving past estimates, quotes, or realities."
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -264,8 +270,9 @@ class Job(models.Model):
             # Lazy import JobPricing using Django's apps.get_model()
             # We need to do this because of circular imports.  JobPricing imports Job
 
-            #  Create the initial JobPricing instances
-            logger.debug("Creating related JobPricing entries.")
+            # Create the initial JobPricing instances, which will serve as containers for parts
+            # related to estimate, quote, and reality pricing for this job.
+            logger.debug("Creating initial JobPricing instances as part containers.")
             self.latest_estimate_pricing = JobPricing.objects.create(
                 pricing_type="estimate", job=self
             )
@@ -275,7 +282,7 @@ class Job(models.Model):
             self.latest_reality_pricing = JobPricing.objects.create(
                 pricing_type="reality", job=self
             )
-            logger.debug("Initial pricings created successfully.")
+            logger.debug("Initial JobPricing instances (part containers) created successfully.")
 
             # Save the references back to the DB
             super(Job, self).save(

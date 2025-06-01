@@ -77,6 +77,7 @@ import { loadJobDetails } from "./job_details_loader.js";
 import { toggleGrid, togglePricingMethodology } from "./job_buttons/button_utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
+  window.grids = {}; // Initialize window.grids at the very beginning
   loadJobDetails();
 
   const trashCanColumn = createTrashCanColumn();

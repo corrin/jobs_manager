@@ -4,11 +4,13 @@ from django.db import models
 
 class Part(models.Model):
     """
-    Represents a component or section of a job that contains time entries, 
-    material entries, and adjustments.
-    
+    Represents a component or section of a job's pricing. A Part belongs to a specific
+    JobPricing instance (e.g., an estimate, quote, or reality pricing for a job),
+    and it contains detailed time entries, material entries, and adjustments.
+
     Each JobPricing can have multiple parts, and each part can have multiple entries.
-    For example, a job might have parts like "Fabrication", "Installation", "Finishing", etc.
+    For example, a job's "Estimate Pricing" might have parts like "Fabrication",
+    "Installation", "Finishing", etc., each with its own associated entries.
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job_pricing = models.ForeignKey(

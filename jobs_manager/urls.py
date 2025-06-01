@@ -31,9 +31,12 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += cast(
-        Iterable, static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    )
-    urlpatterns += static(
-        settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
-    )
+    # In development, Django's runserver automatically serves static files.
+    # Explicitly adding static() helper can sometimes cause conflicts.
+    # urlpatterns += cast(
+    #     Iterable, static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    # )
+    # urlpatterns += static(
+    #     settings.MEDIA_URL, document_root=settings.MEDIA_ROOT
+    # )
+    pass # Keep this pass statement to maintain valid Python syntax
