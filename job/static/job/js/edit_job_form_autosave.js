@@ -146,22 +146,31 @@ function collectGridData(section) {
     `Job complexity status for section ${section}: isComplex=${isComplex}`,
   );
 
-  switch (isComplex) {
-    case true:
-      console.log(`Using advanced grid collection for ${section}`);
-      const advancedData = collectAdvancedGridData(section);
-      console.log(`Advanced grid data collected for ${section}:`, advancedData);
-      return advancedData;
-    case false:
-      console.log(`Using simple grid collection for ${section}`);
-      const simpleData = collectSimpleGridData(section);
-      console.log(`Simple grid data collected for ${section}:`, simpleData);
-      return simpleData;
-    default:
-      console.error(
-        `Unknown grid state: "${isComplex}" for section ${section}`,
-      );
-      return {};
+  // If it's an estimate or quote section, and not complex, use the new parts collection
+  if ((section === "estimate" || section === "quote")) {
+    console.log(`Using parts grid collection for ${section}`);
+    const partsData = collectPartsGridData(section);
+    console.log(`Parts grid data collected for ${section}:`, partsData);
+    return partsData;
+  } else {
+    // Keep existing logic for advanced grids or reality section
+    switch (isComplex) {
+      case true:
+        console.log(`Using advanced grid collection for ${section}`);
+        const advancedData = collectAdvancedGridData(section);
+        console.log(`Advanced grid data collected for ${section}:`, advancedData);
+        return advancedData;
+      case false:
+        console.log(`Using simple grid collection for ${section}`);
+        const simpleData = collectSimpleGridData(section);
+        console.log(`Simple grid data collected for ${section}:`, simpleData);
+        return simpleData;
+      default:
+        console.error(
+          `Unknown grid state: "${isComplex}" for section ${section}`,
+        );
+        return {};
+    }
   }
 }
 
@@ -397,6 +406,102 @@ export function collectSimpleGridData(section) {
 
   return sectionData;
 }
+
+function collectPartsGridData(section) {
+  debugLog(`collectPartsGridData starting for section: ${section}`);
+  const sectionData = {
+    time_entries: [],
+    material_entries: [],
+    adjustment_entries: [],
+  };
+
+  const partsKey = `simple${capitalize(section)}PartsTable`;
+  const partsGrid = window.grids[partsKey];
+  debugLog(
+    `Processing simple parts grid ${partsKey}, exists: ${!!partsGrid}, has API: ${!!(partsGrid && partsGrid.api)}`,
+  );
+
+  if (partsGrid && partsGrid.api) {
+    let rowCount = 0;
+    partsGrid.api.forEachNode((node) => {
+      rowCount++;
+      const row = node.data || {};
+      const partName = row.name?.trim() || "";
+      const hours = parseFloat(row.hours) || 0;
+      const timeCost = parseFloat(row.time_cost) || 0;
+      const timeRevenue = parseFloat(row.time_revenue) || 0;
+      const materialCost = parseFloat(row.material_cost) || 0;
+      const materialRevenue = parseFloat(row.material_revenue) || 0;
+      const adjustmentCost = parseFloat(row.adjustment_cost) || 0;
+      const adjustmentRevenue = parseFloat(row.adjustment_revenue) || 0;
+
+      // Determine if the row is empty based on all relevant fields
+      const isEmptyRow =
+        partName === "" &&
+        hours === 0 &&
+        timeCost === 0 &&
+        timeRevenue === 0 &&
+        materialCost === 0 &&
+        materialRevenue === 0 &&
+        adjustmentCost === 0 &&
+        adjustmentRevenue === 0;
+
+      if (!isEmptyRow) {
+        // For each part row, create separate entries for time, materials, and adjustments
+        // if their respective values are non-zero.
+        if (hours > 0 || timeCost > 0 || timeRevenue > 0) {
+          sectionData.time_entries.push({
+            description: partName, // Using part name as description for time entry
+            hours: hours,
+            cost: timeCost,
+            revenue: timeRevenue,
+            // Add other time-specific fields if necessary, with default/null values
+            items: 1, // Assuming 1 item per part for time
+            minutes_per_item: hours * 60,
+            wage_rate: timeCost / hours || 0, // Derive wage_rate if hours > 0
+            charge_out_rate: timeRevenue / hours || 0, // Derive charge_out_rate if hours > 0
+            wage_rate_multiplier: 1,
+            is_billable: true,
+            note: "",
+            date: null, // Date is not in parts table, set to null
+          });
+        }
+
+        if (materialCost > 0 || materialRevenue > 0) {
+          sectionData.material_entries.push({
+            description: partName, // Using part name as description for material entry
+            unit_cost: materialCost,
+            unit_revenue: materialRevenue,
+            quantity: 1, // Assuming 1 quantity per part for materials
+            item_code: "", // Not in parts table, set to empty
+            comments: "", // Not in parts table, set to empty
+          });
+        }
+
+        if (adjustmentCost > 0 || adjustmentRevenue > 0) {
+          sectionData.adjustment_entries.push({
+            description: partName, // Using part name as description for adjustment entry
+            cost_adjustment: adjustmentCost,
+            price_adjustment: adjustmentRevenue,
+            comments: "", // Not in parts table, set to empty
+          });
+        }
+        debugLog(`Processed part row into entries:`, partEntry);
+      } else {
+        debugLog(`Skipping empty part row:`, row);
+      }
+    });
+    debugLog(
+      `Processed ${rowCount} rows in parts grid, resulting in:`,
+      sectionData,
+    );
+  } else {
+    debugLog(`Parts grid ${partsKey} not found or missing API`);
+  }
+
+  return sectionData;
+}
+
 
 function collectCostsData() {
   const costsTable = window.grids.costsTable;

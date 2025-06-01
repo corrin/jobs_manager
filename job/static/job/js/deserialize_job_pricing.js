@@ -83,12 +83,24 @@ export function getGridData(section, gridType) {
 
   // Convert e.g. "TimeTable" => "time_entries", "MaterialsTable" => "material_entries", etc.
   const gridBaseName = realGridType.toLowerCase().replace("table", "");
-  const entryType =
-    (gridBaseName === "materials"
-      ? "material"
-      : gridBaseName === "adjustments"
-        ? "adjustment"
-        : gridBaseName) + "_entries";
+  let entryType;
+  switch (gridBaseName) {
+    case "time":
+      entryType = "time_entries";
+      break;
+    case "materials":
+      entryType = "material_entries";
+      break;
+    case "adjustments":
+      entryType = "adjustment_entries";
+      break;
+    case "parts":
+      entryType = "parts_entries";
+      break;
+    default:
+      console.error(`Unknown grid base name: "${gridBaseName}"`);
+      return [createNewRow(gridType)]; // Return a new row to prevent further errors
+  }
 
   // If no data found, create new row
   if (!sectionData[entryType] || sectionData[entryType].length === 0) {
@@ -126,10 +138,27 @@ function loadExistingJobEntries(entries, gridType) {
     case "SimpleAdjustmentsTable":
       return loadSimpleJobAdjustment(entries);
 
+    case "PartsTable":
+    case "parts": // Handle lowercase "parts" as well
+      return loadPartsEntries(entries);
     default:
       console.error(`Unknown grid type: "${gridType}"`);
       return [createNewRow(gridType)];
   }
+}
+
+// New loader for Parts
+function loadPartsEntries(entries) {
+  return entries.map((entry) => ({
+    name: entry.name,
+    hours: entry.hours,
+    time_cost: entry.time_cost,
+    time_revenue: entry.time_revenue,
+    material_cost: entry.material_cost,
+    material_revenue: entry.material_revenue,
+    adjustment_cost: entry.adjustment_cost,
+    adjustment_revenue: entry.adjustment_revenue,
+  }));
 }
 
 // Advanced loaders
@@ -290,6 +319,18 @@ export function createNewRow(gridType) {
       return {
         cost: 0,
         retail: 0,
+      };
+    case "PartsTable":
+    case "parts": // Handle lowercase "parts" as well
+      return {
+        name: "",
+        hours: 0,
+        time_cost: 0,
+        time_revenue: 0,
+        material_cost: 0,
+        material_revenue: 0,
+        adjustment_cost: 0,
+        adjustment_revenue: 0,
       };
     default:
       console.error(`Unknown grid type for new row creation: "${gridType}"`);

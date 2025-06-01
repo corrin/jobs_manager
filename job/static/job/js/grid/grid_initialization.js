@@ -4,7 +4,7 @@
  */
 
 import { createNewRow, getGridData } from "../deserialize_job_pricing.js";
-import { createSimpleTotalsGridOptions } from "./grid_options.js";
+import { createSimpleTotalsGridOptions, createPartsGridOptions } from "./grid_options.js";
 import { adjustGridHeight, capitalize } from "./grid_utils.js";
 
 /** @constant {string[]} sections - Available pricing sections */
@@ -118,6 +118,42 @@ export function initializeAdvancedGrids(
     });
   });
 }
+
+/**
+ * Initializes parts grid views
+ * @param {Object} commonGridOptions - Common configuration options for all grids
+ * @param {Object} partsGridOptions - Configuration specific to parts grids
+ */
+export function initializePartsGrid(
+  commonGridOptions,
+  partsGridOptions,
+) {
+  // Only apply to "estimate" and "quote" sections
+  ["estimate", "quote"].forEach((section) => {
+    const gridType = `PartsTable`;
+    const gridKey = `${section}PartsTable`;
+    const gridElement = document.querySelector(`#${gridKey}`);
+    if (!gridElement) {
+      console.error(`Grid element not found for key: ${gridKey}`);
+      return;
+    }
+
+    const rowData = getInitialRowData(section, gridType);
+
+    const gridOptions = {
+      ...partsGridOptions,
+      context: {
+        section,
+        gridType,
+        gridKey,
+      },
+      rowData,
+    };
+
+    agGrid.createGrid(gridElement, gridOptions);
+  });
+}
+
 
 /**
  * Creates an individual advanced grid
@@ -257,7 +293,13 @@ function getInitialRowData(section, gridType) {
     return [createNewRow(gridType)];
   }
 
-  let rowData = getGridData(section, gridType);
+  let rowData;
+  if (gridType === "PartsTable") {
+    rowData = getGridData(section, "parts"); // Assuming getGridData can fetch 'parts'
+  } else {
+    rowData = getGridData(section, gridType);
+  }
+
   if (!rowData.length) {
     if (Environment.isDebugMode()) {
       console.log(
@@ -330,7 +372,11 @@ export function createTotalTables(revenueGridOptions, costGridOptions) {
  * Checks if all expected grids were created
  */
 export function checkGridInitialization() {
-  const expectedGridCount = sections.length * workType.length + 2;
+  // Original grids: 3 sections * 3 work types = 9 grids
+  // Plus 2 total tables = 11 grids
+  // New parts grids: 2 sections (estimate, quote) * 1 parts table = 2 grids
+  // Total expected: 9 (original) + 2 (parts) + 2 (totals) = 13 grids
+  const expectedGridCount = sections.length * workType.length + 2 + 2; // +2 for estimate/quote parts tables
   const actualGridCount = Object.keys(window.grids).length;
 
   if (actualGridCount < expectedGridCount) {

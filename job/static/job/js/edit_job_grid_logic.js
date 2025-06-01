@@ -43,6 +43,7 @@ import {
   createSimpleMaterialsGridOptions,
   createSimpleAdjustmentsGridOptions,
   createSimpleTotalsGridOptions,
+  createPartsGridOptions,
 } from "./grid/grid_options.js";
 
 // Revenue and cost grid options
@@ -55,6 +56,7 @@ import {
 import {
   initializeAdvancedGrids,
   initializeSimpleGrids,
+  initializePartsGrid,
   createTotalTables,
   checkGridInitialization,
 } from "./grid/grid_initialization.js";
@@ -72,7 +74,7 @@ import {
 import { handleButtonClick } from "./job_buttons/button_handlers.js";
 
 import { loadJobDetails } from "./job_details_loader.js";
-import { toggleGrid, togglePricingType } from "./job_buttons/button_utils.js";
+import { toggleGrid, togglePricingMethodology } from "./job_buttons/button_utils.js";
 
 document.addEventListener("DOMContentLoaded", function () {
   loadJobDetails();
@@ -108,6 +110,11 @@ document.addEventListener("DOMContentLoaded", function () {
     trashCanColumn,
   );
 
+  // Initialize Parts grids for Estimate and Quote
+  const partsGridOptions = createPartsGridOptions(commonGridOptions, trashCanColumn);
+  initializePartsGrid(commonGridOptions, partsGridOptions);
+
+  // Keep existing initializations for other grids (e.g., Reality)
   initializeAdvancedGrids(
     commonGridOptions,
     advancedTimeGridOptions,
@@ -142,7 +149,7 @@ document.addEventListener("DOMContentLoaded", function () {
   document.body.addEventListener("click", handleButtonClick);
   document
     .getElementById("pricingTypeDropdown")
-    .addEventListener("change", (event) => togglePricingType(event));
+    .addEventListener("change", (event) => togglePricingMethodology(event));
   document
     .getElementById("job_status")
     .addEventListener("change", checkJobAccepted);

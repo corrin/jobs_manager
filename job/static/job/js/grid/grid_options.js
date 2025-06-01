@@ -526,113 +526,123 @@ export function createAdvancedTimeGridOptions(
 ) {
   const enhancedTrashColumn = {
     ...trashCanColumn,
-    width: 80,
-    minWidth: 80,
-    maxWidth: 80,
-    flex: 0,
-    suppressSizeToFit: true,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "TimeTable",
+    },
   };
 
   return {
     ...commonGridOptions,
     columnDefs: [
       {
-        headerName: "Time Description",
+        headerName: "Description",
         field: "description",
+        flex: 1,
+        minWidth: 200,
         editable: true,
-        flex: 2,
-        minWidth: 100,
-        cellRenderer: (params) => {
-          return `<span>${params.value || "No Description"}</span>`;
-        },
       },
       {
-        headerName: "Timesheet",
-        field: "link",
+        headerName: "Staff",
+        field: "staff_name",
         width: 120,
-        minWidth: 100,
-        cellRenderer: (params) => {
-          if (params.data.link && params.data.link.trim()) {
-            const linkLabel =
-              params.data.link === "/timesheets/overview/"
-                ? ""
-                : "View Timesheet";
-
-            if (linkLabel === "") {
-              return `<span class="text-warning">Not found for this entry.</span>`;
-            }
-
-            console.log("[-ADVANCED-GRID-CREATION-]: params data: ", params.data);
-            if (params.data.staff_name) {
-              return `<a href='${params.data.link}' target='_blank' class='action-link'>${linkLabel} (${params.data.staff_name})</a>`;
-            }
-
-            return `<a href='${params.data.link}' target='_blank' class='action-link'>${linkLabel}</a>`;
-          }
-          return "Not found for this entry.";
-        },
+        editable: true,
+      },
+      {
+        headerName: "Date",
+        field: "date",
+        width: 120,
+        editable: true,
+      },
+      {
+        headerName: "Hours",
+        field: "hours",
+        width: 90,
+        editable: true,
+        valueParser: numberParser,
+        type: "numericColumn",
       },
       {
         headerName: "Items",
         field: "items",
+        width: 90,
         editable: true,
         valueParser: numberParser,
-        minWidth: 80,
-        flex: 1,
+        type: "numericColumn",
       },
       {
         headerName: "Mins/Item",
         field: "mins_per_item",
+        width: 110,
         editable: true,
         valueParser: numberParser,
-        minWidth: 90,
-        flex: 1,
+        type: "numericColumn",
       },
       {
-        headerName: "Total Minutes",
+        headerName: "Total Mins (Hours)",
         field: "total_minutes",
+        width: 150,
         editable: false,
-        valueFormatter: (params) => {
-          if (params.value !== undefined && params.value !== null) {
-            const totalMinutes = parseFloat(params.value) || 0;
-            const decimalHours = (totalMinutes / 60).toFixed(1);
-            return `${totalMinutes} (${decimalHours} hours)`;
-          }
-          return "0 (0.0 hours)";
-        },
-        valueParser: (params) => {
-          return parseFloat(params.newValue) || 0;
-        },
       },
       {
         headerName: "Wage Rate",
         field: "wage_rate",
-        editable: false,
-        hide: true,
+        width: 100,
+        editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 100,
-        flex: 1,
+        type: "numericColumn",
       },
       {
-        headerName: "Charge Rate",
+        headerName: "Charge Out Rate",
         field: "charge_out_rate",
-        editable: false,
-        hide: true,
+        width: 130,
+        editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 100,
-        flex: 1,
+        type: "numericColumn",
       },
-
       {
-        ...enhancedTrashColumn,
-        minWidth: 120,
-        flex: 1,
+        headerName: "Wage Multiplier",
+        field: "wage_rate_multiplier",
+        width: 130,
+        editable: true,
+        valueParser: numberParser,
+        type: "numericColumn",
       },
+      {
+        headerName: "Cost",
+        field: "cost",
+        width: 90,
+        editable: false,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Revenue",
+        field: "revenue",
+        width: 90,
+        editable: false,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Link",
+        field: "link",
+        width: 70,
+        editable: false,
+        cellRenderer: (params) => {
+          if (params.value) {
+            return `<a href="${params.value}" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>`;
+          }
+          return "";
+        },
+      },
+      enhancedTrashColumn,
     ],
-    rowData: [],
-    context: { gridType: "TimeTable" },
   };
 }
 
@@ -642,11 +652,13 @@ export function createAdvancedMaterialsGridOptions(
 ) {
   const enhancedTrashColumn = {
     ...trashCanColumn,
-    width: 80,
-    minWidth: 80,
-    maxWidth: 80,
-    flex: 0,
-    suppressSizeToFit: true,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "MaterialsTable",
+    },
   };
 
   return {
@@ -655,71 +667,66 @@ export function createAdvancedMaterialsGridOptions(
       {
         headerName: "Item Code",
         field: "item_code",
-        editable: false,
-        hide: true,
+        width: 120,
+        editable: true,
       },
       {
-        headerName: "Material Description",
+        headerName: "Description",
         field: "description",
-        editable: true,
-        flex: 2,
-        maxWidth: 335,
-        cellRenderer: (params) => {
-          const description = params.value || "No Description";
-          if (params.data && params.data.po_url) {
-            // If po_url exists, render as a link opening in a new tab
-            return `<a href="${params.data.po_url}" target="_blank" class="action-link">${description}</a>`;
-          }
-          // Otherwise, just render the text
-          return description;
-        },
-      },
-      {
-        headerName: "Qtd.",
-        field: "quantity",
-        editable: true,
-        maxWidth: 150,
-        valueParser: numberParser,
-      },
-      {
-        headerName: "Cost Rate",
-        field: "unit_cost",
-        editable: true,
-        valueParser: numberParser,
-        valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 350,
         flex: 1,
-      },
-      {
-        headerName: "Retail Rate",
-        field: "unit_revenue",
+        minWidth: 200,
         editable: true,
-        valueGetter: getRetailRate,
-        valueSetter: setRetailRate,
-        valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 190,
-        flex: 1,
-      },
-      {
-        headerName: "Revenue",
-        field: "revenue",
-        editable: false,
-        hide: true,
-        valueFormatter: currencyFormatter,
       },
       {
         headerName: "Comments",
         field: "comments",
-        editable: true,
-        flex: 2,
         width: 150,
+        editable: true,
+      },
+      {
+        headerName: "Quantity",
+        field: "quantity",
+        width: 100,
+        editable: true,
+        valueParser: numberParser,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Unit Cost",
+        field: "unit_cost",
+        width: 100,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Unit Revenue",
+        field: "unit_revenue",
+        width: 120,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Cost",
+        field: "cost",
+        width: 90,
+        editable: false,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Revenue",
+        field: "revenue",
+        width: 90,
+        editable: false,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
       },
       enhancedTrashColumn,
     ],
-    rowData: [],
-    context: { gridType: "MaterialsTable" },
   };
 }
 
@@ -729,121 +736,102 @@ export function createAdvancedAdjustmentsGridOptions(
 ) {
   const enhancedTrashColumn = {
     ...trashCanColumn,
-    width: 80,
-    minWidth: 80,
-    maxWidth: 80,
-    flex: 0,
-    suppressSizeToFit: true,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "AdjustmentTable",
+    },
   };
 
   return {
     ...commonGridOptions,
     columnDefs: [
       {
-        headerName: "Adjustment Description",
+        headerName: "Description",
         field: "description",
-        editable: true,
-        flex: 2,
-        minWidth: 395,
-      },
-      {
-        headerName: "Cost Adjustment",
-        field: "cost_adjustment",
-        editable: true,
-        valueParser: numberParser,
-        valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 425,
         flex: 1,
-      },
-      {
-        headerName: "Price Adjustment",
-        field: "price_adjustment",
+        minWidth: 200,
         editable: true,
-        valueParser: numberParser,
-        valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 230,
-        flex: 1,
       },
       {
         headerName: "Comments",
         field: "comments",
+        width: 150,
         editable: true,
-        flex: 2,
-        width: 175,
+      },
+      {
+        headerName: "Cost Adjustment",
+        field: "cost_adjustment",
+        width: 130,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Price Adjustment",
+        field: "price_adjustment",
+        width: 130,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
       },
       enhancedTrashColumn,
     ],
-    rowData: [],
-    context: { gridType: "AdjustmentTable" },
   };
 }
 
-// Simple grids
 export function createSimpleTimeGridOptions(commonGridOptions, trashCanColumn) {
   const enhancedTrashColumn = {
     ...trashCanColumn,
-    width: 80,
-    minWidth: 80,
-    maxWidth: 80,
-    flex: 0,
-    suppressSizeToFit: true,
-    hide: true,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "SimpleTimeTable",
+    },
   };
 
   return {
     ...commonGridOptions,
     columnDefs: [
       {
-        headerName: "Time",
+        headerName: "Description",
         field: "description",
-        editable: false,
-        flex: 2,
-        maxWidth: 155,
-        width: 155,
+        flex: 1,
+        minWidth: 200,
+        editable: true,
       },
       {
         headerName: "Hours",
         field: "hours",
+        width: 90,
         editable: true,
         valueParser: numberParser,
-        maxWidth: 235,
-        width: 235,
+        type: "numericColumn",
       },
       {
-        headerName: "Cost ($)",
+        headerName: "Cost of Time",
         field: "cost_of_time",
+        width: 120,
         editable: false,
-        valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
+        type: "numericColumn",
       },
       {
-        headerName: "Retail ($)",
+        headerName: "Value of Time",
         field: "value_of_time",
+        width: 120,
         editable: false,
-        valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 230,
-      },
-      // This is needed to send data in a proper way to be saved in back-end
-      {
-        headerName: "Wage Rate",
-        field: "wage_rate",
-        editable: false,
-        hide: true,
-      },
-      {
-        headerName: "Charge Rate",
-        field: "charge_out_rate",
-        editable: false,
-        hide: true,
+        type: "numericColumn",
       },
       enhancedTrashColumn,
     ],
-    context: { gridType: "SimpleTimeTable" },
   };
 }
 
@@ -853,53 +841,45 @@ export function createSimpleMaterialsGridOptions(
 ) {
   const enhancedTrashColumn = {
     ...trashCanColumn,
-    width: 80,
-    minWidth: 80,
-    maxWidth: 80,
-    flex: 0,
-    suppressSizeToFit: true,
-    hide: true,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "SimpleMaterialsTable",
+    },
   };
 
   return {
     ...commonGridOptions,
     columnDefs: [
       {
-        headerName: "Materials",
+        headerName: "Description",
         field: "description",
-        editable: false, // Keep editable as false for simple view
-        flex: 2,
-        maxWidth: 390,
-        cellRenderer: (params) => {
-          const description = params.value || "No Description";
-          if (params.data && params.data.po_url) {
-            // If po_url exists, render as a link opening in a new tab
-            return `<a href="${params.data.po_url}" target="_blank" class="action-link">${description}</a>`;
-          }
-          // Otherwise, just render the text
-          return description;
-        },
+        flex: 1,
+        minWidth: 200,
+        editable: true,
       },
       {
-        headerName: "Cost ($)",
+        headerName: "Material Cost",
         field: "material_cost",
+        width: 120,
         editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
+        type: "numericColumn",
       },
       {
-        headerName: "Retail ($)",
+        headerName: "Retail Price",
         field: "retail_price",
+        width: 120,
         editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 230,
+        type: "numericColumn",
       },
       enhancedTrashColumn,
     ],
-    context: { gridType: "SimpleMaterialsTable" },
   };
 }
 
@@ -909,78 +889,150 @@ export function createSimpleAdjustmentsGridOptions(
 ) {
   const enhancedTrashColumn = {
     ...trashCanColumn,
-    width: 80,
-    minWidth: 80,
-    maxWidth: 80,
-    flex: 0,
-    suppressSizeToFit: true,
-    hide: true,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "SimpleAdjustmentsTable",
+    },
   };
 
   return {
     ...commonGridOptions,
     columnDefs: [
       {
-        headerName: "Adjustments",
+        headerName: "Description",
         field: "description",
-        editable: false,
-        flex: 2,
-        maxWidth: 390,
+        flex: 1,
+        minWidth: 200,
+        editable: true,
       },
       {
-        headerName: "Cost ($)",
+        headerName: "Cost Adjustment",
         field: "cost_adjustment",
+        width: 130,
         editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
+        type: "numericColumn",
       },
       {
-        headerName: "Retail ($)",
+        headerName: "Price Adjustment",
         field: "price_adjustment",
+        width: 130,
         editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
-        width: 230,
+        type: "numericColumn",
       },
       enhancedTrashColumn,
     ],
-    context: { gridType: "SimpleAdjustmentsTable" },
   };
 }
 
 export function createSimpleTotalsGridOptions(gridKey) {
-  const commonGridOptions = createSimpleTotalsCommonGridOptions(gridKey);
+  return {
+    rowHeight: 28,
+    headerHeight: 32,
+    onGridReady: (params) => {
+      window.grids[gridKey] = { api: params.api };
+
+      params.api.sizeColumnsToFit();
+      calculateSimpleTotals();
+    },
+
+    onGridSizeChanged: (params) => {
+      params.api.sizeColumnsToFit();
+    },
+  };
+}
+
+export function createPartsGridOptions(commonGridOptions, trashCanColumn) {
+  const enhancedTrashColumn = {
+    ...trashCanColumn,
+    headerName: "",
+    colId: "trash",
+    width: 50,
+    maxWidth: 50,
+    cellRendererParams: {
+      gridType: "PartsTable", // Indicate this is a parts table
+    },
+  };
 
   return {
     ...commonGridOptions,
     columnDefs: [
       {
-        headerName: "Totals",
-        field: "section",
-        editable: false,
-        maxWidth: 395,
+        headerName: "Part Name",
+        field: "name",
+        flex: 1,
+        minWidth: 200,
+        editable: true,
       },
       {
-        headerName: "Total Cost ($)",
-        field: "cost",
-        editable: false,
+        headerName: "Time (Hours)",
+        field: "hours",
+        width: 120,
+        editable: true,
         valueParser: numberParser,
-        valueFormatter: currencyFormatter,
-        maxWidth: 400,
+        type: "numericColumn",
       },
       {
-        headerName: "Total Retail ($)",
-        field: "retail",
-        editable: false,
+        headerName: "Time (Cost)",
+        field: "time_cost",
+        width: 120,
+        editable: true,
         valueParser: numberParser,
         valueFormatter: currencyFormatter,
-        minWidth: 80,
-        cellStyle: { "text-align": "start" },
+        type: "numericColumn",
       },
+      {
+        headerName: "Time (Revenue)",
+        field: "time_revenue",
+        width: 120,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Materials (Cost)",
+        field: "material_cost",
+        width: 120,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Materials (Revenue)",
+        field: "material_revenue",
+        width: 120,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Adjustments (Cost)",
+        field: "adjustment_cost",
+        width: 120,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      {
+        headerName: "Adjustments (Revenue)",
+        field: "adjustment_revenue",
+        width: 120,
+        editable: true,
+        valueParser: numberParser,
+        valueFormatter: currencyFormatter,
+        type: "numericColumn",
+      },
+      enhancedTrashColumn,
     ],
-    rowData: [{ cost: 0, retail: 0 }],
-    context: { gridType: "SimpleTotalTable" },
   };
 }

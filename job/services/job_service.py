@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 
 from workflow.models import CompanyDefaults
 
-from job.models import Job, JobPricing, AdjustmentEntry, MaterialEntry
+from job.models import Job, JobPricing, AdjustmentEntry, MaterialEntry, Part
 
 from timesheet.models import TimeEntry
 
@@ -90,21 +90,16 @@ def get_job_with_pricings(job_id):
 
     # Loop through each pricing type to create Prefetch objects for pricing entries
     for pt in pricing_types:
-        # Prefetch time_entries with related staff through parts
+        # Prefetch the 'parts' related to each JobPricing instance,
+        # and within those parts, prefetch their related entries.
         prefetch_list.append(
             Prefetch(
-                f"{pt}__parts__time_entries",
-                queryset=TimeEntry.objects.select_related("staff"),
-            )
-        )
-        # Prefetch material_entries through parts
-        prefetch_list.append(
-            Prefetch(f"{pt}__parts__material_entries", queryset=MaterialEntry.objects.all())
-        )
-        # Prefetch adjustment_entries through parts
-        prefetch_list.append(
-            Prefetch(
-                f"{pt}__parts__adjustment_entries", queryset=AdjustmentEntry.objects.all()
+                f"{pt}__parts",
+                queryset=Part.objects.prefetch_related(
+                    Prefetch("time_entries", queryset=TimeEntry.objects.select_related("staff")),
+                    "material_entries",
+                    "adjustment_entries",
+                ),
             )
         )
 
