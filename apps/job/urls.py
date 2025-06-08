@@ -12,13 +12,14 @@ This module contains all URL patterns related to job management:
 from django.urls import path
 
 from apps.job.views import (
-    edit_job_view_ajax,
-    kanban_view,
-    workshop_view,
-    job_management_view,
     ArchiveCompleteJobsViews,
     AssignJobView,
     JobFileView,
+    edit_job_view_ajax,
+    import_quote_view,
+    job_management_view,
+    kanban_view,
+    workshop_view,
 )
 
 app_name = "jobs"
@@ -78,6 +79,11 @@ urlpatterns = [
         "api/job-event/<uuid:job_id>/add-event/",
         edit_job_view_ajax.add_job_event,
         name="add-event",
+    ),
+    path(
+        "api/jobs/<uuid:job_id>/import-quote/",
+        import_quote_view.import_quote,
+        name="import_quote",
     ),
     path("api/job-files/", JobFileView.as_view(), name="job-files"),  # For POST/PUT
     path(

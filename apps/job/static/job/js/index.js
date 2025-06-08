@@ -6,6 +6,7 @@ import {
 } from "./grid/grid_initialization.js";
 import { toggleGrid } from "./job_buttons/button_utils.js";
 import { handleButtonClick } from "./job_buttons/button_handlers.js";
+import "./import_quote.js";
 
 // Initialize all modules when the document is ready
 document.addEventListener("DOMContentLoaded", function () {
