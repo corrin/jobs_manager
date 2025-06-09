@@ -4,9 +4,10 @@ from datetime import datetime
 from typing import Dict, List
 
 from django.db import models, transaction
-from django.db.models import Max, Index
+from django.db.models import Index, Max, Min
 from simple_history.models import HistoricalRecords  # type: ignore
 
+from apps.accounts.models import Staff
 from apps.job.enums import JobPricingMethodology
 from apps.job.helpers import get_company_defaults
 
@@ -14,9 +15,6 @@ from apps.job.helpers import get_company_defaults
 # otherwise it would have a circular import
 from .job_event import JobEvent
 from .job_pricing import JobPricing
-
-from apps.accounts.models import Staff
-
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +68,10 @@ class Job(models.Model):
     material_gauge_quantity = models.TextField(
         blank=True,
         null=True,
-        help_text="DEPRECATED - Use notes field instead. Content will be automatically migrated.",
+        help_text=(
+            "DEPRECATED - Use notes field instead. Content will be automatically "
+            "migrated."
+        ),
     )
     description = models.TextField(
         blank=True,
@@ -183,13 +184,16 @@ class Job(models.Model):
 
     @classmethod
     def _calculate_next_priority_for_status(cls, status_value: str) -> int:
-        max_entry = (
-            cls.objects.filter(status=status_value).aggregate(Max("priority"))[
-                "priority__max"
-            ]
-            or 0
-        )
-        return max_entry + cls.PRIORITY_INCREMENT
+        """Return a priority that places a new job at the top of its column."""
+
+        min_entry = cls.objects.filter(status=status_value).aggregate(Min("priority"))[
+            "priority__min"
+        ]
+        if min_entry is None:
+            # No jobs yet for this status. Start at the default increment.
+            return cls.PRIORITY_INCREMENT
+
+        return min_entry - cls.PRIORITY_INCREMENT
 
     @property
     def shop_job(self) -> bool:
@@ -276,8 +280,9 @@ class Job(models.Model):
                 default_priority = self._calculate_next_priority_for_status(self.status)
                 self.priority = default_priority
 
-                # Creating a new job is tricky because of the circular reference.
-                # We first save the job to the DB without any associated pricings, then we
+                # Creating a new job is tricky because of the circular
+                # reference. We first save the job to the DB without any
+                # associated pricings, then we
                 super(Job, self).save(*args, **kwargs)
 
                 #  Create the initial JobPricing instances
