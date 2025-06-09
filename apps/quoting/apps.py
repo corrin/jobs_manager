@@ -16,6 +16,10 @@ class QuotingConfig(AppConfig):
         # The 'workflow' app handles its own scheduled jobs (e.g., Xero syncs).
         # Both apps use the same DjangoJobStore for persistence.
 
+        if os.environ.get("DISABLE_APPSCHEDULER"):
+            logger.info("Skipping scraper scheduler setup due to env override.")
+            return
+
         # Import scheduler-related modules here, when apps are ready
         # These imports are placed here to avoid AppRegistryNotReady errors
         # during Django management commands (like migrate) where the app registry

@@ -9,19 +9,19 @@ from apps.job.enums import JobPricingStage
 from apps.job.models import AdjustmentEntry, Job, JobPart, JobPricing, MaterialEntry
 
 MANDATORY_COLUMNS = [
-    "Description",
+    "description",
     "quantity",
     "thickness",
-    "Materials",
-    "Labor / laser (internal)",
+    "materials",
+    "labor / laser (internal)",
     "bend cost",
     "bend setup fee",
     "hole cost",
     "weld cost",
-    "Material cost",
-    "Pipe (RHS/SHS/pipe)",
-    "Preparation (detail/finish)",
-    "CLEAR",
+    "material cost",
+    "pipe (rhs/shs/pipe)",
+    "preparation (detail/finish)",
+    "clear",
 ]
 
 ADJUSTMENT_COLUMNS = [
@@ -29,9 +29,28 @@ ADJUSTMENT_COLUMNS = [
     "bend setup fee",
     "hole cost",
     "weld cost",
-    "Pipe (RHS/SHS/pipe)",
-    "Preparation (detail/finish)",
+    "pipe (rhs/shs/pipe)",
+    "preparation (detail/finish)",
 ]
+
+COLUMN_ALIASES = {
+    "labour /laser (inhouse)": "labor / laser (internal)",
+    "fold cost": "bend cost",
+    "fold set up fee": "bend setup fee",
+    "hole costs": "hole cost",
+    "welding cost": "weld cost",
+    "materials cost": "material cost",
+    "tube (rhs/shs/pipe)": "pipe (rhs/shs/pipe)",
+    "prep (detail/finish)": "preparation (detail/finish)",
+}
+
+
+def _clean_cols(df: pd.DataFrame) -> pd.DataFrame:
+    df.columns = (
+        df.columns.str.strip().str.replace(r"\s+", " ", regex=True).str.lower()
+    )
+    df.rename(columns=COLUMN_ALIASES, inplace=True)
+    return df
 
 
 @transaction.atomic
@@ -47,6 +66,8 @@ def import_quote_from_excel(
     except ValueError as exc:
         raise ValidationError("Missing 'Primary Details' sheet") from exc
 
+    df = _clean_cols(df)
+
     missing_cols = [c for c in MANDATORY_COLUMNS if c not in df.columns]
     if missing_cols:
         raise ValidationError(f"Missing mandatory columns: {', '.join(missing_cols)}")
@@ -57,12 +78,14 @@ def import_quote_from_excel(
     except ValueError:
         raise ValidationError("Missing 'Materials' sheet")
 
-    for col in ["thickness", "Materials"]:
+    materials_df = _clean_cols(materials_df)
+
+    for col in ["thickness", "materials"]:
         if col not in materials_df.columns:
             raise ValidationError(f"Materials sheet missing '{col}' column")
 
     valid_thickness = set(str(x) for x in materials_df["thickness"].dropna())
-    valid_materials = set(str(x) for x in materials_df["Materials"].dropna())
+    valid_materials = set(str(x) for x in materials_df["materials"].dropna())
 
     # Determine job pricing
     job_pricing: Optional[JobPricing] = None
@@ -87,8 +110,8 @@ def import_quote_from_excel(
     total_adjustments_cost = Decimal("0")
 
     for _, row in df.iterrows():
-        description = str(row.get("Description", "")).strip()
-        clear_val = str(row.get("CLEAR", "")).strip().upper()
+        description = str(row.get("description", "")).strip()
+        clear_val = str(row.get("clear", "")).strip().upper()
         if not description or clear_val == "CLEAR":
             continue
 
@@ -97,7 +120,7 @@ def import_quote_from_excel(
             raise ValidationError("Quantity must be greater than zero")
 
         thickness_val = str(row.get("thickness", ""))
-        material_val = str(row.get("Materials", ""))
+        material_val = str(row.get("materials", ""))
         if thickness_val not in valid_thickness or material_val not in valid_materials:
             raise ValidationError("Invalid thickness or material")
 
@@ -107,7 +130,7 @@ def import_quote_from_excel(
             description=description,
         )
 
-        material_cost = Decimal(str(row.get("Material cost", 0)))
+        material_cost = Decimal(str(row.get("material cost", 0)))
         unit_cost = material_cost / quantity if quantity else Decimal("0")
 
         MaterialEntry.objects.create(
@@ -131,7 +154,7 @@ def import_quote_from_excel(
                 )
                 adjustments_total += value
 
-        labor_cost = Decimal(str(row.get("Labor / laser (internal)", 0)))
+        labor_cost = Decimal(str(row.get("labor / laser (internal)", 0)))
 
         part.raw_total_cost = material_cost + adjustments_total + labor_cost
 

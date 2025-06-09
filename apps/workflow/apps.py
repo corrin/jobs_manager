@@ -26,6 +26,9 @@ class WorkflowConfig(AppConfig):
         # Prevent scheduler from running multiple times, especially during development
         # or when running management commands like runserver.
         # RUN_MAIN is set by Django in the main process.
+        if os.environ.get("DISABLE_APPSCHEDULER"):
+            logger.info("Skipping APScheduler setup due to env override.")
+            return
         if settings.DEBUG and os.environ.get("RUN_MAIN") != "true":
             logger.info("Skipping APScheduler setup in debug child process.")
             return
