@@ -89,7 +89,20 @@ The application syncs data with Xero. You need to register a Xero application.
 3.  **Get Credentials:** Once the app is created, navigate to its configuration page.
     *   **Details to Record:** Copy the **Client ID** and the **Client Secret**. Keep the Client Secret confidential.
 
-*You should now have recorded: DB credentials, your ngrok domain & region, and your Xero Client ID & Client Secret.*
+4.  **Set Up Webhooks for Real-time Sync:**
+    *   In your Xero app configuration, go to the **Webhooks** section.
+    *   **Delivery URL:** Enter `https://<your-ngrok-domain>/api/xero/webhook/`
+        *   Example: `https://<your-app-name>-dev.ngrok-free.app/api/xero/webhook/`
+    *   **Subscribe to Events:** Check the boxes for:
+        *   **Contacts** (CREATE and UPDATE)
+        *   **Invoices** (CREATE and UPDATE)
+    *   Click **Save**
+    *   **Record the Webhook Key:** After saving, Xero will display a webhook signing key. Copy this key.
+    *   **Add to .env:** Add the webhook key to your `.env` file as `XERO_WEBHOOK_KEY=<the-key>`
+    *   **Restart Django:** Stop and restart your Django development server to load the new environment variable.
+    *   **Confirm in Xero:** Go back to the Xero webhook configuration and click **Confirm** to complete the webhook setup.
+
+*You should now have recorded: DB credentials, your ngrok domain & region, Xero Client ID & Client Secret, and the Webhook Key.*
 
 ## Phase 2: Application Installation & Configuration
 
