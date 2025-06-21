@@ -2,6 +2,7 @@
 
 from .ai_provider import AIProvider
 from .company_defaults import CompanyDefaults
+from .service_api_key import ServiceAPIKey
 from .xero_account import XeroAccount
 from .xero_journal import XeroJournal, XeroJournalLineItem
 from .xero_token import XeroToken
@@ -9,6 +10,7 @@ from .xero_token import XeroToken
 __all__ = [
     "AIProvider",
     "CompanyDefaults",
+    "ServiceAPIKey",
     "XeroAccount",
     "XeroJournal",
     "XeroJournalLineItem",

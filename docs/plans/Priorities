@@ -6,4 +6,6 @@ Priorities:
     5. MCP: Able to query supplier prices and stock
     6. Write a new schedule for refreshing prices in the scraper.  Regularly ordered products should be refreshed.  E.g. whenever the MCP server returns a product, add it to a products to refresh.
     7. Get a mistral API key
-    8. Fix the update init script
+    8. Quote Report: quoting: quote accuracy, quote acceptance rate, etc., 
+    9. Xero Reconciliation report: sales in app vs xero, and costs in app vs xero
+    10. Update init script.  Recall we autogenerate.  We should know all possible init file locations to generate the right ones

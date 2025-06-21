@@ -18,4 +18,20 @@ urlpatterns = [
         views.UploadPriceListView.as_view(),
         name="upload_price_list",
     ),
+    # MCP API endpoints
+    path(
+        "api/mcp/search_stock/",
+        views.search_stock_api,
+        name="mcp_search_stock",
+    ),
+    path(
+        "api/mcp/search_supplier_prices/",
+        views.search_supplier_prices_api,
+        name="mcp_search_supplier_prices",
+    ),
+    path(
+        "api/mcp/job_context/<uuid:job_id>/",
+        views.job_context_api,
+        name="mcp_job_context",
+    ),
 ]

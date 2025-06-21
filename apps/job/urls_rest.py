@@ -16,6 +16,10 @@ from apps.job.views.job_costline_views import (
 )
 from apps.job.views.job_file_upload import JobFileUploadView
 from apps.job.views.job_file_view import JobFileThumbnailView, JobFileView
+from apps.job.views.job_quote_chat_views import (
+    JobQuoteChatHistoryView,
+    JobQuoteChatMessageView,
+)
 from apps.job.views.job_rest_views import (
     JobAdjustmentEntryRestView,
     JobCreateRestView,
@@ -175,5 +179,16 @@ rest_urlpatterns = [
         "rest/jobs/<uuid:job_id>/quote/status/",
         QuoteImportStatusView.as_view(),
         name="quote_import_status",
+    ),
+    # Job Quote Chat APIs
+    path(
+        "api/jobs/<uuid:job_id>/quote-chat/",
+        JobQuoteChatHistoryView.as_view(),
+        name="job_quote_chat_history",
+    ),
+    path(
+        "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",
+        JobQuoteChatMessageView.as_view(),
+        name="job_quote_chat_message",
     ),
 ]
