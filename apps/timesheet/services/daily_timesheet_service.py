@@ -98,7 +98,8 @@ class DailyTimesheetService:
                 kind="time",
             ).select_related("cost_set__job")
 
-            logger.debug(f"Found {len(cost_lines)} cost lines for staff {staff.id}")
+            logger.debug(
+                f"Found {len(cost_lines)} cost lines for staff {staff.id}")
 
             # Calculate totals
             total_hours = sum(Decimal(line.quantity) for line in cost_lines)
@@ -114,11 +115,13 @@ class DailyTimesheetService:
             scheduled_hours = cls._get_scheduled_hours(staff, target_date)
 
             # Determine status
-            status = cls._determine_status(total_hours, scheduled_hours, cost_lines)
+            status = cls._determine_status(
+                total_hours, scheduled_hours, cost_lines)
 
             # Get job breakdown
             job_breakdown = cls._get_job_breakdown(cost_lines)
-            logger.debug(f"Job breakdown for staff {staff.id}: {job_breakdown}")
+            logger.debug(
+                f"Job breakdown for staff {staff.id}: {job_breakdown}")
 
             staff_data = {
                 "staff_id": str(staff.id),
@@ -257,7 +260,8 @@ class DailyTimesheetService:
             line for line in cost_lines if not (line.cost_set and line.cost_set.job)
         ]
         if missing_job_entries:
-            alerts.append(f"{len(missing_job_entries)} entries missing job info")
+            alerts.append(
+                f"{len(missing_job_entries)} entries missing job info")
 
         return alerts
 
@@ -292,9 +296,12 @@ class DailyTimesheetService:
     def _get_summary_stats(cls, staff_data: List[Dict]) -> Dict:
         """Get summary statistics"""
         total_staff = len(staff_data)
-        complete_staff = len([s for s in staff_data if s["status"] == "Complete"])
-        partial_staff = len([s for s in staff_data if s["status"] == "Partial"])
-        missing_staff = len([s for s in staff_data if s["status"] == "No Entry"])
+        complete_staff = len(
+            [s for s in staff_data if s["status"] == "Complete"])
+        partial_staff = len(
+            [s for s in staff_data if s["status"] == "Partial"])
+        missing_staff = len(
+            [s for s in staff_data if s["status"] == "No Entry"])
 
         return {
             "total_staff": total_staff,

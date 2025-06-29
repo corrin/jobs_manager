@@ -48,7 +48,8 @@ class JobCostSetView(JobLookupMixin, APIView):
             )
 
         # Get the job
-        job, error_response = self.get_job_or_404_response(error_format="legacy")
+        job, error_response = self.get_job_or_404_response(
+            error_format="legacy")
         if error_response:
             return error_response
 

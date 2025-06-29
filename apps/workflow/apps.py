@@ -104,11 +104,13 @@ class WorkflowConfig(AppConfig):
                 misfire_grace_time=24 * 60 * 60,  # 24 hour grace time
                 coalesce=True,
             )
-            logger.info("Added 'xero_30_day_sync' job to scheduler (Saturday morning).")
+            logger.info(
+                "Added 'xero_30_day_sync' job to scheduler (Saturday morning).")
 
             try:
                 scheduler.start()
-                logger.info("APScheduler started successfully (for Xero related jobs).")
+                logger.info(
+                    "APScheduler started successfully (for Xero related jobs).")
             except Exception as e:
                 logger.error(
                     f"Error starting APScheduler for Xero jobs: {e}", exc_info=True

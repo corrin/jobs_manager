@@ -23,7 +23,8 @@ class StaffListAPIView(generics.ListAPIView):
         return JsonResponse(serializer.data, safe=False)
 
     def get_queryset(self):
-        actual_users_param = self.request.GET.get("actual_users", "false").lower()
+        actual_users_param = self.request.GET.get(
+            "actual_users", "false").lower()
         actual_users = actual_users_param == "true"
         if actual_users:
             excluded_ids = get_excluded_staff()

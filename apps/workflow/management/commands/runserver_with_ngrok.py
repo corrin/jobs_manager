@@ -10,7 +10,8 @@ class Command(BaseCommand):
     help = "Starts Django server with ngrok"
 
     def handle(self, *args: Any, **kwargs: Any) -> None:
-        app_domain = os.environ.get("APP_DOMAIN", "msm-workflow.ngrok-free.app")
+        app_domain = os.environ.get(
+            "APP_DOMAIN", "msm-workflow.ngrok-free.app")
         django_port = os.environ.get("DJANGO_PORT", "8000")
 
         # Create ngrok command with the custom domain

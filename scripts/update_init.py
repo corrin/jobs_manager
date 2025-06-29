@@ -53,7 +53,8 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
 
         if classes:
             logger.debug(f"Found classes: {classes}")
-            import_lines.append(f"from .{module_name} import {', '.join(classes)}")
+            import_lines.append(
+                f"from .{module_name} import {', '.join(classes)}")
             all_classes.extend(classes)
 
     # Add __all__ definition
@@ -81,7 +82,8 @@ def main() -> None:
         "target_directory",
         help="Directory to process for generating imports in __init__.py",
     )
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument("--verbose", action="store_true",
+                        help="Enable verbose output")
 
     args = parser.parse_args()
 

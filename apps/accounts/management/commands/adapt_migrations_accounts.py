@@ -27,7 +27,8 @@ class Command(BaseCommand):
 
         if dry_run:
             self.stdout.write(
-                self.style.WARNING("Running in dry-run mode - no changes will be made")
+                self.style.WARNING(
+                    "Running in dry-run mode - no changes will be made")
             )
 
         # Check if the migrations are already applied
@@ -64,7 +65,8 @@ class Command(BaseCommand):
 
             admin_applied_date = result[0]
             # Calculate a date 1 minute before the admin migration
-            accounts_applied_date = admin_applied_date - datetime.timedelta(minutes=1)
+            accounts_applied_date = admin_applied_date - \
+                datetime.timedelta(minutes=1)
 
             # Show the plan
             self.stdout.write(
@@ -85,11 +87,13 @@ class Command(BaseCommand):
                     "Are you sure you want to insert these migration records? [y/N]: "
                 )
                 if confirm.lower() != "y":
-                    self.stdout.write(self.style.WARNING("Operation cancelled"))
+                    self.stdout.write(
+                        self.style.WARNING("Operation cancelled"))
                     return
 
             # Insert the migration records
-            accounts_0002_date = accounts_applied_date + datetime.timedelta(seconds=1)
+            accounts_0002_date = accounts_applied_date + \
+                datetime.timedelta(seconds=1)
             if not dry_run:
                 try:
                     cursor.execute(
@@ -117,7 +121,8 @@ class Command(BaseCommand):
                     )
                 except Exception as e:
                     self.stdout.write(
-                        self.style.ERROR(f"Error inserting migration records: {str(e)}")
+                        self.style.ERROR(
+                            f"Error inserting migration records: {str(e)}")
                     )
             else:
                 self.stdout.write(

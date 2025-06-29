@@ -24,19 +24,23 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "time_markup",
-                    models.DecimalField(decimal_places=2, default=0.3, max_digits=5),
+                    models.DecimalField(
+                        decimal_places=2, default=0.3, max_digits=5),
                 ),
                 (
                     "materials_markup",
-                    models.DecimalField(decimal_places=2, default=0.2, max_digits=5),
+                    models.DecimalField(
+                        decimal_places=2, default=0.2, max_digits=5),
                 ),
                 (
                     "charge_out_rate",
-                    models.DecimalField(decimal_places=2, default=105.0, max_digits=6),
+                    models.DecimalField(
+                        decimal_places=2, default=105.0, max_digits=6),
                 ),
                 (
                     "wage_rate",
-                    models.DecimalField(decimal_places=2, default=32.0, max_digits=6),
+                    models.DecimalField(
+                        decimal_places=2, default=32.0, max_digits=6),
                 ),
                 ("mon_start", models.TimeField(default="07:00")),
                 ("mon_end", models.TimeField(default="15:00")),
@@ -58,6 +62,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="client",
             name="xero_contact_id",
-            field=models.CharField(blank=True, max_length=255, null=True, unique=True),
+            field=models.CharField(
+                blank=True, max_length=255, null=True, unique=True),
         ),
     ]

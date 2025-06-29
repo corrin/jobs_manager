@@ -71,7 +71,8 @@ def link_quote_sheet(request: Request, pk: str) -> Response:
         logger.error(f"Error linking quote sheet for job {pk}: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Unexpected error linking quote sheet for job {pk}: {str(e)}")
+        logger.error(
+            f"Unexpected error linking quote sheet for job {pk}: {str(e)}")
         return Response(
             {"error": "An unexpected error occurred"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -107,7 +108,8 @@ def preview_quote(request: Request, pk: str) -> Response:
         logger.error(f"Error previewing quote for job {pk}: {str(e)}")
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        logger.error(f"Unexpected error previewing quote for job {pk}: {str(e)}")
+        logger.error(
+            f"Unexpected error previewing quote for job {pk}: {str(e)}")
         return Response(
             {"error": "An unexpected error occurred"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -168,7 +170,8 @@ def apply_quote(request: Request, pk: str) -> Response:
                     "success": True,
                     "cost_set": cost_set_data,
                     "draft_lines": (
-                        [draft_line_to_dict(line) for line in result.diff_result.to_add]
+                        [draft_line_to_dict(line)
+                         for line in result.diff_result.to_add]
                         if result.diff_result
                         else []
                     ),

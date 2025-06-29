@@ -41,14 +41,16 @@ class KanbanCategorizationService:
         "draft": KanbanColumn(
             column_id="draft",
             column_title="Draft",
-            sub_categories=[KanbanSubCategory("quoting", "Quoting", "bg-yellow-500")],
+            sub_categories=[KanbanSubCategory(
+                "quoting", "Quoting", "bg-yellow-500")],
             color_theme="yellow",
         ),
         "awaiting_approval": KanbanColumn(
             column_id="awaiting_approval",
             column_title="Awaiting Approval",
             sub_categories=[
-                KanbanSubCategory("accepted_quote", "Quote Accepted", "bg-green-500")
+                KanbanSubCategory("accepted_quote",
+                                  "Quote Accepted", "bg-green-500")
             ],
             color_theme="green",
         ),
@@ -59,7 +61,8 @@ class KanbanCategorizationService:
                 KanbanSubCategory(
                     "awaiting_materials", "Awaiting Materials", "bg-orange-500"
                 ),
-                KanbanSubCategory("awaiting_staff", "Awaiting Staff", "bg-purple-500"),
+                KanbanSubCategory("awaiting_staff",
+                                  "Awaiting Staff", "bg-purple-500"),
                 KanbanSubCategory(
                     "awaiting_site_availability", "Awaiting Site", "bg-indigo-500"
                 ),
@@ -90,7 +93,8 @@ class KanbanCategorizationService:
             column_id="archived",
             column_title="Archived",
             sub_categories=[
-                KanbanSubCategory("completed", "Completed & Paid", "bg-slate-500"),
+                KanbanSubCategory(
+                    "completed", "Completed & Paid", "bg-slate-500"),
                 KanbanSubCategory("rejected", "Rejected", "bg-red-500"),
             ],
             color_theme="slate",
@@ -184,7 +188,8 @@ class KanbanCategorizationService:
             return []
 
         column = cls.COLUMN_STRUCTURE[column_id]
-        valid_statuses = {sub_cat.status_key for sub_cat in column.sub_categories}
+        valid_statuses = {
+            sub_cat.status_key for sub_cat in column.sub_categories}
 
         return [job for job in jobs if getattr(job, "status", None) in valid_statuses]
 

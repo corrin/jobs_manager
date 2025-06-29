@@ -42,7 +42,8 @@ def test_pdf_parsing():
             print(f"{'='*60}")
 
             try:
-                result = extract_data_from_supplier_price_list_gemini(file_path)
+                result = extract_data_from_supplier_price_list_gemini(
+                    file_path)
                 if result:
                     print("Success! Extracted data:")
                     print(

@@ -39,7 +39,8 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                ("started_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("started_at", models.DateTimeField(
+                    default=django.utils.timezone.now)),
                 ("completed_at", models.DateTimeField(blank=True, null=True)),
                 ("products_scraped", models.IntegerField(default=0)),
                 ("products_failed", models.IntegerField(default=0)),

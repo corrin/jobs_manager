@@ -258,7 +258,8 @@ def _apply_existing_lines(
     """Apply existing lines with updates to the new cost set"""
     # Build sets for quick lookup
     lines_to_delete = set(diff_result.to_delete)
-    lines_to_update = {old_line: draft for old_line, draft in diff_result.to_update}
+    lines_to_update = {old_line: draft for old_line,
+                       draft in diff_result.to_update}
 
     for old_line in old_cost_set.cost_lines.all():
         # Skip lines marked for deletion
@@ -268,7 +269,8 @@ def _apply_existing_lines(
         # Check if this line needs updating
         if old_line in lines_to_update:
             draft = lines_to_update[old_line]
-            _create_cost_line_from_draft(new_cost_set, draft, old_line.ext_refs)
+            _create_cost_line_from_draft(
+                new_cost_set, draft, old_line.ext_refs)
         else:
             # Copy line as-is
             _copy_cost_line(old_line, new_cost_set)

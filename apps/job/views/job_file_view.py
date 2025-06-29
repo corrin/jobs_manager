@@ -42,7 +42,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
         )
 
         # Extra logging before writing
-        logger.debug("File size (bytes) received from client: %d", file_obj.size)
+        logger.debug(
+            "File size (bytes) received from client: %d", file_obj.size)
 
         # If file_obj.size is 0, we can abort or raise a warning:
         if file_obj.size == 0:
@@ -61,7 +62,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
                     destination.write(chunk)
                     bytes_written += len(chunk)
 
-            logger.info("Wrote %d bytes to disk at %s", bytes_written, file_path)
+            logger.info("Wrote %d bytes to disk at %s",
+                        bytes_written, file_path)
 
             # Check final file size on disk
             file_size_on_disk = os.path.getsize(file_path)
@@ -75,7 +77,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
             else:
                 logger.debug("File on disk verified with correct size.")
 
-            relative_path = os.path.relpath(file_path, settings.DROPBOX_WORKFLOW_FOLDER)
+            relative_path = os.path.relpath(
+                file_path, settings.DROPBOX_WORKFLOW_FOLDER)
 
             job_file, created = JobFile.objects.update_or_create(
                 job=job,
@@ -100,7 +103,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 "print_on_jobsheet": job_file.print_on_jobsheet,
             }
         except Exception as e:
-            logger.exception("Error processing file %s: %s", file_obj.name, str(e))
+            logger.exception("Error processing file %s: %s",
+                             file_obj.name, str(e))
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
 
     def post(self, request):
@@ -167,7 +171,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
             return error_response
 
         qs = JobFile.objects.filter(job=job, status="active")
-        serializer = JobFileSerializer(qs, many=True, context={"request": self.request})
+        serializer = JobFileSerializer(qs, many=True, context={
+                                       "request": self.request})
         return Response(serializer.data, status=200)
 
     def _get_by_path(self, file_path):
@@ -261,7 +266,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            job_file = JobFile.objects.filter(job=job, filename=filename).first()
+            job_file = JobFile.objects.filter(
+                job=job, filename=filename).first()
             if not job_file:
                 return Response(
                     {"status": "error", "message": "File not found for update"},
@@ -292,7 +298,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
         )
 
         # Check if this file exists in the job:
-        job_file = JobFile.objects.filter(job=job, filename=file_obj.name).first()
+        job_file = JobFile.objects.filter(
+            job=job, filename=file_obj.name).first()
         if not job_file:
             logger.error(
                 "File not found for update: %s in job %s", file_obj.name, job_number
@@ -303,13 +310,15 @@ class JobFileView(JobNumberLookupMixin, APIView):
             )
 
         if file_obj.size == 0:
-            logger.warning("PUT aborted because new file is 0 bytes: %s", file_obj.name)
+            logger.warning(
+                "PUT aborted because new file is 0 bytes: %s", file_obj.name)
             return Response(
                 {"status": "error", "message": "New file is 0 bytes, update aborted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        file_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
+        file_path = os.path.join(
+            settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
         logger.debug("Overwriting file on disk: %s", file_path)
         try:
             bytes_written = 0
@@ -358,7 +367,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
         except Exception as e:
             logger.exception("Error updating file %s: %s", file_path, str(e))
             return Response(
-                {"status": "error", "message": f"Error updating file: {str(e)}"},
+                {"status": "error",
+                    "message": f"Error updating file: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

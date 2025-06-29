@@ -196,10 +196,12 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("timestamp", models.DateTimeField(default=django.utils.timezone.now)),
+                ("timestamp", models.DateTimeField(
+                    default=django.utils.timezone.now)),
                 (
                     "event_type",
-                    models.CharField(default="automatic_event", max_length=100),
+                    models.CharField(
+                        default="automatic_event", max_length=100),
                 ),
                 ("description", models.TextField()),
                 (
@@ -341,7 +343,8 @@ class Migration(migrations.Migration):
                 ("name", models.CharField(max_length=100)),
                 (
                     "id",
-                    models.UUIDField(db_index=True, default=uuid.uuid4, editable=False),
+                    models.UUIDField(
+                        db_index=True, default=uuid.uuid4, editable=False),
                 ),
                 (
                     "order_number",
@@ -424,11 +427,13 @@ class Migration(migrations.Migration):
                 ),
                 ("history_id", models.AutoField(primary_key=True, serialize=False)),
                 ("history_date", models.DateTimeField(db_index=True)),
-                ("history_change_reason", models.CharField(max_length=100, null=True)),
+                ("history_change_reason", models.CharField(
+                    max_length=100, null=True)),
                 (
                     "history_type",
                     models.CharField(
-                        choices=[("+", "Created"), ("~", "Changed"), ("-", "Deleted")],
+                        choices=[("+", "Created"), ("~", "Changed"),
+                                 ("-", "Deleted")],
                         max_length=1,
                     ),
                 ),

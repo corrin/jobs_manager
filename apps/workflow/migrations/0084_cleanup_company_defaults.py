@@ -6,7 +6,7 @@ def cleanup_company_defaults(apps, schema_editor):
     """
     Ensure only one CompanyDefaults record exists.
     Keep the first record and delete any others.
-    
+
     This migration handles two scenarios:
     1. Brand new empty database where we are applying all fixtures
     2. Existing database with a company defaults already

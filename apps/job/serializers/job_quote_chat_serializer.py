@@ -17,7 +17,8 @@ class JobQuoteChatSerializer(serializers.ModelSerializer):
     def validate_role(self, value):
         """Validate that role is either 'user' or 'assistant'."""
         if value not in ["user", "assistant"]:
-            raise serializers.ValidationError("role must be 'user' or 'assistant'")
+            raise serializers.ValidationError(
+                "role must be 'user' or 'assistant'")
         return value
 
     def validate_message_id(self, value):
@@ -36,7 +37,8 @@ class JobQuoteChatUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobQuoteChat
         fields = ["content", "metadata"]
-        extra_kwargs = {"content": {"required": False}, "metadata": {"required": False}}
+        extra_kwargs = {"content": {"required": False},
+                        "metadata": {"required": False}}
 
     def update(self, instance, validated_data):
         """Update instance with proper metadata merging."""

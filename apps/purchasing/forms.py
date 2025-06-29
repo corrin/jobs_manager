@@ -50,6 +50,7 @@ class PurchaseOrderLineForm(forms.ModelForm):
             cleaned_data["unit_cost"] = None
         elif unit_cost is None:
             # If price_tbc is False, unit_cost cannot be None
-            self.add_error("unit_cost", "Unit cost is required when price is not TBC")
+            self.add_error(
+                "unit_cost", "Unit cost is required when price is not TBC")
 
         return cleaned_data

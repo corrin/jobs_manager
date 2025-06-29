@@ -69,7 +69,8 @@ class Job(models.Model):
     contact_person = models.CharField(
         max_length=100, null=True, blank=True
     )  # DEPRECATED: DO NOT USE
-    contact_email = models.EmailField(null=True, blank=True)  # # DEPRECATED: DO NOT USE
+    contact_email = models.EmailField(
+        null=True, blank=True)  # # DEPRECATED: DO NOT USE
     contact_phone = models.CharField(
         max_length=150,
         null=True,
@@ -170,7 +171,8 @@ class Job(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    history: HistoricalRecords = HistoricalRecords(table_name="workflow_historicaljob")
+    history: HistoricalRecords = HistoricalRecords(
+        table_name="workflow_historicaljob")
 
     complex_job = models.BooleanField(default=False)  # type: ignore
 
@@ -225,7 +227,8 @@ class Job(models.Model):
         ordering = ["job_number"]
         db_table = "workflow_job"
         indexes = [
-            Index(fields=["status", "priority"], name="job_priority_status_idx"),
+            Index(fields=["status", "priority"],
+                  name="job_priority_status_idx"),
         ]
 
     @classmethod
@@ -338,7 +341,8 @@ class Job(models.Model):
         company_defaults: CompanyDefaults = get_company_defaults()
         starting_number: int = company_defaults.starting_job_number
         highest_job: int = (
-            Job.objects.all().aggregate(Max("job_number"))["job_number__max"] or 0
+            Job.objects.all().aggregate(Max("job_number"))[
+                "job_number__max"] or 0
         )
         next_job_number = max(starting_number, highest_job + 1)
         return next_job_number
@@ -349,7 +353,8 @@ class Job(models.Model):
         staff = kwargs.pop("staff", None)
 
         is_new = self._state.adding
-        original_status = None if is_new else Job.objects.get(pk=self.pk).status
+        original_status = None if is_new else Job.objects.get(
+            pk=self.pk).status
 
         create_creation_event = False
         if (staff and is_new) or (not self.created_by and staff):
@@ -364,13 +369,15 @@ class Job(models.Model):
             # Ensure job_number is generated for new instances before saving
             self.job_number = self.generate_job_number()
             if not self.job_number:
-                logger.error("Failed to generate a job number. Cannot save job.")
+                logger.error(
+                    "Failed to generate a job number. Cannot save job.")
                 raise ValueError("Job number generation failed.")
             logger.debug(f"Saving new job with job number: {self.job_number}")
 
             # To assure all jobs have a priority
             with transaction.atomic():
-                default_priority = self._calculate_next_priority_for_status(self.status)
+                default_priority = self._calculate_next_priority_for_status(
+                    self.status)
                 self.priority = default_priority
 
                 # Creating a new job is tricky because of the circular reference.
@@ -388,11 +395,13 @@ class Job(models.Model):
                 self.latest_estimate = estimate_cost_set
 
                 # Create quote cost set
-                quote_cost_set = CostSet.objects.create(job=self, kind="quote", rev=1)
+                quote_cost_set = CostSet.objects.create(
+                    job=self, kind="quote", rev=1)
                 self.latest_quote = quote_cost_set
 
                 # Create actual cost set
-                actual_cost_set = CostSet.objects.create(job=self, kind="actual", rev=1)
+                actual_cost_set = CostSet.objects.create(
+                    job=self, kind="actual", rev=1)
                 self.latest_actual = actual_cost_set
 
                 logger.debug("Initial CostSets created successfully.")

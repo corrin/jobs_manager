@@ -66,7 +66,8 @@ class Migration(migrations.Migration):
                         null=True,
                     ),
                 ),
-                ("variant_available_stock", models.IntegerField(blank=True, null=True)),
+                ("variant_available_stock",
+                 models.IntegerField(blank=True, null=True)),
                 (
                     "url",
                     models.URLField(

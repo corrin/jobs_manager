@@ -140,7 +140,8 @@ class JobSerializer(serializers.ModelSerializer):
         if files_data:
             for file_data in files_data:
                 try:
-                    job_file = JobFile.objects.get(id=file_data["id"], job=instance)
+                    job_file = JobFile.objects.get(
+                        id=file_data["id"], job=instance)
                     file_serializer = JobFileSerializer(
                         instance=job_file,
                         data=file_data,
@@ -165,7 +166,8 @@ class JobSerializer(serializers.ModelSerializer):
                     )
                 except Exception as e:
                     logger.error(f"Error updating JobFile: {str(e)}")
-                    raise serializers.ValidationError(f"Error updating file: {str(e)}")
+                    raise serializers.ValidationError(
+                        f"Error updating file: {str(e)}")
 
         # Handle basic job fields next
         for attr, value in validated_data.items():
@@ -226,4 +228,5 @@ class CompleteJobSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Job
-        fields = ["id", "job_number", "name", "client_name", "updated_at", "job_status"]
+        fields = ["id", "job_number", "name",
+                  "client_name", "updated_at", "job_status"]

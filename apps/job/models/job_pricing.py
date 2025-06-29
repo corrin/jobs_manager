@@ -150,7 +150,8 @@ class JobPricing(models.Model):
         material_entries = self.material_entries.all()
         adjustment_entries = self.adjustment_entries.all()
 
-        logger.debug(f"\nEntries for JobPricing {self.id} ({self.pricing_stage}):")
+        logger.debug(
+            f"\nEntries for JobPricing {self.id} ({self.pricing_stage}):")
         logger.debug("\nTime Entries:")
         for entry in time_entries:
             logger.debug(
@@ -232,13 +233,15 @@ def snapshot_and_add_time_entry(job_pricing, hours_worked):
         )
 
     # Now, add the new time entry to the current (updated) JobPricing
-    TimeEntry.objects.create(job_pricing=job_pricing, hours_worked=hours_worked)
+    TimeEntry.objects.create(job_pricing=job_pricing,
+                             hours_worked=hours_worked)
 
     return snapshot_pricing  # Return the snapshot to track it if needed
 
 
 class QuotePricing(JobPricing):
-    quote_is_finished = models.BooleanField(default=False)  # Locks the quote when true
+    quote_is_finished = models.BooleanField(
+        default=False)  # Locks the quote when true
     date_quote_submitted = models.DateField(
         null=True, blank=True
     )  # Date the quote was submitted to client

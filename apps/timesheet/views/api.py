@@ -218,7 +218,8 @@ class TimeEntriesAPIView(APIView):
             data = request.data
 
             # Update fields
-            time_entry.description = data.get("description", time_entry.description)
+            time_entry.description = data.get(
+                "description", time_entry.description)
             time_entry.items = data.get("items", time_entry.items)
             time_entry.minutes_per_item = data.get(
                 "minutes_per_item", time_entry.minutes_per_item
@@ -230,11 +231,13 @@ class TimeEntriesAPIView(APIView):
             time_entry.wage_rate_multiplier = data.get(
                 "rate_multiplier", time_entry.wage_rate_multiplier
             )
-            time_entry.is_billable = data.get("is_billable", time_entry.is_billable)
+            time_entry.is_billable = data.get(
+                "is_billable", time_entry.is_billable)
             time_entry.note = data.get("notes", time_entry.note)
 
             if data.get("job_pricing_id"):
-                job_pricing = JobPricing.objects.get(id=data.get("job_pricing_id"))
+                job_pricing = JobPricing.objects.get(
+                    id=data.get("job_pricing_id"))
                 time_entry.job_pricing = job_pricing
                 time_entry.save()
 
@@ -290,7 +293,8 @@ class JobsAPIView(APIView):
                 )
                 .exclude(status__in=excluded_statuses)
                 .select_related("client")
-                .prefetch_related("cost_sets")  # Prefetch cost sets for efficiency
+                # Prefetch cost sets for efficiency
+                .prefetch_related("cost_sets")
                 .order_by("job_number")
             )
 
@@ -311,7 +315,8 @@ class JobsAPIView(APIView):
             if not jobs_with_actual_costset:
                 return Response({"jobs": []})
 
-            serializer = TimesheetJobAPISerializer(jobs_with_actual_costset, many=True)
+            serializer = TimesheetJobAPISerializer(
+                jobs_with_actual_costset, many=True)
             return Response({"jobs": serializer.data})
 
         except Exception as e:
@@ -396,7 +401,8 @@ class WeeklyOverviewAPIView(APIView):
                     week_data[staff_id]["days"][date_str]["dailyTotal"] += float(
                         entry.hours or 0
                     )
-                    week_data[staff_id]["weeklyTotal"] += float(entry.hours or 0)
+                    week_data[staff_id]["weeklyTotal"] += float(
+                        entry.hours or 0)
 
             return Response(
                 {
@@ -409,7 +415,8 @@ class WeeklyOverviewAPIView(APIView):
         except Exception as e:
             logger.error(f"Error fetching weekly overview: {e}")
             return Response(
-                {"error": "Failed to fetch weekly overview", "details": str(e)},
+                {"error": "Failed to fetch weekly overview",
+                    "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -488,7 +495,8 @@ class DailyTimesheetAPIView(APIView):
 
             if date_param:
                 try:
-                    target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+                    target_date = datetime.strptime(
+                        date_param, "%Y-%m-%d").date()
                 except ValueError:
                     return Response(
                         {"error": "Invalid date format. Use YYYY-MM-DD"},
@@ -553,7 +561,8 @@ class WeeklyTimesheetAPIView(APIView):
 
             if start_date_str:
                 try:
-                    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    start_date = datetime.strptime(
+                        start_date_str, "%Y-%m-%d").date()
                 except ValueError:
                     return Response(
                         {"error": "Invalid start_date format. Use YYYY-MM-DD"},
@@ -636,8 +645,10 @@ class WeeklyTimesheetAPIView(APIView):
 
             # Parse dates
             try:
-                start_date = datetime.strptime(data["start_date"], "%Y-%m-%d").date()
-                end_date = datetime.strptime(data["end_date"], "%Y-%m-%d").date()
+                start_date = datetime.strptime(
+                    data["start_date"], "%Y-%m-%d").date()
+                end_date = datetime.strptime(
+                    data["end_date"], "%Y-%m-%d").date()
             except ValueError:
                 return Response(
                     {"error": "Invalid date format. Use YYYY-MM-DD"},

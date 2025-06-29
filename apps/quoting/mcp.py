@@ -126,7 +126,8 @@ class QuotingTool(MCPToolset):
                         pass
 
             if total_estimate > 0:
-                quote_info.append(f"\nEstimated materials cost: ${total_estimate:.2f}")
+                quote_info.append(
+                    f"\nEstimated materials cost: ${total_estimate:.2f}")
 
         if labor_hours:
             labor_cost = labor_hours * 85  # Default rate
@@ -148,7 +149,8 @@ class QuotingTool(MCPToolset):
         results = ["Supplier Status Report:"]
 
         for supplier in suppliers[:10]:  # Limit to 10 suppliers
-            product_count = SupplierProduct.objects.filter(supplier=supplier).count()
+            product_count = SupplierProduct.objects.filter(
+                supplier=supplier).count()
             recent_scrape = ScrapeJob.objects.filter(supplier=supplier).first()
             price_lists_count = SupplierPriceList.objects.filter(
                 supplier=supplier
@@ -208,7 +210,8 @@ class QuotingTool(MCPToolset):
                 )
 
         for supplier, products_list in supplier_prices.items():
-            avg_price = sum(p["price"] for p in products_list) / len(products_list)
+            avg_price = sum(p["price"]
+                            for p in products_list) / len(products_list)
             results.append(f"\n• {supplier} (avg: ${avg_price:.2f}):")
             for product_info in products_list[:3]:  # Show top 3 products
                 results.append(

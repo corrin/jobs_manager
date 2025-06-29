@@ -24,7 +24,8 @@ class Command(BaseCommand):
             self.stdout.write(f"\n=== {stage.capitalize()} ===")
 
             # General Pricing Information
-            self.stdout.write(f"Job Pricing Stage: {job_pricing.pricing_stage}")
+            self.stdout.write(
+                f"Job Pricing Stage: {job_pricing.pricing_stage}")
 
             # Print Material Entries
             for material in job_pricing.material_entries.all():

@@ -54,7 +54,8 @@ class Migration(migrations.Migration):
                     "additional_contact_persons",
                     models.JSONField(blank=True, default=list, null=True),
                 ),
-                ("all_phones", models.JSONField(blank=True, default=list, null=True)),
+                ("all_phones", models.JSONField(
+                    blank=True, default=list, null=True)),
                 ("django_created_at", models.DateTimeField(auto_now_add=True)),
                 ("django_updated_at", models.DateTimeField(auto_now=True)),
                 (

@@ -25,7 +25,8 @@ class Command(BaseCommand):
         # Setup logging
         handler = logging.StreamHandler()
         handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+        formatter = logging.Formatter(
+            "%(asctime)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
@@ -49,7 +50,8 @@ class Command(BaseCommand):
             identity_api = IdentityApi(api_client)
             connections = identity_api.get_connections()
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Failed to get Xero connections: {e}"))
+            self.stdout.write(self.style.ERROR(
+                f"Failed to get Xero connections: {e}"))
             return
 
         # Step 3: Find Demo Company
@@ -102,7 +104,8 @@ class Command(BaseCommand):
             return
 
         # Step 5: Sync shop client only
-        self.stdout.write(self.style.SUCCESS("Syncing shop client from Xero..."))
+        self.stdout.write(self.style.SUCCESS(
+            "Syncing shop client from Xero..."))
 
         # TODO: Call CompanyDefaults to get the Shop Client name (future)
         # For development, we only sync "Demo Company Shop"
@@ -136,13 +139,15 @@ class Command(BaseCommand):
 
                 if response.contacts:
                     # Found in Xero, sync it
-                    self.stdout.write(f"Found {shop_client_name} in Xero, syncing...")
+                    self.stdout.write(
+                        f"Found {shop_client_name} in Xero, syncing...")
                     from apps.workflow.api.xero.sync import sync_clients
 
                     sync_clients(response.contacts)
 
                     # Verify it worked
-                    shop_client = Client.objects.filter(name=shop_client_name).first()
+                    shop_client = Client.objects.filter(
+                        name=shop_client_name).first()
                     if shop_client and shop_client.xero_contact_id:
                         self.stdout.write(
                             self.style.SUCCESS(
@@ -151,7 +156,8 @@ class Command(BaseCommand):
                         )
                     else:
                         self.stdout.write(
-                            self.style.ERROR("Sync failed - client not created locally")
+                            self.style.ERROR(
+                                "Sync failed - client not created locally")
                         )
                         return
                 else:
@@ -201,11 +207,14 @@ class Command(BaseCommand):
                         )
 
                 self.stdout.write(
-                    self.style.SUCCESS("Full Xero sync completed successfully.")
+                    self.style.SUCCESS(
+                        "Full Xero sync completed successfully.")
                 )
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f"Full Xero sync failed: {e}"))
-                logger.error(f"Error during full Xero sync: {e}", exc_info=True)
+                self.stdout.write(self.style.ERROR(
+                    f"Full Xero sync failed: {e}"))
+                logger.error(
+                    f"Error during full Xero sync: {e}", exc_info=True)
                 return
         else:
             self.stdout.write(

@@ -1,3 +1,6 @@
+from django.core.signals import request_started
+from django.db import ProgrammingError
+from django.apps import apps
 from dotenv import load_dotenv
 
 from .base import *  # noqa: F403
@@ -143,7 +146,8 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.ngrok-free\.app$",
 ]
 
-CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
+CORS_ALLOW_CREDENTIALS = os.getenv(
+    "CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
 
 # CORS Allowed Headers - read from environment or use defaults
 cors_headers_env = os.getenv("CORS_ALLOWED_HEADERS", "")
@@ -190,9 +194,6 @@ if ENABLE_JWT_AUTH:
         }
     )
 
-from django.apps import apps
-from django.db import ProgrammingError
-
 
 def configure_site_for_environment():
     try:
@@ -219,8 +220,6 @@ def configure_site_for_environment():
         logger = logging.getLogger(__name__)
         logger.error(f"Error configuring the site: {e}")
 
-
-from django.core.signals import request_started
 
 request_started.connect(
     lambda **kwargs: configure_site_for_environment(),

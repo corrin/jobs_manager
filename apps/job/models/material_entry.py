@@ -19,7 +19,8 @@ class MaterialEntry(models.Model):
     item_code = models.CharField(
         max_length=20, null=False, blank=True, default=""
     )  # Later a FK probably
-    description = models.CharField(max_length=200, null=False, blank=True, default="")
+    description = models.CharField(
+        max_length=200, null=False, blank=True, default="")
     comments = models.CharField(
         max_length=200, null=False, blank=True, default=""
     )  # Freetext internal note

@@ -162,13 +162,16 @@ class TimeEntryAPISerializer(serializers.ModelSerializer):
     """
 
     # Map frontend field names to Django model fields
-    jobPricingId = serializers.CharField(source="job_pricing.id", read_only=True)
+    jobPricingId = serializers.CharField(
+        source="job_pricing.id", read_only=True)
     jobNumber = serializers.CharField(
         source="job_pricing.job.job_number", read_only=True
     )
-    jobName = serializers.CharField(source="job_pricing.job.name", read_only=True)
+    jobName = serializers.CharField(
+        source="job_pricing.job.name", read_only=True)
     isBillable = serializers.BooleanField(source="is_billable")
-    notes = serializers.CharField(source="note", allow_blank=True, required=False)
+    notes = serializers.CharField(
+        source="note", allow_blank=True, required=False)
     rateMultiplier = serializers.DecimalField(
         source="wage_rate_multiplier", max_digits=5, decimal_places=2
     )

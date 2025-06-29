@@ -39,7 +39,8 @@ class BaseScraper(ABC):
         chrome_options.add_argument("--disable-translate")
         chrome_options.add_argument("--no-first-run")
         chrome_options.add_argument("--no-default-browser-check")
-        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_argument(
+            "--disable-blink-features=AutomationControlled")
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--allow-running-insecure-content")
         chrome_options.add_argument("--disable-software-rasterizer")
@@ -124,7 +125,8 @@ class BaseScraper(ABC):
                         "url", flat=True
                     )
                 )
-                product_urls = [url for url in product_urls if url not in existing_urls]
+                product_urls = [
+                    url for url in product_urls if url not in existing_urls]
 
             # Apply limit
             if self.limit:
@@ -140,7 +142,8 @@ class BaseScraper(ABC):
 
             for i, url in enumerate(product_urls, 1):
                 try:
-                    self.logger.info(f"Processing {i}/{len(product_urls)}: {url}")
+                    self.logger.info(
+                        f"Processing {i}/{len(product_urls)}: {url}")
                     products_data = self.scrape_product(url)
 
                     if products_data:
@@ -169,7 +172,8 @@ class BaseScraper(ABC):
             job.completed_at = timezone.now()
             job.save()
 
-            self.logger.info(f"Completed: {successful} successful, {failed} failed")
+            self.logger.info(
+                f"Completed: {successful} successful, {failed} failed")
 
         except Exception as e:
             job.status = "failed"

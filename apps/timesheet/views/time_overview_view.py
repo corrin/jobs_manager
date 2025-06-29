@@ -1,3 +1,19 @@
+from apps.workflow.utils import extract_messages
+from apps.timesheet.models import TimeEntry
+from apps.timesheet.forms import PaidAbsenceForm
+from apps.job.models import Job, JobPricing
+from apps.accounts.utils import get_excluded_staff
+from apps.accounts.models import Staff
+from django.views.generic import TemplateView
+from django.utils.html import format_html
+from django.utils import timezone
+from django.urls import reverse
+from django.template.loader import render_to_string
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.db import models
+from django.core.serializers.json import DjangoJSONEncoder
+from django.contrib import messages
 import base64
 import io
 import json
@@ -12,23 +28,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-from django.contrib import messages
-from django.core.serializers.json import DjangoJSONEncoder
-from django.db import models
-from django.http import JsonResponse
-from django.shortcuts import render
-from django.template.loader import render_to_string
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.html import format_html
-from django.views.generic import TemplateView
 
-from apps.accounts.models import Staff
-from apps.accounts.utils import get_excluded_staff
-from apps.job.models import Job, JobPricing
-from apps.timesheet.forms import PaidAbsenceForm
-from apps.timesheet.models import TimeEntry
-from apps.workflow.utils import extract_messages
 
 # Configure logging to only show logs from this module
 logger = logging.getLogger(__name__)
@@ -97,7 +97,8 @@ class TimesheetOverviewView(TemplateView):
             case _:
                 try:
                     week_days = self._get_week_days(start_date)
-                    prev_week_url, next_week_url = self._get_navigation_urls(start_date)
+                    prev_week_url, next_week_url = self._get_navigation_urls(
+                        start_date)
                     staff_data, totals = self._get_staff_data(week_days)
                     graphic_html = self._generate_graphic()
 
@@ -113,7 +114,8 @@ class TimesheetOverviewView(TemplateView):
 
                     return render(request, self.template_name, context)
                 except Exception as e:
-                    logger.error(f"Error in TimesheetOverviewView.get: {str(e)}")
+                    logger.error(
+                        f"Error in TimesheetOverviewView.get: {str(e)}")
                     messages.error(
                         request,
                         "An error occurred while loading the timesheet overview.",
@@ -278,7 +280,8 @@ class TimesheetOverviewView(TemplateView):
                     # Check for leave type and add to appropriate total
                     if daily_data["daily_summary"].get("status") == "Leave":
                         leave_type = (
-                            daily_data["daily_summary"].get("leave_type", "").lower()
+                            daily_data["daily_summary"].get(
+                                "leave_type", "").lower()
                         )
                         leave_hours = daily_data["leave_hours"]
 
@@ -623,7 +626,8 @@ class TimesheetOverviewView(TemplateView):
             case _:
                 messages.error(request, "Invalid action.")
                 return JsonResponse(
-                    {"error": "Invalid action.", "messages": extract_messages(request)},
+                    {"error": "Invalid action.",
+                        "messages": extract_messages(request)},
                     status=400,
                 )
 
@@ -712,7 +716,8 @@ class TimesheetOverviewView(TemplateView):
                     status=400,
                 )
 
-        job_pricing = JobPricing.objects.filter(job_id=leave_jobs[leave_type]).first()
+        job_pricing = JobPricing.objects.filter(
+            job_id=leave_jobs[leave_type]).first()
         if not job_pricing:
             messages.error(request, "Invalid leave type selected.")
             return JsonResponse(
@@ -743,8 +748,10 @@ class TimesheetOverviewView(TemplateView):
     def export_to_ims(self, request, start_date):
         try:
             week_days = self._get_ims_week(start_date)
-            prev_week_url, next_week_url = self._get_navigation_urls(start_date)
-            staff_data, totals = self._get_staff_data(week_days, export_to_ims=True)
+            prev_week_url, next_week_url = self._get_navigation_urls(
+                start_date)
+            staff_data, totals = self._get_staff_data(
+                week_days, export_to_ims=True)
 
             return JsonResponse(
                 {
@@ -891,7 +898,8 @@ class TimesheetDailyView(TemplateView):
             "date": target_date.strftime(
                 "%Y-%m-%d"
             ),  # Keep original format for HTML date input
-            "date_nz": target_date.strftime("%d/%m/%Y"),  # Add NZ formatted date
+            # Add NZ formatted date
+            "date_nz": target_date.strftime("%d/%m/%Y"),
             "staff_data": staff_data,
             "daily_summary": {
                 "total_expected_hours": total_expected_hours,
@@ -901,7 +909,8 @@ class TimesheetDailyView(TemplateView):
                 "shop_percentage": round(shop_percentage, 1),
             },
             "context_json": json.dumps(
-                {"date": target_date.strftime("%Y-%m-%d"), "staff_data": staff_data},
+                {"date": target_date.strftime(
+                    "%Y-%m-%d"), "staff_data": staff_data},
                 cls=DjangoJSONEncoder,
             ),
         }

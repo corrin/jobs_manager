@@ -58,12 +58,14 @@ class Command(BaseCommand):
 
         if not company_defaults.shop_client_name:
             self.stdout.write(
-                self.style.ERROR("Shop client name not configured in CompanyDefaults.")
+                self.style.ERROR(
+                    "Shop client name not configured in CompanyDefaults.")
             )
             return
 
         try:
-            shop_client = Client.objects.get(name=company_defaults.shop_client_name)
+            shop_client = Client.objects.get(
+                name=company_defaults.shop_client_name)
         except Client.DoesNotExist:
             self.stdout.write(
                 self.style.ERROR(

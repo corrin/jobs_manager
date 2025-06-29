@@ -27,7 +27,8 @@ class Command(BaseCommand):
         )
 
         if invalid_jobs.exists():
-            self.stdout.write(self.style.ERROR("\nJobs missing required fields:"))
+            self.stdout.write(self.style.ERROR(
+                "\nJobs missing required fields:"))
             for job in invalid_jobs:
                 missing_fields = []
                 if not job.name:
@@ -43,7 +44,8 @@ class Command(BaseCommand):
                     )
                 )
         else:
-            self.stdout.write(self.style.SUCCESS("All jobs have required fields ✓"))
+            self.stdout.write(self.style.SUCCESS(
+                "All jobs have required fields ✓"))
 
         # 2. Check for reality pricing with no timesheets
         reality_pricing_without_time = JobPricing.objects.filter(
@@ -51,7 +53,8 @@ class Command(BaseCommand):
         ).select_related("job")
 
         if reality_pricing_without_time.exists():
-            self.stdout.write(self.style.ERROR("\nReality pricing with no timesheets:"))
+            self.stdout.write(self.style.ERROR(
+                "\nReality pricing with no timesheets:"))
             for pricing in reality_pricing_without_time:
                 self.stdout.write(
                     self.style.ERROR(
@@ -61,7 +64,8 @@ class Command(BaseCommand):
                 )
         else:
             self.stdout.write(
-                self.style.SUCCESS("All reality pricing has associated timesheets ✓")
+                self.style.SUCCESS(
+                    "All reality pricing has associated timesheets ✓")
             )
 
         # Summary
@@ -71,8 +75,10 @@ class Command(BaseCommand):
 
         self.stdout.write("\nSummary:")
         self.stdout.write(f"Total jobs checked: {total_jobs}")
-        self.stdout.write(f"Jobs with missing required fields: {total_invalid}")
-        self.stdout.write(f"Reality pricing without timesheets: {total_no_timesheet}")
+        self.stdout.write(
+            f"Jobs with missing required fields: {total_invalid}")
+        self.stdout.write(
+            f"Reality pricing without timesheets: {total_no_timesheet}")
 
         # Handle deletion if requested
         if options["delete"] and (total_invalid > 0 or total_no_timesheet > 0):
@@ -84,7 +90,8 @@ class Command(BaseCommand):
                 f"- {total_no_timesheet} reality pricing entries without timesheets will be deleted"
             )
 
-            confirm = input("\nAre you sure you want to delete these records? [y/N]: ")
+            confirm = input(
+                "\nAre you sure you want to delete these records? [y/N]: ")
 
             if confirm.lower() == "y":
                 deleted_jobs = 0

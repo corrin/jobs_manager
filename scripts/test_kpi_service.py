@@ -47,9 +47,11 @@ def test_kpi_calendar(year=None, month=None):
         print(f"\n✓ Success! Got {len(calendar_data)} days of data")
         print("\nMonthly summary:")
         print(f"  - Working days: {monthly_totals.get('working_days', 0)}")
-        print(f"  - Billable hours: {monthly_totals.get('billable_hours', 0):.1f}")
+        print(
+            f"  - Billable hours: {monthly_totals.get('billable_hours', 0):.1f}")
         print(f"  - Total hours: {monthly_totals.get('total_hours', 0):.1f}")
-        print(f"  - Gross profit: ${monthly_totals.get('gross_profit', 0):.2f}")
+        print(
+            f"  - Gross profit: ${monthly_totals.get('gross_profit', 0):.2f}")
 
         return True
     except Exception as e:

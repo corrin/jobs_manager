@@ -43,7 +43,8 @@ def populate_merge_fields(apps, schema_editor):
             client.save()
             updated_count += 1
 
-    logger.info(f"Migration: Updated {updated_count} clients with merge fields")
+    logger.info(
+        f"Migration: Updated {updated_count} clients with merge fields")
     logger.info(f"  - {archived_count} archived clients found")
     logger.info(f"  - {merged_count} clients with merge information")
 
@@ -60,7 +61,8 @@ def populate_merge_fields(apps, schema_editor):
             client.merged_into = merged_into_client
             client.save()
             resolved_count += 1
-            logger.info(f"Resolved merge: {client.name} -> {merged_into_client.name}")
+            logger.info(
+                f"Resolved merge: {client.name} -> {merged_into_client.name}")
 
     logger.info(f"Migration: Resolved {resolved_count} merge references")
 

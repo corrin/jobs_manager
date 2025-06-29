@@ -43,7 +43,8 @@ def convert_ims_to_fixtures(input_file: str) -> None:
             "fields": {
                 "email": str(row["EmailAddress"]).strip(),
                 "first_name": str(row["FirstNames"]).strip(),
-                "ims_payroll_id": str(uuid.uuid4()),  # I need to get VAL to set this
+                # I need to get VAL to set this
+                "ims_payroll_id": str(uuid.uuid4()),
                 "last_name": surname,
                 "preferred_name": (
                     str(row["PreferredName"]).strip()

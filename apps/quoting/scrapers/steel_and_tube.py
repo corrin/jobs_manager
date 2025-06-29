@@ -130,7 +130,8 @@ class SteelAndTubeScraper(BaseScraper):
         ):
             self.logger.info("Login required, attempting to login...")
             if not self.login():
-                self.logger.error("Login failed. Stopping entire scraping process.")
+                self.logger.error(
+                    "Login failed. Stopping entire scraping process.")
                 raise Exception("Login failed - cannot proceed with scraping")
             # Navigate back to product page after login
             self.driver.get(url)
@@ -189,7 +190,8 @@ class SteelAndTubeScraper(BaseScraper):
                 return []
 
             if not item_no or item_no == "N/A":
-                self.logger.warning(f"Invalid item_no '{item_no}' for URL: {url}")
+                self.logger.warning(
+                    f"Invalid item_no '{item_no}' for URL: {url}")
                 return []
 
             # Extract variants using comprehensive method
@@ -233,7 +235,8 @@ class SteelAndTubeScraper(BaseScraper):
             )
             if description_div:
                 try:
-                    inner_div = description_div.find_element(By.CLASS_NAME, "fr-view")
+                    inner_div = description_div.find_element(
+                        By.CLASS_NAME, "fr-view")
                     return inner_div.text.strip()
                 except:
                     return description_div.text.strip()
@@ -270,7 +273,8 @@ class SteelAndTubeScraper(BaseScraper):
             return price_unit_element.text.strip()
         except:
             try:
-                after_prices = self.driver.find_element(By.CLASS_NAME, "after-prices")
+                after_prices = self.driver.find_element(
+                    By.CLASS_NAME, "after-prices")
                 return after_prices.text.strip()
             except:
                 return "N/A"
@@ -299,7 +303,8 @@ class SteelAndTubeScraper(BaseScraper):
 
             # If no width options, extract variants directly
             if not width_options:
-                self.logger.info("No width options found, extracting variants directly")
+                self.logger.info(
+                    "No width options found, extracting variants directly")
                 return self.extract_variants_direct(
                     url, product_name, item_no, description, specifications, price_unit
                 )
@@ -369,7 +374,8 @@ class SteelAndTubeScraper(BaseScraper):
             """
             )
 
-            self.logger.info(f"Found {len(options_data)} variants via JavaScript")
+            self.logger.info(
+                f"Found {len(options_data)} variants via JavaScript")
 
             variants_data = []
             for option_data in options_data:
@@ -392,7 +398,8 @@ class SteelAndTubeScraper(BaseScraper):
 
                 # Parse length from option text
                 variant_length = None
-                cleaned_text = re.sub(r"\s+", " ", raw_text).strip() if raw_text else ""
+                cleaned_text = re.sub(
+                    r"\s+", " ", raw_text).strip() if raw_text else ""
 
                 if cleaned_text:
                     length_match = re.search(r"(\d+(?:\.\d+)?)", cleaned_text)
@@ -475,7 +482,8 @@ class SteelAndTubeScraper(BaseScraper):
             """
             )
 
-            self.logger.info(f"Found {len(options_data)} variants for width {width}")
+            self.logger.info(
+                f"Found {len(options_data)} variants for width {width}")
 
             variants_data = []
             for option_data in options_data:
@@ -497,7 +505,8 @@ class SteelAndTubeScraper(BaseScraper):
 
                 # Parse length from option text
                 variant_length = None
-                cleaned_text = re.sub(r"\s+", " ", raw_text).strip() if raw_text else ""
+                cleaned_text = re.sub(
+                    r"\s+", " ", raw_text).strip() if raw_text else ""
 
                 if cleaned_text:
                     length_match = re.search(r"(\d+(?:\.\d+)?)", cleaned_text)
@@ -528,5 +537,6 @@ class SteelAndTubeScraper(BaseScraper):
             return variants_data
 
         except Exception as e:
-            self.logger.error(f"Could not extract variants for width {width}: {e}")
+            self.logger.error(
+                f"Could not extract variants for width {width}: {e}")
             return []

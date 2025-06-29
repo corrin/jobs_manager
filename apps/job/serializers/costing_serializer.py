@@ -52,8 +52,10 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
 
     # Job information from CostSet relationship (NOT from metadata)
     job_id = serializers.CharField(source="cost_set.job.id", read_only=True)
-    job_number = serializers.CharField(source="cost_set.job.job_number", read_only=True)
-    job_name = serializers.CharField(source="cost_set.job.name", read_only=True)
+    job_number = serializers.CharField(
+        source="cost_set.job.job_number", read_only=True)
+    job_name = serializers.CharField(
+        source="cost_set.job.name", read_only=True)
     charge_out_rate = serializers.DecimalField(
         source="cost_set.job.charge_out_rate",
         max_digits=10,
@@ -132,7 +134,8 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         """Validate unit revenue is non-negative"""
         logger.info(f"Validating unit_rev: {value} (type: {type(value)})")
         if value < 0:
-            raise serializers.ValidationError("Unit revenue must be non-negative")
+            raise serializers.ValidationError(
+                "Unit revenue must be non-negative")
         return value
 
 

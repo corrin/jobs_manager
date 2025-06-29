@@ -29,9 +29,11 @@ class Migration(migrations.Migration):
                 ("date", models.DateField()),
                 ("created_date_utc", models.DateTimeField()),
                 ("journal_number", models.IntegerField(blank=True, null=True)),
-                ("reference", models.CharField(blank=True, max_length=255, null=True)),
+                ("reference", models.CharField(
+                    blank=True, max_length=255, null=True)),
                 ("source_id", models.UUIDField(blank=True, null=True)),
-                ("source_type", models.CharField(blank=True, max_length=50, null=True)),
+                ("source_type", models.CharField(
+                    blank=True, max_length=50, null=True)),
                 ("raw_json", models.JSONField()),
                 ("django_created_at", models.DateTimeField(auto_now_add=True)),
                 ("django_updated_at", models.DateTimeField(auto_now=True)),
@@ -51,9 +53,12 @@ class Migration(migrations.Migration):
                 ),
                 ("xero_line_id", models.UUIDField(unique=True)),
                 ("description", models.TextField(blank=True, null=True)),
-                ("net_amount", models.DecimalField(decimal_places=2, max_digits=10)),
-                ("gross_amount", models.DecimalField(decimal_places=2, max_digits=10)),
-                ("tax_amount", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("net_amount", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
+                ("gross_amount", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
+                ("tax_amount", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("tax_type", models.CharField(blank=True, max_length=50, null=True)),
                 ("tax_name", models.CharField(blank=True, max_length=255, null=True)),
                 ("raw_json", models.JSONField()),

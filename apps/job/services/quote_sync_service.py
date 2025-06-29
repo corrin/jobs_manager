@@ -83,7 +83,8 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
         )
         # Copy template to job folder
         quote_file_name = f"{job.job_number} Quote"
-        quote_file_id = copy_file(template_file_id, quote_file_name, job_folder_id)
+        quote_file_id = copy_file(
+            template_file_id, quote_file_name, job_folder_id)
 
         # Create or update QuoteSpreadsheet
         quote_sheet, created = QuoteSpreadsheet.objects.get_or_create(
@@ -111,7 +112,8 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
                 )
                 try:
                     # 1. Populate the Google Sheet
-                    populate_sheet_from_costset(quote_file_id, estimate_cost_set)
+                    populate_sheet_from_costset(
+                        quote_file_id, estimate_cost_set)
                     logger.info(
                         "Successfully pre-populated quote sheet with estimate data"
                     )
@@ -137,7 +139,8 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
         return quote_sheet
 
     except Exception as e:
-        logger.error(f"Error linking quote sheet for job {job.job_number}: {str(e)}")
+        logger.error(
+            f"Error linking quote sheet for job {job.job_number}: {str(e)}")
         raise RuntimeError(f"Failed to link quote sheet: {str(e)}") from e
 
 
@@ -151,7 +154,8 @@ def _fetch_drafts(job: Job):
     try:
         # Check if job has linked quote sheet
         if not hasattr(job, "quote_sheet") or not job.quote_sheet:
-            raise RuntimeError(f"Job {job.job_number} has no linked quote sheet")
+            raise RuntimeError(
+                f"Job {job.job_number} has no linked quote sheet")
 
         quote_sheet = job.quote_sheet
         sheet_id = quote_sheet.sheet_id
@@ -230,7 +234,8 @@ def _fetch_drafts(job: Job):
         return draft_lines
 
     except Exception as e:
-        logger.error(f"Error fetching drafts for job {job.job_number}: {str(e)}")
+        logger.error(
+            f"Error fetching drafts for job {job.job_number}: {str(e)}")
         raise RuntimeError(f"Failed to fetch drafts: {str(e)}") from e
 
 
@@ -254,7 +259,8 @@ def preview_quote(job: Job):
         return preview_quote_import_from_drafts(job, drafts)
 
     except Exception as e:
-        logger.error(f"Error previewing quote for job {job.job_number}: {str(e)}")
+        logger.error(
+            f"Error previewing quote for job {job.job_number}: {str(e)}")
         raise RuntimeError(f"Failed to preview quote: {str(e)}") from e
 
 
@@ -287,7 +293,8 @@ def apply_quote(job: Job):
         return result
 
     except Exception as e:
-        logger.error(f"Error applying quote for job {job.job_number}: {str(e)}")
+        logger.error(
+            f"Error applying quote for job {job.job_number}: {str(e)}")
         raise RuntimeError(f"Failed to apply quote: {str(e)}") from e
 
 
@@ -310,7 +317,8 @@ def _ensure_jobs_manager_folder(
     """  # For now, assume we need to create it
     # TODO: Add logic to check if folder already exists
     try:
-        jobs_manager_folder_id = create_folder("Jobs Manager", parent_folder_id)
+        jobs_manager_folder_id = create_folder(
+            "Jobs Manager", parent_folder_id)
 
         # Update CompanyDefaults if needed
         if (
@@ -319,12 +327,14 @@ def _ensure_jobs_manager_folder(
         ):
             # Note: This assumes the field exists in CompanyDefaults
             # If not, this would need to be adjusted
-            logger.info(f"Created/found Jobs Manager folder: {jobs_manager_folder_id}")
+            logger.info(
+                f"Created/found Jobs Manager folder: {jobs_manager_folder_id}")
 
         return jobs_manager_folder_id
 
     except Exception as e:
-        raise RuntimeError(f"Failed to ensure Jobs Manager folder: {str(e)}") from e
+        raise RuntimeError(
+            f"Failed to ensure Jobs Manager folder: {str(e)}") from e
 
 
 def _create_or_get_job_folder(parent_folder_id: str, folder_name: str) -> str:
@@ -342,7 +352,8 @@ def _create_or_get_job_folder(parent_folder_id: str, folder_name: str) -> str:
         # For now, always create new folder
         # TODO: Add logic to check if folder already exists
         job_folder_id = create_folder(folder_name, parent_folder_id)
-        logger.info(f"Created/found job folder '{folder_name}': {job_folder_id}")
+        logger.info(
+            f"Created/found job folder '{folder_name}': {job_folder_id}")
         return job_folder_id
 
     except Exception as e:

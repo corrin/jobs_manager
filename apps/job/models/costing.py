@@ -18,10 +18,12 @@ class CostSet(models.Model):
         ("actual", "Actual"),
     ]
 
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="cost_sets")
+    job = models.ForeignKey(
+        Job, on_delete=models.CASCADE, related_name="cost_sets")
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
-    summary = models.JSONField(default=dict, help_text="Summary data for this cost set")
+    summary = models.JSONField(
+        default=dict, help_text="Summary data for this cost set")
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -56,7 +58,8 @@ class CostLine(models.Model):
         CostSet, on_delete=models.CASCADE, related_name="cost_lines"
     )
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
-    desc = models.CharField(max_length=255, help_text="Description of this cost line")
+    desc = models.CharField(
+        max_length=255, help_text="Description of this cost line")
     quantity = models.DecimalField(
         max_digits=10, decimal_places=3, default=Decimal("1.000")
     )

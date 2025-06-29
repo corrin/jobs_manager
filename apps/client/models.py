@@ -32,11 +32,13 @@ class Client(models.Model):
     )  # For debugging, stores the raw JSON from Xero
 
     # Fields for the primary contact person
-    primary_contact_name = models.CharField(max_length=255, null=True, blank=True)
+    primary_contact_name = models.CharField(
+        max_length=255, null=True, blank=True)
     primary_contact_email = models.EmailField(null=True, blank=True)
 
     # Store all contact persons from the Xero ContactPersons list
-    additional_contact_persons = models.JSONField(null=True, blank=True, default=list)
+    additional_contact_persons = models.JSONField(
+        null=True, blank=True, default=list)
 
     # Store all phone numbers from the Xero Phones list
     all_phones = models.JSONField(null=True, blank=True, default=list)
@@ -44,7 +46,8 @@ class Client(models.Model):
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)
 
-    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    xero_last_synced = models.DateTimeField(
+        null=True, blank=True, default=timezone.now)
 
     # Fields to track merged clients in Xero
     xero_archived = models.BooleanField(
@@ -95,7 +98,8 @@ class Client(models.Model):
         Calculate the total amount spent by the client (sum of all invoice totals).
         """
         return (
-            self.invoice_set.aggregate(total=models.Sum("total_excl_tax"))["total"] or 0
+            self.invoice_set.aggregate(total=models.Sum("total_excl_tax"))[
+                "total"] or 0
         )
 
     def get_client_for_xero(self):
@@ -104,7 +108,8 @@ class Client(models.Model):
         Handles None values explicitly to ensure proper serialization.
         """
         # Logging all data for debugging
-        logger.debug(f"Preparing client for Xero sync: ID={self.id}, Name={self.name}")
+        logger.debug(
+            f"Preparing client for Xero sync: ID={self.id}, Name={self.name}")
 
         # Ensure required fields are present
         if not self.name:
@@ -211,7 +216,8 @@ class Client(models.Model):
 
         while current.merged_into:
             if current.merged_into.id in seen:
-                logger.warning(f"Circular merge chain detected for client {self.id}")
+                logger.warning(
+                    f"Circular merge chain detected for client {self.id}")
                 break
             seen.add(current.merged_into.id)
             current = current.merged_into
@@ -233,7 +239,8 @@ class ClientContact(models.Model):
         related_name="contacts",
         help_text="The client this contact belongs to",
     )
-    name = models.CharField(max_length=255, help_text="Full name of the contact person")
+    name = models.CharField(
+        max_length=255, help_text="Full name of the contact person")
     email = models.EmailField(
         null=True, blank=True, help_text="Email address of the contact"
     )

@@ -44,7 +44,8 @@ class XeroInvoiceManager(XeroDocumentManager):
         Calls the base class __init__ ensuring consistent signature.
         """
         if not client or not job:
-            raise ValueError("Client and Job are required for XeroInvoiceManager")
+            raise ValueError(
+                "Client and Job are required for XeroInvoiceManager")
         # Call the base class __init__ with the client and the job
         super().__init__(client=client, job=job)
 
@@ -116,7 +117,8 @@ class XeroInvoiceManager(XeroDocumentManager):
                     f"{(' - ' + self.job.description) if self.job.description else ''}"
                 ),
                 quantity=1,  # Typically T&M is invoiced as a single line item sum
-                unit_amount=float(self.job.latest_reality_pricing.total_revenue)
+                unit_amount=float(
+                    self.job.latest_reality_pricing.total_revenue)
                 or 0.00,
                 account_code=self._get_account_code(),
             ),
@@ -166,7 +168,8 @@ class XeroInvoiceManager(XeroDocumentManager):
         Creates an invoice object for Xero management or deletion.
         """
         if not self.job:
-            raise ValueError("Job is required to get Xero document for an invoice.")
+            raise ValueError(
+                "Job is required to get Xero document for an invoice.")
 
         match type:
             case "create":
@@ -193,7 +196,8 @@ class XeroInvoiceManager(XeroDocumentManager):
             case "delete":
                 xero_id = self.get_xero_id()
                 if not xero_id:
-                    raise ValueError("Cannot delete invoice without a Xero ID.")
+                    raise ValueError(
+                        "Cannot delete invoice without a Xero ID.")
                 # Deletion via API usually means setting status to DELETED
                 # via update
                 return XeroInvoice(
@@ -216,7 +220,8 @@ class XeroInvoiceManager(XeroDocumentManager):
 
             if response and response.invoices:
                 xero_invoice_data = response.invoices[0]
-                xero_invoice_id = getattr(xero_invoice_data, "invoice_id", None)
+                xero_invoice_id = getattr(
+                    xero_invoice_data, "invoice_id", None)
                 if not xero_invoice_id:
                     logger.error("Xero response missing invoice_id.")
                     raise ValueError("Xero response missing invoice_id.")
@@ -224,10 +229,12 @@ class XeroInvoiceManager(XeroDocumentManager):
                 invoice_url = (
                     f"https://go.xero.com/app/invoicing/edit/{xero_invoice_id}"
                 )
-                invoice_number = getattr(xero_invoice_data, "invoice_number", None)
+                invoice_number = getattr(
+                    xero_invoice_data, "invoice_number", None)
 
                 # Store raw response for debugging
-                invoice_json = json.dumps(xero_invoice_data.to_dict(), default=str)
+                invoice_json = json.dumps(
+                    xero_invoice_data.to_dict(), default=str)
 
                 # Create local Invoice record
                 invoice = Invoice.objects.create(
@@ -241,10 +248,13 @@ class XeroInvoiceManager(XeroDocumentManager):
                     ),  # Assuming 30 day terms
                     status=InvoiceStatus.SUBMITTED,  # Set local status
                     # Use getattr with defaults for safety
-                    total_excl_tax=Decimal(getattr(xero_invoice_data, "sub_total", 0)),
+                    total_excl_tax=Decimal(
+                        getattr(xero_invoice_data, "sub_total", 0)),
                     tax=Decimal(getattr(xero_invoice_data, "total_tax", 0)),
-                    total_incl_tax=Decimal(getattr(xero_invoice_data, "total", 0)),
-                    amount_due=Decimal(getattr(xero_invoice_data, "amount_due", 0)),
+                    total_incl_tax=Decimal(
+                        getattr(xero_invoice_data, "total", 0)),
+                    amount_due=Decimal(
+                        getattr(xero_invoice_data, "amount_due", 0)),
                     xero_last_synced=timezone.now(),
                     # Use current time as approximation
                     xero_last_modified=timezone.now(),

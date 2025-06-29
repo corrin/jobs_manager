@@ -103,7 +103,8 @@ class QuoteImportStatusView(APIView):
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            logger.error(f"Error getting quote status for job {job_id}: {str(e)}")
+            logger.error(
+                f"Error getting quote status for job {job_id}: {str(e)}")
             return Response(
                 {"error": f"Failed to get quote status: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

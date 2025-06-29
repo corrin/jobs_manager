@@ -19,7 +19,8 @@ class ServiceAPIKeyAuthentication(BaseAuthentication):
             return None  # No API key provided, skip this authentication
 
         try:
-            service_key = ServiceAPIKey.objects.get(key=api_key, is_active=True)
+            service_key = ServiceAPIKey.objects.get(
+                key=api_key, is_active=True)
             service_key.mark_used()
 
             # Return a tuple of (user, auth) - we don't have a user for service keys
@@ -50,7 +51,8 @@ def service_api_key_required(view_func):
             return JsonResponse({"error": "API key required"}, status=401)
 
         try:
-            service_key = ServiceAPIKey.objects.get(key=api_key, is_active=True)
+            service_key = ServiceAPIKey.objects.get(
+                key=api_key, is_active=True)
             service_key.mark_used()
 
             # Add the service key to the request for use in the view

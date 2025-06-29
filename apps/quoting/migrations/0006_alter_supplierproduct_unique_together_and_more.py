@@ -17,6 +17,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="supplierproduct",
-            index=models.Index(fields=["url"], name="quoting_sup_url_2d3c4a_idx"),
+            index=models.Index(
+                fields=["url"], name="quoting_sup_url_2d3c4a_idx"),
         ),
     ]

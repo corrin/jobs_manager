@@ -127,7 +127,8 @@ class SerializerFieldSyncTest(APITestCase):
 
 class JobApiTests(TestCase):
     fixtures = [
-        "company_defaults_test_fixture.json",  # Use test fixture with Demo Company tenant ID
+        # Use test fixture with Demo Company tenant ID
+        "company_defaults_test_fixture.json",
         "logins.json",
         "staff.json",
     ]  # We can't even test without fixtures
@@ -186,7 +187,8 @@ class JobApiTests(TestCase):
 
     def test_job_has_estimate_pricing(self):
         # Test if the job correctly returns the estimate pricing
-        self.assertEqual(self.job.latest_estimate_pricing, self.estimate_pricing)
+        self.assertEqual(self.job.latest_estimate_pricing,
+                         self.estimate_pricing)
 
     def test_job_has_quote_pricing(self):
         # Test if the job correctly returns the quote pricing

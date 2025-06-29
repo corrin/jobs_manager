@@ -34,5 +34,6 @@ class Command(BaseCommand):
             self.style.SUCCESS(f'Created API key "{name}": {service_key.key}')
         )
         self.stdout.write(
-            self.style.WARNING("Save this key securely - it cannot be retrieved again!")
+            self.style.WARNING(
+                "Save this key securely - it cannot be retrieved again!")
         )

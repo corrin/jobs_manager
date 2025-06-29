@@ -22,7 +22,8 @@ class XeroJournal(models.Model):
     xero_last_modified = models.DateTimeField()
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)
-    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    xero_last_synced = models.DateTimeField(
+        null=True, blank=True, default=timezone.now)
 
     def __str__(self):
         # Display the journal number if available, otherwise fallback to xero_id

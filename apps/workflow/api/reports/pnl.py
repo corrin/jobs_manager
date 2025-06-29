@@ -55,8 +55,10 @@ class CompanyProfitAndLossReport(APIView):
 
         consolidated_rollup = {}
         for item in journal_rollup:
-            key = (item["account__account_type"], item["account__account_name"])
-            consolidated_rollup[key] = consolidated_rollup.get(key, 0) + item["total"]
+            key = (item["account__account_type"],
+                   item["account__account_name"])
+            consolidated_rollup[key] = consolidated_rollup.get(
+                key, 0) + item["total"]
 
         return consolidated_rollup
 
@@ -99,14 +101,16 @@ class CompanyProfitAndLossReport(APIView):
         start_date = datetime.strptime(
             request.query_params.get("start_date"), "%Y-%m-%d"
         )
-        end_date = datetime.strptime(request.query_params.get("end_date"), "%Y-%m-%d")
+        end_date = datetime.strptime(
+            request.query_params.get("end_date"), "%Y-%m-%d")
         compare_periods = int(request.query_params.get("compare", 0))
         period_type = request.query_params.get("period_type", "month")
 
         date_ranges = []
         for i in range(compare_periods + 1):
             if period_type == "month":
-                period_start = (start_date - relativedelta(months=i)).replace(day=1)
+                period_start = (
+                    start_date - relativedelta(months=i)).replace(day=1)
                 period_end = (period_start + relativedelta(months=1)) - timedelta(
                     days=1
                 )
@@ -136,7 +140,8 @@ class CompanyProfitAndLossReport(APIView):
         }
 
         for period_index, (period_start, period_end) in enumerate(date_ranges):
-            consolidated_rollup = self.rollup_line_items(period_start, period_end)
+            consolidated_rollup = self.rollup_line_items(
+                period_start, period_end)
 
             for (account_type, account_name), total in consolidated_rollup.items():
                 self.categorize_transaction(
@@ -148,7 +153,8 @@ class CompanyProfitAndLossReport(APIView):
                     period_index,
                 )
 
-            totals = self.calculate_totals(report, compare_periods, period_index)
+            totals = self.calculate_totals(
+                report, compare_periods, period_index)
             for key, value in totals.items():
                 report["totals"][key].append(value)
 

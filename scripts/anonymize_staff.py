@@ -8,7 +8,8 @@ def create_staff_mapping():
         ["John", "Jane", "Michael", "Sarah", "David", "Emma", "James", "Lisa"]
     )
     last_name = random.choice(
-        ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"]
+        ["Smith", "Johnson", "Williams", "Brown",
+            "Jones", "Garcia", "Miller", "Davis"]
     )
     preferred_name = random.choice(
         ["John", "Jane", "Mike", "Sara", "Dave", "Em", "Jim", "Liz"]
@@ -33,7 +34,8 @@ def create_staff_mapping():
         "PostalAddress2": random.choice(
             ["Auckland", "Wellington", "Christchurch", "Hamilton", "Tauranga"]
         ),
-        "HomePhone": f"{random.randint(1000000, 9999999)}.0",  # Format: 1234567.0
+        # Format: 1234567.0
+        "HomePhone": f"{random.randint(1000000, 9999999)}.0",
         # Format: 02123456789
         "HomePhone2": f"02{random.randint(100000000, 999999999)}",
         "KSOptOutBankAccount": str(random.randint(100000000000000, 999999999999999)),

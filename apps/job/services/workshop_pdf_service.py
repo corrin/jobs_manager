@@ -67,7 +67,8 @@ def convert_html_to_reportlab(html_content):
         return "N/A"
 
     # Clean specific Quill elements
-    html_content = re.sub(r'<span class="ql-ui"[^>]*>.*?</span>', "", html_content)
+    html_content = re.sub(
+        r'<span class="ql-ui"[^>]*>.*?</span>', "", html_content)
     html_content = re.sub(r' data-list="[^"]*"', "", html_content)
     html_content = re.sub(r' contenteditable="[^"]*"', "", html_content)
 
@@ -163,7 +164,8 @@ def convert_html_to_reportlab(html_content):
 
     # Apply replacements
     for pattern, replacement in replacements:
-        html_content = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
+        html_content = re.sub(pattern, replacement,
+                              html_content, flags=re.DOTALL)
 
     # Clean unsupported tags
     html_content = re.sub(
@@ -191,8 +193,10 @@ def create_workshop_pdf(job):
             return main_buffer
 
         # Separate images and PDFs for different handling
-        image_files = [f for f in files_to_print if f.mime_type.startswith("image/")]
-        pdf_files = [f for f in files_to_print if f.mime_type == "application/pdf"]
+        image_files = [
+            f for f in files_to_print if f.mime_type.startswith("image/")]
+        pdf_files = [
+            f for f in files_to_print if f.mime_type == "application/pdf"]
 
         # Process files based on types present
         return process_attachments(main_buffer, image_files, pdf_files)
@@ -237,7 +241,8 @@ def add_logo(pdf, y_position):
     logo = ImageReader(logo_path)
     # Calculate x position to center the image
     x = MARGIN + (CONTENT_WIDTH - 150) / 2  # 150 is the image width
-    pdf.drawImage(logo, x, y_position - 150, width=150, height=150, mask="auto")
+    pdf.drawImage(logo, x, y_position - 150,
+                  width=150, height=150, mask="auto")
     return y_position - 200  # Space to avoid overlap
 
 
@@ -256,7 +261,8 @@ def add_job_details_table(pdf, y_position, job: Job):
         ["Job Number", job.job_number or "N/A"],
         ["Client", job.client.name if job.client else "N/A"],
         ["Contact", job.contact_person or "N/A"],
-        ["Description", Paragraph(job.description or "N/A", description_style)],
+        ["Description", Paragraph(
+            job.description or "N/A", description_style)],
         [
             "Notes",
             Paragraph(
@@ -299,7 +305,8 @@ def add_materials_table(pdf, y_position):
 
     materials_table = Table(
         materials_data,
-        colWidths=[CONTENT_WIDTH * 0.4, CONTENT_WIDTH * 0.2, CONTENT_WIDTH * 0.4],
+        colWidths=[CONTENT_WIDTH * 0.4,
+                   CONTENT_WIDTH * 0.2, CONTENT_WIDTH * 0.4],
     )
     materials_table.setStyle(
         TableStyle(
@@ -317,10 +324,12 @@ def add_materials_table(pdf, y_position):
         )
     )
 
-    materials_width, materials_height = materials_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
+    materials_width, materials_height = materials_table.wrap(
+        CONTENT_WIDTH, PAGE_HEIGHT)
 
     # Check if materials table fits in remaining space
-    required_space = 25 + materials_height + 20  # Title (25) + Table + Spacing (20)
+    required_space = 25 + materials_height + \
+        20  # Title (25) + Table + Spacing (20)
     if (y_position - MARGIN) < required_space:
         # Not enough space, create new page
         pdf.showPage()
@@ -344,7 +353,8 @@ def create_image_document(image_files):
     pdf = canvas.Canvas(image_buffer, pagesize=A4)
 
     for i, job_file in enumerate(image_files):
-        file_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
+        file_path = os.path.join(
+            settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
         if not os.path.exists(file_path):
             continue
 
@@ -356,7 +366,8 @@ def create_image_document(image_files):
             y_position = PAGE_HEIGHT - MARGIN - 10
 
             # Add image with mask='auto' parameter to handle transparency
-            pdf.drawImage(file_path, x, y_position - height, width=width, height=height)
+            pdf.drawImage(file_path, x, y_position - height,
+                          width=width, height=height)
 
             # Add caption in the footer for images
             pdf.setFont("Helvetica-Oblique", 9)
@@ -370,7 +381,8 @@ def create_image_document(image_files):
             logger.error(f"Failed to add image {job_file.filename}: {e}")
             pdf.setFont("Helvetica", 12)
             pdf.drawString(
-                MARGIN, PAGE_HEIGHT - MARGIN - 50, f"Error adding image: {str(e)}"
+                MARGIN, PAGE_HEIGHT - MARGIN -
+                50, f"Error adding image: {str(e)}"
             )
 
             # Add a new page if not the last image
@@ -407,7 +419,8 @@ def get_pdf_file_paths(pdf_files):
     """Returns the file paths for the given PDF files."""
     file_paths = []
     for job_file in pdf_files:
-        file_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
+        file_path = os.path.join(
+            settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
         if os.path.exists(file_path):
             file_paths.append(file_path)
     return file_paths

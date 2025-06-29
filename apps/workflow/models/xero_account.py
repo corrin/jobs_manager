@@ -24,12 +24,14 @@ class XeroAccount(models.Model):
     account_type = models.CharField(
         max_length=50, null=True, blank=True
     )  # For account type enum values
-    tax_type = models.CharField(max_length=50, null=True, blank=True)  # For tax type
+    tax_type = models.CharField(
+        max_length=50, null=True, blank=True)  # For tax type
     enable_payments = models.BooleanField(
         default=False
     )  # Boolean for enable payments to account
     xero_last_modified = models.DateTimeField(null=False, blank=False)
-    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    xero_last_synced = models.DateTimeField(
+        null=True, blank=True, default=timezone.now)
     raw_json = models.JSONField()  # Store the raw API response for reference
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)

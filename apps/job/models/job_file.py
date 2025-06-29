@@ -9,7 +9,8 @@ from apps.job.services.file_service import get_thumbnail_folder
 
 class JobFile(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    job = models.ForeignKey("Job", related_name="files", on_delete=models.CASCADE)
+    job = models.ForeignKey("Job", related_name="files",
+                            on_delete=models.CASCADE)
     filename = models.CharField(max_length=255)
     file_path = models.CharField(max_length=500)
     mime_type = models.CharField(max_length=100, blank=True)
@@ -38,7 +39,8 @@ class JobFile(models.Model):
             return None
 
         thumb_path = os.path.join(
-            get_thumbnail_folder(self.job.job_number), f"{self.filename}.thumb.jpg"
+            get_thumbnail_folder(
+                self.job.job_number), f"{self.filename}.thumb.jpg"
         )
         return thumb_path if os.path.exists(thumb_path) else None
 

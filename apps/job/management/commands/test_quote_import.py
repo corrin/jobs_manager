@@ -68,10 +68,12 @@ class Command(BaseCommand):
                     f"Using existing job: [Job {job.job_number}] {job.name}"
                 )
             except Job.DoesNotExist:
-                raise CommandError(f"Job with ID {options['job_id']} not found")
+                raise CommandError(
+                    f"Job with ID {options['job_id']} not found")
         else:
             job = self._get_or_create_test_job()
-            self.stdout.write(f"Using test job: [Job {job.job_number}] {job.name}")
+            self.stdout.write(
+                f"Using test job: [Job {job.job_number}] {job.name}")
 
         try:
             if options["preview_only"]:
@@ -84,7 +86,8 @@ class Command(BaseCommand):
                 self._test_preview(job, str(file_path))
             else:
                 # Full import test
-                self._test_import(job, str(file_path), options["skip_validation"])
+                self._test_import(job, str(file_path),
+                                  options["skip_validation"])
 
         except QuoteImportError as e:
             raise CommandError(f"Quote import error: {e}")
@@ -94,7 +97,8 @@ class Command(BaseCommand):
     def _get_or_create_test_job(self) -> Job:
         """Get or create a test job for quote import testing"""
         # Try to find existing test job
-        test_job = Job.objects.filter(name__icontains="Quote Import Test").first()
+        test_job = Job.objects.filter(
+            name__icontains="Quote Import Test").first()
 
         if test_job:
             return test_job
@@ -106,7 +110,8 @@ class Command(BaseCommand):
         client = Client.objects.first()
         if not client:
             self.stdout.write("Creating test client...")
-            client = Client.objects.create(name="Test Client", account_ref="TEST001")
+            client = Client.objects.create(
+                name="Test Client", account_ref="TEST001")
 
         test_job = Job.objects.create(
             name="Quote Import Test Job",
@@ -127,7 +132,8 @@ class Command(BaseCommand):
         preview_data = preview_quote_import(job, file_path)
 
         self.stdout.write("\n📋 Preview Results:")
-        self.stdout.write(f"  Can proceed: {preview_data.get('can_proceed', False)}")
+        self.stdout.write(
+            f"  Can proceed: {preview_data.get('can_proceed', False)}")
         # Show validation report
         validation_report = preview_data.get("validation_report")
         if validation_report:
@@ -139,7 +145,8 @@ class Command(BaseCommand):
                     f"    🚨 Critical: {len(validation_report['critical_issues'])}"
                 )
             if validation_report.get("errors"):
-                self.stdout.write(f"    ❌ Errors: {len(validation_report['errors'])}")
+                self.stdout.write(
+                    f"    ❌ Errors: {len(validation_report['errors'])}")
             if validation_report.get("warnings"):
                 self.stdout.write(
                     f"    ⚠️ Warnings: {len(validation_report['warnings'])}"
@@ -152,15 +159,21 @@ class Command(BaseCommand):
         # Show diff preview
         diff_preview = preview_data.get("diff_preview")
         if diff_preview:
-            self.stdout.write(f"  Next revision: {diff_preview['next_revision']}")
-            self.stdout.write(f"  Total changes: {diff_preview['total_changes']}")
-            self.stdout.write(f"    ➕ Additions: {diff_preview['additions_count']}")
-            self.stdout.write(f"    🔄 Updates: {diff_preview['updates_count']}")
-            self.stdout.write(f"    ❌ Deletions: {diff_preview['deletions_count']}")
+            self.stdout.write(
+                f"  Next revision: {diff_preview['next_revision']}")
+            self.stdout.write(
+                f"  Total changes: {diff_preview['total_changes']}")
+            self.stdout.write(
+                f"    ➕ Additions: {diff_preview['additions_count']}")
+            self.stdout.write(
+                f"    🔄 Updates: {diff_preview['updates_count']}")
+            self.stdout.write(
+                f"    ❌ Deletions: {diff_preview['deletions_count']}")
 
         if preview_data.get("can_proceed", False):
             self.stdout.write(
-                self.style.SUCCESS("\n✅ Preview successful - import can proceed")
+                self.style.SUCCESS(
+                    "\n✅ Preview successful - import can proceed")
             )
         else:
             self.stdout.write(
@@ -183,18 +196,21 @@ class Command(BaseCommand):
             self.stdout.write("No current quote found")
 
         # Perform import
-        result = import_quote_from_file(job, file_path, skip_validation=skip_validation)
+        result = import_quote_from_file(
+            job, file_path, skip_validation=skip_validation)
 
         # Show results
         if result.success:
-            self.stdout.write(self.style.SUCCESS("\n✅ Quote import successful!"))
+            self.stdout.write(self.style.SUCCESS(
+                "\n✅ Quote import successful!"))
 
             if result.cost_set:
                 self.stdout.write(
                     f"  New CostSet: Rev {result.cost_set.rev} (ID: {result.cost_set.id})"
                 )
                 self.stdout.write(f"  Summary: {result.cost_set.summary}")
-                self.stdout.write(f"  Cost lines: {result.cost_set.cost_lines.count()}")
+                self.stdout.write(
+                    f"  Cost lines: {result.cost_set.cost_lines.count()}")
 
             if result.diff_result:
                 self.stdout.write("  Changes applied:")
@@ -212,9 +228,11 @@ class Command(BaseCommand):
             updated_job = Job.objects.get(pk=job.pk)
             latest_quote = updated_job.get_latest("quote")
             if latest_quote and latest_quote.id == result.cost_set.id:
-                self.stdout.write("  ✅ Job latest_quote pointer updated correctly")
+                self.stdout.write(
+                    "  ✅ Job latest_quote pointer updated correctly")
             else:
-                self.stdout.write("  ❌ Job latest_quote pointer not updated correctly")
+                self.stdout.write(
+                    "  ❌ Job latest_quote pointer not updated correctly")
 
         else:
             self.stdout.write(self.style.ERROR("\n❌ Quote import failed!"))
@@ -222,6 +240,8 @@ class Command(BaseCommand):
             if result.validation_report:
                 self.stdout.write("  Validation issues:")
                 for issue in result.validation_report.get("critical_issues", []):
-                    self.stdout.write(f"    🚨 CRITICAL: {issue.get('message', issue)}")
+                    self.stdout.write(
+                        f"    🚨 CRITICAL: {issue.get('message', issue)}")
                 for issue in result.validation_report.get("errors", []):
-                    self.stdout.write(f"    ❌ ERROR: {issue.get('message', issue)}")
+                    self.stdout.write(
+                        f"    ❌ ERROR: {issue.get('message', issue)}")

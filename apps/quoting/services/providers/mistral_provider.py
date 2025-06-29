@@ -165,14 +165,17 @@ class MistralPriceExtractionProvider:
                     unit_price = self._parse_price_from_string(price_str)
 
                     # Parse dimensions from description
-                    dimensions = self._parse_dimensions_from_description(description)
+                    dimensions = self._parse_dimensions_from_description(
+                        description)
 
                     # Extract item code if present (e.g., "UA1130" from the description)
                     item_code_match = re.search(r"UA\d+", description)
-                    item_code = item_code_match.group(0) if item_code_match else ""
+                    item_code = item_code_match.group(
+                        0) if item_code_match else ""
 
                     # Create variant ID from description
-                    variant_id = description.replace(" ", "_").replace("/", "_")[:100]
+                    variant_id = description.replace(
+                        " ", "_").replace("/", "_")[:100]
 
                     product = {
                         "description": description,
@@ -244,7 +247,8 @@ class MistralPriceExtractionProvider:
             date = ""
 
             # Look for customer info in the markdown
-            customer_match = re.search(r"Customer:\s*\|\s*([^|]+)\|", all_markdown)
+            customer_match = re.search(
+                r"Customer:\s*\|\s*([^|]+)\|", all_markdown)
             if customer_match:
                 customer_name = customer_match.group(1).strip()
 
@@ -333,7 +337,8 @@ class MistralPriceExtractionProvider:
             with open(json_output_file, "w") as f:
                 json.dump(ocr_response_to_dict(ocr_response), f, indent=2)
             logger.info("OCR processing complete!")
-            logger.info(f"JSON results saved to: {os.path.abspath(json_output_file)}")
+            logger.info(
+                f"JSON results saved to: {os.path.abspath(json_output_file)}")
             # Log a preview of the results
             logger.debug("Preview of the OCR results (first page):")
             if hasattr(ocr_response, "pages") and ocr_response.pages:
@@ -343,7 +348,8 @@ class MistralPriceExtractionProvider:
                 if hasattr(first_page, "markdown") and first_page.markdown:
                     preview = first_page.markdown[:500]
                     logger.debug(
-                        preview + ("..." if len(first_page.markdown) > 500 else "")
+                        preview + ("..." if len(first_page.markdown)
+                                   > 500 else "")
                     )
                 elif hasattr(first_page, "text") and first_page.text:
                     preview = first_page.text[:500]

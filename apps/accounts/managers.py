@@ -34,7 +34,8 @@ class StaffManager(BaseUserManager):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
-        extra_fields.setdefault("wage_rate", 0)  # Default wage rate for superusers
+        # Default wage rate for superusers
+        extra_fields.setdefault("wage_rate", 0)
 
         # Strict validation for superuser status
         if extra_fields.get("is_staff") is not True:

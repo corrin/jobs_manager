@@ -122,7 +122,8 @@ def fetch_jobs(request: Request, status: str) -> Response:
         jobs = KanbanService.get_jobs_by_status(status, search_terms)
         total_jobs = Job.objects.filter(status=status).count()
 
-        job_data = [KanbanService.serialize_job_for_api(job, request) for job in jobs]
+        job_data = [KanbanService.serialize_job_for_api(
+            job, request) for job in jobs]
 
         return Response(
             {
@@ -178,7 +179,8 @@ def advanced_search(request: Request) -> Response:
 
         jobs = KanbanService.perform_advanced_search(filters)
 
-        job_data = [KanbanService.serialize_job_for_api(job, request) for job in jobs]
+        job_data = [KanbanService.serialize_job_for_api(
+            job, request) for job in jobs]
 
         return Response(
             {

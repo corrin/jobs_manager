@@ -63,7 +63,8 @@ class UploadSupplierPricingView(LoginRequiredMixin, TemplateView):
 
             content_type = uploaded_file.content_type
 
-            extracted_data, error = extract_price_data(temp_file_path, content_type)
+            extracted_data, error = extract_price_data(
+                temp_file_path, content_type)
 
             # Clean up the temporary file
             os.unlink(temp_file_path)
@@ -137,7 +138,8 @@ class UploadSupplierPricingView(LoginRequiredMixin, TemplateView):
                             if item.get("unit_price") is not None:
                                 try:
                                     variant_price = float(
-                                        str(item["unit_price"]).replace("$", "").strip()
+                                        str(item["unit_price"]).replace(
+                                            "$", "").strip()
                                     )
                                     if variant_price < 0:
                                         raise ValueError(
@@ -159,7 +161,8 @@ class UploadSupplierPricingView(LoginRequiredMixin, TemplateView):
                                 product_name=item.get(
                                     "product_name", item.get("description", "")
                                 )[:500],
-                                item_no=item.get("supplier_item_code", "")[:100],
+                                item_no=item.get(
+                                    "supplier_item_code", "")[:100],
                                 description=item.get("description", ""),
                                 specifications=item.get("specifications", ""),
                                 variant_id=item.get("variant_id", "")[:100],
@@ -258,7 +261,8 @@ def extract_supplier_price_list_data_view(request):
 
         content_type = price_list_file.content_type
 
-        extracted_data, error = extract_price_data(temp_file_path, content_type)
+        extracted_data, error = extract_price_data(
+            temp_file_path, content_type)
 
         # Clean up the temporary file
         os.unlink(temp_file_path)
@@ -275,9 +279,11 @@ def extract_supplier_price_list_data_view(request):
         return JsonResponse({"success": True, "extracted_data": extracted_data})
 
     except Exception as e:
-        logger.exception(f"Error in extract_supplier_price_list_data_view: {e}")
+        logger.exception(
+            f"Error in extract_supplier_price_list_data_view: {e}")
         return JsonResponse(
-            {"success": False, "error": f"An unexpected error occurred: {str(e)}"},
+            {"success": False,
+                "error": f"An unexpected error occurred: {str(e)}"},
             status=500,
         )
 
@@ -401,11 +407,13 @@ def search_supplier_prices_api(request):
             )
 
         if alloy:
-            supplier_query = supplier_query.filter(parsed_alloy__icontains=alloy)
+            supplier_query = supplier_query.filter(
+                parsed_alloy__icontains=alloy)
 
         if suppliers:
             supplier_names = [s.strip() for s in suppliers.split(",")]
-            supplier_query = supplier_query.filter(supplier__name__in=supplier_names)
+            supplier_query = supplier_query.filter(
+                supplier__name__in=supplier_names)
 
         # Convert supplier products to response format
         for product in supplier_query[:limit]:
@@ -414,7 +422,8 @@ def search_supplier_prices_api(request):
                     "product_name": product.product_name,
                     "supplier_name": product.supplier.name,
                     "price": (
-                        float(product.variant_price) if product.variant_price else None
+                        float(
+                            product.variant_price) if product.variant_price else None
                     ),
                     "available_stock": product.variant_available_stock,
                     "price_unit": product.price_unit or "each",
@@ -435,7 +444,8 @@ def search_supplier_prices_api(request):
                 )
 
             if metal_type:
-                stock_query = stock_query.filter(metal_type__icontains=metal_type)
+                stock_query = stock_query.filter(
+                    metal_type__icontains=metal_type)
 
             if alloy:
                 stock_query = stock_query.filter(alloy__icontains=alloy)
@@ -481,7 +491,8 @@ def job_context_api(request, job_id):
     try:
         # Get the job
         try:
-            job = Job.objects.select_related("client", "contact").get(id=job_id)
+            job = Job.objects.select_related(
+                "client", "contact").get(id=job_id)
         except Job.DoesNotExist:
             return JsonResponse(
                 {"error": "Job not found"},
@@ -510,10 +521,12 @@ def job_context_api(request, job_id):
                             float(cost_line.quantity) if cost_line.quantity else 0.0
                         ),
                         "unit_cost": (
-                            float(cost_line.unit_cost) if cost_line.unit_cost else 0.0
+                            float(
+                                cost_line.unit_cost) if cost_line.unit_cost else 0.0
                         ),
                         "notes": (
-                            cost_line.meta.get("notes", "") if cost_line.meta else ""
+                            cost_line.meta.get(
+                                "notes", "") if cost_line.meta else ""
                         ),
                     }
                 )
@@ -523,7 +536,8 @@ def job_context_api(request, job_id):
         if job.client:
             recent_jobs = (
                 Job.objects.filter(
-                    client=job.client, status__in=["completed", "recently_completed"]
+                    client=job.client, status__in=[
+                        "completed", "recently_completed"]
                 )
                 .exclude(id=job.id)
                 .order_by("-created_at")[:3]

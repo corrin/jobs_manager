@@ -41,7 +41,8 @@ class XeroQuoteManager(XeroDocumentManager):
         Calls the base class __init__ ensuring consistent signature.
         """
         if not client or not job:
-            raise ValueError("Client and Job are required for XeroQuoteManager")
+            raise ValueError(
+                "Client and Job are required for XeroQuoteManager")
         # Call the base class __init__ with the client and the job
         super().__init__(client=client, job=job)
 
@@ -116,7 +117,8 @@ class XeroQuoteManager(XeroDocumentManager):
         """
         # Ensure job exists before accessing attributes
         if not self.job:
-            raise ValueError("Job is required to get Xero document for a quote.")
+            raise ValueError(
+                "Job is required to get Xero document for a quote.")
 
         match type:
             case "create":
@@ -174,13 +176,16 @@ class XeroQuoteManager(XeroDocumentManager):
                     client=self.client,
                     date=timezone.now().date(),
                     status=QuoteStatus.DRAFT,  # Set local status
-                    total_excl_tax=Decimal(getattr(xero_quote_data, "sub_total", 0)),
-                    total_incl_tax=Decimal(getattr(xero_quote_data, "total", 0)),
+                    total_excl_tax=Decimal(
+                        getattr(xero_quote_data, "sub_total", 0)),
+                    total_incl_tax=Decimal(
+                        getattr(xero_quote_data, "total", 0)),
                     xero_last_modified=timezone.now(),  # Use current time as approximation
                     xero_last_synced=timezone.now(),
                     online_url=quote_url,
                     # Store raw response for debugging
-                    raw_json=json.dumps(xero_quote_data.to_dict(), default=str),
+                    raw_json=json.dumps(
+                        xero_quote_data.to_dict(), default=str),
                 )
 
                 logger.info(
@@ -295,7 +300,8 @@ class XeroQuoteManager(XeroDocumentManager):
                 )  # Changed "error" to "message"
 
             if not hasattr(self.job, "quote") or not self.job.quote:
-                logger.warning(f"No local quote found for job {self.job.id} to delete.")
+                logger.warning(
+                    f"No local quote found for job {self.job.id} to delete.")
                 # Still return success as Xero operation might have succeeded or there was nothing to delete locally
                 return JsonResponse(
                     {

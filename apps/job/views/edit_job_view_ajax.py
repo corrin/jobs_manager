@@ -176,7 +176,8 @@ def edit_job_view_ajax(request, job_id=None):
                 {
                     "id": str(entry.id),
                     "description": (
-                        entry.description if hasattr(entry, "description") else ""
+                        entry.description if hasattr(
+                            entry, "description") else ""
                     ),
                     "hours": entry.hours if hasattr(entry, "hours") else 0,
                     "cost": cost,
@@ -198,7 +199,8 @@ def edit_job_view_ajax(request, job_id=None):
             # Calculate cost and revenue
             quantity = entry.quantity if hasattr(entry, "quantity") else 0
             unit_cost = entry.unit_cost if hasattr(entry, "unit_cost") else 0
-            unit_revenue = entry.unit_revenue if hasattr(entry, "unit_revenue") else 0
+            unit_revenue = entry.unit_revenue if hasattr(
+                entry, "unit_revenue") else 0
 
             cost = quantity * unit_cost
             revenue = quantity * unit_revenue
@@ -213,7 +215,8 @@ def edit_job_view_ajax(request, job_id=None):
                 try:
                     po_url = reverse(
                         "purchasing:purchase_orders_detail",
-                        kwargs={"pk": entry.purchase_order_line.purchase_order.id},
+                        kwargs={
+                            "pk": entry.purchase_order_line.purchase_order.id},
                     )
                 except Exception as e:
                     logger.error(
@@ -225,7 +228,8 @@ def edit_job_view_ajax(request, job_id=None):
                 {
                     "id": str(entry.id),
                     "description": (
-                        entry.description if hasattr(entry, "description") else ""
+                        entry.description if hasattr(
+                            entry, "description") else ""
                     ),
                     "quantity": quantity,
                     "cost": cost,
@@ -249,10 +253,12 @@ def edit_job_view_ajax(request, job_id=None):
         for entry in pricing.adjustment_entries.all():
             # Get cost and revenue adjustments
             cost_adjustment = (
-                entry.cost_adjustment if hasattr(entry, "cost_adjustment") else 0
+                entry.cost_adjustment if hasattr(
+                    entry, "cost_adjustment") else 0
             )
             price_adjustment = (
-                entry.price_adjustment if hasattr(entry, "price_adjustment") else 0
+                entry.price_adjustment if hasattr(
+                    entry, "price_adjustment") else 0
             )
 
             # Add to totals
@@ -264,7 +270,8 @@ def edit_job_view_ajax(request, job_id=None):
                 {
                     "id": str(entry.id),
                     "description": (
-                        entry.description if hasattr(entry, "description") else ""
+                        entry.description if hasattr(
+                            entry, "description") else ""
                     ),
                     "cost": cost_adjustment,
                     "revenue": price_adjustment,
@@ -494,7 +501,8 @@ def add_job_event(request, job_id):
         data = json.loads(request.body)
         description = data.get("description")
         if not description:
-            logger.warning(f"Missing description for job event on job {job_id}")
+            logger.warning(
+                f"Missing description for job event on job {job_id}")
             return JsonResponse({"error": "Description required"}, status=400)
 
         logger.debug(
@@ -507,7 +515,8 @@ def add_job_event(request, job_id):
             event_type="manual_note",
         )
 
-        logger.info(f"Successfully created job event {event.id} for job {job_id}")
+        logger.info(
+            f"Successfully created job event {event.id} for job {job_id}")
         return JsonResponse(
             {
                 "success": True,
@@ -679,7 +688,8 @@ def create_linked_quote_api(request, job_id):
 
         # Update the job with the new quote URL
         job.linked_quote = quote_spreadsheet.url
-        job.save(staff=request.user)  # Create a job event to record this action
+        # Create a job event to record this action
+        job.save(staff=request.user)
         JobEvent.objects.create(
             job=job,
             event_type="quote_created",

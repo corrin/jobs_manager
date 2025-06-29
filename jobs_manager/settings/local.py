@@ -77,7 +77,8 @@ ngrok_domain = os.getenv("NGROK_DOMAIN")
 if ngrok_domain and ngrok_domain not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(ngrok_domain)
 
-CORS_ALLOW_CREDENTIALS = os.getenv("CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
+CORS_ALLOW_CREDENTIALS = os.getenv(
+    "CORS_ALLOW_CREDENTIALS", "True").lower() == "true"
 
 # CORS Allowed Headers - read from environment or use defaults
 cors_headers_env = os.getenv("CORS_ALLOWED_HEADERS", "")

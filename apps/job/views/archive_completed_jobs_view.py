@@ -87,7 +87,8 @@ class ArchiveCompleteJobsViews:
                 )
 
             except Exception as e:
-                logger.exception(f"Unexpected error in archive jobs view: {str(e)}")
+                logger.exception(
+                    f"Unexpected error in archive jobs view: {str(e)}")
                 return Response(
                     {
                         "success": False,

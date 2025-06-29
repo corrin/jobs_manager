@@ -63,7 +63,8 @@ class Migration(migrations.Migration):
                     "total_incl_tax",
                     models.DecimalField(decimal_places=2, max_digits=10),
                 ),
-                ("amount_due", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("amount_due", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("xero_last_modified", models.DateTimeField()),
                 (
                     "xero_last_synced",
@@ -204,7 +205,8 @@ class Migration(migrations.Migration):
                     "total_incl_tax",
                     models.DecimalField(decimal_places=2, max_digits=10),
                 ),
-                ("amount_due", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("amount_due", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("xero_last_modified", models.DateTimeField()),
                 (
                     "xero_last_synced",
@@ -345,7 +347,8 @@ class Migration(migrations.Migration):
                     "total_incl_tax",
                     models.DecimalField(decimal_places=2, max_digits=10),
                 ),
-                ("amount_due", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("amount_due", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("xero_last_modified", models.DateTimeField()),
                 (
                     "xero_last_synced",

@@ -153,7 +153,8 @@ def extract_data_from_supplier_price_list_claude(
         prompt = create_supplier_extraction_prompt()
         full_prompt = f"{prompt}\n\nExtracted text from PDF:\n{extracted_text}"
 
-        logger.info(f"Calling Claude API for price list extraction: {file_path}")
+        logger.info(
+            f"Calling Claude API for price list extraction: {file_path}")
 
         message = client.messages.create(
             model="claude-3-5-sonnet-20241022",
@@ -172,7 +173,8 @@ def extract_data_from_supplier_price_list_claude(
         return price_list_data, None
 
     except json.JSONDecodeError as e:
-        logger.error(f"Claude response was not valid JSON: {json_text}. Error: {e}")
+        logger.error(
+            f"Claude response was not valid JSON: {json_text}. Error: {e}")
         return None, f"Claude returned invalid JSON: {e}"
     except Exception as e:
         logger.exception(

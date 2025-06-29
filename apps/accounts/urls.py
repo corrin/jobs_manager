@@ -26,9 +26,11 @@ urlpatterns = [
         "staff/<uuid:pk>/", StaffUpdateView.as_view(), name="update_staff"
     ),  # Staff API
     path("api/staff/all/", StaffListAPIView.as_view(), name="api_staff_list"),
-    path("api/staff/rates/<uuid:staff_id>/", get_staff_rates, name="get_staff_rates"),
+    path("api/staff/rates/<uuid:staff_id>/",
+         get_staff_rates, name="get_staff_rates"),
     # JWT endpoints
-    path("api/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/", CustomTokenObtainPairView.as_view(),
+         name="token_obtain_pair"),
     path("api/token/refresh/", CustomTokenRefreshView.as_view(), name="token_refresh"),
     path("api/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     # User profile API endpoints
@@ -36,7 +38,8 @@ urlpatterns = [
     path("logout/", logout_user, name="api_logout"),  # Authentication
     path(
         "login/",
-        auth_views.LoginView.as_view(template_name="accounts/registration/login.html"),
+        auth_views.LoginView.as_view(
+            template_name="accounts/registration/login.html"),
         name="login",
     ),
     path("logout-session/", auth_views.LogoutView.as_view(), name="logout"),

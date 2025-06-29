@@ -31,7 +31,8 @@ class BaseXeroInvoiceDocument(models.Model):
     total_incl_tax = models.DecimalField(max_digits=10, decimal_places=2)
     amount_due = models.DecimalField(max_digits=10, decimal_places=2)
     xero_last_modified = models.DateTimeField()
-    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    xero_last_synced = models.DateTimeField(
+        null=True, blank=True, default=timezone.now)
     raw_json = models.JSONField()
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)
@@ -179,7 +180,8 @@ class InvoiceLineItem(BaseLineItem):
 
 
 class BillLineItem(BaseLineItem):
-    bill = models.ForeignKey(Bill, on_delete=models.CASCADE, related_name="line_items")
+    bill = models.ForeignKey(
+        Bill, on_delete=models.CASCADE, related_name="line_items")
 
     class Meta:
         verbose_name = "Bill Line Item"

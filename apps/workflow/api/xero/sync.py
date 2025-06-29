@@ -109,7 +109,8 @@ def get_or_fetch_client(contact_id, reference=None):
 
     synced = sync_clients([response.contacts[0]])
     if not synced:
-        raise ValueError(f"Failed to sync client for {reference or contact_id}")
+        raise ValueError(
+            f"Failed to sync client for {reference or contact_id}")
 
     return synced[0].get_final_client()
 
@@ -197,9 +198,11 @@ def transform_stock(xero_item, xero_id):
     stock.quantity = Decimal("0.00")
 
     if xero_item.purchase_details:
-        stock.unit_cost = Decimal(str(xero_item.purchase_details.unit_price or 0))
+        stock.unit_cost = Decimal(
+            str(xero_item.purchase_details.unit_price or 0))
     if xero_item.sales_details:
-        stock.retail_rate = Decimal(str(xero_item.sales_details.unit_price or 0))
+        stock.retail_rate = Decimal(
+            str(xero_item.sales_details.unit_price or 0))
 
     stock.raw_json = process_xero_data(xero_item)
     stock.xero_last_modified = xero_item.updated_date_utc
@@ -213,11 +216,13 @@ def transform_stock(xero_item, xero_id):
 
 def transform_quote(xero_quote, xero_id):
     """Transform Xero quote to our Quote model"""
-    client = get_or_fetch_client(xero_quote.contact.contact_id, f"quote {xero_id}")
+    client = get_or_fetch_client(
+        xero_quote.contact.contact_id, f"quote {xero_id}")
     raw_json = process_xero_data(xero_quote)
 
     status_data = raw_json.get("_status", {})
-    status = status_data.get("_value_") if isinstance(status_data, dict) else None
+    status = status_data.get("_value_") if isinstance(
+        status_data, dict) else None
     if not status:
         raise ValueError(f"Quote {xero_id} has invalid status structure")
 
@@ -474,7 +479,8 @@ ENTITY_CONFIGS = {
         "invoices",
         Invoice,
         "get_invoices",
-        lambda items: sync_entities(items, Invoice, "invoice_id", transform_invoice),
+        lambda items: sync_entities(
+            items, Invoice, "invoice_id", transform_invoice),
         {"where": 'Type=="ACCREC"'},
         "page",
     ),
@@ -721,7 +727,8 @@ def sync_single_invoice(sync_service, invoice_id):
         raise ValueError("No invoice_id provided")
 
     accounting_api = AccountingApi(api_client)
-    response = accounting_api.get_invoice(sync_service.tenant_id, invoice_id=invoice_id)
+    response = accounting_api.get_invoice(
+        sync_service.tenant_id, invoice_id=invoice_id)
     time.sleep(SLEEP_TIME)
 
     if not response or not response.invoices:
@@ -758,4 +765,5 @@ def sync_single_invoice(sync_service, invoice_id):
         set_invoice_or_bill_fields(invoice, new_from_xero=created)
         logger.info(f"Synced invoice {invoice_id} from webhook")
     else:
-        raise ValueError(f"Unknown invoice type {xero_invoice.type} for {invoice_id}")
+        raise ValueError(
+            f"Unknown invoice type {xero_invoice.type} for {invoice_id}")

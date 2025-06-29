@@ -80,7 +80,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "location",
-                    models.TextField(blank=True, help_text="Where we are keeping this"),
+                    models.TextField(
+                        blank=True, help_text="Where we are keeping this"),
                 ),
                 (
                     "notes",

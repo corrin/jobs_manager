@@ -65,7 +65,8 @@ class JobRestService:
         }
 
         # Optional fields - only if provided
-        optional_fields = ["description", "order_number", "notes", "contact_person"]
+        optional_fields = ["description",
+                           "order_number", "notes", "contact_person"]
         for field in optional_fields:
             if data.get(field):
                 job_data[field] = data[field]
@@ -76,7 +77,8 @@ class JobRestService:
                 contact = ClientContact.objects.get(id=data["contact_id"])
                 job_data["contact"] = contact
             except ClientContact.DoesNotExist:
-                logger.warning(f"Contact {data['contact_id']} not found, ignoring")
+                logger.warning(
+                    f"Contact {data['contact_id']} not found, ignoring")
 
         with transaction.atomic():
             job = Job(**job_data)
@@ -223,7 +225,8 @@ class JobRestService:
 
         # Guard clause - check if can disable complex mode
         if not complex_job and job.complex_job:
-            validation_result = JobRestService._validate_can_disable_complex_mode(job)
+            validation_result = JobRestService._validate_can_disable_complex_mode(
+                job)
             if not validation_result["can_disable"]:
                 raise ValueError(validation_result["reason"])
 
@@ -272,7 +275,8 @@ class JobRestService:
             event_type="manual_note",
         )
 
-        logger.info(f"Event {event.id} created for job {job_id} by {user.email}")
+        logger.info(
+            f"Event {event.id} created for job {job_id} by {user.email}")
 
         return {
             "success": True,
@@ -316,7 +320,8 @@ class JobRestService:
         with transaction.atomic():
             job.delete()
 
-            logger.info(f"Job {job_number} '{job_name}' deleted by {user.email}")
+            logger.info(
+                f"Job {job_number} '{job_name}' deleted by {user.email}")
 
         return {"success": True, "message": f"Job {job_number} deleted successfully"}
 
@@ -477,8 +482,10 @@ class JobRestService:
             "archived": "Archived",
         }
 
-        old_label = status_labels.get(old_value, old_value.replace("_", " ").title())
-        new_label = status_labels.get(new_value, new_value.replace("_", " ").title())
+        old_label = status_labels.get(
+            old_value, old_value.replace("_", " ").title())
+        new_label = status_labels.get(
+            new_value, new_value.replace("_", " ").title())
 
         return f"{label} changed from {old_label} to {new_label}"
 
@@ -492,8 +499,10 @@ class JobRestService:
             "fixed_price": "Fixed Price",
         }
 
-        old_label = method_labels.get(old_value, old_value.replace("_", " ").title())
-        new_label = method_labels.get(new_value, new_value.replace("_", " ").title())
+        old_label = method_labels.get(
+            old_value, old_value.replace("_", " ").title())
+        new_label = method_labels.get(
+            new_value, new_value.replace("_", " ").title())
 
         return f"{label} changed from {old_label} to {new_label}"
 
@@ -545,7 +554,8 @@ class JobRestService:
         # Guard clause - ensure estimate pricing exists
         estimate_pricing = job.latest_estimate_pricing
         if not estimate_pricing:
-            raise ValueError("Job must have estimate pricing to add time entries")
+            raise ValueError(
+                "Job must have estimate pricing to add time entries")
 
         # Import TimeEntry model here to avoid circular imports
         from apps.timesheet.models import TimeEntry
@@ -565,10 +575,12 @@ class JobRestService:
             "staff": user,
             "items": entry_data.get("items", 1),
             "minutes_per_item": Decimal(
-                str(entry_data.get("minutes_per_item", entry_data["hours"] * 60))
+                str(entry_data.get("minutes_per_item",
+                    entry_data["hours"] * 60))
             ),
             "date": timezone.now().date(),  # Add current date
-            "is_billable": entry_data.get("is_billable", True),  # Add billable flag
+            # Add billable flag
+            "is_billable": entry_data.get("is_billable", True),
             "wage_rate_multiplier": Decimal(
                 str(entry_data.get("wage_rate_multiplier", 1.0))
             ),  # Add rate multiplier
@@ -611,7 +623,8 @@ class JobRestService:
         # Guard clause - ensure estimate pricing exists
         estimate_pricing = job.latest_estimate_pricing
         if not estimate_pricing:
-            raise ValueError("Job must have estimate pricing to add material entries")
+            raise ValueError(
+                "Job must have estimate pricing to add material entries")
 
         # Import MaterialEntry model here to avoid circular imports
         from apps.job.models import MaterialEntry
@@ -636,7 +649,8 @@ class JobRestService:
         }
 
         with transaction.atomic():
-            material_entry = MaterialEntry.objects.create(**material_entry_data)
+            material_entry = MaterialEntry.objects.create(
+                **material_entry_data)
             # Log the event
             JobEvent.objects.create(
                 job=job,
@@ -672,7 +686,8 @@ class JobRestService:
         # Guard clause - ensure estimate pricing exists
         estimate_pricing = job.latest_estimate_pricing
         if not estimate_pricing:
-            raise ValueError("Job must have estimate pricing to add adjustment entries")
+            raise ValueError(
+                "Job must have estimate pricing to add adjustment entries")
 
         # Import AdjustmentEntry model here to avoid circular imports
         from apps.job.models import AdjustmentEntry
@@ -692,7 +707,8 @@ class JobRestService:
         }
 
         with transaction.atomic():
-            adjustment_entry = AdjustmentEntry.objects.create(**adjustment_entry_data)
+            adjustment_entry = AdjustmentEntry.objects.create(
+                **adjustment_entry_data)
             # Log the event
             JobEvent.objects.create(
                 job=job,

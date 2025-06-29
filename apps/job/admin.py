@@ -20,7 +20,8 @@ class CostSetAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {"fields": ("job", "kind", "rev")}),
-        ("Metadata", {"fields": ("summary", "created"), "classes": ("collapse",)}),
+        ("Metadata", {"fields": ("summary", "created"),
+         "classes": ("collapse",)}),
     )
 
 
@@ -43,7 +44,8 @@ class CostLineAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("cost_set", "kind", "desc")}),
         ("Costing", {"fields": ("quantity", "unit_cost", "unit_rev")}),
-        ("Metadata", {"fields": ("ext_refs", "meta"), "classes": ("collapse",)}),
+        ("Metadata", {"fields": ("ext_refs", "meta"),
+         "classes": ("collapse",)}),
     )
 
     def get_queryset(self, request):

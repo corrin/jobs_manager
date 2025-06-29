@@ -55,8 +55,10 @@ WantedBy=multi-user.target"""
                 check=True
             )
             subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
-            subprocess.run(['sudo', 'systemctl', 'enable', 'xero-sync'], check=True)
-            subprocess.run(['sudo', 'systemctl', 'restart', 'xero-sync'], check=True)
+            subprocess.run(
+                ['sudo', 'systemctl', 'enable', 'xero-sync'], check=True)
+            subprocess.run(
+                ['sudo', 'systemctl', 'restart', 'xero-sync'], check=True)
             print("Successfully set up Xero sync service")
             return
     except Exception as e:
@@ -96,8 +98,10 @@ def remove_systemd_service(apps, schema_editor):
 
         if test_sudo.returncode == 0:
             # We have sudo access, proceed with automatic removal
-            subprocess.run(['sudo', 'systemctl', 'stop', 'xero-sync'], check=True)
-            subprocess.run(['sudo', 'systemctl', 'disable', 'xero-sync'], check=True)
+            subprocess.run(
+                ['sudo', 'systemctl', 'stop', 'xero-sync'], check=True)
+            subprocess.run(
+                ['sudo', 'systemctl', 'disable', 'xero-sync'], check=True)
             subprocess.run(['sudo', 'rm', str(service_path)], check=True)
             subprocess.run(['sudo', 'systemctl', 'daemon-reload'], check=True)
             print("Successfully removed Xero sync service")

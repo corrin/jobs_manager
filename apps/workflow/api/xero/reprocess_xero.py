@@ -37,7 +37,8 @@ def set_invoice_or_bill_fields(document, document_type):
 
     is_invoice = document.raw_json.get("_type") == "ACCREC"
     is_bill = document.raw_json.get("_type") == "ACCPAY"
-    is_credit_note = document.raw_json.get("_type") in ["ACCRECCREDIT", "ACCPAYCREDIT"]
+    is_credit_note = document.raw_json.get(
+        "_type") in ["ACCRECCREDIT", "ACCPAYCREDIT"]
 
     if is_invoice:
         json_document_type = "INVOICE"
@@ -106,7 +107,8 @@ def set_invoice_or_bill_fields(document, document_type):
     for line_item_data in line_items_data:
         line_item_id = line_item_data.get("_line_item_id")
         xero_line_id = uuid.UUID(line_item_id)
-        description = line_item_data.get("_description") or "No description provided"
+        description = line_item_data.get(
+            "_description") or "No description provided"
         quantity = line_item_data.get("_quantity", 1)
         unit_price = line_item_data.get("_unit_amount", 1)
 
@@ -243,9 +245,11 @@ def set_client_fields(client, new_from_xero=False):
     client.save()
 
     if new_from_xero:
-        logger.info(f"Client {client.name} (ID: {client.id}) created from Xero data.")
+        logger.info(
+            f"Client {client.name} (ID: {client.id}) created from Xero data.")
     else:
-        logger.info(f"Client {client.name} (ID: {client.id}) updated from Xero data.")
+        logger.info(
+            f"Client {client.name} (ID: {client.id}) updated from Xero data.")
 
 
 def set_journal_fields(journal: XeroJournal):
@@ -336,7 +340,8 @@ def reprocess_invoices():
             set_invoice_or_bill_fields(invoice, "INVOICE")
             logger.info(f"Reprocessed invoice: {invoice.number}")
         except Exception as e:
-            logger.error(f"Error reprocessing invoice {invoice.number}: {str(e)}")
+            logger.error(
+                f"Error reprocessing invoice {invoice.number}: {str(e)}")
 
 
 def reprocess_bills():
@@ -381,7 +386,8 @@ def reprocess_journals():
     for jrnl in XeroJournal.objects.all():
         try:
             set_journal_fields(jrnl)
-            logger.info(f"Reprocessed journal: {jrnl.journal_number or jrnl.xero_id}")
+            logger.info(
+                f"Reprocessed journal: {jrnl.journal_number or jrnl.xero_id}")
         except Exception as e:
             logger.error(
                 f"Error reprocessing journal "

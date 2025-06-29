@@ -327,7 +327,8 @@ Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit"
 
         # Parse uncached products in batch
         if uncached_products:
-            logger.info(f"Batch parsing {len(uncached_products)} products with LLM")
+            logger.info(
+                f"Batch parsing {len(uncached_products)} products with LLM")
             prompt = self._create_parsing_prompt(uncached_products)
             llm_response = self._call_llm(prompt)
 
@@ -360,7 +361,8 @@ Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit"
                         False,
                     )
             else:
-                logger.error("Batch parsing failed or returned wrong number of results")
+                logger.error(
+                    "Batch parsing failed or returned wrong number of results")
                 # Fall back to individual parsing
                 for j, product_data in enumerate(uncached_products):
                     original_index = uncached_indices[j]
@@ -401,7 +403,8 @@ Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit"
             }, True
 
         # Parse with LLM
-        logger.info(f"Parsing new product data with LLM (hash: {input_hash[:8]}...)")
+        logger.info(
+            f"Parsing new product data with LLM (hash: {input_hash[:8]}...)")
         prompt = self._create_parsing_prompt([product_data])
         llm_response = self._call_llm(prompt)
 
@@ -453,7 +456,8 @@ def create_mapping_record(instance):
     """Create mapping record and set hash on SupplierProduct."""
     # Set mapping_hash on SupplierProduct
     mapping_hash = calculate_supplier_product_hash(instance)
-    SupplierProduct.objects.filter(id=instance.id).update(mapping_hash=mapping_hash)
+    SupplierProduct.objects.filter(
+        id=instance.id).update(mapping_hash=mapping_hash)
 
     # Create empty ProductParsingMapping record if it doesn't exist
     ProductParsingMapping.objects.get_or_create(
@@ -530,7 +534,8 @@ def populate_all_mappings_with_llm():
             )
 
             status = "from cache" if was_cached else "newly parsed"
-            logger.info(f"Processed mapping {mapping.input_hash[:8]}... ({status})")
+            logger.info(
+                f"Processed mapping {mapping.input_hash[:8]}... ({status})")
 
     logger.info(
         f"Completed batch processing of {unpopulated_mappings.count()} mappings"

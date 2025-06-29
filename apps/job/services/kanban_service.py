@@ -90,7 +90,8 @@ class KanbanService:
             status_choices[column.column_id] = column.column_title
 
             # Create tooltip that shows sub-categories
-            sub_cat_labels = [sub_cat.badge_label for sub_cat in column.sub_categories]
+            sub_cat_labels = [
+                sub_cat.badge_label for sub_cat in column.sub_categories]
             status_tooltips[column.column_id] = f"Includes: {', '.join(sub_cat_labels)}"
 
         return {"statuses": status_choices, "tooltips": status_tooltips}
@@ -237,7 +238,8 @@ class KanbanService:
                 if new_prio <= 0:
                     KanbanService.rebalance_column(status)
                     # Re-fetch after_prio after rebalance
-                    after = Job.objects.get(priority=after, status=status).priority
+                    after = Job.objects.get(
+                        priority=after, status=status).priority
                     return after - increment
                 return new_prio
 
@@ -252,7 +254,8 @@ class KanbanService:
                     return (before + after) // 2
                 # Gap too small → rebalance first, then recompute
                 KanbanService.rebalance_column(status)
-                before = Job.objects.get(priority=before, status=status).priority
+                before = Job.objects.get(
+                    priority=before, status=status).priority
                 after = Job.objects.get(priority=after, status=status).priority
                 return (before + after) // 2
 
@@ -349,7 +352,8 @@ class KanbanService:
             jobs_query = jobs_query.filter(client__name__icontains=client_name)
 
         if contact_person := filters.get("contact_person", "").strip():
-            jobs_query = jobs_query.filter(contact_person__icontains=contact_person)
+            jobs_query = jobs_query.filter(
+                contact_person__icontains=contact_person)
 
         if created_by := filters.get("created_by", "").strip():
             jobs_query = jobs_query.filter(events__staff=created_by)

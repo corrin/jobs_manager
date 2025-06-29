@@ -127,7 +127,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("total", models.DecimalField(decimal_places=2, max_digits=10)),
-                ("amount_due", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("amount_due", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("last_modified", models.DateTimeField()),
                 ("raw_json", models.JSONField()),
                 (
@@ -176,7 +177,8 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("total", models.DecimalField(decimal_places=2, max_digits=10)),
-                ("amount_due", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("amount_due", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("last_modified", models.DateTimeField()),
                 ("raw_json", models.JSONField()),
                 (

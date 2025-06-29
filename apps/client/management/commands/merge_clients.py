@@ -30,7 +30,8 @@ class Command(BaseCommand):
             # Use shop client name from CompanyDefaults
             company_defaults = CompanyDefaults.objects.first()
             if not company_defaults:
-                self.stdout.write(self.style.ERROR("CompanyDefaults not found"))
+                self.stdout.write(self.style.ERROR(
+                    "CompanyDefaults not found"))
                 return
 
             client_name = company_defaults.shop_client_name
@@ -42,7 +43,8 @@ class Command(BaseCommand):
                 )
                 return
 
-        self.stdout.write(f"Looking for duplicate clients with name: '{client_name}'")
+        self.stdout.write(
+            f"Looking for duplicate clients with name: '{client_name}'")
 
         # Find all clients with this name
         duplicate_clients = Client.objects.filter(name=client_name).order_by(
@@ -52,7 +54,8 @@ class Command(BaseCommand):
 
         if count == 0:
             self.stdout.write(
-                self.style.WARNING(f"No clients found with name '{client_name}'")
+                self.style.WARNING(
+                    f"No clients found with name '{client_name}'")
             )
             return
         elif count == 1:
@@ -65,7 +68,8 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(
-            self.style.WARNING(f"\nFound {count} clients with name '{client_name}':")
+            self.style.WARNING(
+                f"\nFound {count} clients with name '{client_name}':")
         )
 
         # Display information about each client
@@ -78,10 +82,12 @@ class Command(BaseCommand):
             self.stdout.write(f"   Created: {client.django_created_at}")
             self.stdout.write(f"   Jobs: {job_count}")
             if client.xero_contact_id:
-                self.stdout.write(f"   Xero Contact ID: {client.xero_contact_id}")
+                self.stdout.write(
+                    f"   Xero Contact ID: {client.xero_contact_id}")
 
         # Sort by job count (descending) and then by creation date (ascending)
-        clients_with_job_counts.sort(key=lambda x: (-x[1], x[0].django_created_at))
+        clients_with_job_counts.sort(
+            key=lambda x: (-x[1], x[0].django_created_at))
 
         primary_client = clients_with_job_counts[0][0]
         self.stdout.write(

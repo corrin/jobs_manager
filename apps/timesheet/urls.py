@@ -45,7 +45,8 @@ urlpatterns = [
         name="api_staff_daily_detail_with_date",
     ),
     # Weekly timesheet endpoints - using WeeklyTimesheetService (CostLine-based)
-    path("api/weekly/", WeeklyTimesheetAPIView.as_view(), name="api_weekly_timesheet"),
+    path("api/weekly/", WeeklyTimesheetAPIView.as_view(),
+         name="api_weekly_timesheet"),
     # Time entries endpoints (Legacy support - will be phased out)
     path("api/entries/", TimeEntriesAPIView.as_view(), name="api_time_entries"),
     path(
@@ -68,7 +69,8 @@ urlpatterns = [
         name="timesheet_overview_with_date",
     ),
     # Daily overview (HTML)
-    path("day/<str:date>/", TimesheetDailyView.as_view(), name="timesheet_daily_view"),
+    path("day/<str:date>/", TimesheetDailyView.as_view(),
+         name="timesheet_daily_view"),
     # Individual timesheet entry (HTML)
     path(
         "day/<str:date>/<uuid:staff_id>/",

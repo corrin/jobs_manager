@@ -35,7 +35,8 @@ def convert_to_pascal_case(obj):
                     r"(?:^|_)(.)", lambda x: x.group(1).upper(), key[1:]
                 )
             else:
-                pascal_key = re.sub(r"(?:^|_)(.)", lambda x: x.group(1).upper(), key)
+                pascal_key = re.sub(
+                    r"(?:^|_)(.)", lambda x: x.group(1).upper(), key)
             new_dict[pascal_key] = convert_to_pascal_case(value)
         return new_dict
     elif isinstance(obj, list):
@@ -79,7 +80,8 @@ def _extract_messages_from_elements(
             continue
 
         validation_errors = element.get("ValidationErrors")
-        extracted_val_messages = _get_messages_from_validation_errors(validation_errors)
+        extracted_val_messages = _get_messages_from_validation_errors(
+            validation_errors)
 
         if extracted_val_messages:
             all_messages.extend(extracted_val_messages)

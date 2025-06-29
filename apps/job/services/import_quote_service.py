@@ -236,7 +236,8 @@ def import_quote_from_drafts(
     if not draft_lines:
         return QuoteImportResult(success=False, error_message="No draft lines provided")
 
-    logger.info(f"Importing quote from {len(draft_lines)} draft lines for job {job.id}")
+    logger.info(
+        f"Importing quote from {len(draft_lines)} draft lines for job {job.id}")
 
     try:
         with transaction.atomic():
@@ -284,7 +285,8 @@ def import_quote_from_drafts(
                 if job.cost_sets.filter(kind="quote", rev=pointer_rev).exists():
                     actual_latest_rev = pointer_rev
                     old_cost_set = pointer_cost_set
-                    logger.info(f"Job {job.id}: Using pointer revision {pointer_rev}")
+                    logger.info(
+                        f"Job {job.id}: Using pointer revision {pointer_rev}")
                 else:
                     logger.error(
                         f"Job {job.id}: Pointer references non-existent revision {pointer_rev}. "
@@ -318,7 +320,8 @@ def import_quote_from_drafts(
                 )
             else:
                 # All lines are new
-                diff_result = DiffResult(to_add=draft_lines, to_update=[], to_delete=[])
+                diff_result = DiffResult(
+                    to_add=draft_lines, to_update=[], to_delete=[])
                 logger.info(
                     f"No existing quote - all {len(draft_lines)} lines will be added"
                 )

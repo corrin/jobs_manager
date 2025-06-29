@@ -17,7 +17,8 @@ def product_mapping_validation(request):
     """
     # Get all mappings, prioritizing unvalidated ones first
     all_mappings = list(
-        ProductParsingMapping.objects.filter(is_validated=False).order_by("-created_at")
+        ProductParsingMapping.objects.filter(
+            is_validated=False).order_by("-created_at")
     )  # Unvalidated first
 
     # Add validated mappings for context
@@ -36,7 +37,8 @@ def product_mapping_validation(request):
 
     # Get some stats
     total_mappings = ProductParsingMapping.objects.count()
-    validated_count = ProductParsingMapping.objects.filter(is_validated=True).count()
+    validated_count = ProductParsingMapping.objects.filter(
+        is_validated=True).count()
     unvalidated_count = total_mappings - validated_count
 
     context = {
@@ -47,7 +49,8 @@ def product_mapping_validation(request):
             "validated_count": validated_count,
             "unvalidated_count": unvalidated_count,
             "validation_percentage": round(
-                (validated_count / total_mappings * 100) if total_mappings > 0 else 0, 1
+                (validated_count / total_mappings *
+                 100) if total_mappings > 0 else 0, 1
             ),
         },
     }
@@ -79,7 +82,8 @@ def validate_mapping(request, mapping_id):
         mapping.mapped_metal_type = request.POST.get(
             "mapped_metal_type", mapping.mapped_metal_type
         )
-        mapping.mapped_alloy = request.POST.get("mapped_alloy", mapping.mapped_alloy)
+        mapping.mapped_alloy = request.POST.get(
+            "mapped_alloy", mapping.mapped_alloy)
         mapping.mapped_specifics = request.POST.get(
             "mapped_specifics", mapping.mapped_specifics
         )

@@ -48,7 +48,8 @@ def sanitize_decimal_input(raw_value, default=Decimal(0)):
         val_str = str(raw_value)
         d = decimal.Decimal(val_str)  # Use decimal.Decimal to avoid conflict
         if d.is_nan() or d.is_infinite():
-            logger.warning(f"Sanitizing Decimal special value {d} to {default}.")
+            logger.warning(
+                f"Sanitizing Decimal special value {d} to {default}.")
             return default
         return d
     except (decimal.InvalidOperation, TypeError, ValueError) as e:
@@ -163,7 +164,8 @@ class TimesheetEntryView(TemplateView):
 
         # Locate the index of the current staff.
         staff_index = next(
-            (index for index, s in enumerate(all_staff) if s["id"] == staff_id), None
+            (index for index, s in enumerate(
+                all_staff) if s["id"] == staff_id), None
         )
         if staff_index is None:
             raise Http404("Staff member not found in ordered list")
@@ -401,10 +403,12 @@ def autosave_timesheet_view(request):
                     related_jobs.add(entry.job_pricing.job_id)
                     messages.success(request, "Timesheet deleted successfully")
                     entry.delete()
-                    logger.debug(f"Entry with ID {entry_id} deleted successfully")
+                    logger.debug(
+                        f"Entry with ID {entry_id} deleted successfully")
 
                 except TimeEntry.DoesNotExist:
-                    logger.error(f"TimeEntry with ID {entry_id} not found for deletion")
+                    logger.error(
+                        f"TimeEntry with ID {entry_id} not found for deletion")
             return JsonResponse(
                 {
                     "success": True,
@@ -452,7 +456,8 @@ def autosave_timesheet_view(request):
                     logger.error("Missing timesheet_date in entry data")
                     continue
 
-                target_date = datetime.strptime(timesheet_date, "%Y-%m-%d").date()
+                target_date = datetime.strptime(
+                    timesheet_date, "%Y-%m-%d").date()
             except (ValueError, TypeError):
                 logger.error(
                     f"Invalid timesheet_date format: {entry_data.get('timesheet_date')}"
@@ -467,7 +472,8 @@ def autosave_timesheet_view(request):
                     entry = TimeEntry.objects.get(id=entry_id)
 
                     if entry.staff is None:
-                        logger.warning(f"Entry {entry_id} has no staff assigned")
+                        logger.warning(
+                            f"Entry {entry_id} has no staff assigned")
                         staff_id = entry_data.get("staff_id")
                         if staff_id:
                             try:
@@ -480,18 +486,22 @@ def autosave_timesheet_view(request):
                                     )
                                 )
                             except Staff.DoesNotExist:
-                                logger.error(f"Staff with ID {staff_id} not found")
+                                logger.error(
+                                    f"Staff with ID {staff_id} not found")
                         else:
-                            logger.error(f"Staff ID not provided for entry {entry.id}")
+                            logger.error(
+                                f"Staff ID not provided for entry {entry.id}")
                             raise ValueError("Staff ID not provided")
                     # Identify old job before changing
                     old_job_id = (
                         entry.job_pricing.job.id if entry.job_pricing.job else None
                     )
-                    old_job = Job.objects.get(id=old_job_id) if old_job_id else None
+                    old_job = Job.objects.get(
+                        id=old_job_id) if old_job_id else None
 
                     if job_id != str(entry.job_pricing.job.id):
-                        logger.info(f"Job for entry {entry_id} changed to {job_id}")
+                        logger.info(
+                            f"Job for entry {entry_id} changed to {job_id}")
                         new_job = Job.objects.get(id=job_id)
                         entry.job_pricing = new_job.latest_reality_pricing
 
@@ -516,14 +526,16 @@ def autosave_timesheet_view(request):
                     charge_out_rate_raw = job_data.get(
                         "charge_out_rate", entry.charge_out_rate
                     )
-                    entry.charge_out_rate = sanitize_decimal_input(charge_out_rate_raw)
+                    entry.charge_out_rate = sanitize_decimal_input(
+                        charge_out_rate_raw)
 
                     related_jobs.add(job_id)
                     entry.save()
                     updated_entries.append(entry)
                     job = entry.job_pricing.job
 
-                    scheduled_hours = entry.staff.get_scheduled_hours(target_date)
+                    scheduled_hours = entry.staff.get_scheduled_hours(
+                        target_date)
                     if scheduled_hours < hours:
                         messages.warning(
                             request,
@@ -549,7 +561,8 @@ def autosave_timesheet_view(request):
                             "entry": TimeEntrySerializer(entry).data,
                             "jobs": get_jobs_data(related_jobs),
                             "remove_jobs": (
-                                [get_jobs_data([str(old_job.id)])] if old_job else []
+                                [get_jobs_data([str(old_job.id)])
+                                 ] if old_job else []
                             ),
                             "action": "update",
                             "messages": extract_messages(request),
@@ -599,7 +612,8 @@ def autosave_timesheet_view(request):
                     minutes_per_item=minutes_per_item_val,
                     is_billable=entry_data.get("is_billable", True),
                     note=entry_data.get("notes", ""),
-                    wage_rate_multiplier=RateType(entry_data["rate_type"]).multiplier,
+                    wage_rate_multiplier=RateType(
+                        entry_data["rate_type"]).multiplier,
                     wage_rate=staff.wage_rate,
                     charge_out_rate=charge_out_rate_val,
                 )
@@ -621,7 +635,8 @@ def autosave_timesheet_view(request):
                     )
                     messages.error(request, error_msg)
                 else:
-                    messages.success(request, "Timesheet created successfully.")
+                    messages.success(
+                        request, "Timesheet created successfully.")
                 logger.debug("Timesheet created successfully")
 
                 return JsonResponse(

@@ -19,12 +19,14 @@ class PaidAbsenceForm(forms.Form):
     )
 
     start_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control"}),
         label="Start Date",
     )
 
     end_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control"}),
         label="End Date",
     )
 

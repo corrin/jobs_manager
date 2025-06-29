@@ -61,7 +61,8 @@ class PurchaseOrder(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     xero_last_modified = models.DateTimeField(null=True, blank=True)
-    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+    xero_last_synced = models.DateTimeField(
+        null=True, blank=True, default=timezone.now)
     online_url = models.URLField(max_length=500, null=True, blank=True)
 
     def generate_po_number(self):
@@ -300,7 +301,8 @@ class Stock(models.Model):
         related_name="child_stock_splits",
         help_text="The parent stock item this was split from (if source='split_from_stock')",
     )
-    location = models.TextField(blank=True, help_text="Where we are keeping this")
+    location = models.TextField(
+        blank=True, help_text="Where we are keeping this")
     notes = models.TextField(
         blank=True, help_text="Additional notes about the stock item"
     )
@@ -406,11 +408,13 @@ class Stock(models.Model):
         Uses a class-level cache to avoid repeated database queries.
         """
         if cls._stock_holding_job is None:
-            cls._stock_holding_job = Job.objects.get(name=cls.STOCK_HOLDING_JOB_NAME)
+            cls._stock_holding_job = Job.objects.get(
+                name=cls.STOCK_HOLDING_JOB_NAME)
         return cls._stock_holding_job
 
     class Meta:
         db_table = "workflow_stock"
         constraints = [
-            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock")
+            models.UniqueConstraint(
+                fields=["xero_id"], name="unique_xero_id_stock")
         ]

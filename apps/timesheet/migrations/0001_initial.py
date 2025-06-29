@@ -49,11 +49,13 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "wage_rate",
-                            models.DecimalField(decimal_places=2, max_digits=10),
+                            models.DecimalField(
+                                decimal_places=2, max_digits=10),
                         ),
                         (
                             "charge_out_rate",
-                            models.DecimalField(decimal_places=2, max_digits=10),
+                            models.DecimalField(
+                                decimal_places=2, max_digits=10),
                         ),
                         (
                             "wage_rate_multiplier",
@@ -137,11 +139,13 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "wage_rate",
-                            models.DecimalField(decimal_places=2, max_digits=10),
+                            models.DecimalField(
+                                decimal_places=2, max_digits=10),
                         ),
                         (
                             "charge_out_rate",
-                            models.DecimalField(decimal_places=2, max_digits=10),
+                            models.DecimalField(
+                                decimal_places=2, max_digits=10),
                         ),
                         (
                             "wage_rate_multiplier",

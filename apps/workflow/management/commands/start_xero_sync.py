@@ -66,13 +66,15 @@ class Command(BaseCommand):
             # Choose the appropriate sync function
             if entity or deep_sync:
                 if deep_sync:
-                    logger.info(f"Starting deep sync looking back {days_back} days")
+                    logger.info(
+                        f"Starting deep sync looking back {days_back} days")
                     sync_generator = deep_sync_xero_data(
                         days_back=days_back, entities=entities
                     )
                 else:
                     logger.info(f"Starting incremental sync for {entity}")
-                    sync_generator = one_way_sync_all_xero_data(entities=entities)
+                    sync_generator = one_way_sync_all_xero_data(
+                        entities=entities)
             else:
                 logger.info("Starting normal bidirectional sync")
                 sync_generator = synchronise_xero_data()

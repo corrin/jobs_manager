@@ -157,10 +157,12 @@ class KPIService:
 
         # Get material entries for the date
         timezone.make_aware(
-            datetime.datetime.combine(target_date, datetime.time.min), cls.nz_timezone
+            datetime.datetime.combine(
+                target_date, datetime.time.min), cls.nz_timezone
         )
         timezone.make_aware(
-            datetime.datetime.combine(target_date, datetime.time.max), cls.nz_timezone
+            datetime.datetime.combine(
+                target_date, datetime.time.max), cls.nz_timezone
         )
 
         material_entries = MaterialEntry.objects.filter(
@@ -198,7 +200,8 @@ class KPIService:
                 job_data[job_number]["labour_revenue"] += float(
                     entry.hours * entry.charge_out_rate
                 )
-            job_data[job_number]["labour_cost"] += float(entry.hours * entry.wage_rate)
+            job_data[job_number]["labour_cost"] += float(
+                entry.hours * entry.wage_rate)
 
         # Process material entries
         for entry in material_entries:
@@ -246,14 +249,16 @@ class KPIService:
             job_data[job_number]["adjustment_revenue"] += float(
                 entry.price_adjustment or 0
             )
-            job_data[job_number]["adjustment_cost"] += float(entry.cost_adjustment or 0)
+            job_data[job_number]["adjustment_cost"] += float(
+                entry.cost_adjustment or 0)
 
         # Calculate profits and return sorted list
         result = []
         for job_number, data in job_data.items():
             labour_profit = data["labour_revenue"] - data["labour_cost"]
             material_profit = data["material_revenue"] - data["material_cost"]
-            adjustment_profit = data["adjustment_revenue"] - data["adjustment_cost"]
+            adjustment_profit = data["adjustment_revenue"] - \
+                data["adjustment_cost"]
             total_profit = labour_profit + material_profit + adjustment_profit
 
             result.append(
@@ -379,15 +384,18 @@ class KPIService:
                     ),
                     output_field=decimal_field,
                 ),
-                staff_cost=Sum(F("hours") * F("wage_rate"), output_field=decimal_field),
+                staff_cost=Sum(F("hours") * F("wage_rate"),
+                               output_field=decimal_field),
             )
         }
 
         timezone.make_aware(
-            datetime.datetime.combine(start_date, datetime.time.min), cls.nz_timezone
+            datetime.datetime.combine(
+                start_date, datetime.time.min), cls.nz_timezone
         )
         timezone.make_aware(
-            datetime.datetime.combine(end_date, datetime.time.max), cls.nz_timezone
+            datetime.datetime.combine(
+                end_date, datetime.time.max), cls.nz_timezone
         )
 
         material_entries = (
@@ -401,7 +409,8 @@ class KPIService:
                 revenue=Sum(
                     F("unit_revenue") * F("quantity"), output_field=decimal_field
                 ),
-                cost=Sum(F("unit_cost") * F("quantity"), output_field=decimal_field),
+                cost=Sum(F("unit_cost") * F("quantity"),
+                         output_field=decimal_field),
             )
         )
 
@@ -588,8 +597,10 @@ class KPIService:
             monthly_totals["staff_cost"] += staff_cost
             monthly_totals["material_cost"] += material_cost
             monthly_totals["adjustment_cost"] += adjustment_cost
-            monthly_totals["material_profit"] += material_revenue - material_cost
-            monthly_totals["adjustment_profit"] += adjustment_revenue - adjustment_cost
+            monthly_totals["material_profit"] += material_revenue - \
+                material_cost
+            monthly_totals["adjustment_profit"] += adjustment_revenue - \
+                adjustment_cost
 
             # Advance to next day
             current_date += timedelta(days=1)
@@ -665,7 +676,8 @@ class KPIService:
                 1,
             )
             monthly_totals["shop_percentage"] = round(
-                Decimal(monthly_totals["shop_hours"] / monthly_totals["total_hours"])
+                Decimal(monthly_totals["shop_hours"] /
+                        monthly_totals["total_hours"])
                 * 100,
                 1,
             )
@@ -678,7 +690,8 @@ class KPIService:
         if monthly_totals["working_days"] > 0:
             monthly_totals["avg_daily_gp"] = round(
                 Decimal(
-                    monthly_totals["gross_profit"] / monthly_totals["working_days"]
+                    monthly_totals["gross_profit"] /
+                    monthly_totals["working_days"]
                 ),
                 2,
             )
@@ -687,7 +700,8 @@ class KPIService:
                 f"${monthly_totals['avg_daily_gp']}"
             )
         else:
-            logger.warning("No working days found for month - average GP will be zero")
+            logger.warning(
+                "No working days found for month - average GP will be zero")
 
         # Calculate average daily gross profit and billable hours so far
         # based on elapsed days

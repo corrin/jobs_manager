@@ -10,7 +10,8 @@ class QuoteSpreadsheet(models.Model):
     """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    sheet_id = models.CharField(max_length=100, help_text="Google Drive file ID")
+    sheet_id = models.CharField(
+        max_length=100, help_text="Google Drive file ID")
     sheet_url = models.URLField(max_length=500, blank=True, null=True)
     tab = models.CharField(
         max_length=100, blank=True, null=True, default="Primary Details"

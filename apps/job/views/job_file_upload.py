@@ -42,7 +42,8 @@ class JobFileUploadView(JobNumberLookupMixin, APIView):
             return error_response
 
         # Define the Dropbox sync folder path
-        job_folder = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, f"Job-{job_number}")
+        job_folder = os.path.join(
+            settings.DROPBOX_WORKFLOW_FOLDER, f"Job-{job_number}")
         os.makedirs(job_folder, exist_ok=True)
 
         os.chmod(job_folder, 0o2775)
@@ -56,7 +57,8 @@ class JobFileUploadView(JobNumberLookupMixin, APIView):
                     destination.write(chunk)
                 os.chmod(file_path, 0o664)
 
-            relative_path = os.path.relpath(file_path, settings.DROPBOX_WORKFLOW_FOLDER)
+            relative_path = os.path.relpath(
+                file_path, settings.DROPBOX_WORKFLOW_FOLDER)
             job_file, created = JobFile.objects.update_or_create(
                 job=job_obj,
                 filename=file.name,

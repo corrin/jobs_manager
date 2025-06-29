@@ -23,7 +23,8 @@ def archive_and_reset_job_pricing(job_id):
 
     with transaction.atomic():
         # Archive current pricing by marking them as historical
-        current_pricings = JobPricing.objects.filter(job=job, is_historical=False)
+        current_pricings = JobPricing.objects.filter(
+            job=job, is_historical=False)
         for pricing in current_pricings:
             pricing.is_historical = True
             pricing.save()
@@ -93,7 +94,8 @@ def get_job_with_pricings(job_id):
         )
         # Prefetch material_entries
         prefetch_list.append(
-            Prefetch(f"{stage}__material_entries", queryset=MaterialEntry.objects.all())
+            Prefetch(f"{stage}__material_entries",
+                     queryset=MaterialEntry.objects.all())
         )
         # Prefetch adjustment_entries
         prefetch_list.append(

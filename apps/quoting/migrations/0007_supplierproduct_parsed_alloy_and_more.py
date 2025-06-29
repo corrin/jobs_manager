@@ -157,7 +157,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "input_data",
-                    models.JSONField(help_text="Original input data that was parsed"),
+                    models.JSONField(
+                        help_text="Original input data that was parsed"),
                 ),
                 (
                     "mapped_item_code",
@@ -218,7 +219,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "llm_response",
-                    models.JSONField(help_text="Full LLM response for debugging"),
+                    models.JSONField(
+                        help_text="Full LLM response for debugging"),
                 ),
                 (
                     "is_validated",

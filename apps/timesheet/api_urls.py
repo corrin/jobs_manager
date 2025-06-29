@@ -29,7 +29,8 @@ urlpatterns = [
         name="time_entry_detail",
     ),
     # Jobs endpoints
-    path("jobs/", JobsAPIView.as_view(), name="jobs_list"),  # Weekly overview (legacy)
+    # Weekly overview (legacy)
+    path("jobs/", JobsAPIView.as_view(), name="jobs_list"),
     path("weekly-overview/", WeeklyOverviewAPIView.as_view(), name="weekly_overview"),
     # Weekly timesheet (comprehensive, modern)
     path("weekly/", WeeklyTimesheetAPIView.as_view(), name="weekly_timesheet"),

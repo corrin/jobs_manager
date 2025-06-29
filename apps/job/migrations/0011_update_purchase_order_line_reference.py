@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name='material_entries',
-                to='purchasing.PurchaseOrderLine' # Now referencing the new app
+                to='purchasing.PurchaseOrderLine'  # Now referencing the new app
             ),
         ),
     ]

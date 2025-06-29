@@ -31,7 +31,8 @@ def get_excluded_staff(apps_registry=None) -> list[str]:
 
         logger.info(f"Successfully retrieved {len(excluded)} excluded staff.")
     except Exception as e:
-        logger.warning(f"Unable to access Staff model: {e}. No staff will be excluded.")
+        logger.warning(
+            f"Unable to access Staff model: {e}. No staff will be excluded.")
         # Return empty list when Staff model can't be accessed
 
     return excluded

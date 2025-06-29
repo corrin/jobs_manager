@@ -171,7 +171,8 @@ LOGGING = {
         "app_file": {
             "level": "DEBUG",
             "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
-            "filename": os.path.join(BASE_DIR, "logs/application.log"),  # catch-all
+            # catch-all
+            "filename": os.path.join(BASE_DIR, "logs/application.log"),
             "maxBytes": 5 * 1024 * 1024,
             "backupCount": 5,
             "formatter": "verbose",
@@ -461,7 +462,8 @@ def validate_required_settings():
         # PRODUCTION_XERO_TENANT_ID and PRODUCTION_MACHINE_ID are hardcoded, no need to validate their presence in env
     }
 
-    missing_settings = [key for key, value in required_settings.items() if not value]
+    missing_settings = [key for key,
+                        value in required_settings.items() if not value]
 
     if missing_settings:
         raise ImproperlyConfigured(

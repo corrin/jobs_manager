@@ -71,7 +71,8 @@ class PurchaseOrderPDFGenerator:
 
     def add_logo(self, y_position):
         """Add company logo to the PDF."""
-        logo_path = os.path.join(settings.BASE_DIR, "workflow/static/logo_msm.png")
+        logo_path = os.path.join(
+            settings.BASE_DIR, "workflow/static/logo_msm.png")
         if not os.path.exists(logo_path):
             logger.warning(f"Logo file not found at {logo_path}")
             return y_position
@@ -108,11 +109,13 @@ class PurchaseOrderPDFGenerator:
         self.pdf.setFont("Helvetica-Bold", 12)
         self.pdf.drawString(MARGIN, y_position, "PO Number:")
         self.pdf.setFont("Helvetica", 12)
-        self.pdf.drawString(MARGIN + 80, y_position, str(self.purchase_order.po_number))
+        self.pdf.drawString(MARGIN + 80, y_position,
+                            str(self.purchase_order.po_number))
 
         # Order date on the right
         self.pdf.setFont("Helvetica-Bold", 12)
-        self.pdf.drawString(PAGE_WIDTH - MARGIN - 120, y_position, "Order Date:")
+        self.pdf.drawString(PAGE_WIDTH - MARGIN - 120,
+                            y_position, "Order Date:")
         self.pdf.setFont("Helvetica", 12)
         order_date = (
             self.purchase_order.order_date.strftime("%d/%m/%Y")
@@ -127,7 +130,8 @@ class PurchaseOrderPDFGenerator:
             self.pdf.setFont("Helvetica-Bold", 12)
             self.pdf.drawString(MARGIN, y_position, "Expected Delivery:")
             self.pdf.setFont("Helvetica", 12)
-            delivery_date = self.purchase_order.expected_delivery.strftime("%d/%m/%Y")
+            delivery_date = self.purchase_order.expected_delivery.strftime(
+                "%d/%m/%Y")
             self.pdf.drawString(MARGIN + 120, y_position, delivery_date)
             y_position -= 20
 
@@ -196,7 +200,8 @@ class PurchaseOrderPDFGenerator:
 
         if not line_items.exists():
             self.pdf.setFont("Helvetica", 12)
-            self.pdf.drawString(MARGIN, y_position, "No items in this purchase order.")
+            self.pdf.drawString(MARGIN, y_position,
+                                "No items in this purchase order.")
             return y_position - 20
 
         # Prepare table data
@@ -266,7 +271,8 @@ class PurchaseOrderPDFGenerator:
         lines_table.setStyle(table_style)
 
         # Check if table fits on current page
-        table_width, table_height = lines_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
+        table_width, table_height = lines_table.wrap(
+            CONTENT_WIDTH, PAGE_HEIGHT)
         if y_position - table_height < MARGIN + 50:  # 50 is space for footer
             # Start new page if needed
             self.pdf.showPage()

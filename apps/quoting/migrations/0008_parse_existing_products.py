@@ -66,7 +66,8 @@ def parse_existing_products(apps, schema_editor):
                 print(
                     f"Processed stock batch {i//parser.BATCH_SIZE + 1}: {len(results)} items")
             except Exception as e:
-                print(f"Error parsing stock batch {i//parser.BATCH_SIZE + 1}: {e}")
+                print(
+                    f"Error parsing stock batch {i//parser.BATCH_SIZE + 1}: {e}")
 
         print("Parsing complete!")
 

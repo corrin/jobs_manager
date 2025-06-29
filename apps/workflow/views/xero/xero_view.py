@@ -1,4 +1,6 @@
 # workflow/views/xero_view.py
+from django.views.decorators.http import require_GET
+from django.http import HttpRequest
 import json
 import logging
 import time
@@ -57,7 +59,8 @@ def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
     result = exchange_code_for_token(code, state, session_state)
     if "error" in result:
         return render(
-            request, "xero/error_xero_auth.html", {"error_message": result["error"]}
+            request, "xero/error_xero_auth.html", {
+                "error_message": result["error"]}
         )
 
     # Log available tenant IDs after successful authentication
@@ -67,7 +70,8 @@ def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
         if connections:
             logger.info("Available Xero Organizations after authentication:")
             for conn in connections:
-                logger.info(f"Tenant ID: {conn.tenant_id}, Name: {conn.tenant_name}")
+                logger.info(
+                    f"Tenant ID: {conn.tenant_id}, Name: {conn.tenant_name}")
         else:
             logger.info("No Xero organizations found after authentication")
     except Exception as e:
@@ -97,7 +101,8 @@ def refresh_xero_data(request):
     try:
         token = get_valid_token()
         if not token:
-            logger.info("No valid token found, redirecting to Xero authentication")
+            logger.info(
+                "No valid token found, redirecting to Xero authentication")
             return redirect("api_xero_authenticate")
         return redirect("xero_sync_progress")
     except Exception as e:
@@ -109,10 +114,6 @@ def refresh_xero_data(request):
 
 # workflow/views/xero_sync_events.py
 
-import logging
-
-from django.http import HttpRequest
-from django.views.decorators.http import require_GET
 
 logger = logging.getLogger("xero.events")
 
@@ -259,19 +260,22 @@ def _handle_creator_response(
         try:
             content = json.loads(response_data.content.decode())
             is_success = (
-                content.get("success", False) and response_data.status_code < 400
+                content.get(
+                    "success", False) and response_data.status_code < 400
             )
             if is_success:
                 messages.success(request, success_msg)
             else:
                 error_detail = content.get("message")
                 if not error_detail or not isinstance(error_detail, str):
-                    error_detail = content.get("error", "An unknown error occurred.")
+                    error_detail = content.get(
+                        "error", "An unknown error occurred.")
 
                 if not isinstance(error_detail, str):
                     error_detail = "An unspecified error occurred."
 
-                messages.error(request, f"{failure_msg_prefix}: {error_detail}")
+                messages.error(
+                    request, f"{failure_msg_prefix}: {error_detail}")
         except (json.JSONDecodeError, AttributeError):
             # Handle non-JSON or unexpected content
             if (
@@ -322,12 +326,14 @@ def create_xero_invoice(request, job_id):
             status=404,
         )
     except Exception as e:
-        logger.error(f"Error in create_xero_invoice view: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error in create_xero_invoice view: {str(e)}", exc_info=True)
         messages.error(
             request, "An unexpected error occurred while creating the invoice."
         )
         return JsonResponse(
-            {"success": False, "error": str(e), "messages": extract_messages(request)},
+            {"success": False, "error": str(
+                e), "messages": extract_messages(request)},
             status=500,
         )
 
@@ -366,8 +372,10 @@ def create_xero_purchase_order(request, purchase_order_id):
         if hasattr(e, "body"):
             logger.error(f"Exception body: {getattr(e, 'body', 'N/A')}")
         if hasattr(e, "response"):
-            logger.error(f"Exception response: {getattr(e, 'response', 'N/A')}")
-        logger.exception("Error occurred during create_xero_purchase_order view")
+            logger.error(
+                f"Exception response: {getattr(e, 'response', 'N/A')}")
+        logger.exception(
+            "Error occurred during create_xero_purchase_order view")
         user_error_message = "An error occurred while creating the purchase order in Xero. Please check logs."
         messages.error(request, user_error_message)
         return JsonResponse(
@@ -406,10 +414,13 @@ def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
             status=404,
         )
     except Exception as e:
-        logger.error(f"Error in create_xero_quote view: {str(e)}", exc_info=True)
-        messages.error(request, f"An error occurred while creating the quote: {str(e)}")
+        logger.error(
+            f"Error in create_xero_quote view: {str(e)}", exc_info=True)
+        messages.error(
+            request, f"An error occurred while creating the quote: {str(e)}")
         return JsonResponse(
-            {"success": False, "error": str(e), "messages": extract_messages(request)},
+            {"success": False, "error": str(
+                e), "messages": extract_messages(request)},
             status=500,
         )
 
@@ -440,12 +451,14 @@ def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
             status=404,
         )
     except Exception as e:
-        logger.error(f"Error in delete_xero_invoice view: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error in delete_xero_invoice view: {str(e)}", exc_info=True)
         messages.error(
             request, f"An error occurred while deleting the invoice: {str(e)}"
         )
         return JsonResponse(
-            {"success": False, "error": str(e), "messages": extract_messages(request)},
+            {"success": False, "error": str(
+                e), "messages": extract_messages(request)},
             status=500,
         )
 
@@ -476,10 +489,13 @@ def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
             status=404,
         )
     except Exception as e:
-        logger.error(f"Error in delete_xero_quote view: {str(e)}", exc_info=True)
-        messages.error(request, f"An error occurred while deleting the quote: {str(e)}")
+        logger.error(
+            f"Error in delete_xero_quote view: {str(e)}", exc_info=True)
+        messages.error(
+            request, f"An error occurred while deleting the quote: {str(e)}")
         return JsonResponse(
-            {"success": False, "error": str(e), "messages": extract_messages(request)},
+            {"success": False, "error": str(
+                e), "messages": extract_messages(request)},
             status=500,
         )
 
@@ -523,7 +539,8 @@ def delete_xero_purchase_order(
             f"An error occurred while deleting the Purchase Order from Xero: {str(e)}",
         )
         return JsonResponse(
-            {"success": False, "error": str(e), "messages": extract_messages(request)},
+            {"success": False, "error": str(
+                e), "messages": extract_messages(request)},
             status=500,
         )
 
@@ -552,13 +569,15 @@ def xero_sync_progress_page(request):
     try:
         token = get_valid_token()
         if not token:
-            logger.info("No valid token found, redirecting to Xero authentication")
+            logger.info(
+                "No valid token found, redirecting to Xero authentication")
             return redirect("api_xero_authenticate")
         # Ensure this import works correctly after refactor
         from apps.workflow.templatetags.xero_tags import XERO_ENTITIES
 
         return render(
-            request, "xero/xero_sync_progress.html", {"XERO_ENTITIES": XERO_ENTITIES}
+            request, "xero/xero_sync_progress.html", {
+                "XERO_ENTITIES": XERO_ENTITIES}
         )
     except Exception as e:
         logger.error(f"Error accessing sync progress page: {str(e)}")
@@ -588,22 +607,26 @@ def get_xero_sync_info(request):
                 else None
             ),
             "contacts": (
-                Client.objects.order_by("-xero_last_synced").first().xero_last_synced
+                Client.objects.order_by(
+                    "-xero_last_synced").first().xero_last_synced
                 if Client.objects.exists()
                 else None
             ),
             "invoices": (
-                Invoice.objects.order_by("-xero_last_synced").first().xero_last_synced
+                Invoice.objects.order_by(
+                    "-xero_last_synced").first().xero_last_synced
                 if Invoice.objects.exists()
                 else None
             ),
             "bills": (
-                Bill.objects.order_by("-xero_last_synced").first().xero_last_synced
+                Bill.objects.order_by(
+                    "-xero_last_synced").first().xero_last_synced
                 if Bill.objects.exists()
                 else None
             ),
             "quotes": (
-                Quote.objects.order_by("-xero_last_synced").first().xero_last_synced
+                Quote.objects.order_by(
+                    "-xero_last_synced").first().xero_last_synced
                 if Quote.objects.exists()
                 else None
             ),

@@ -305,7 +305,8 @@ class ModernTimesheetJobView(APIView):
             job = get_object_or_404(Job, id=job_id)
 
             # Get the actual cost set
-            cost_set = job.cost_sets.filter(kind="actual").order_by("-rev").first()
+            cost_set = job.cost_sets.filter(
+                kind="actual").order_by("-rev").first()
 
             if not cost_set:
                 return Response(
@@ -323,7 +324,8 @@ class ModernTimesheetJobView(APIView):
             ).order_by("meta__entry_date", "id")
 
             # Serialize the cost lines using timesheet-specific serializer
-            serializer = TimesheetCostLineSerializer(timesheet_lines, many=True)
+            serializer = TimesheetCostLineSerializer(
+                timesheet_lines, many=True)
 
             return Response(
                 {

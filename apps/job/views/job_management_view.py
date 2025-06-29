@@ -79,7 +79,8 @@ def month_end_view(request: HttpRequest) -> HttpResponse:
             except Exception as e:
                 error_jobs.append((job_id, str(e)))
                 logger.exception(f"Error processing job {job_id}: {str(e)}")
-                messages.error(request, f"Error processing job {job_id}: {str(e)}")
+                messages.error(
+                    request, f"Error processing job {job_id}: {str(e)}")
 
         # Add success messages
         if processed_jobs:
@@ -90,7 +91,8 @@ def month_end_view(request: HttpRequest) -> HttpResponse:
             )
 
         if error_jobs:
-            error_msg = ", ".join([f"Job {job_id}" for job_id, _ in error_jobs])
+            error_msg = ", ".join(
+                [f"Job {job_id}" for job_id, _ in error_jobs])
             messages.warning(
                 request, f"Errors occurred with {len(error_jobs)} jobs: {error_msg}"
             )

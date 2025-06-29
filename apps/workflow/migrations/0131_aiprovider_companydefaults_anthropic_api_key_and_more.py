@@ -62,7 +62,8 @@ class Migration(migrations.Migration):
                 (
                     "provider_type",
                     models.CharField(
-                        choices=[("Claude", "Anthropic"), ("Gemini", "Google")],
+                        choices=[("Claude", "Anthropic"),
+                                 ("Gemini", "Google")],
                         help_text="Type of AI provider",
                         max_length=20,
                     ),

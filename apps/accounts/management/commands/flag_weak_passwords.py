@@ -17,5 +17,6 @@ class Command(BaseCommand):
             self.stdout.write(f"User {user.email} marked for password reset")
 
         self.stdout.write(
-            self.style.SUCCESS(f"{count} users marked to reset their passwords")
+            self.style.SUCCESS(
+                f"{count} users marked to reset their passwords")
         )

@@ -31,7 +31,8 @@ def create_purchase_order_email(purchase_order: PurchaseOrder) -> dict:
 
     mailto_url = f"mailto:{email}?subject={quote(subject)}&body={quote(body)}"
 
-    logger.info(f"Email prepared for purchase order {purchase_order.po_number}")
+    logger.info(
+        f"Email prepared for purchase order {purchase_order.po_number}")
 
     return {
         "success": True,

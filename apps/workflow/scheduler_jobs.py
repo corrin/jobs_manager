@@ -16,7 +16,8 @@ def xero_heartbeat_job():
     """
     Refreshes the Xero API token.
     """
-    scheduler_logger.info(f"Attempting Xero Heartbeat job at {datetime.now()}.")
+    scheduler_logger.info(
+        f"Attempting Xero Heartbeat job at {datetime.now()}.")
     try:
         close_old_connections()
         # Import models/services here to avoid AppRegistryNotReady errors during Django startup
@@ -26,9 +27,11 @@ def xero_heartbeat_job():
         if result:
             scheduler_logger.info("Xero API token refreshed successfully.")
         else:
-            scheduler_logger.error("Error: No Xero token available to refresh.")
+            scheduler_logger.error(
+                "Error: No Xero token available to refresh.")
     except Exception as e:
-        scheduler_logger.error(f"Error during Xero Heartbeat job: {e}", exc_info=True)
+        scheduler_logger.error(
+            f"Error during Xero Heartbeat job: {e}", exc_info=True)
 
 
 def xero_regular_sync_job():

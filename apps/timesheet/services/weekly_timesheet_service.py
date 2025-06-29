@@ -146,7 +146,8 @@ class WeeklyTimesheetService:
                     total_time_and_half_hours += daily_data.get(
                         "time_and_half_hours", 0
                     )
-                    total_double_time_hours += daily_data.get("double_time_hours", 0)
+                    total_double_time_hours += daily_data.get(
+                        "double_time_hours", 0)
                     total_leave_hours += daily_data.get("leave_hours", 0)
 
             # Calculate percentages
@@ -204,7 +205,8 @@ class WeeklyTimesheetService:
             )
 
             # Determine status
-            status = cls._get_day_status(daily_hours, scheduled_hours, has_leave)
+            status = cls._get_day_status(
+                daily_hours, scheduled_hours, has_leave)
 
             return {
                 "day": day.strftime("%Y-%m-%d"),
@@ -217,7 +219,8 @@ class WeeklyTimesheetService:
             }
 
         except Exception as e:
-            logger.error(f"Error getting daily data for {staff_member} on {day}: {e}")
+            logger.error(
+                f"Error getting daily data for {staff_member} on {day}: {e}")
             return {
                 "day": day.strftime("%Y-%m-%d"),
                 "hours": 0.0,
@@ -279,7 +282,8 @@ class WeeklyTimesheetService:
             return base_data
 
         except Exception as e:
-            logger.error(f"Error getting IMS data for {staff_member} on {day}: {e}")
+            logger.error(
+                f"Error getting IMS data for {staff_member} on {day}: {e}")
             return cls._get_daily_data(staff_member, day)
 
     @classmethod
@@ -342,7 +346,8 @@ class WeeklyTimesheetService:
             # Get jobs with entries in this week using CostLine system
             jobs_with_entries = (
                 Job.objects.filter(
-                    cost_sets__cost_lines__entry_date__range=[start_date, end_date]
+                    cost_sets__cost_lines__entry_date__range=[
+                        start_date, end_date]
                 )
                 .distinct()
                 .count()
@@ -378,11 +383,15 @@ class WeeklyTimesheetService:
     ) -> Dict[str, Any]:
         """Calculate summary statistics."""
         total_staff = len(staff_data)
-        complete_staff = len([s for s in staff_data if s["status"] == "Complete"])
-        partial_staff = len([s for s in staff_data if s["status"] == "Partial"])
-        missing_staff = len([s for s in staff_data if s["status"] == "Missing"])
+        complete_staff = len(
+            [s for s in staff_data if s["status"] == "Complete"])
+        partial_staff = len(
+            [s for s in staff_data if s["status"] == "Partial"])
+        missing_staff = len(
+            [s for s in staff_data if s["status"] == "Missing"])
 
-        completion_rate = (complete_staff / total_staff * 100) if total_staff > 0 else 0
+        completion_rate = (complete_staff / total_staff *
+                           100) if total_staff > 0 else 0
 
         return {
             "total_staff": total_staff,

@@ -21,7 +21,8 @@ class SupplierProduct(models.Model):
         "SupplierPriceList", on_delete=models.CASCADE, related_name="products"
     )
     product_name = models.CharField(max_length=500)
-    item_no = models.CharField(max_length=100, help_text="Supplier's item/SKU number")
+    item_no = models.CharField(
+        max_length=100, help_text="Supplier's item/SKU number")
     description = models.TextField(blank=True, null=True)
     specifications = models.TextField(blank=True, null=True)
     variant_id = models.CharField(
@@ -173,7 +174,8 @@ class ScrapeJob(models.Model):
     supplier = models.ForeignKey(
         Client, on_delete=models.CASCADE, related_name="scrape_jobs"
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="running")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="running")
     started_at = models.DateTimeField(default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
     products_scraped = models.IntegerField(default=0)
@@ -207,7 +209,8 @@ class ProductParsingMapping(models.Model):
     )
 
     # Original input data for reference
-    input_data = models.JSONField(help_text="Original input data that was parsed")
+    input_data = models.JSONField(
+        help_text="Original input data that was parsed")
 
     derived_key = models.CharField(
         max_length=100,
@@ -221,7 +224,8 @@ class ProductParsingMapping(models.Model):
         max_length=100, blank=True, null=True
     )  # IN Xero
 
-    mapped_description = models.CharField(max_length=255, blank=True, null=True)
+    mapped_description = models.CharField(
+        max_length=255, blank=True, null=True)
     mapped_metal_type = models.CharField(
         max_length=50, choices=MetalType.choices, blank=True, null=True
     )
@@ -238,7 +242,8 @@ class ProductParsingMapping(models.Model):
     parser_confidence = models.DecimalField(
         max_digits=3, decimal_places=2, blank=True, null=True
     )
-    llm_response = models.JSONField(help_text="Full LLM response for debugging")
+    llm_response = models.JSONField(
+        help_text="Full LLM response for debugging")
 
     # Validation fields
     is_validated = models.BooleanField(

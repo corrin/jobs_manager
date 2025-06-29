@@ -73,7 +73,8 @@ class Command(BaseCommand):
             try:
                 self.run_scraper(scraper_info, supplier_name, limit, force)
             except Exception as e:
-                logger.error(f"Error running scraper {scraper_info['class_name']}: {e}")
+                logger.error(
+                    f"Error running scraper {scraper_info['class_name']}: {e}")
                 continue
 
         logger.info("Scraper runner completed")
@@ -81,7 +82,8 @@ class Command(BaseCommand):
     def get_available_scrapers(self):
         """Discover all scraper classes in the scrapers directory"""
         scrapers = []
-        scrapers_dir = os.path.join(os.path.dirname(__file__), "..", "..", "scrapers")
+        scrapers_dir = os.path.join(
+            os.path.dirname(__file__), "..", "..", "scrapers")
 
         if not os.path.exists(scrapers_dir):
             logger.error(f"Scrapers directory not found: {scrapers_dir}")
@@ -137,7 +139,8 @@ class Command(BaseCommand):
         # Find the supplier for this scraper
         supplier = self.find_supplier_for_scraper(class_name, supplier_name)
         if not supplier:
-            logger.error(f"No suitable supplier found for scraper {class_name}")
+            logger.error(
+                f"No suitable supplier found for scraper {class_name}")
             return
 
         logger.info(f"Running {class_name} for supplier: {supplier.name}")
@@ -158,10 +161,12 @@ class Command(BaseCommand):
         # If specific supplier name provided, find it
         if supplier_name_filter:
             try:
-                supplier = Supplier.objects.get(name__icontains=supplier_name_filter)
+                supplier = Supplier.objects.get(
+                    name__icontains=supplier_name_filter)
                 return supplier
             except Supplier.DoesNotExist:
-                logger.error(f"Supplier matching '{supplier_name_filter}' not found")
+                logger.error(
+                    f"Supplier matching '{supplier_name_filter}' not found")
                 return None
             except Supplier.MultipleObjectsReturned:
                 logger.error(
@@ -175,7 +180,8 @@ class Command(BaseCommand):
                 supplier = Supplier.objects.get(
                     xero_contact_id="92bd100c-b0e5-45e7-84d9-1ed883050353"
                 )
-                logger.info(f"Found supplier by hardcoded Xero ID: {supplier.name}")
+                logger.info(
+                    f"Found supplier by hardcoded Xero ID: {supplier.name}")
                 return supplier
             except Supplier.DoesNotExist:
                 logger.error(
@@ -189,7 +195,8 @@ class Command(BaseCommand):
             "And", " & "
         )
         try:
-            supplier = Supplier.objects.get(name__icontains=scraper_supplier_name)
+            supplier = Supplier.objects.get(
+                name__icontains=scraper_supplier_name)
             logger.info(f"Found supplier by name matching: {supplier.name}")
             return supplier
         except Supplier.DoesNotExist:
@@ -198,7 +205,8 @@ class Command(BaseCommand):
             )
             return None
         except Supplier.MultipleObjectsReturned:
-            suppliers = Supplier.objects.filter(name__icontains=scraper_supplier_name)
+            suppliers = Supplier.objects.filter(
+                name__icontains=scraper_supplier_name)
             logger.error(
                 f"Multiple suppliers found for pattern '{scraper_supplier_name}': {[s.name for s in suppliers]}"
             )

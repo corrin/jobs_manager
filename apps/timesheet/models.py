@@ -61,7 +61,8 @@ class TimeEntry(models.Model):
     # estimates, making these values reliable. Actual time entries do not use
     # the items/minutes_per_item fields.
 
-    hours = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=False)
+    hours = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, null=False)
     items = models.IntegerField(null=True, blank=True)  # For quotes/estimates
     minutes_per_item = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True
@@ -79,8 +80,10 @@ class TimeEntry(models.Model):
             and self.items is not None
             and self.minutes_per_item is not None
         ):
-            total_minutes = Decimal(self.items) * Decimal(self.minutes_per_item)
-            logger.debug(f"Calculated total_minutes before assignment: {total_minutes}")
+            total_minutes = Decimal(self.items) * \
+                Decimal(self.minutes_per_item)
+            logger.debug(
+                f"Calculated total_minutes before assignment: {total_minutes}")
             self.hours = (total_minutes / Decimal(60)).quantize(
                 Decimal("0.0001"), rounding="ROUND_HALF_UP"
             )

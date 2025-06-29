@@ -5,8 +5,10 @@ from django.db import models, transaction
 class CompanyDefaults(models.Model):
     company_name = models.CharField(max_length=255, primary_key=True)
     is_primary = models.BooleanField(default=True, unique=True)
-    time_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0.3)
-    materials_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0.2)
+    time_markup = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0.3)
+    materials_markup = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0.2)
     charge_out_rate = models.DecimalField(
         max_digits=6, decimal_places=2, default=105.00
     )  # rate per hour
@@ -128,7 +130,8 @@ class CompanyDefaults(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.pk and CompanyDefaults.objects.exists():
-            raise ValidationError("There can be only one CompanyDefaults instance")
+            raise ValidationError(
+                "There can be only one CompanyDefaults instance")
         self.is_primary = True
         super().save(*args, **kwargs)
 

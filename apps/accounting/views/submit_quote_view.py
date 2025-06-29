@@ -39,7 +39,8 @@ def collect_pricing_data(pricing):
         ]
     ]
     material_entries = [
-        ["Item Code", "Description", "Quantity", "Cost Rate", "Retail Rate", "Revenue"]
+        ["Item Code", "Description", "Quantity",
+            "Cost Rate", "Retail Rate", "Revenue"]
     ]
     adjustment_entries = [["Description", "Cost Adj.", "Revenue", "Comments"]]
 
@@ -282,7 +283,8 @@ def send_quote_email(request, job_id):
             )
 
         # Determine e-mail type
-        contact_only = request.GET.get("contact_only", "false").lower() == "true"
+        contact_only = request.GET.get(
+            "contact_only", "false").lower() == "true"
 
         subject = (
             f"Follow-up on Job #{job.name}"
@@ -306,13 +308,15 @@ def send_quote_email(request, job_id):
             {
                 "success": True,
                 "mailto_url": mailto_url,
-                "pdf_content": pdf_content.decode("latin-1"),  # Encode PDF for frontend
+                # Encode PDF for frontend
+                "pdf_content": pdf_content.decode("latin-1"),
                 "pdf_name": f"quote_summary_{job.name}.pdf",
             }
         )
 
     except Exception as e:
-        logger.error(f"Unexpected error processing email for job {job_id}: {str(e)}")
+        logger.error(
+            f"Unexpected error processing email for job {job_id}: {str(e)}")
         return JsonResponse(
             {"error": "Unexpected error occurred", "messages": str(e)}, status=500
         )

@@ -70,7 +70,8 @@ def use_stock_view(request, job_id=None):
     # If job_id is provided, get the job object to pass to the template
     if job_id:
         target_id = UUID(job_id)
-        job = next(j for j in active_jobs if j.id == target_id)  # StopIteration if none
+        job = next(j for j in active_jobs if j.id ==
+                   target_id)  # StopIteration if none
 
     context = {
         "title": "Use Stock",
@@ -111,7 +112,8 @@ def consume_stock_api_view(request):
                     {"error": "Quantity used must be positive."}, status=400
                 )
         except (InvalidOperation, TypeError):
-            logger.warning(f"Invalid quantity format received: {quantity_used_str}")
+            logger.warning(
+                f"Invalid quantity format received: {quantity_used_str}")
             return JsonResponse({"error": "Invalid quantity format."}, status=400)
 
         job = get_object_or_404(Job, id=job_id)  # Raises 404 if not found
@@ -247,12 +249,14 @@ def create_stock_api_view(request):
         try:
             unit_cost = Decimal(str(unit_cost_str))
             if unit_cost <= 0:
-                logger.warning(f"Invalid unit cost ({unit_cost}) for new stock.")
+                logger.warning(
+                    f"Invalid unit cost ({unit_cost}) for new stock.")
                 return JsonResponse(
                     {"error": "Unit cost must be positive."}, status=400
                 )
         except (InvalidOperation, TypeError):
-            logger.warning(f"Invalid unit cost format received: {unit_cost_str}")
+            logger.warning(
+                f"Invalid unit cost format received: {unit_cost_str}")
             return JsonResponse({"error": "Invalid unit cost format."}, status=400)
 
         # Get the stock holding job
@@ -299,7 +303,8 @@ def create_stock_api_view(request):
                 "location": stock_item.location,
             },
         }
-        return JsonResponse(response_data, status=201)  # Use 201 for resource creation
+        # Use 201 for resource creation
+        return JsonResponse(response_data, status=201)
 
     except json.JSONDecodeError:
         logger.warning("Invalid JSON received for stock creation.")
@@ -327,7 +332,8 @@ def search_available_stock_api(request):
         # Filter only by active status and description
         # Assumes is_active=True implies quantity > 0 and correct job allocation
         matching_stock = (
-            Stock.objects.filter(is_active=True, description__icontains=search_term)
+            Stock.objects.filter(
+                is_active=True, description__icontains=search_term)
             .select_related("job")
             .order_by("description")[:limit]
         )  # Keep select_related for job name display
@@ -368,7 +374,8 @@ def deactivate_stock_api_view(request, stock_id):
         stock_item.is_active = False
         stock_item.save(update_fields=["is_active"])
 
-        logger.info(f"Deactivated Stock item {stock_id}: {stock_item.description}")
+        logger.info(
+            f"Deactivated Stock item {stock_id}: {stock_item.description}")
 
         # Return success response
         return JsonResponse(

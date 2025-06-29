@@ -99,20 +99,23 @@ def store_token(token: Dict[str, Any]) -> None:
         logger.error("No expires_in provided in token response from Xero")
         raise ValueError("Missing expires_in in Xero token response")
 
-    expires_at = datetime.now(timezone.utc) + timedelta(seconds=token["expires_in"])
+    expires_at = datetime.now(timezone.utc) + \
+        timedelta(seconds=token["expires_in"])
     token_data["expires_at"] = expires_at.timestamp()
     logger.info(f"Token will expire at {expires_at.isoformat()}")
 
     # Store in cache with the actual expiry time
     cache.set("xero_token", token_data, timeout=token["expires_in"])
-    logger.info(f"Token stored in cache with timeout of {token['expires_in']} seconds")
+    logger.info(
+        f"Token stored in cache with timeout of {token['expires_in']} seconds")
 
     # Get tenant ID if available
     try:
         tenant_id = get_tenant_id_from_connections()
     except Exception as e:
         tenant_id = None
-        logger.warning(f"Could not fetch tenant ID when storing token: {str(e)}")
+        logger.warning(
+            f"Could not fetch tenant ID when storing token: {str(e)}")
 
     # Store in database
     try:
@@ -152,7 +155,8 @@ def refresh_token() -> Optional[Dict[str, Any]]:
         return None
 
     # Log the current token state
-    current_expiry = datetime.fromtimestamp(token["expires_at"], tz=timezone.utc)
+    current_expiry = datetime.fromtimestamp(
+        token["expires_at"], tz=timezone.utc)
     current_token = token["access_token"][:10] + "..."
     logger.debug("Current token before refresh:")
     logger.debug(f"  Access token: {current_token}")
@@ -206,7 +210,8 @@ def get_valid_token() -> Optional[Dict[str, Any]]:
 
     expires_at = token.get("expires_at")
     if expires_at:
-        expires_at_datetime = datetime.fromtimestamp(expires_at, tz=timezone.utc)
+        expires_at_datetime = datetime.fromtimestamp(
+            expires_at, tz=timezone.utc)
         # Refresh token if it expires in less than 5 minutes
         if datetime.now(timezone.utc) > expires_at_datetime - timedelta(minutes=5):
             logger.info(
@@ -233,7 +238,8 @@ def get_authentication_url(state: str) -> str:
         "scope": " ".join(settings.XERO_SCOPES),
         "state": state,
     }
-    logger.info(f"Generating authentication URL with params: \n{pretty_print(params)}")
+    logger.info(
+        f"Generating authentication URL with params: \n{pretty_print(params)}")
     url = f"https://login.xero.com/identity/connect/authorize?{urlencode(params)}"
     logger.info(f"Generated URL: {url}")
     return url

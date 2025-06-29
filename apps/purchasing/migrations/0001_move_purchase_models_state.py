@@ -29,7 +29,8 @@ class Migration(migrations.Migration):
                                 serialize=False,
                             ),
                         ),
-                        ("po_number", models.CharField(max_length=50, unique=True)),
+                        ("po_number", models.CharField(
+                            max_length=50, unique=True)),
                         (
                             "reference",
                             models.CharField(
@@ -41,12 +42,15 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "order_date",
-                            models.DateField(default=django.utils.timezone.now),
+                            models.DateField(
+                                default=django.utils.timezone.now),
                         ),
-                        ("expected_delivery", models.DateField(blank=True, null=True)),
+                        ("expected_delivery", models.DateField(
+                            blank=True, null=True)),
                         (
                             "xero_id",
-                            models.UUIDField(blank=True, null=True, unique=True),
+                            models.UUIDField(
+                                blank=True, null=True, unique=True),
                         ),
                         (
                             "xero_tenant_id",
@@ -85,7 +89,8 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "online_url",
-                            models.URLField(blank=True, max_length=500, null=True),
+                            models.URLField(
+                                blank=True, max_length=500, null=True),
                         ),
                         (
                             "job",
@@ -127,7 +132,8 @@ class Migration(migrations.Migration):
                         ("description", models.CharField(max_length=200)),
                         (
                             "quantity",
-                            models.DecimalField(decimal_places=2, max_digits=10),
+                            models.DecimalField(
+                                decimal_places=2, max_digits=10),
                         ),
                         (
                             "unit_cost",
@@ -162,7 +168,8 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "metal_type",
-                            models.CharField(blank=True, max_length=100, null=True),
+                            models.CharField(
+                                blank=True, max_length=100, null=True),
                         ),
                         (
                             "alloy",
@@ -246,7 +253,8 @@ class Migration(migrations.Migration):
                         ),
                         ("filename", models.CharField(max_length=255)),
                         ("file_path", models.CharField(max_length=500)),
-                        ("mime_type", models.CharField(blank=True, max_length=100)),
+                        ("mime_type", models.CharField(
+                            blank=True, max_length=100)),
                         ("uploaded_at", models.DateTimeField(auto_now_add=True)),
                         (
                             "extracted_data",
@@ -259,7 +267,8 @@ class Migration(migrations.Migration):
                         (
                             "status",
                             models.CharField(
-                                choices=[("active", "Active"), ("deleted", "Deleted")],
+                                choices=[("active", "Active"),
+                                         ("deleted", "Deleted")],
                                 default="active",
                                 max_length=20,
                             ),

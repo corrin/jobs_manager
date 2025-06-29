@@ -59,7 +59,8 @@ class CostLineCreateView(APIView):
                 # Validate and create cost line
                 serializer = CostLineCreateUpdateSerializer(data=request.data)
                 if not serializer.is_valid():
-                    logger.error(f"Cost line validation failed for job {job_id}:")
+                    logger.error(
+                        f"Cost line validation failed for job {job_id}:")
                     logger.error(f"Received data: {request.data}")
                     logger.error(f"Validation errors: {serializer.errors}")
                     return Response(

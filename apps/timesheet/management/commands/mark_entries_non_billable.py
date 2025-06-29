@@ -45,7 +45,8 @@ class Command(BaseCommand):
         # Exit if no entries found
         if count == 0:
             self.stdout.write(
-                self.style.WARNING("No billable Shop job entries found to update.")
+                self.style.WARNING(
+                    "No billable Shop job entries found to update.")
             )
             return
 
@@ -68,7 +69,8 @@ class Command(BaseCommand):
                         f"Successfully marked {updated} Shop job entries as non-billable"
                     )
                 )
-                logger.info(f"Marked {updated} Shop job entries as non-billable")
+                logger.info(
+                    f"Marked {updated} Shop job entries as non-billable")
 
         except Exception as e:
             logger.error(f"Error updating Shop job entries: {str(e)}")

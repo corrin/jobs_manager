@@ -99,7 +99,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             )
             return None
         except XeroAccount.MultipleObjectsReturned:
-            accounts = XeroAccount.objects.filter(account_name__iexact="Purchases")
+            accounts = XeroAccount.objects.filter(
+                account_name__iexact="Purchases")
             logger.warning(
                 f"Found multiple 'Purchases' accounts: "
                 f"{[(a.account_name, a.account_code, a.xero_id) for a in accounts]}. "
@@ -160,7 +161,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     f"{self.purchase_order.id}"
                 )
         except Exception as e:
-            logger.error(f"Error consulting real UUID for PO {po_number}: {str(e)}")
+            logger.error(
+                f"Error consulting real UUID for PO {po_number}: {str(e)}")
 
         return None, None
 
@@ -246,7 +248,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             )
 
             if real_uuid:
-                self._save_po_with_xero_data(real_uuid, xero_po_url, real_updated_date)
+                self._save_po_with_xero_data(
+                    real_uuid, xero_po_url, real_updated_date)
 
                 return JsonResponse(
                     {
@@ -268,11 +271,13 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 xero_doc = self.get_xero_document(type="create")
                 raw_payload = xero_doc.to_dict()
                 cleaned_payload = clean_payload(raw_payload)
-                payload = {"PurchaseOrders": [convert_to_pascal_case(cleaned_payload)]}
+                payload = {"PurchaseOrders": [
+                    convert_to_pascal_case(cleaned_payload)]}
 
                 # Chamar a API do Xero novamente para criar a PO
                 update_method = self._get_xero_update_method()
-                logger.info(f"Retrying creation for PO {self.purchase_order.id}")
+                logger.info(
+                    f"Retrying creation for PO {self.purchase_order.id}")
                 retry_response, _, _ = update_method(
                     self.xero_tenant_id,
                     purchase_orders=payload,
@@ -449,7 +454,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
         if type == "delete":
             xero_id = self.get_xero_id()
             if not xero_id:
-                raise ValueError("Cannot delete a purchase order without a Xero ID.")
+                raise ValueError(
+                    "Cannot delete a purchase order without a Xero ID.")
             # Deletion via API usually means setting status to DELETED via update
             return XeroPurchaseOrder(purchase_order_id=xero_id, status="DELETED")
         elif type in ["create", "update"]:
@@ -490,7 +496,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 )
                 raise  # Re-raise the error
         else:
-            raise ValueError(f"Unknown document type for Purchase Order: {type}")
+            raise ValueError(
+                f"Unknown document type for Purchase Order: {type}")
 
     def sync_to_xero(self) -> JsonResponse:
         """Sync current PO state to Xero and update local model with Xero data.
@@ -525,10 +532,12 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             xero_doc = self.get_xero_document(type=action)
 
             raw_payload = xero_doc.to_dict()
-            logger.info("Xero document data (including None values): %s", raw_payload)
+            logger.info(
+                "Xero document data (including None values): %s", raw_payload)
 
             cleaned_payload = clean_payload(raw_payload)
-            payload = {"PurchaseOrders": [convert_to_pascal_case(cleaned_payload)]}
+            payload = {"PurchaseOrders": [
+                convert_to_pascal_case(cleaned_payload)]}
             logger.info(
                 f"Serialized payload for {action}: {json.dumps(payload, indent=4)}"
             )
@@ -568,7 +577,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 exc_info=True,
             )
             return JsonResponse(
-                {"success": False, "error": str(e), "exception_type": type(e).__name__},
+                {"success": False, "error": str(
+                    e), "exception_type": type(e).__name__},
                 status=500,
             )
 
@@ -603,7 +613,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             xero_document = XeroPurchaseOrder(
                 purchase_order_id=xero_id, status="DELETED"
             )
-            payload = convert_to_pascal_case(clean_payload(xero_document.to_dict()))
+            payload = convert_to_pascal_case(
+                clean_payload(xero_document.to_dict()))
             payload_list = {"PurchaseOrders": [payload]}
             logger.info(
                 f"Serialized payload for delete: {json.dumps(payload_list, indent=4)}"

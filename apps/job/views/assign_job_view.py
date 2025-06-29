@@ -39,7 +39,8 @@ class AssignJobView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            success, error = JobStaffService.assign_staff_to_job(job_id, staff_id)
+            success, error = JobStaffService.assign_staff_to_job(
+                job_id, staff_id)
 
             if success:
                 return Response(
@@ -80,7 +81,8 @@ class AssignJobView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            success, error = JobStaffService.remove_staff_from_job(job_id, staff_id)
+            success, error = JobStaffService.remove_staff_from_job(
+                job_id, staff_id)
 
             if success:
                 return Response(

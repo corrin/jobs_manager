@@ -75,24 +75,31 @@ class Command(BaseCommand):
 
             # Find unprocessed products
             processed_hashes = self._get_processed_hashes()
-            unprocessed_products = self._get_unprocessed_products(processed_hashes)
+            unprocessed_products = self._get_unprocessed_products(
+                processed_hashes)
 
             if max_products:
                 unprocessed_products = unprocessed_products[:max_products]
 
             total_to_process = len(unprocessed_products)
-            self.stdout.write(f"Products needing processing: {total_to_process}")
+            self.stdout.write(
+                f"Products needing processing: {total_to_process}")
 
             if total_to_process == 0:
-                self.stdout.write(self.style.SUCCESS("All products already processed!"))
+                self.stdout.write(self.style.SUCCESS(
+                    "All products already processed!"))
                 return
 
             if dry_run:
-                self.stdout.write("Dry run complete. Products that would be processed:")
-                for i, product in enumerate(unprocessed_products[:10]):  # Show first 10
-                    self.stdout.write(f"  {i + 1}. {product.product_name[:50]}...")
+                self.stdout.write(
+                    "Dry run complete. Products that would be processed:")
+                # Show first 10
+                for i, product in enumerate(unprocessed_products[:10]):
+                    self.stdout.write(
+                        f"  {i + 1}. {product.product_name[:50]}...")
                 if total_to_process > 10:
-                    self.stdout.write(f"  ... and {total_to_process - 10} more")
+                    self.stdout.write(
+                        f"  ... and {total_to_process - 10} more")
                 return
 
             # Initialize parser
@@ -104,9 +111,10 @@ class Command(BaseCommand):
             start_time = timezone.now()
 
             for i in range(0, total_to_process, batch_size):
-                batch = unprocessed_products[i : i + batch_size]
+                batch = unprocessed_products[i: i + batch_size]
                 batch_num = (i // batch_size) + 1
-                total_batches = (total_to_process + batch_size - 1) // batch_size
+                total_batches = (total_to_process +
+                                 batch_size - 1) // batch_size
 
                 self.stdout.write(
                     f"Processing batch {batch_num}/{total_batches} "
@@ -134,10 +142,12 @@ class Command(BaseCommand):
                 # Process batch with error handling
                 try:
                     with transaction.atomic():
-                        results = parser.parse_products_batch(product_data_list)
+                        results = parser.parse_products_batch(
+                            product_data_list)
 
                         # Count successful results
-                        successful_results = [r for r in results if r and len(r) == 2]
+                        successful_results = [
+                            r for r in results if r and len(r) == 2]
                         processed_count += len(successful_results)
                         failed_count += len(batch) - len(successful_results)
 
@@ -154,7 +164,8 @@ class Command(BaseCommand):
 
                 # Progress update
                 total_processed_so_far = processed_count + failed_count
-                progress_pct = (total_processed_so_far / total_to_process) * 100
+                progress_pct = (total_processed_so_far /
+                                total_to_process) * 100
                 elapsed = timezone.now() - start_time
 
                 if total_processed_so_far > 0:
@@ -171,7 +182,8 @@ class Command(BaseCommand):
 
                 # Rate limiting delay (except for last batch)
                 if i + batch_size < total_to_process:
-                    self.stdout.write(f"  Waiting {delay}s before next batch...")
+                    self.stdout.write(
+                        f"  Waiting {delay}s before next batch...")
                     time.sleep(delay)
 
             # Final statistics

@@ -61,7 +61,8 @@ class TimesheetToCostLineService:
         """
         # Guard clause - validate description is not empty
         if not description or description.strip() == "":
-            raise ValueError("Description cannot be empty for timesheet entries")
+            raise ValueError(
+                "Description cannot be empty for timesheet entries")
 
         with transaction.atomic():
             # Get job
@@ -88,7 +89,8 @@ class TimesheetToCostLineService:
                     "date": entry_date.isoformat(),  # Legacy compatibility
                     "is_billable": is_billable,
                     "wage_rate_multiplier": float(rate_multiplier),
-                    "rate_multiplier": float(rate_multiplier),  # Legacy compatibility
+                    # Legacy compatibility
+                    "rate_multiplier": float(rate_multiplier),
                     "created_from_timesheet": True,
                 }
             )

@@ -58,7 +58,8 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "description",
-                            models.CharField(blank=True, default="", max_length=200),
+                            models.CharField(
+                                blank=True, default="", max_length=200),
                         ),
                         (
                             "cost_adjustment",
@@ -74,7 +75,8 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "comments",
-                            models.CharField(blank=True, default="", max_length=200),
+                            models.CharField(
+                                blank=True, default="", max_length=200),
                         ),
                         ("created_at", models.DateTimeField(auto_now_add=True)),
                         ("updated_at", models.DateTimeField(auto_now=True)),
@@ -106,15 +108,18 @@ class Migration(migrations.Migration):
                         ),
                         (
                             "item_code",
-                            models.CharField(blank=True, default="", max_length=20),
+                            models.CharField(
+                                blank=True, default="", max_length=20),
                         ),
                         (
                             "description",
-                            models.CharField(blank=True, default="", max_length=200),
+                            models.CharField(
+                                blank=True, default="", max_length=200),
                         ),
                         (
                             "comments",
-                            models.CharField(blank=True, default="", max_length=200),
+                            models.CharField(
+                                blank=True, default="", max_length=200),
                         ),
                         (
                             "quantity",

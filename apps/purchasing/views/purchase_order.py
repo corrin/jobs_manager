@@ -88,7 +88,8 @@ class PurchaseOrderCreateView(LoginRequiredMixin, TemplateView):
         purchase_order_id = self.kwargs.get("pk")
         purchase_order = get_object_or_404(PurchaseOrder, id=purchase_order_id)
         context["title"] = f"Purchase Order {purchase_order.po_number}"
-        context["purchase_order_id"] = str(purchase_order.id)  # Pass ID to template
+        context["purchase_order_id"] = str(
+            purchase_order.id)  # Pass ID to template
 
         # Add supplier quote to context (it's a OneToOneField, not a collection)
         try:
@@ -140,7 +141,8 @@ class PurchaseOrderCreateView(LoginRequiredMixin, TemplateView):
         )
 
         # Get line items for this purchase order
-        assert isinstance(purchase_order, PurchaseOrder)  # Ensure type for Pylance
+        # Ensure type for Pylance
+        assert isinstance(purchase_order, PurchaseOrder)
         line_items = (
             purchase_order.po_lines.all()
         )  # Use correct related_name 'po_lines'
@@ -203,7 +205,8 @@ class PurchaseOrderCreateView(LoginRequiredMixin, TemplateView):
             purchase_order_data = json.loads(
                 request.POST.get("purchase_order_data", "{}")
             )
-            line_items_data = json.loads(request.POST.get("line_items_data", "[]"))
+            line_items_data = json.loads(
+                request.POST.get("line_items_data", "[]"))
 
             # Get the client (supplier)
             client_id = purchase_order_data.get("supplier")
@@ -232,7 +235,8 @@ class PurchaseOrderCreateView(LoginRequiredMixin, TemplateView):
                 f"Purchase order {purchase_order.po_number} created successfully.",
             )
             return JsonResponse(
-                {"success": True, "redirect_url": reverse_lazy("purchase_orders")}
+                {"success": True, "redirect_url": reverse_lazy(
+                    "purchase_orders")}
             )
         except Exception as e:
             return JsonResponse({"success": False, "error": str(e)}, status=400)
@@ -264,7 +268,8 @@ def autosave_purchase_order_view(request):
             logger.error("CRITICAL: Missing PO ID")
             return JsonResponse({"error": "Missing Purchase Order ID"}, status=400)
 
-        saved_line_ids = [item.get("id") for item in line_items if item.get("id")]
+        saved_line_ids = [item.get("id")
+                          for item in line_items if item.get("id")]
         PurchaseOrderLine.objects.filter(purchase_order_id=purchase_order_id).exclude(
             id__in=saved_line_ids
         ).delete()
@@ -274,7 +279,8 @@ def autosave_purchase_order_view(request):
                 id=purchase_order_id
             )
         except PurchaseOrder.DoesNotExist:
-            logger.error(f"Purchase Order with ID {purchase_order_id} not found.")
+            logger.error(
+                f"Purchase Order with ID {purchase_order_id} not found.")
             return JsonResponse(
                 {
                     "error": "Purchase Order not found",
@@ -468,7 +474,8 @@ def extract_supplier_quote_data_view(request):
     except Exception as e:
         logger.exception(f"Error extracting data from quote: {e}")
         return JsonResponse(
-            {"success": False, "error": f"Error extracting data from quote: {str(e)}"},
+            {"success": False,
+                "error": f"Error extracting data from quote: {str(e)}"},
             status=500,
         )
 
@@ -493,7 +500,8 @@ class PurchaseOrderEmailView(APIView):
             Response: Error details if unsuccessful
         """
         try:
-            purchase_order = get_object_or_404(PurchaseOrder, pk=purchase_order_id)
+            purchase_order = get_object_or_404(
+                PurchaseOrder, pk=purchase_order_id)
 
             email_data = create_purchase_order_email(purchase_order)
 
@@ -559,7 +567,8 @@ class PurchaseOrderPDFView(APIView):
         """
         try:
             # Retrieve the purchase order
-            purchase_order = get_object_or_404(PurchaseOrder, pk=purchase_order_id)
+            purchase_order = get_object_or_404(
+                PurchaseOrder, pk=purchase_order_id)
 
             # Generate the PDF using the service
             pdf_buffer = create_purchase_order_pdf(purchase_order)

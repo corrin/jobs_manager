@@ -37,7 +37,8 @@ class Command(BaseCommand):
 
             # Load essential company configuration
             self.stdout.write("Loading essential company configuration...")
-            call_command("loaddata", "apps/workflow/fixtures/company_defaults.json")
+            call_command(
+                "loaddata", "apps/workflow/fixtures/company_defaults.json")
 
         # Handle compressed files
         if backup_file.endswith(".gz"):
@@ -54,16 +55,19 @@ class Command(BaseCommand):
                         if not (
                             item["model"] == "job.materialentry"
                             and (
-                                item["fields"].get("purchase_order_line") is not None
+                                item["fields"].get(
+                                    "purchase_order_line") is not None
                                 or item["fields"].get("source_stock") is not None
                             )
                         )
                     ]
 
-                    json.dump(filtered_data, temp_file, indent=2, ensure_ascii=False)
+                    json.dump(filtered_data, temp_file,
+                              indent=2, ensure_ascii=False)
                 temp_file_path = temp_file.name
 
-            self.stdout.write(f"Loading data from {backup_file} (decompressed)...")
+            self.stdout.write(
+                f"Loading data from {backup_file} (decompressed)...")
             try:
                 call_command("loaddata", temp_file_path)
             finally:
@@ -83,7 +87,8 @@ class Command(BaseCommand):
         for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(
             file_path=""
         ):
-            dummy_path = os.path.join(settings.MEDIA_ROOT, str(job_file.file_path))
+            dummy_path = os.path.join(
+                settings.MEDIA_ROOT, str(job_file.file_path))
             os.makedirs(os.path.dirname(dummy_path), exist_ok=True)
             with open(dummy_path, "w") as f:
                 f.write(f"Dummy file for JobFile {job_file.pk}\n")
@@ -125,7 +130,8 @@ class Command(BaseCommand):
             )
         else:
             self.stdout.write(
-                self.style.SUCCESS("defaultadmin@example.com user already exists")
+                self.style.SUCCESS(
+                    "defaultadmin@example.com user already exists")
             )
 
         self.stdout.write(self.style.SUCCESS("Post-restore fixes completed"))

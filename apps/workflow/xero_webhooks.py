@@ -38,7 +38,8 @@ def validate_webhook_signature(request: HttpRequest) -> bool:
         webhook_key.encode("utf-8"), request.body, hashlib.sha256
     ).digest()
 
-    expected_signature = base64.b64encode(expected_signature_bytes).decode("utf-8")
+    expected_signature = base64.b64encode(
+        expected_signature_bytes).decode("utf-8")
 
     return hmac.compare_digest(signature, expected_signature)
 
@@ -50,7 +51,8 @@ def process_webhook_event(event: Dict[str, Any]) -> None:
     tenant_id = event.get("tenantId")
 
     if not all([event_category, resource_id, tenant_id]):
-        logger.error(f"Invalid webhook event - missing required fields: {event}")
+        logger.error(
+            f"Invalid webhook event - missing required fields: {event}")
         return
 
     # Verify tenant matches our configuration

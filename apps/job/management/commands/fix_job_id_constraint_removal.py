@@ -32,8 +32,10 @@ class Command(BaseCommand):
                     )
 
                 # Drop the column
-                self.stdout.write("Removing column job_id from workflow_jobpart...")
-                cursor.execute("ALTER TABLE workflow_jobpart DROP COLUMN job_id;")
+                self.stdout.write(
+                    "Removing column job_id from workflow_jobpart...")
+                cursor.execute(
+                    "ALTER TABLE workflow_jobpart DROP COLUMN job_id;")
 
                 self.stdout.write(
                     self.style.SUCCESS(

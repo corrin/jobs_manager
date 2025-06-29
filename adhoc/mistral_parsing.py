@@ -73,7 +73,8 @@ def main():
                         f.write("\n\n---\n\n")  # Add separator between pages
         print("\nOCR processing complete!")
         print(f"- JSON results saved to: {os.path.abspath(json_output_file)}")
-        print(f"- Markdown results saved to: {os.path.abspath(md_output_file)}")
+        print(
+            f"- Markdown results saved to: {os.path.abspath(md_output_file)}")
         # Print a preview of the results
         print("\nPreview of the OCR results (first page):")
         print("-" * 50)

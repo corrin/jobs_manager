@@ -97,7 +97,8 @@ def migrate_contact_data(apps, schema_editor):
         ).exists():
             latest_contact.is_primary = True
             latest_contact.save(update_fields=['is_primary'])
-            logger.info(f"Set '{latest_contact.name}' as primary contact for client")
+            logger.info(
+                f"Set '{latest_contact.name}' as primary contact for client")
 
 
 def reverse_migration(apps, schema_editor):
@@ -113,7 +114,8 @@ def reverse_migration(apps, schema_editor):
         job.contact_person = job.contact.name
         job.contact_phone = job.contact.phone
         job.contact_email = job.contact.email
-        job.save(update_fields=['contact_person', 'contact_phone', 'contact_email'])
+        job.save(update_fields=['contact_person',
+                 'contact_phone', 'contact_email'])
 
     logger.info(f"Reversed contact data for {jobs_with_contacts.count()} jobs")
 

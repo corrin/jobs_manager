@@ -57,7 +57,8 @@ class KPICalendarAPIView(APIView):
             return Response(calendar_data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(
-                "KPI Calendar API Error: %s\n%s", str(e), traceback.format_exc()
+                "KPI Calendar API Error: %s\n%s", str(
+                    e), traceback.format_exc()
             )
             return Response(
                 {"error": f"Error obtaining calendar data: {str(e)}"},

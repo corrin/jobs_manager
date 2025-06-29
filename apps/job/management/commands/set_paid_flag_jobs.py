@@ -31,7 +31,8 @@ class Command(BaseCommand):
 
         if dry_run:
             self.stdout.write(
-                self.style.WARNING("Running in dry-run mode - no changes will be made")
+                self.style.WARNING(
+                    "Running in dry-run mode - no changes will be made")
             )
 
         completed_jobs = Job.objects.filter(status="completed", paid=False)
@@ -87,7 +88,8 @@ class Command(BaseCommand):
                 for job in jobs_to_update:
                     job.paid = True
                     job.save(update_fields=["paid"])
-                    logger.info(f"Job {job.job_number} ({job.name}) marked as paid")
+                    logger.info(
+                        f"Job {job.job_number} ({job.name}) marked as paid")
 
         end_time = timezone.now()
         duration = (end_time - start_time).total_seconds()

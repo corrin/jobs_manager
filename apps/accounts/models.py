@@ -21,7 +21,8 @@ class Staff(AbstractBaseUser, PermissionsMixin):
     preferred_name: Optional[str] = models.CharField(
         max_length=30, blank=True, null=True
     )
-    wage_rate: float = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    wage_rate: float = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0)
     ims_payroll_id: str = models.CharField(
         max_length=100, unique=True, null=True, blank=True
     )

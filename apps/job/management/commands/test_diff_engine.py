@@ -72,7 +72,8 @@ class Command(BaseCommand):
         self.stdout.write(f"  Additions: {len(diff_result.to_add)}")
         self.stdout.write(f"  Updates: {len(diff_result.to_update)}")
         self.stdout.write(f"  Deletions: {len(diff_result.to_delete)}")
-        self.stdout.write(f"  Total changes: {diff_result.summary['total_changes']}")
+        self.stdout.write(
+            f"  Total changes: {diff_result.summary['total_changes']}")
 
         if verbose:
             self._show_diff_details(diff_result)
@@ -87,7 +88,8 @@ class Command(BaseCommand):
             if verbose:
                 self._show_cost_set_details(new_cost_set, "New CostSet")
         else:
-            self.stdout.write("\n✅ No changes detected - no new CostSet created")
+            self.stdout.write(
+                "\n✅ No changes detected - no new CostSet created")
 
         self.stdout.write(
             self.style.SUCCESS("\n🎉 Diff engine test completed successfully")
@@ -97,7 +99,8 @@ class Command(BaseCommand):
         """Create a test CostSet with sample data"""
         # Check if there's already a test CostSet for this job
         existing_cost_set = (
-            CostSet.objects.filter(job=job, kind="estimate").order_by("-rev").first()
+            CostSet.objects.filter(
+                job=job, kind="estimate").order_by("-rev").first()
         )
 
         if existing_cost_set:
@@ -236,7 +239,8 @@ class Command(BaseCommand):
                 )
 
         if diff_result.to_update:
-            self.stdout.write(f"\n🔄 Lines to UPDATE ({len(diff_result.to_update)}):")
+            self.stdout.write(
+                f"\n🔄 Lines to UPDATE ({len(diff_result.to_update)}):")
             for i, (old_line, draft) in enumerate(diff_result.to_update, 1):
                 self.stdout.write(f"  {i}. [{old_line.kind}] {old_line.desc}")
                 self.stdout.write(
@@ -247,7 +251,8 @@ class Command(BaseCommand):
                 )
 
         if diff_result.to_delete:
-            self.stdout.write(f"\n❌ Lines to DELETE ({len(diff_result.to_delete)}):")
+            self.stdout.write(
+                f"\n❌ Lines to DELETE ({len(diff_result.to_delete)}):")
             for i, line in enumerate(diff_result.to_delete, 1):
                 self.stdout.write(
                     f"  {i}. [{line.kind}] {line.desc} "

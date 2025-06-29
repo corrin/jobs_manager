@@ -1,3 +1,7 @@
+from apps.quoting.models import SupplierProduct
+from apps.client.models import Client
+from django.db import transaction
+import django
 import csv
 import logging
 import os
@@ -16,14 +20,8 @@ logging.basicConfig(
 
 # Setup Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.base")
-import django
 
 django.setup()
-
-from django.db import transaction
-
-from apps.client.models import Client
-from apps.quoting.models import SupplierProduct
 
 
 def validate_and_parse_csv(csv_file_path):
@@ -99,7 +97,8 @@ def validate_and_parse_csv(csv_file_path):
                 )  # Let InvalidOperation propagate
 
             # Validate and parse variant_available_stock
-            variant_available_stock_str = row.get("variant_available_stock", "").strip()
+            variant_available_stock_str = row.get(
+                "variant_available_stock", "").strip()
             variant_available_stock = None
             if variant_available_stock_str:
                 variant_available_stock = int(

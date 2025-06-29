@@ -153,8 +153,10 @@ rest_urlpatterns = [
         name="job_file_thumbnail",
     ),
     # Quote Import (NEW - Google Sheets sync)
-    path("rest/jobs/<uuid:pk>/quote/link/", link_quote_sheet, name="quote_link_sheet"),
-    path("rest/jobs/<uuid:pk>/quote/preview/", preview_quote, name="quote_preview"),
+    path("rest/jobs/<uuid:pk>/quote/link/",
+         link_quote_sheet, name="quote_link_sheet"),
+    path("rest/jobs/<uuid:pk>/quote/preview/",
+         preview_quote, name="quote_preview"),
     path("rest/jobs/<uuid:pk>/quote/apply/", apply_quote, name="quote_apply"),
     # Quote Import (DEPRECATED - file upload based)
     path(

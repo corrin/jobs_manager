@@ -48,7 +48,8 @@ class IMSExportView(APIView):
 
             if start_date_str:
                 try:
-                    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    start_date = datetime.strptime(
+                        start_date_str, "%Y-%m-%d").date()
                 except ValueError:
                     return Response(
                         {"error": "Invalid start_date format. Use YYYY-MM-DD."},
@@ -66,7 +67,8 @@ class IMSExportView(APIView):
             staff_data, totals = self._get_ims_staff_data(week_days)
 
             # Generate navigation URLs
-            prev_week_url, next_week_url = self._get_navigation_urls(start_date)
+            prev_week_url, next_week_url = self._get_navigation_urls(
+                start_date)
 
             return Response(
                 {
@@ -208,7 +210,8 @@ class IMSExportView(APIView):
             "total_hours": float(total_hours),
             "total_billable_hours": float(total_billable_hours),
             "billable_percentage": round(
-                (total_billable_hours / total_hours * 100) if total_hours > 0 else 0, 1
+                (total_billable_hours / total_hours *
+                 100) if total_hours > 0 else 0, 1
             ),
             "total_standard_hours": float(total_standard_hours),
             "total_time_and_half_hours": float(total_time_and_half_hours),
@@ -281,7 +284,8 @@ class IMSExportView(APIView):
                     double_time_hours += entry.hours
 
             # Calculate overtime
-            overtime = max(Decimal(0), Decimal(daily_hours) - Decimal(scheduled_hours))
+            overtime = max(Decimal(0), Decimal(
+                daily_hours) - Decimal(scheduled_hours))
 
             # Determine status
             if has_paid_leave:

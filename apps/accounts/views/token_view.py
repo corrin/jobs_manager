@@ -60,9 +60,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 max_age=simple_jwt_settings.get(
                     "ACCESS_TOKEN_LIFETIME"
                 ).total_seconds(),
-                httponly=simple_jwt_settings.get("AUTH_COOKIE_HTTP_ONLY", True),
+                httponly=simple_jwt_settings.get(
+                    "AUTH_COOKIE_HTTP_ONLY", True),
                 secure=simple_jwt_settings.get("AUTH_COOKIE_SECURE", True),
-                samesite=simple_jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                samesite=simple_jwt_settings.get(
+                    "AUTH_COOKIE_SAMESITE", "Lax"),
                 domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
             )
             # Remove access token from response data for security
@@ -76,9 +78,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                 max_age=simple_jwt_settings.get(
                     "REFRESH_TOKEN_LIFETIME"
                 ).total_seconds(),
-                httponly=simple_jwt_settings.get("REFRESH_COOKIE_HTTP_ONLY", True),
+                httponly=simple_jwt_settings.get(
+                    "REFRESH_COOKIE_HTTP_ONLY", True),
                 secure=simple_jwt_settings.get("REFRESH_COOKIE_SECURE", True),
-                samesite=simple_jwt_settings.get("REFRESH_COOKIE_SAMESITE", "Lax"),
+                samesite=simple_jwt_settings.get(
+                    "REFRESH_COOKIE_SAMESITE", "Lax"),
                 domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
             )
             # Remove refresh token from response data for security
@@ -93,7 +97,8 @@ class CustomTokenRefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         # Get refresh token from cookie if not in request data
         simple_jwt_settings = getattr(settings, "SIMPLE_JWT", {})
-        refresh_cookie_name = simple_jwt_settings.get("REFRESH_COOKIE", "refresh_token")
+        refresh_cookie_name = simple_jwt_settings.get(
+            "REFRESH_COOKIE", "refresh_token")
 
         if "refresh" not in request.data and refresh_cookie_name in request.COOKIES:
             # Create mutable copy of request data
@@ -121,9 +126,11 @@ class CustomTokenRefreshView(TokenRefreshView):
                 max_age=simple_jwt_settings.get(
                     "ACCESS_TOKEN_LIFETIME"
                 ).total_seconds(),
-                httponly=simple_jwt_settings.get("AUTH_COOKIE_HTTP_ONLY", True),
+                httponly=simple_jwt_settings.get(
+                    "AUTH_COOKIE_HTTP_ONLY", True),
                 secure=simple_jwt_settings.get("AUTH_COOKIE_SECURE", True),
-                samesite=simple_jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax"),
+                samesite=simple_jwt_settings.get(
+                    "AUTH_COOKIE_SAMESITE", "Lax"),
                 domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
             )
             # Remove access token from response data for security

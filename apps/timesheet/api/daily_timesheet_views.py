@@ -91,7 +91,8 @@ def staff_daily_detail(request, staff_id: str, target_date: str = None):
 
         # Find specific staff
         staff_data = next(
-            (s for s in summary_data["staff_data"] if s["staff_id"] == staff_id), None
+            (s for s in summary_data["staff_data"]
+             if s["staff_id"] == staff_id), None
         )
 
         if not staff_data:

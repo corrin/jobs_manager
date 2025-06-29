@@ -46,7 +46,8 @@ def _get_credentials():
         try:
             key_file = os.getenv("GCP_CREDENTIALS")
             if not key_file:
-                raise RuntimeError("GCP_CREDENTIALS environment variable not set")
+                raise RuntimeError(
+                    "GCP_CREDENTIALS environment variable not set")
 
             if not os.path.exists(key_file):
                 raise RuntimeError(
@@ -60,7 +61,8 @@ def _get_credentials():
             logger.info(f"Google API credentials loaded from {key_file}")
 
         except Exception as e:
-            raise RuntimeError(f"Failed to load Google API credentials: {str(e)}")
+            raise RuntimeError(
+                f"Failed to load Google API credentials: {str(e)}")
 
     return CREDS
 
@@ -81,12 +83,14 @@ def _svc(api: str, version: str):
     """
     try:
         credentials = _get_credentials()
-        service = build(api, version, credentials=credentials, cache_discovery=False)
+        service = build(api, version, credentials=credentials,
+                        cache_discovery=False)
         logger.debug(f"Created {api} {version} service client")
         return service
 
     except Exception as e:
-        raise RuntimeError(f"Failed to create {api} {version} service: {str(e)}")
+        raise RuntimeError(
+            f"Failed to create {api} {version} service: {str(e)}")
 
 
 def extract_file_id(url_or_id: str) -> str:
@@ -163,7 +167,8 @@ def create_folder(name: str, parent_id: Optional[str] = None) -> str:
     except HttpError as e:
         raise RuntimeError(f"Failed to create folder '{name}': {e.reason}")
     except Exception as e:
-        raise RuntimeError(f"Unexpected error creating folder '{name}': {str(e)}")
+        raise RuntimeError(
+            f"Unexpected error creating folder '{name}': {str(e)}")
 
 
 def copy_file(
@@ -270,7 +275,8 @@ def fetch_sheet_df(sheet_id: str, sheet_range: str = "Primary Details") -> pd.Da
     try:
         sheets_service = _svc("sheets", "v4")
 
-        logger.info(f"🔍 Fetching sheet data for ID: {sheet_id}, range: {sheet_range}")
+        logger.info(
+            f"🔍 Fetching sheet data for ID: {sheet_id}, range: {sheet_range}")
 
         # Fetch the data
         result = (
@@ -288,7 +294,8 @@ def fetch_sheet_df(sheet_id: str, sheet_range: str = "Primary Details") -> pd.Da
             logger.info(f"    Row {i}: {row}")
 
         if not values:
-            logger.warning(f"⚠️ No data found in sheet {sheet_id} range {sheet_range}")
+            logger.warning(
+                f"⚠️ No data found in sheet {sheet_id} range {sheet_range}")
             return pd.DataFrame()
 
         # Convert to DataFrame
@@ -368,7 +375,8 @@ def copy_template_for_job(job) -> tuple[str, str]:
                 "No master quote template configured in company defaults"
             )
 
-        template_id = extract_file_id(company_defaults.master_quote_template_id)
+        template_id = extract_file_id(
+            company_defaults.master_quote_template_id)
 
         # Create or find "Jobs Manager" folder
         folder_id = _get_or_create_jobs_manager_folder()
@@ -387,11 +395,13 @@ def copy_template_for_job(job) -> tuple[str, str]:
         # Generate web URL
         web_url = f"https://docs.google.com/spreadsheets/d/{copied_file_id}/edit"
 
-        logger.info(f"Created quote spreadsheet for job {job.job_number}: {web_url}")
+        logger.info(
+            f"Created quote spreadsheet for job {job.job_number}: {web_url}")
         return copied_file_id, web_url
 
     except Exception as e:
-        logger.error(f"Failed to copy template for job {job.job_number}: {str(e)}")
+        logger.error(
+            f"Failed to copy template for job {job.job_number}: {str(e)}")
         raise RuntimeError(f"Failed to copy template: {str(e)}")
 
 
@@ -507,12 +517,14 @@ def populate_sheet_from_costset(sheet_id: str, costset) -> None:
             if cost_line.kind == "time":
                 # Column D (index 3): Labour minutes
                 labour_minutes = (
-                    cost_line.meta.get("labour_minutes", 0) if cost_line.meta else 0
+                    cost_line.meta.get(
+                        "labour_minutes", 0) if cost_line.meta else 0
                 )
                 row_data[3] = str(labour_minutes) if labour_minutes else ""
             elif cost_line.kind == "material":
                 # Column K (index 10): Unit cost
-                row_data[10] = str(cost_line.unit_cost) if cost_line.unit_cost else ""
+                row_data[10] = str(
+                    cost_line.unit_cost) if cost_line.unit_cost else ""
 
             values.append(row_data)
 

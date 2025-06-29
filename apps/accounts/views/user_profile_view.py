@@ -42,7 +42,8 @@ def logout_user(request):
         )
 
         # Clear access token cookie
-        access_cookie_name = simple_jwt_settings.get("AUTH_COOKIE", "access_token")
+        access_cookie_name = simple_jwt_settings.get(
+            "AUTH_COOKIE", "access_token")
         response.delete_cookie(
             access_cookie_name,
             domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
@@ -50,7 +51,8 @@ def logout_user(request):
         )
 
         # Clear refresh token cookie
-        refresh_cookie_name = simple_jwt_settings.get("REFRESH_COOKIE", "refresh_token")
+        refresh_cookie_name = simple_jwt_settings.get(
+            "REFRESH_COOKIE", "refresh_token")
         response.delete_cookie(
             refresh_cookie_name,
             domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),

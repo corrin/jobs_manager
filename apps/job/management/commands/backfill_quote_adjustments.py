@@ -93,10 +93,12 @@ class Command(BaseCommand):
                 job = adjustment.job_pricing.job
 
                 # Calculate what the adjustment should be
-                quote_revenue = Decimal(str(job.latest_quote_pricing.total_revenue))
+                quote_revenue = Decimal(
+                    str(job.latest_quote_pricing.total_revenue))
 
                 # Calculate reality revenue excluding this quote adjustment
-                reality_revenue = Decimal(str(job.latest_reality_pricing.total_revenue))
+                reality_revenue = Decimal(
+                    str(job.latest_reality_pricing.total_revenue))
                 reality_revenue -= adjustment.price_adjustment
 
                 correct_adjustment = quote_revenue - reality_revenue
@@ -130,7 +132,8 @@ class Command(BaseCommand):
                         )
                     updated_count += 1
                 else:
-                    self.stdout.write(f"Job {job.job_number}: No update needed")
+                    self.stdout.write(
+                        f"Job {job.job_number}: No update needed")
 
             # Summary
             action = "Would update" if dry_run else "Updated"
@@ -168,8 +171,10 @@ class Command(BaseCommand):
                 continue
 
             # Get quote and reality revenues
-            quote_revenue = Decimal(str(job.latest_quote_pricing.total_revenue))
-            reality_revenue = Decimal(str(job.latest_reality_pricing.total_revenue))
+            quote_revenue = Decimal(
+                str(job.latest_quote_pricing.total_revenue))
+            reality_revenue = Decimal(
+                str(job.latest_reality_pricing.total_revenue))
 
             # Exclude existing quote adjustments from reality revenue
             existing_quote_adjustments = (

@@ -13,6 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="xerotoken",
             name="scope",
-            field=models.TextField(default="PLACEHOLDER_SCOPE_WILL_BE_REPLACED"),
+            field=models.TextField(
+                default="PLACEHOLDER_SCOPE_WILL_BE_REPLACED"),
         ),
     ]

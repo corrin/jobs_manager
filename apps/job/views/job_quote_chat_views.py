@@ -92,12 +92,14 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             job = self.get_job_or_404(job_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format="api")
+            job, error_response = self.get_job_or_404_response(
+                error_format="api")
             if error_response:
                 return error_response
 
             # Get all chat messages for this job, ordered by timestamp
-            messages = JobQuoteChat.objects.filter(job=job).order_by("timestamp")
+            messages = JobQuoteChat.objects.filter(
+                job=job).order_by("timestamp")
 
             # Format messages according to the API spec
             formatted_messages = []
@@ -140,7 +142,8 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             job = self.get_job_or_404(job_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format="api")
+            job, error_response = self.get_job_or_404_response(
+                error_format="api")
             if error_response:
                 return error_response
 
@@ -174,7 +177,8 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             job = self.get_job_or_404(job_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format="api")
+            job, error_response = self.get_job_or_404_response(
+                error_format="api")
             if error_response:
                 return error_response
 
@@ -214,7 +218,8 @@ class JobQuoteChatMessageView(JobLookupMixin, BaseJobQuoteChatView):
             message = self.get_message_or_404(job, message_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format="api")
+            job, error_response = self.get_job_or_404_response(
+                error_format="api")
             if error_response:
                 return error_response
 

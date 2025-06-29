@@ -65,7 +65,8 @@ def fuzzy_find_supplier(supplier_name):
     # Find the best match
     if not norm_names:
         # No suppliers in database
-        logger.warning(f"No suppliers in database to match against: {supplier_name}")
+        logger.warning(
+            f"No suppliers in database to match against: {supplier_name}")
         return None, supplier_name
 
     match, score, _ = process.extractOne(
@@ -102,7 +103,8 @@ def save_quote_file(purchase_order, file_obj):
             destination.write(chunk)
 
     # Create the record
-    relative_path = os.path.relpath(file_path, settings.DROPBOX_WORKFLOW_FOLDER)
+    relative_path = os.path.relpath(
+        file_path, settings.DROPBOX_WORKFLOW_FOLDER)
     quote = PurchaseOrderSupplierQuote.objects.create(
         purchase_order=purchase_order,
         filename=filename,
@@ -153,7 +155,8 @@ def extract_data_from_supplier_quote(
 
         # Extract text from PDF if requested
         extracted_text = None
-        logger.info(f"PDF extraction: is_pdf={is_pdf}, use_pdf_parser={use_pdf_parser}")
+        logger.info(
+            f"PDF extraction: is_pdf={is_pdf}, use_pdf_parser={use_pdf_parser}")
 
         if is_pdf and use_pdf_parser:
             try:
@@ -162,7 +165,8 @@ def extract_data_from_supplier_quote(
                     for page in pdf.pages:
                         text.append(page.extract_text())
                 extracted_text = "\n\n".join(text)
-                logger.info(f"Extracted {len(extracted_text)} characters from PDF")
+                logger.info(
+                    f"Extracted {len(extracted_text)} characters from PDF")
                 # Log a shorter version of the extracted text for debugging
                 preview_length = min(10000, len(extracted_text))
                 logger.info(
@@ -308,7 +312,8 @@ def extract_data_from_supplier_quote(
                     f"Error from Anthropic API: {response.status_code} - {error_message}",
                 )
             except Exception as e:
-                logger.error(f"Failed to parse Anthropic API error response: {e}")
+                logger.error(
+                    f"Failed to parse Anthropic API error response: {e}")
                 logger.error(f"Raw response: {response.text}")
                 return None, f"Error from Anthropic API: {response.status_code}"
 
@@ -465,7 +470,8 @@ def create_po_line_from_quote_item(
     line_total = safe_float(line_data.get("line_total", 0), 0)
     unit_price = safe_float(line_data.get("unit_price"))
 
-    unit_cost = calculate_unit_cost(quantity, line_total, unit_price, description)
+    unit_cost = calculate_unit_cost(
+        quantity, line_total, unit_price, description)
 
     return PurchaseOrderLine.objects.create(
         purchase_order=purchase_order,
@@ -592,12 +598,14 @@ def extract_data_from_supplier_quote_gemini(
         if is_pdf:
             mime_type = "application/pdf"
             file_b64 = base64.b64encode(file_content).decode("utf-8")
-            contents.append({"inline_data": {"mime_type": mime_type, "data": file_b64}})
+            contents.append(
+                {"inline_data": {"mime_type": mime_type, "data": file_b64}})
 
         if is_image:
             mime_type = content_type or "image/jpeg"
             file_b64 = base64.b64encode(file_content).decode("utf-8")
-            contents.append({"inline_data": {"mime_type": mime_type, "data": file_b64}})
+            contents.append(
+                {"inline_data": {"mime_type": mime_type, "data": file_b64}})
 
         if not is_image or not is_pdf:
             try:
@@ -630,7 +638,8 @@ def extract_data_from_supplier_quote_gemini(
         logger.exception(f"Error decoding JSON from Gemini response: {e}")
         return None, f"Invalid JSON response from Gemini: {str(e)}"
     except Exception as e:
-        logger.exception(f"Error extracting data from supplier quote with Gemini: {e}")
+        logger.exception(
+            f"Error extracting data from supplier quote with Gemini: {e}")
         return None, str(e)
 
 
@@ -647,7 +656,8 @@ def create_po_from_quote(
         quote: The supplier quote to extract data from
         ai_provider: Optional, defines the AI provider to be used in the function
     """
-    quote_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, quote.file_path)
+    quote_path = os.path.join(
+        settings.DROPBOX_WORKFLOW_FOLDER, quote.file_path)
 
     match ai_provider.provider_type:
         case AIProviderTypes.GOOGLE:

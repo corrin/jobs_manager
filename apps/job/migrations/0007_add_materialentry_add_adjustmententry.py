@@ -19,11 +19,16 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.UUIDField(default=uuid.uuid4,
                  editable=False, primary_key=True, serialize=False)),
-                ('item_code', models.CharField(blank=True, default='', max_length=20)),
-                ('description', models.CharField(blank=True, default='', max_length=200)),
-                ('comments', models.CharField(blank=True, default='', max_length=200)),
-                ('quantity', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
-                ('unit_cost', models.DecimalField(decimal_places=2, default=0, max_digits=10)),
+                ('item_code', models.CharField(
+                    blank=True, default='', max_length=20)),
+                ('description', models.CharField(
+                    blank=True, default='', max_length=200)),
+                ('comments', models.CharField(
+                    blank=True, default='', max_length=200)),
+                ('quantity', models.DecimalField(
+                    decimal_places=2, default=0, max_digits=10)),
+                ('unit_cost', models.DecimalField(
+                    decimal_places=2, default=0, max_digits=10)),
                 ('unit_revenue', models.DecimalField(
                     decimal_places=2, default=0, max_digits=10)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),

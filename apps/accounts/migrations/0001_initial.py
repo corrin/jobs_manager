@@ -17,7 +17,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="HistoricalStaff",
             fields=[
-                ("password", models.CharField(max_length=128, verbose_name="password")),
+                ("password", models.CharField(
+                    max_length=128, verbose_name="password")),
                 (
                     "last_login",
                     models.DateTimeField(
@@ -34,7 +35,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "id",
-                    models.UUIDField(db_index=True, default=uuid.uuid4, editable=False),
+                    models.UUIDField(
+                        db_index=True, default=uuid.uuid4, editable=False),
                 ),
                 ("icon", models.TextField(blank=True, max_length=100, null=True)),
                 ("password_needs_reset", models.BooleanField(default=False)),
@@ -47,7 +49,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "wage_rate",
-                    models.DecimalField(decimal_places=2, default=0, max_digits=10),
+                    models.DecimalField(
+                        decimal_places=2, default=0, max_digits=10),
                 ),
                 (
                     "ims_payroll_id",
@@ -55,15 +58,18 @@ class Migration(migrations.Migration):
                         blank=True, db_index=True, max_length=100, null=True
                     ),
                 ),
-                ("raw_ims_data", models.JSONField(blank=True, default=dict, null=True)),
+                ("raw_ims_data", models.JSONField(
+                    blank=True, default=dict, null=True)),
                 ("is_active", models.BooleanField(default=True)),
                 ("is_staff", models.BooleanField(default=False)),
                 (
                     "date_joined",
                     models.DateTimeField(default=django.utils.timezone.now),
                 ),
-                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
-                ("updated_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("created_at", models.DateTimeField(
+                    default=django.utils.timezone.now)),
+                ("updated_at", models.DateTimeField(
+                    default=django.utils.timezone.now)),
                 (
                     "hours_mon",
                     models.DecimalField(
@@ -129,11 +135,13 @@ class Migration(migrations.Migration):
                 ),
                 ("history_id", models.AutoField(primary_key=True, serialize=False)),
                 ("history_date", models.DateTimeField(db_index=True)),
-                ("history_change_reason", models.CharField(max_length=100, null=True)),
+                ("history_change_reason", models.CharField(
+                    max_length=100, null=True)),
                 (
                     "history_type",
                     models.CharField(
-                        choices=[("+", "Created"), ("~", "Changed"), ("-", "Deleted")],
+                        choices=[("+", "Created"), ("~", "Changed"),
+                                 ("-", "Deleted")],
                         max_length=1,
                     ),
                 ),
@@ -150,7 +158,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="Staff",
             fields=[
-                ("password", models.CharField(max_length=128, verbose_name="password")),
+                ("password", models.CharField(
+                    max_length=128, verbose_name="password")),
                 (
                     "last_login",
                     models.DateTimeField(
@@ -176,7 +185,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "icon",
-                    models.ImageField(blank=True, null=True, upload_to="staff_icons/"),
+                    models.ImageField(blank=True, null=True,
+                                      upload_to="staff_icons/"),
                 ),
                 ("password_needs_reset", models.BooleanField(default=False)),
                 ("email", models.EmailField(max_length=254, unique=True)),
@@ -188,7 +198,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "wage_rate",
-                    models.DecimalField(decimal_places=2, default=0, max_digits=10),
+                    models.DecimalField(
+                        decimal_places=2, default=0, max_digits=10),
                 ),
                 (
                     "ims_payroll_id",
@@ -196,15 +207,18 @@ class Migration(migrations.Migration):
                         blank=True, max_length=100, null=True, unique=True
                     ),
                 ),
-                ("raw_ims_data", models.JSONField(blank=True, default=dict, null=True)),
+                ("raw_ims_data", models.JSONField(
+                    blank=True, default=dict, null=True)),
                 ("is_active", models.BooleanField(default=True)),
                 ("is_staff", models.BooleanField(default=False)),
                 (
                     "date_joined",
                     models.DateTimeField(default=django.utils.timezone.now),
                 ),
-                ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
-                ("updated_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("created_at", models.DateTimeField(
+                    default=django.utils.timezone.now)),
+                ("updated_at", models.DateTimeField(
+                    default=django.utils.timezone.now)),
                 (
                     "hours_mon",
                     models.DecimalField(

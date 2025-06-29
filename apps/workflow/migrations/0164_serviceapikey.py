@@ -15,9 +15,12 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ServiceAPIKey',
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('name', models.CharField(help_text="Service name (e.g., 'Chatbot Service')", max_length=100)),
-                ('key', models.CharField(help_text='API key for authentication', max_length=64, unique=True)),
+                ('id', models.UUIDField(default=uuid.uuid4,
+                 editable=False, primary_key=True, serialize=False)),
+                ('name', models.CharField(
+                    help_text="Service name (e.g., 'Chatbot Service')", max_length=100)),
+                ('key', models.CharField(
+                    help_text='API key for authentication', max_length=64, unique=True)),
                 ('is_active', models.BooleanField(default=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('last_used', models.DateTimeField(blank=True, null=True)),

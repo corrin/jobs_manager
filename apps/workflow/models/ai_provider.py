@@ -4,7 +4,8 @@ from apps.workflow.enums import AIProviderTypes
 
 
 class AIProvider(models.Model):
-    name = models.CharField(max_length=100, help_text="Friendly name for this provider")
+    name = models.CharField(
+        max_length=100, help_text="Friendly name for this provider")
     api_key = models.CharField(
         max_length=255, null=True, blank=True, help_text="API Key for this AI Provider"
     )

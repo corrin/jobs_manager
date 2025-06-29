@@ -119,15 +119,20 @@ class JobPricingSerializer(serializers.ModelSerializer):
             field_data = attrs.get(field, [])
             field_serializer = None
             if field == "time_entries":
-                field_serializer = TimeEntrySerializer(data=field_data, many=True)
+                field_serializer = TimeEntrySerializer(
+                    data=field_data, many=True)
             elif field == "material_entries":
-                field_serializer = MaterialEntrySerializer(data=field_data, many=True)
+                field_serializer = MaterialEntrySerializer(
+                    data=field_data, many=True)
             elif field == "adjustment_entries":
-                field_serializer = AdjustmentEntrySerializer(data=field_data, many=True)
+                field_serializer = AdjustmentEntrySerializer(
+                    data=field_data, many=True)
 
             if field_serializer and not field_serializer.is_valid():
-                logger.error(f"Validation errors in {field}: {field_serializer.errors}")
-                raise serializers.ValidationError({field: field_serializer.errors})
+                logger.error(
+                    f"Validation errors in {field}: {field_serializer.errors}")
+                raise serializers.ValidationError(
+                    {field: field_serializer.errors})
 
         validated = super().validate(attrs)
         # logger.debug(f"After super().validate, data is: {validated}")
@@ -143,7 +148,8 @@ class JobPricingSerializer(serializers.ModelSerializer):
             instance.time_entries.all().delete()
             # Create new entries using serializer
             for time_entry_data in validated_data.pop("time_entries", []):
-                time_entry_serializer = TimeEntrySerializer(data=time_entry_data)
+                time_entry_serializer = TimeEntrySerializer(
+                    data=time_entry_data)
                 if time_entry_serializer.is_valid():
                     time_entry_serializer.save(job_pricing=instance)
                 else:
@@ -199,7 +205,8 @@ class JobPricingSerializer(serializers.ModelSerializer):
                     )
 
         # Update other fields (that aren't relationships, otherwise they would be handled above)
-        related_fields = ["time_entries", "material_entries", "adjustment_entries"]
+        related_fields = ["time_entries",
+                          "material_entries", "adjustment_entries"]
         for attr, value in validated_data.items():
             if attr not in related_fields:
                 setattr(instance, attr, value)

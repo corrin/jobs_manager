@@ -352,7 +352,8 @@ class ClientCreateRestView(BaseClientRestView):
         if not form.is_valid():
             error_messages = []
             for field, errors in form.errors.items():
-                error_messages.extend([f"{field}: {error}" for error in errors])
+                error_messages.extend(
+                    [f"{field}: {error}" for error in errors])
             raise ValueError("; ".join(error_messages))
 
         # Create client with transaction for data integrity

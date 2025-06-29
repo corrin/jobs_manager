@@ -120,7 +120,8 @@ def sync_remote(root, dry_run):
 
     # Perform real sync
     print(f"Syncing {root} → {REMOTE} --delete-excluded")
-    subprocess.run(["rclone", "sync", root, REMOTE, "--delete-excluded"], check=False)
+    subprocess.run(["rclone", "sync", root, REMOTE,
+                   "--delete-excluded"], check=False)
 
 
 def main():

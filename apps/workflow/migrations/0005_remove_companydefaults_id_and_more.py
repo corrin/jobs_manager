@@ -17,6 +17,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name="companydefaults",
             name="company_name",
-            field=models.CharField(max_length=255, primary_key=True, serialize=False),
+            field=models.CharField(
+                max_length=255, primary_key=True, serialize=False),
         ),
     ]

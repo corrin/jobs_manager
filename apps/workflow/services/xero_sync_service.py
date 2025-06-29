@@ -87,7 +87,8 @@ class XeroSyncService:
                 if entity and entity != "sync":
                     cache.set(current_key, entity, timeout=86400)
                     if message.get("progress") is not None:
-                        cache.set(progress_key, message["progress"], timeout=86400)
+                        cache.set(progress_key,
+                                  message["progress"], timeout=86400)
 
                 msgs.append(message)
                 cache.set(messages_key, msgs, timeout=86400)
@@ -107,7 +108,8 @@ class XeroSyncService:
             logger.info(f"Completed Xero sync task {task_id}")
 
         except Exception as e:
-            logger.error(f"Error during Xero sync task {task_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error during Xero sync task {task_id}: {e}", exc_info=True)
             msgs = cache.get(messages_key, [])
             msgs.append(
                 {

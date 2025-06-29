@@ -29,7 +29,8 @@ class Command(BaseCommand):
                 job = Job.objects.first()
 
             if not job:
-                self.stdout.write(self.style.ERROR("No jobs found in database"))
+                self.stdout.write(self.style.ERROR(
+                    "No jobs found in database"))
                 return
 
             self.stdout.write(
@@ -53,7 +54,8 @@ class Command(BaseCommand):
                     )
                     # Set as latest quote
                     job.set_latest("quote", quote_costset)
-                    self.stdout.write(f"Created new quote costset: {quote_costset.id}")
+                    self.stdout.write(
+                        f"Created new quote costset: {quote_costset.id}")
                 else:
                     self.stdout.write(
                         f"Using existing quote costset: {quote_costset.id}"
@@ -110,7 +112,8 @@ class Command(BaseCommand):
 
                 # Create cost lines
                 for line_data in test_lines:
-                    CostLine.objects.create(cost_set=quote_costset, **line_data)
+                    CostLine.objects.create(
+                        cost_set=quote_costset, **line_data)
 
                 # Calculate and update totals
                 total_cost = Decimal("0")
@@ -151,4 +154,5 @@ class Command(BaseCommand):
                 self.style.ERROR(f"Job with ID {options['job_id']} not found")
             )
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error creating test data: {str(e)}"))
+            self.stdout.write(self.style.ERROR(
+                f"Error creating test data: {str(e)}"))

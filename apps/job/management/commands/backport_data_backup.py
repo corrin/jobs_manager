@@ -45,12 +45,14 @@ class Command(BaseCommand):
         output_path = os.path.join(backup_dir, output_filename)
 
         self.stdout.write(f"Backup will be saved to: {output_path}")
-        self.stdout.write(f"Models to be backed up: {', '.join(INCLUDE_MODELS)}")
+        self.stdout.write(
+            f"Models to be backed up: {', '.join(INCLUDE_MODELS)}")
 
         try:
             # Step 1: Use Django's dumpdata for clean serialization
             cmd = ["python", "manage.py", "dumpdata"] + INCLUDE_MODELS
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=True)
 
             # Step 2: Parse and anonymize
             data = json.loads(result.stdout)
@@ -74,7 +76,8 @@ class Command(BaseCommand):
         except subprocess.CalledProcessError as e:
             self.stdout.write(self.style.ERROR(f"dumpdata failed: {e.stderr}"))
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error during data backup: {e}"))
+            self.stdout.write(self.style.ERROR(
+                f"Error during data backup: {e}"))
             if os.path.exists(output_path):
                 os.remove(output_path)
 

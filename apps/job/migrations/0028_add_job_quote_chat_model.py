@@ -16,13 +16,18 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='JobQuoteChat',
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('message_id', models.CharField(help_text='Frontend-generated unique ID', max_length=100, unique=True)),
-                ('role', models.CharField(choices=[('user', 'User'), ('assistant', 'Assistant')], max_length=20)),
+                ('id', models.UUIDField(default=uuid.uuid4,
+                 editable=False, primary_key=True, serialize=False)),
+                ('message_id', models.CharField(
+                    help_text='Frontend-generated unique ID', max_length=100, unique=True)),
+                ('role', models.CharField(choices=[
+                 ('user', 'User'), ('assistant', 'Assistant')], max_length=20)),
                 ('content', models.TextField()),
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
-                ('metadata', models.JSONField(blank=True, default=dict, help_text='Extra data like streaming status, processing time, etc.')),
-                ('job', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='quote_chat_messages', to='job.job')),
+                ('metadata', models.JSONField(blank=True, default=dict,
+                 help_text='Extra data like streaming status, processing time, etc.')),
+                ('job', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE,
+                 related_name='quote_chat_messages', to='job.job')),
             ],
             options={
                 'db_table': 'job_quote_chat',

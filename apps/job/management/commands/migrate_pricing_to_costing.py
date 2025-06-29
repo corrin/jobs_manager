@@ -28,7 +28,8 @@ class Command(BaseCommand):
         dry_run = options["dry_run"]
         if dry_run:
             self.stdout.write(
-                self.style.WARNING("Running in DRY RUN mode - no changes will be saved")
+                self.style.WARNING(
+                    "Running in DRY RUN mode - no changes will be saved")
             )
 
         # Get all JobPricing instances
@@ -41,7 +42,8 @@ class Command(BaseCommand):
         )
 
         if not job_pricings.exists():
-            self.stdout.write(self.style.WARNING("No JobPricing instances found"))
+            self.stdout.write(self.style.WARNING(
+                "No JobPricing instances found"))
             return
 
         # Progress bar if tqdm is available
@@ -150,7 +152,8 @@ class Command(BaseCommand):
                             quantity=material_entry.quantity,
                             unit_cost=material_entry.unit_cost,
                             unit_rev=material_entry.unit_revenue,
-                            ext_refs={"material_entry_id": str(material_entry.id)},
+                            ext_refs={"material_entry_id": str(
+                                material_entry.id)},
                             meta={
                                 "item_code": material_entry.item_code,
                                 "comments": material_entry.comments,
@@ -171,7 +174,8 @@ class Command(BaseCommand):
                             quantity=Decimal("1.000"),
                             unit_cost=adjustment_entry.cost_adjustment,
                             unit_rev=adjustment_entry.price_adjustment,
-                            ext_refs={"adjustment_entry_id": str(adjustment_entry.id)},
+                            ext_refs={"adjustment_entry_id": str(
+                                adjustment_entry.id)},
                             meta={
                                 "comments": adjustment_entry.comments,
                             },
@@ -198,7 +202,8 @@ class Command(BaseCommand):
 
             except Exception as e:
                 self.stdout.write(
-                    self.style.ERROR(f"Error processing JobPricing {jp.id}: {str(e)}")
+                    self.style.ERROR(
+                        f"Error processing JobPricing {jp.id}: {str(e)}")
                 )
                 if not dry_run:
                     raise  # Update latest_* pointers on Jobs
@@ -233,5 +238,6 @@ class Command(BaseCommand):
 
         if dry_run:
             self.stdout.write(
-                self.style.WARNING("Run again without --dry-run to apply changes")
+                self.style.WARNING(
+                    "Run again without --dry-run to apply changes")
             )

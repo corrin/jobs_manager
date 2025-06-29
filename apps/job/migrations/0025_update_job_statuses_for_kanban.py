@@ -15,13 +15,16 @@ def update_job_statuses(apps, schema_editor):
     # Map old statuses to new ones
     status_mapping = {
         'approved': 'accepted_quote',  # Update approved to accepted_quote
-        'completed': 'recently_completed',  # Jobs that were completed become recently_completed
+        # Jobs that were completed become recently_completed
+        'completed': 'recently_completed',
     }
 
     for old_status, new_status in status_mapping.items():
-        updated_count = Job.objects.filter(status=old_status).update(status=new_status)
+        updated_count = Job.objects.filter(
+            status=old_status).update(status=new_status)
         if updated_count > 0:
-            print(f"Updated {updated_count} jobs from '{old_status}' to '{new_status}'")
+            print(
+                f"Updated {updated_count} jobs from '{old_status}' to '{new_status}'")
 
 
 def reverse_job_statuses(apps, schema_editor):
@@ -38,7 +41,8 @@ def reverse_job_statuses(apps, schema_editor):
 
     for new_status, old_status in reverse_mapping.items():
         # Only reverse if the old status existed
-        updated_count = Job.objects.filter(status=new_status).update(status=old_status)
+        updated_count = Job.objects.filter(
+            status=new_status).update(status=old_status)
         if updated_count > 0:
             print(
                 f"Reverted {updated_count} jobs from '{new_status}' to '{old_status}'")

@@ -1,3 +1,6 @@
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from rest_framework import status
 import logging
 
 from django.contrib import messages
@@ -64,7 +67,8 @@ def get_client_contact_persons(request, client_id):
                     if contact_tuple not in processed_contacts:
                         contact_persons_data.append(additional_contact)
                         processed_contacts.add(contact_tuple)
-                        logger.debug(f"Added additional contact: {additional_contact}")
+                        logger.debug(
+                            f"Added additional contact: {additional_contact}")
                 else:
                     logger.warning(
                         f"Skipping invalid item in additional_contact_persons for "
@@ -145,12 +149,14 @@ def get_all_clients_api(request):
     - include_archived: Set to 'true' to include archived clients (default: false)
     """
     try:
-        include_archived = request.GET.get("include_archived", "").lower() == "true"
+        include_archived = request.GET.get(
+            "include_archived", "").lower() == "true"
 
         if include_archived:
             clients = Client.objects.all().order_by("name")
         else:
-            clients = Client.objects.exclude(xero_archived=True).order_by("name")
+            clients = Client.objects.exclude(
+                xero_archived=True).order_by("name")
 
         clients_data = []
         for client in clients:
@@ -167,7 +173,8 @@ def get_all_clients_api(request):
         )
         return JsonResponse(clients_data, safe=False)
     except Exception as e:
-        logger.error(f"Error fetching all clients for API: {str(e)}", exc_info=True)
+        logger.error(
+            f"Error fetching all clients for API: {str(e)}", exc_info=True)
         return JsonResponse(
             {"error": "Failed to retrieve clients", "details": str(e)}, status=500
         )
@@ -197,7 +204,8 @@ class ClientUpdateView(UpdateView):
 
         try:
             sync_client_to_xero(self.object)
-            messages.success(self.request, "Client synced to Xero successfully")
+            messages.success(
+                self.request, "Client synced to Xero successfully")
         except Exception as e:
             messages.error(self.request, "Failed to sync to Xero")
             return render(
@@ -454,9 +462,6 @@ def AddClient(request):
 
 
 # API views for ClientContact management
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 
 
 @api_view(["GET"])
@@ -472,7 +477,8 @@ def get_client_contacts_api(request, client_id):
         serializer = ClientContactSerializer(contacts, many=True)
         return Response(serializer.data)
     except Exception as e:
-        logger.error(f"Error fetching contacts for client {client_id}: {str(e)}")
+        logger.error(
+            f"Error fetching contacts for client {client_id}: {str(e)}")
         return Response(
             {"error": f"Error fetching contacts: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -510,7 +516,8 @@ def client_contact_detail_api(request, contact_id):
         return Response(serializer.data)
 
     elif request.method == "PUT":
-        serializer = ClientContactSerializer(contact, data=request.data, partial=True)
+        serializer = ClientContactSerializer(
+            contact, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)

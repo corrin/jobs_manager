@@ -36,13 +36,15 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="bill",
             name="tax",
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
+            field=models.DecimalField(
+                decimal_places=2, default=0, max_digits=10),
             preserve_default=False,
         ),
         migrations.AddField(
             model_name="bill",
             name="total_incl_tax",
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
+            field=models.DecimalField(
+                decimal_places=2, default=0, max_digits=10),
             preserve_default=False,
         ),
         migrations.AddField(
@@ -106,13 +108,15 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name="invoice",
             name="tax",
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
+            field=models.DecimalField(
+                decimal_places=2, default=0, max_digits=10),
             preserve_default=False,
         ),
         migrations.AddField(
             model_name="invoice",
             name="total_incl_tax",
-            field=models.DecimalField(decimal_places=2, default=0, max_digits=10),
+            field=models.DecimalField(
+                decimal_places=2, default=0, max_digits=10),
             preserve_default=False,
         ),
         migrations.AddField(
@@ -431,7 +435,8 @@ class Migration(migrations.Migration):
                     "total_incl_tax",
                     models.DecimalField(decimal_places=2, max_digits=10),
                 ),
-                ("amount_due", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("amount_due", models.DecimalField(
+                    decimal_places=2, max_digits=10)),
                 ("xero_last_modified", models.DateTimeField()),
                 (
                     "xero_last_synced",

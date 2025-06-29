@@ -190,7 +190,8 @@ def extract_data_from_supplier_price_list_gemini(
             provider_type=AIProviderTypes.GOOGLE
         ).first()
         if not ai_provider or not ai_provider.model_name:
-            raise ValueError("No Gemini AI provider configured with model_name")
+            raise ValueError(
+                "No Gemini AI provider configured with model_name")
 
         model = genai.GenerativeModel(
             ai_provider.model_name, generation_config=generation_config
@@ -212,14 +213,16 @@ def extract_data_from_supplier_price_list_gemini(
         prompt = create_supplier_extraction_prompt()
         contents = [f"{prompt}\n\nExtracted text from PDF:\n{extracted_text}"]
 
-        logger.info(f"Calling Gemini API for price list extraction: {file_path}")
+        logger.info(
+            f"Calling Gemini API for price list extraction: {file_path}")
         response = model.generate_content(contents)
 
         # Log token usage
         if response.usage_metadata:
             log_token_usage(response.usage_metadata, "Gemini")
         else:
-            logger.warning("Gemini API response did not contain usage_metadata.")
+            logger.warning(
+                "Gemini API response did not contain usage_metadata.")
 
         if not response.candidates:
             return None, "Gemini API returned no candidates."
@@ -235,7 +238,8 @@ def extract_data_from_supplier_price_list_gemini(
         return price_list_data, None
 
     except json.JSONDecodeError as e:
-        logger.error(f"Gemini response was not valid JSON: {json_text}. Error: {e}")
+        logger.error(
+            f"Gemini response was not valid JSON: {json_text}. Error: {e}")
         return None, f"Gemini returned invalid JSON: {e}"
     except Exception as e:
         logger.exception(

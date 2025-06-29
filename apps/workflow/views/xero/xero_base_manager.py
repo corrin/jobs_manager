@@ -127,11 +127,13 @@ class XeroDocumentManager(ABC):
         Subclasses might override this for more specific response handling.
         """
         # Log the type of 'self' when this method is entered
-        logger.info(f"Base create_document called with self type: {type(self)}")
+        logger.info(
+            f"Base create_document called with self type: {type(self)}")
         self.validate_client()
 
         if not self.state_valid_for_xero():
-            raise ValueError("Document is not in a valid state for Xero submission.")
+            raise ValueError(
+                "Document is not in a valid state for Xero submission.")
 
         # Use 'create' type for initial creation attempt
         xero_document = self.get_xero_document(type="create")
@@ -141,7 +143,8 @@ class XeroDocumentManager(ABC):
             # Note: xero-python library expects snake_case for model init,
             # but the API call itself needs PascalCase. The library handles this,
             # but we apply conversion here before wrapping for the final API call structure.
-            payload = convert_to_pascal_case(clean_payload(xero_document.to_dict()))
+            payload = convert_to_pascal_case(
+                clean_payload(xero_document.to_dict()))
             logger.debug(f"Raw payload dictionary: {payload}")
 
             # Determine the correct payload structure for the API call
@@ -166,7 +169,8 @@ class XeroDocumentManager(ABC):
                     "Unknown Xero document type for API payload structure."
                 )
 
-            logger.debug(f"Final API payload: {json.dumps(api_payload, indent=4)}")
+            logger.debug(
+                f"Final API payload: {json.dumps(api_payload, indent=4)}")
 
         except Exception as e:
             logger.error(
@@ -175,7 +179,8 @@ class XeroDocumentManager(ABC):
             raise  # Re-raise after logging
 
         try:
-            logger.info(f"Attempting to call Xero API method: {api_method.__name__}")
+            logger.info(
+                f"Attempting to call Xero API method: {api_method.__name__}")
             response, http_status, http_headers = api_method(
                 self.xero_tenant_id, **kwargs, _return_http_data_only=False
             )
@@ -206,7 +211,8 @@ class XeroDocumentManager(ABC):
         xero_document = self.get_xero_document(type="delete")
 
         try:
-            payload = convert_to_pascal_case(clean_payload(xero_document.to_dict()))
+            payload = convert_to_pascal_case(
+                clean_payload(xero_document.to_dict()))
             logger.debug(
                 f"Serialized payload for delete: {json.dumps(payload, indent=4)}"
             )
@@ -276,7 +282,8 @@ class XeroDocumentManager(ABC):
                 response = self.create_document()
                 return (True, "created")
             except Exception as e:
-                logger.error(f"Failed to create document in Xero during sync: {str(e)}")
+                logger.error(
+                    f"Failed to create document in Xero during sync: {str(e)}")
                 return (False, "create_failed")
 
         try:
@@ -293,7 +300,8 @@ class XeroDocumentManager(ABC):
 
             # Update fields from Xero response
             local_doc.xero_last_synced = timezone.now()
-            local_doc.xero_last_modified = document_data.get("updated_date_utc")
+            local_doc.xero_last_modified = document_data.get(
+                "updated_date_utc")
             local_doc.status = document_data.get("status")
             local_doc.save()
 

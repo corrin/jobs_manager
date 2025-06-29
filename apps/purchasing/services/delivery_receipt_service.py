@@ -51,7 +51,8 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
         Job.DoesNotExist: If a job_id in the allocations is invalid.
         Exception: For other unexpected errors during processing.
     """
-    logger.info(f"Starting delivery receipt processing for PO ID: {purchase_order_id}")
+    logger.info(
+        f"Starting delivery receipt processing for PO ID: {purchase_order_id}")
     logger.debug(f"Received line_allocations data: {line_allocations}")
 
     STOCK_HOLDING_JOB_ID = Job.objects.get(name="Worker Admin").id
@@ -104,7 +105,8 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                     if alloc.get("jobId"):
                         all_job_ids.add(alloc["jobId"])
 
-            jobs = {str(job.id): job for job in Job.objects.filter(id__in=all_job_ids)}
+            jobs = {str(job.id): job for job in Job.objects.filter(
+                id__in=all_job_ids)}
             if len(jobs) != len(all_job_ids):
                 missing_jobs = all_job_ids - set(jobs.keys())
                 raise DeliveryReceiptValidationError(
@@ -114,11 +116,13 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
             # --- Process each submitted line ---
             for line_id, line_data in line_allocations.items():
                 line = lines[line_id]
-                logger.debug(f"Processing line: {line.id} ({line.description})")
+                logger.debug(
+                    f"Processing line: {line.id} ({line.description})")
 
                 # Validate total_received
                 try:
-                    total_received = Decimal(str(line_data.get("total_received", 0)))
+                    total_received = Decimal(
+                        str(line_data.get("total_received", 0)))
                     if total_received < 0:
                         raise DeliveryReceiptValidationError(
                             (
@@ -171,7 +175,8 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                         )
 
                 # Validate sum vs total
-                allocation_diff = abs(calculated_allocation_sum - total_received)
+                allocation_diff = abs(
+                    calculated_allocation_sum - total_received)
                 if allocation_diff > Decimal("0.001"):
                     raise DeliveryReceiptValidationError(
                         f"""
@@ -209,7 +214,8 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                     logger.info(f"Metadata: {alloc_data['metadata']}")
 
                     try:
-                        unit_revenue = line.unit_cost * Decimal(1.0 + retail_rate)
+                        unit_revenue = line.unit_cost * \
+                            Decimal(1.0 + retail_rate)
                     except TypeError:
                         raise DeliveryReceiptValidationError(
                             "Price not confirmed for line, "
@@ -228,8 +234,10 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                                 "metal_type", line.metal_type or "unspecified"
                             ),
                             alloy=metadata.get("alloy", line.alloy or ""),
-                            specifics=metadata.get("specifics", line.specifics or ""),
-                            location=metadata.get("location", line.location or ""),
+                            specifics=metadata.get(
+                                "specifics", line.specifics or ""),
+                            location=metadata.get(
+                                "location", line.location or ""),
                             date=timezone.now(),
                             source="purchase_order",
                             source_purchase_order_line=line,

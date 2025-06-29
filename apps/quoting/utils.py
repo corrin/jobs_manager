@@ -16,7 +16,8 @@ def calculate_product_mapping_hash(product_data: Dict[str, Any]) -> str:
         SHA-256 hash string (64 characters)
     """
     description = str(
-        product_data.get("description", "") or product_data.get("product_name", "")
+        product_data.get("description", "") or product_data.get(
+            "product_name", "")
     )
     return hashlib.sha256(description.encode()).hexdigest()
 

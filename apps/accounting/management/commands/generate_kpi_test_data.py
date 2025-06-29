@@ -81,7 +81,8 @@ class Command(BaseCommand):
         # Parse days pattern
         days_pattern = options.get("days", "10:6:4")
         try:
-            good_days, medium_days, bad_days = map(int, days_pattern.split(":"))
+            good_days, medium_days, bad_days = map(
+                int, days_pattern.split(":"))
         except ValueError:
             self.stdout.write(
                 self.style.ERROR(
@@ -130,14 +131,16 @@ class Command(BaseCommand):
                 )
             )
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error deleting mock data: {str(e)}"))
+            self.stdout.write(self.style.ERROR(
+                f"Error deleting mock data: {str(e)}"))
 
     def _generate_mock_data(self, year, month, good_days, medium_days, bad_days):
         """Generate mock time entries for the specified month"""
         # Validate inputs right at the beginning
         if year is None or month is None:
             self.stdout.write(
-                self.style.ERROR(f"Invalid year ({year}) or month ({month}) values")
+                self.style.ERROR(
+                    f"Invalid year ({year}) or month ({month}) values")
             )
             return
 
@@ -152,11 +155,14 @@ class Command(BaseCommand):
             # Get company defaults to know thresholds
             company_defaults = CompanyDefaults.objects.first()
             if not company_defaults:
-                self.stdout.write(self.style.ERROR("Company defaults not found"))
+                self.stdout.write(self.style.ERROR(
+                    "Company defaults not found"))
                 return
 
-            green_threshold = float(company_defaults.billable_threshold_green or 45)
-            amber_threshold = float(company_defaults.billable_threshold_amber or 30)
+            green_threshold = float(
+                company_defaults.billable_threshold_green or 45)
+            amber_threshold = float(
+                company_defaults.billable_threshold_amber or 30)
 
             # Get staff members (exclude admin users)
             staff_members = Staff.objects.filter(is_staff=False)
@@ -188,7 +194,8 @@ class Command(BaseCommand):
 
             if not shop_job_pricings:
                 self.stdout.write(
-                    self.style.WARNING("No shop job pricings found, creating some...")
+                    self.style.WARNING(
+                        "No shop job pricings found, creating some...")
                 )
                 shop_job_pricings = self._create_shop_job_pricings()
 
@@ -204,7 +211,8 @@ class Command(BaseCommand):
             working_days = self._get_working_days(year, month)
             if not working_days:
                 self.stdout.write(
-                    self.style.ERROR("No working days found for the specified month")
+                    self.style.ERROR(
+                        "No working days found for the specified month")
                 )
                 return
 
@@ -273,7 +281,8 @@ class Command(BaseCommand):
             ).exists()
         except Exception as e:
             self.stdout.write(
-                self.style.ERROR(f"Error checking shop client existence: {str(e)}")
+                self.style.ERROR(
+                    f"Error checking shop client existence: {str(e)}")
             )
             shop_client_exists = False
 
@@ -284,7 +293,8 @@ class Command(BaseCommand):
                     "`python manage.py create_shop_jobs` first"
                 )
             )
-            self.stdout.write(self.style.WARNING("Creating dummy data for testing..."))
+            self.stdout.write(self.style.WARNING(
+                "Creating dummy data for testing..."))
             self._create_test_data()
 
     def _create_test_data(self):
@@ -340,7 +350,8 @@ class Command(BaseCommand):
                     self.stdout.write(f"Created shop job: {name}")
 
             # Create some regular jobs if needed
-            regular_job_names = ["Project Alpha", "Project Beta", "Maintenance Work"]
+            regular_job_names = ["Project Alpha",
+                                 "Project Beta", "Maintenance Work"]
             for name in regular_job_names:
                 if not Job.objects.filter(name=name).exists():
                     job = Job(
@@ -357,13 +368,15 @@ class Command(BaseCommand):
         except Exception as e:
             import traceback
 
-            self.stdout.write(self.style.ERROR(f"Error creating test data: {str(e)}"))
+            self.stdout.write(self.style.ERROR(
+                f"Error creating test data: {str(e)}"))
             self.stdout.write(self.style.ERROR(traceback.format_exc()))
 
     def _create_shop_job_pricings(self):
         """Create job pricings for shop jobs if none exist"""
         # Get shop jobs by querying the client_id directly
-        shop_jobs = Job.objects.filter(client_id="00000000-0000-0000-0000-000000000001")
+        shop_jobs = Job.objects.filter(
+            client_id="00000000-0000-0000-0000-000000000001")
         if not shop_jobs.exists():
             # Try alternative method using client name
             try:
@@ -391,7 +404,8 @@ class Command(BaseCommand):
         )
         if not regular_jobs.exists():
             try:
-                regular_jobs = Job.objects.exclude(client__name__icontains="Shop")
+                regular_jobs = Job.objects.exclude(
+                    client__name__icontains="Shop")
             except Exception:
                 pass
 
@@ -412,7 +426,8 @@ class Command(BaseCommand):
         # Double-check inputs to prevent None values
         if year is None or month is None:
             self.stdout.write(
-                self.style.ERROR(f"Invalid year ({year}) or month ({month}) values")
+                self.style.ERROR(
+                    f"Invalid year ({year}) or month ({month}) values")
             )
             return []
 
@@ -442,7 +457,8 @@ class Command(BaseCommand):
 
             return working_days
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Error calculating working days: {e}"))
+            self.stdout.write(self.style.ERROR(
+                f"Error calculating working days: {e}"))
             return []
 
     def _categorize_days(self, working_days, good_days, medium_days, bad_days):
@@ -471,9 +487,9 @@ class Command(BaseCommand):
         categories = {}
         for day in random_days[:good_days]:
             categories[day] = "green"
-        for day in random_days[good_days : good_days + medium_days]:
+        for day in random_days[good_days: good_days + medium_days]:
             categories[day] = "amber"
-        for day in random_days[good_days + medium_days :]:
+        for day in random_days[good_days + medium_days:]:
             categories[day] = "red"
 
         return categories
@@ -492,7 +508,8 @@ class Command(BaseCommand):
                 ]
             )
         else:
-            qs = qs.filter(job__status__in=["approved", "in_progress", "special"])
+            qs = qs.filter(job__status__in=[
+                           "approved", "in_progress", "special"])
         return list(qs)
 
     @staticmethod
@@ -552,7 +569,8 @@ class Command(BaseCommand):
                 markup_lo, markup_hi = cat_cfg["mark"]
                 unit_cost = self._rand_decimal(*cat_cfg["cost"])
                 markup = random.uniform(markup_lo, markup_hi)
-                unit_rev = (unit_cost * Decimal(str(markup))).quantize(Decimal("1.00"))
+                unit_rev = (unit_cost * Decimal(str(markup))
+                            ).quantize(Decimal("1.00"))
 
                 MaterialEntry.objects.create(
                     job_pricing=jp,
@@ -684,7 +702,8 @@ class Command(BaseCommand):
             try:
                 # Safely get scheduled hours with fallback
                 try:
-                    scheduled_hours = float(staff.get_scheduled_hours(day_date) or 0)
+                    scheduled_hours = float(
+                        staff.get_scheduled_hours(day_date) or 0)
                 except (TypeError, AttributeError, ValueError):
                     scheduled_hours = (
                         8.0  # Default to 8 hours if we can't get scheduled hours
@@ -700,8 +719,10 @@ class Command(BaseCommand):
                 # Create billable entries if we have billable hours and regular jobs
                 if billable_hours > 0 and regular_job_pricings:
                     # Distribute billable hours across 1-3 jobs
-                    num_jobs = min(random.randint(1, 3), len(regular_job_pricings))
-                    job_pricings = random.sample(regular_job_pricings, num_jobs)
+                    num_jobs = min(random.randint(1, 3),
+                                   len(regular_job_pricings))
+                    job_pricings = random.sample(
+                        regular_job_pricings, num_jobs)
 
                     # Split hours evenly with some variation
                     hours_per_job = [billable_hours / num_jobs] * num_jobs
@@ -716,7 +737,8 @@ class Command(BaseCommand):
                         )  # Minimum 15 minutes
 
                         # Get a safe charge_out_rate value
-                        charge_out_rate = getattr(jp.job, "charge_out_rate", None)
+                        charge_out_rate = getattr(
+                            jp.job, "charge_out_rate", None)
                         if charge_out_rate is None:
                             charge_out_rate = (
                                 CompanyDefaults.objects.first().charge_out_rate
@@ -742,7 +764,8 @@ class Command(BaseCommand):
                 # shop jobs
                 if non_billable_hours > 0 and shop_job_pricings:
                     # Pick 1-2 shop jobs
-                    num_jobs = min(random.randint(1, 2), len(shop_job_pricings))
+                    num_jobs = min(random.randint(1, 2),
+                                   len(shop_job_pricings))
                     job_pricings = random.sample(shop_job_pricings, num_jobs)
 
                     # Split hours evenly with some variation
@@ -775,7 +798,8 @@ class Command(BaseCommand):
 
             except Exception as e:
                 self.stdout.write(
-                    self.style.WARNING(f"Error creating entries for {staff}: {e}")
+                    self.style.WARNING(
+                        f"Error creating entries for {staff}: {e}")
                 )
                 continue  # Skip to next staff member on error
 

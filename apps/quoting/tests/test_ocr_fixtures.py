@@ -82,11 +82,14 @@ class TestOCRFixtures(TestCase):
                         return_value="mock_base64",
                     ),
                 ):
-                    result, error = provider.extract_price_data("mock_file_path.pdf")
+                    result, error = provider.extract_price_data(
+                        "mock_file_path.pdf")
 
                 # Basic assertions - no API calls involved
-                self.assertIsNone(error, f"Parsing failed for {ocr_file}: {error}")
-                self.assertIsNotNone(result, f"No result returned for {ocr_file}")
+                self.assertIsNone(
+                    error, f"Parsing failed for {ocr_file}: {error}")
+                self.assertIsNotNone(
+                    result, f"No result returned for {ocr_file}")
 
                 # Check structure
                 self.assertIn("supplier", result)

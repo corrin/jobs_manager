@@ -49,7 +49,8 @@ class QuotingConfig(AppConfig):
             # causing ready() to be called multiple times.
             # RUN_MAIN is a flag set by Django to indicate the main process.
             # We only want to run the scheduler in the main process.
-            logger.info("Skipping scraper scheduler setup in debug child process.")
+            logger.info(
+                "Skipping scraper scheduler setup in debug child process.")
             return
 
         # Only start the scheduler if it hasn't been started already
@@ -95,7 +96,8 @@ class QuotingConfig(AppConfig):
 
             try:
                 scheduler.start()
-                logger.info("APScheduler started successfully for scraper jobs.")
+                logger.info(
+                    "APScheduler started successfully for scraper jobs.")
             except Exception as e:
                 logger.error(
                     f"Error starting APScheduler for scraper jobs: {e}", exc_info=True

@@ -27,7 +27,8 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "sheet_id",
-                    models.CharField(help_text="Google Drive file ID", max_length=100),
+                    models.CharField(
+                        help_text="Google Drive file ID", max_length=100),
                 ),
                 ("sheet_url", models.URLField(blank=True, max_length=500, null=True)),
                 (
