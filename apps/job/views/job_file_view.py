@@ -9,9 +9,9 @@ from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.mixins import JobLookupMixin, JobNumberLookupMixin
 from apps.job.models import Job, JobFile
 from apps.job.serializers.job_file_serializer import JobFileSerializer
-from apps.job.mixins import JobNumberLookupMixin, JobLookupMixin
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
         """
         logger.debug("Processing POST request to upload files (creating new).")
 
-        job, error_response = self.get_job_from_request_data(request, error_format='legacy')
+        job, error_response = self.get_job_from_request_data(
+            request, error_format="legacy"
+        )
         if error_response:
             return error_response
 
@@ -158,7 +160,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
         """
         Return the file list of a job.
         """
-        job, error_response = self.get_job_or_404_response(job_number=job_number, error_format='legacy')
+        job, error_response = self.get_job_or_404_response(
+            job_number=job_number, error_format="legacy"
+        )
         if error_response:
             return error_response
 
@@ -232,7 +236,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
             "1",
         ]
 
-        job, error_response = self.get_job_or_404_response(job_number=job_number, error_format='legacy')
+        job, error_response = self.get_job_or_404_response(
+            job_number=job_number, error_format="legacy"
+        )
         if error_response:
             return error_response
 
@@ -387,7 +393,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
 
 
 class JobFileThumbnailView(JobLookupMixin, APIView):
-    lookup_url_kwarg = 'file_id'  # Note: this view uses file_id, not job_id
+    lookup_url_kwarg = "file_id"  # Note: this view uses file_id, not job_id
     """
     Serve a JPEG thumbnail of a JobFile via its UUID
     """

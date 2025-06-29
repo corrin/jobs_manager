@@ -10,15 +10,15 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.models import Job
 from apps.job.mixins import JobLookupMixin
+from apps.job.models import Job
 from apps.job.serializers import CostSetSerializer
 
 logger = logging.getLogger(__name__)
 
 
 class JobCostSetView(JobLookupMixin, APIView):
-    lookup_url_kwarg = 'pk'  # Match the URL parameter name
+    lookup_url_kwarg = "pk"  # Match the URL parameter name
     """
     Retrieve the latest CostSet for a specific job and kind.
 
@@ -48,7 +48,7 @@ class JobCostSetView(JobLookupMixin, APIView):
             )
 
         # Get the job
-        job, error_response = self.get_job_or_404_response(error_format='legacy')
+        job, error_response = self.get_job_or_404_response(error_format="legacy")
         if error_response:
             return error_response
 

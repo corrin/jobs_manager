@@ -9,9 +9,9 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.mixins import JobNumberLookupMixin
 from apps.job.models import Job, JobFile
 from apps.job.serializers.job_file_serializer import JobFileSerializer
-from apps.job.mixins import JobNumberLookupMixin
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,9 @@ class JobFileUploadView(JobNumberLookupMixin, APIView):
             )
 
         # Validate job exists first
-        job_obj, error_response = self.get_job_or_404_response(job_number=job_number, error_format='legacy')
+        job_obj, error_response = self.get_job_or_404_response(
+            job_number=job_number, error_format="legacy"
+        )
         if error_response:
             return error_response
 

@@ -6,15 +6,16 @@ Follows the same pattern as other job REST views.
 """
 
 import logging
+
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.mixins import JobLookupMixin
 from apps.job.models import Job, JobQuoteChat
 from apps.job.serializers import JobQuoteChatSerializer, JobQuoteChatUpdateSerializer
-from apps.job.mixins import JobLookupMixin
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             job = self.get_job_or_404(job_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format='api')
+            job, error_response = self.get_job_or_404_response(error_format="api")
             if error_response:
                 return error_response
 
@@ -139,7 +140,7 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             job = self.get_job_or_404(job_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format='api')
+            job, error_response = self.get_job_or_404_response(error_format="api")
             if error_response:
                 return error_response
 
@@ -171,9 +172,9 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
         try:
             # Get job using utility method
             job = self.get_job_or_404(job_id)
-            
+
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format='api')
+            job, error_response = self.get_job_or_404_response(error_format="api")
             if error_response:
                 return error_response
 
@@ -213,7 +214,7 @@ class JobQuoteChatMessageView(JobLookupMixin, BaseJobQuoteChatView):
             message = self.get_message_or_404(job, message_id)
 
             # Check if job exists
-            job, error_response = self.get_job_or_404_response(error_format='api')
+            job, error_response = self.get_job_or_404_response(error_format="api")
             if error_response:
                 return error_response
 
