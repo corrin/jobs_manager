@@ -145,7 +145,7 @@ class CostSetSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Garante que summary sempre tem os campos obrigatórios
+        # Ensures that summary always contains the required fields
         summary = data.get("summary") or {}
         data["summary"] = {
             "cost": summary.get("cost", 0),

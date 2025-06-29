@@ -8,6 +8,7 @@ Includes functions for:
 - Fetching sheet data as pandas DataFrames
 """
 
+import io
 import logging
 import os
 import re
@@ -17,6 +18,7 @@ import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaIoBaseDownload
 
 logger = logging.getLogger(__name__)
 
@@ -507,7 +509,9 @@ def populate_sheet_from_costset(sheet_id: str, costset) -> None:
             if cost_line.kind == "time":
                 # Column D (index 3): Labour minutes
                 labour_minutes = (
-                    cost_line.meta.get("labour_minutes", 0) if cost_line.meta else 0
+                    cost_line.meta.get("labour_minutes", 0)
+                    if cost_line.meta
+                    else cost_line.quantity * 60
                 )
                 row_data[3] = str(labour_minutes) if labour_minutes else ""
             elif cost_line.kind == "material":
@@ -542,3 +546,24 @@ def populate_sheet_from_costset(sheet_id: str, costset) -> None:
     except Exception as e:
         logger.error(f"Failed to populate sheet {sheet_id}: {str(e)}")
         raise RuntimeError(f"Failed to populate sheet: {str(e)}")
+
+
+def export_sheet_as_xlsx(sheet_id: str, file_path: str) -> None:
+    """
+    Export a Google Sheet as an .xlsx file and save it to file_path.
+    """
+    try:
+        drive_service = _svc("drive", "v3")
+        request = drive_service.files().export_media(
+            fileId=sheet_id,
+            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        with open(file_path, "wb") as f:
+            downloader = MediaIoBaseDownload(f, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+        logger.info(f"Exported Google Sheet {sheet_id} to {file_path}")
+    except Exception as e:
+        logger.error(f"Failed to export Google Sheet {sheet_id} as xlsx: {str(e)}")
+        raise RuntimeError(f"Failed to export Google Sheet as xlsx: {str(e)}")

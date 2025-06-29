@@ -16,20 +16,42 @@ This module provides both file-based and draft-based import functions:
 """
 
 import logging
+from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 from apps.job.diff import DiffResult, apply_diff, diff_costset
 from apps.job.importers.draft import DraftLine
-
-# Excel import functionality removed - no longer supported
-from apps.job.models import CostSet, Job
+from apps.job.importers.quote_spreadsheet import (
+    ValidationReport,
+    parse_xlsx,
+    parse_xlsx_with_validation,
+)
+from apps.job.models import CostLine, CostSet, Job
 
 logger = logging.getLogger(__name__)
 
 
-# ValidationReport functionality removed with Excel import support
+def serialize_validation_report(
+    validation_report: Optional[ValidationReport],
+) -> Optional[Dict[str, Any]]:
+    """
+    Convert ValidationReport to a JSON-serializable dictionary.
+
+    Args:
+        validation_report: ValidationReport instance or None
+
+    Returns:
+        Dictionary representation or None
+    """
+
+    # ValidationReport is optional in several functions and returning it as None simply means that we didn't have any problems.
+    if validation_report is None:
+        return None
+
+    return validation_report.to_dict()
 
 
 def serialize_draft_lines(draft_lines: List[DraftLine]) -> List[Dict[str, Any]]:
@@ -60,6 +82,8 @@ def serialize_draft_lines(draft_lines: List[DraftLine]) -> List[Dict[str, Any]]:
 class QuoteImportError(Exception):
     """Custom exception for quote import errors"""
 
+    pass
+
 
 class QuoteImportResult:
     """Result object for quote import operations"""
@@ -69,11 +93,13 @@ class QuoteImportResult:
         success: bool,
         cost_set: Optional[CostSet] = None,
         diff_result: Optional[DiffResult] = None,
+        validation_report: Optional[ValidationReport] = None,
         error_message: Optional[str] = None,
     ):
         self.success = success
         self.cost_set = cost_set
         self.diff_result = diff_result
+        self.validation_report = validation_report
         self.error_message = error_message
 
 
@@ -361,7 +387,175 @@ def import_quote_from_drafts(
         raise QuoteImportError(f"Failed to import quote: {str(e)}") from e
 
 
-# File-based import functionality removed - Excel import no longer supported
+def import_quote_from_file(
+    job: Job, file_path: str, skip_validation: bool = False
+) -> QuoteImportResult:
+    """
+    Import a quote from an Excel spreadsheet file.
+
+    Args:
+        job: Job instance to import the quote for
+        file_path: Path to the Excel spreadsheet
+        skip_validation: Whether to skip pre-import validation
+
+    Returns:
+        QuoteImportResult with operation details
+
+    Raises:
+        QuoteImportError: If import fails due to validation or processing errors
+    """
+    # Early return: validate inputs
+    if not job:
+        raise QuoteImportError("Job instance is required")
+    if not file_path:
+        raise QuoteImportError("File path is required")
+
+    logger.info(f"Starting quote import for job {job.id} from {file_path}")
+
+    try:
+        # Step 1: Parse and validate the spreadsheet
+        if skip_validation:
+            # Use simple parser without validation
+            draft_lines, validation_issues = parse_xlsx(file_path, skip_validation=True)
+            validation_report = None
+        else:
+            # Use full validation
+            result = parse_xlsx_with_validation(file_path)
+
+            # Early return: check if validation failed
+            if not result["success"] or not result["can_proceed"]:
+                return QuoteImportResult(
+                    success=False,
+                    validation_report=result["validation_report"],
+                    error_message="Spreadsheet validation failed - see validation report",
+                )
+
+            draft_lines = result["draft_lines"]
+            validation_report = result["validation_report"]
+
+        # Early return: check if we have any lines to import
+        if not draft_lines:
+            return QuoteImportResult(
+                success=False, error_message="No valid lines found in spreadsheet"
+            )
+        # Step 2: Import the quote using the draft lines helper
+        import_result = import_quote_from_drafts(job, draft_lines)
+
+        # Combine validation report with import result
+        import_result.validation_report = validation_report
+
+        logger.info(
+            f"Quote import completed for job {job.id}: success={import_result.success}"
+        )
+        return import_result
+
+    except Exception as e:
+        logger.error(f"Unexpected error during quote import for job {job.id}: {str(e)}")
+        raise QuoteImportError(f"Import failed: {str(e)}") from e
 
 
-# File-based preview functionality removed - Excel import no longer supported
+def preview_quote_import(job: Job, file_path: str) -> Dict[str, Any]:
+    """
+    Preview what changes would be made by importing a quote without actually importing it.
+
+    Args:
+        job: Job instance
+        file_path: Path to Excel spreadsheet
+
+    Returns:
+        Dictionary with preview information including:
+        - validation_report: Validation issues found (serialized)
+        - draft_lines: Parsed draft lines (serialized)
+        - diff_preview: What changes would be made
+        - can_proceed: Whether import can proceed
+    """
+    logger.info(f"Previewing quote import for job {job.id} from {file_path}")
+
+    try:
+        # Parse with validation
+        result = parse_xlsx_with_validation(file_path)
+
+        preview_data = {
+            "validation_report": serialize_validation_report(
+                result["validation_report"]
+            ),
+            "can_proceed": result["can_proceed"],
+            "draft_lines": serialize_draft_lines(result["draft_lines"]),
+            "diff_preview": None,
+            "success": result["success"],
+        }
+
+        # If parsing succeeded, calculate diff preview using hybrid approach
+        if result["success"] and result["draft_lines"]:
+            # Use same hybrid logic as import function for consistency
+            db_latest_rev = job.cost_sets.filter(kind="quote").aggregate(
+                max_rev=models.Max("rev")
+            )["max_rev"]
+
+            pointer_cost_set = job.get_latest("quote")
+            pointer_rev = pointer_cost_set.rev if pointer_cost_set else None
+
+            # Determine the most reliable latest revision and cost set
+            actual_latest_rev = None
+            old_cost_set = None
+
+            if db_latest_rev is not None and pointer_rev is not None:
+                if db_latest_rev != pointer_rev:
+                    logger.warning(
+                        f"Job {job.id} preview: Revision discrepancy detected! "
+                        f"Database: {db_latest_rev}, Pointer: {pointer_rev}"
+                    )
+                actual_latest_rev = db_latest_rev
+                old_cost_set = job.cost_sets.filter(
+                    kind="quote", rev=actual_latest_rev
+                ).first()
+            elif db_latest_rev is not None:
+                actual_latest_rev = db_latest_rev
+                old_cost_set = job.cost_sets.filter(
+                    kind="quote", rev=actual_latest_rev
+                ).first()
+            elif pointer_rev is not None:
+                if job.cost_sets.filter(kind="quote", rev=pointer_rev).exists():
+                    actual_latest_rev = pointer_rev
+                    old_cost_set = pointer_cost_set
+                else:
+                    actual_latest_rev = None
+                    old_cost_set = None
+
+            if old_cost_set:
+                diff_result = diff_costset(old_cost_set, result["draft_lines"])
+                next_revision = actual_latest_rev + 1
+                preview_data["diff_preview"] = {
+                    "additions_count": len(diff_result.to_add),
+                    "updates_count": len(diff_result.to_update),
+                    "deletions_count": len(diff_result.to_delete),
+                    "total_changes": (
+                        len(diff_result.to_add)
+                        + len(diff_result.to_update)
+                        + len(diff_result.to_delete)
+                    ),
+                    "next_revision": next_revision,
+                    "current_revision": actual_latest_rev,
+                }
+            else:
+                preview_data["diff_preview"] = {
+                    "additions_count": len(result["draft_lines"]),
+                    "updates_count": 0,
+                    "deletions_count": 0,
+                    "total_changes": len(result["draft_lines"]),
+                    "next_revision": 1,
+                    "current_revision": None,
+                }
+
+        return preview_data
+
+    except Exception as e:
+        logger.error(f"Error previewing quote import for job {job.id}: {str(e)}")
+        return {
+            "validation_report": None,
+            "can_proceed": False,
+            "draft_lines": [],
+            "diff_preview": None,
+            "success": False,
+            "error": str(e),
+        }

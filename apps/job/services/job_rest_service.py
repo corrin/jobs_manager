@@ -103,25 +103,21 @@ class JobRestService:
             Dict with job and pricing data
         """
         job = get_job_with_pricings(job_id)
-
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
-
         # Fetch latest pricings
         latest_pricings = {
             "estimate": job.latest_estimate_pricing,
             "quote": job.latest_quote_pricing,
             "reality": job.latest_reality_pricing,
         }
-
         # Serialise pricings
         latest_pricings_data = {}
         for stage, pricing in latest_pricings.items():
             if pricing:
-                latest_pricings_data[f"{stage}_pricing"] = JobPricingSerializer(
-                    pricing
-                ).data
-
+                latest_pricings_data[stage] = JobPricingSerializer(pricing).data
+            else:
+                latest_pricings_data[stage] = None
         # Fetch job events
         events = JobEvent.objects.filter(job=job).order_by("-timestamp")[:10]
         events_data = [
@@ -136,12 +132,12 @@ class JobRestService:
             }
             for event in events
         ]
-
+        company_defaults = JobRestService._get_company_defaults()
         return {
             "job": job_data,
             "latest_pricings": latest_pricings_data,
             "events": events_data,
-            "company_defaults": JobRestService._get_company_defaults(),
+            "company_defaults": company_defaults,
         }
 
     @staticmethod

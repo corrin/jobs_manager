@@ -12,6 +12,9 @@ from datetime import date
 from decimal import Decimal
 from typing import Dict, List
 
+from django.db import models
+from django.db.models.expressions import RawSQL
+
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
 from apps.job.models.costing import CostLine
@@ -87,18 +90,36 @@ class DailyTimesheetService:
         """Get timesheet data for a specific staff member"""
 
         try:
-            logger.debug(
+            logger.info(
                 f"Processing staff: {staff.id} ({type(staff.id)}) for date {target_date}"
             )
             # Get cost lines for this staff and date (kind='time')
-            # Convert UUID to string for JSON field lookup
-            cost_lines = CostLine.objects.filter(
-                meta__staff_id=str(staff.id),
-                meta__date=target_date.isoformat(),
+
+            qs = CostLine.objects.annotate(
+                staff_id=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                date=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+            )
+
+            cost_lines = qs.filter(
                 kind="time",
+                staff_id=str(staff.id),
+                date=target_date.isoformat(),
             ).select_related("cost_set__job")
 
-            logger.debug(f"Found {len(cost_lines)} cost lines for staff {staff.id}")
+            logger.info(f"meta__date filter: {target_date.isoformat()}")
+            logger.info(
+                f"meta__date values for staff {staff.id}: {[cl.meta.get('date') for cl in CostLine.objects.filter(meta__staff_id=str(staff.id), kind='time')]}"  # noqa
+            )
+
+            logger.info(f"Found {len(cost_lines)} cost lines for staff {staff.id}")
 
             # Calculate totals
             total_hours = sum(Decimal(line.quantity) for line in cost_lines)
@@ -118,7 +139,7 @@ class DailyTimesheetService:
 
             # Get job breakdown
             job_breakdown = cls._get_job_breakdown(cost_lines)
-            logger.debug(f"Job breakdown for staff {staff.id}: {job_breakdown}")
+            logger.info(f"Job breakdown for staff {staff.id}: {job_breakdown}")
 
             staff_data = {
                 "staff_id": str(staff.id),
@@ -146,7 +167,7 @@ class DailyTimesheetService:
                 ),
             }
 
-            logger.debug(f"Staff data for {staff.id}: {staff_data}")
+            logger.info(f"Staff data for {staff.id}: {staff_data}")
             return staff_data
 
         except Exception as e:

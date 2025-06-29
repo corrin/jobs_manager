@@ -54,7 +54,7 @@ def process_webhook_event(event: Dict[str, Any]) -> None:
         return
 
     # Verify tenant matches our configuration
-    company_defaults = CompanyDefaults.get_solo()
+    company_defaults = CompanyDefaults.get_instance()
     if company_defaults.xero_tenant_id != tenant_id:
         logger.warning(
             f"Webhook event for wrong tenant {tenant_id}, "
@@ -64,7 +64,7 @@ def process_webhook_event(event: Dict[str, Any]) -> None:
 
     # Initialize sync service
     try:
-        sync_service = XeroSyncService()
+        sync_service = XeroSyncService(tenant_id=company_defaults.xero_tenant_id)
     except Exception as e:
         logger.error(f"Failed to initialize XeroSyncService: {e}")
         return

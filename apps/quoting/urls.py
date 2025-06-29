@@ -1,6 +1,19 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
-from . import views
+from . import views, views_django_jobs
+
+router = DefaultRouter()
+router.register(
+    r"api/django-jobs",
+    views_django_jobs.DjangoJobViewSet,
+    basename="django-job",
+)
+router.register(
+    r"api/django-job-executions",
+    views_django_jobs.DjangoJobExecutionViewSet,
+    basename="django-job-execution",
+)
 
 urlpatterns = [
     path(
@@ -34,4 +47,4 @@ urlpatterns = [
         views.job_context_api,
         name="mcp_job_context",
     ),
-]
+] + router.urls

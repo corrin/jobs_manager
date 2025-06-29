@@ -21,14 +21,22 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic.base import RedirectView
 
 urlpatterns = [
+    path(
+        "login",
+        RedirectView.as_view(
+            url=settings.FRONT_END_URL.rstrip("/") + "/login", permanent=False
+        ),
+        name="backend-login-redirect",
+    ),
     path("admin/", admin.site.urls),
     path("", include("apps.workflow.urls")),
     path("job/", include("apps.job.urls", namespace="jobs")),
     path("accounts/", include("apps.accounts.urls")),
     path("timesheets/", include("apps.timesheet.urls")),
-    path("quoting/", include("apps.quoting.urls")),
+    path("quoting/", include(("apps.quoting.urls", "quoting"), namespace="quoting")),
     path("clients/", include("apps.client.urls", namespace="clients")),
     path("purchasing/", include("apps.purchasing.urls", namespace="purchasing")),
     path("accounting/", include("apps.accounting.urls", namespace="accounting")),

@@ -14,13 +14,13 @@ from apps.accounting.models import (
     Invoice,
     InvoiceLineItem,
 )
-from apps.client.models import Client
+from apps.client.models import Client, ClientContact
 from apps.workflow.models import XeroAccount, XeroJournal, XeroJournalLineItem
 
 logger = logging.getLogger("xero")
 
 
-def set_invoice_or_bill_fields(document, document_type):
+def set_invoice_or_bill_fields(document, document_type, new_from_xero=False):
     """
     Process either an invoice or bill from Xero.
 
@@ -33,6 +33,12 @@ def set_invoice_or_bill_fields(document, document_type):
         raise ValueError(
             f"{document_type.title()} raw_json is empty. "
             "We better not try to process it"
+        )
+
+    if new_from_xero:
+        logger.info(
+            f"[XERO-WEBHOOK] Setting fields for new {document_type.lower()} from Xero data: {document.number}"
+            f"[XERO-WEBHOOK] Document ID: {document.xero_id}"
         )
 
     is_invoice = document.raw_json.get("_type") == "ACCREC"
@@ -199,7 +205,10 @@ def set_client_fields(client, new_from_xero=False):
                 isinstance(phone_entry, dict)
                 and phone_entry.get("_phone_type") == "DEFAULT"
             ):
-                default_phone = phone_entry.get("_phone_number", "")
+                number = phone_entry.get("_phone_number", "")
+                area_code = phone_entry.get("_phone_area_code", "")
+                country_code = phone_entry.get("_phone_country_code", "")
+                default_phone = f"{country_code} {area_code} {number}".strip()
                 break  # Found default, no need to check further
     client.phone = (
         default_phone or client.phone
@@ -234,6 +243,59 @@ def set_client_fields(client, new_from_xero=False):
         "_is_customer", client.is_account_customer
     )
 
+    contact_first_name = raw_json.get("_first_name", None)
+    contact_last_name = raw_json.get("_last_name", None)
+
+    match (contact_first_name, contact_last_name):
+        case (str() as first, str() as last) if first and last:
+            client.primary_contact_name = f"{first} {last}"
+        case (str() as first, None) if first:
+            client.primary_contact_name = first
+        case (None, str() as last) if last:
+            client.primary_contact_name = last
+        case _:
+            client.primary_contact_name = "Unnamed Contact"
+
+    contact_email = raw_json.get("_email_address", None)
+    if contact_email:
+        client.primary_contact_email = contact_email
+
+    additional_persons = raw_json.get("_contact_persons", [])
+    if len(additional_persons) > 0:
+        client.additional_contact_persons = [
+            {
+                "name": (person.get("_first_name") or "")
+                + (" " + person.get("_last_name") if person.get("_last_name") else ""),
+                "email": person.get("_email_address"),
+            }
+            for person in additional_persons
+            if isinstance(person, dict)
+        ]
+        for person in additional_persons:
+            if isinstance(person, dict):
+                first_name = person.get("_first_name") or ""
+                last_name = person.get("_last_name") or ""
+                name = first_name + (" " + last_name if last_name else "")
+                email = person.get("_email_address", "")
+                ClientContact.objects.create(
+                    client=client,
+                    name=name,
+                    email=email,
+                )
+
+    phones = raw_json.get("_phones", [])
+    if phones:
+        client.all_phones = [
+            {
+                "type": phone.get("_phone_type"),
+                "number": phone.get("_phone_number"),
+                "_phone_area_code": phone.get("_phone_area_code"),
+                "_phone_country_code": phone.get("_phone_country_code"),
+            }
+            for phone in phones
+            if isinstance(phone, dict) and phone.get("_phone_number")
+        ]
+
     # Handle xero_last_modified
     updated_date_utc_str = raw_json.get("_updated_date_utc")
     if updated_date_utc_str:
@@ -251,7 +313,9 @@ def set_client_fields(client, new_from_xero=False):
     client.save()
 
     if new_from_xero:
-        logger.info(f"Client {client.name} (ID: {client.id}) created from Xero data.")
+        logger.info(
+            f"[XERO-WEBHOOK] Client {client.name} (ID: {client.id}) created from Xero data."
+        )
     else:
         logger.info(f"Client {client.name} (ID: {client.id}) updated from Xero data.")
 

@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.http import JsonResponse
 from django.utils import timezone
+from xero_python.accounting.models import Contact as XeroContact
 from xero_python.accounting.models import Invoice as XeroInvoice
 from xero_python.accounting.models import LineItem
 from xero_python.exceptions import (  # If specific exceptions handled
@@ -20,6 +21,7 @@ from apps.accounting.models import Invoice
 from apps.client.models import Client
 from apps.job.enums import JobPricingMethodology
 from apps.job.models import Job
+from apps.job.models.costing import CostSet
 
 # Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
@@ -75,91 +77,44 @@ class XeroInvoiceManager(XeroDocumentManager):
 
     def get_line_items(self):
         """
-        Generates invoice-specific LineItems based on job pricing type.
+        Generate invoice LineItems using only CostSet/CostLine.
+        Uses the latest CostSet of kind 'actual'.
         """
         if not self.job:
             raise ValueError("Job is required to generate invoice line items.")
 
-        pricing_methodology: JobPricingMethodology = self.job.pricing_methodology
-
-        match pricing_methodology:
-            case JobPricingMethodology.TIME_AND_MATERIALS:
-                return self._get_time_and_materials_line_items()
-            case JobPricingMethodology.FIXED_PRICE:
-                return self._get_fixed_price_line_items()
-            case _:
-                raise ValueError(
-                    f"Unknown pricing type for job {self.job.id}: {pricing_methodology}"
-                )
-
-    def _get_time_and_materials_line_items(self):
-        """
-        Generates LineItems for time and materials pricing.
-        """
-        if (
-            not self.job
-            or not hasattr(self.job, "latest_reality_pricing")
-            or not self.job.latest_reality_pricing
-        ):
+        latest_actual = (
+            CostSet.objects.filter(job=self.job, kind="actual")
+            .order_by("-rev", "-created")
+            .first()
+        )
+        if not latest_actual:
             raise ValueError(
-                (
-                    f"Job {self.job.id if self.job else 'Unknown'} is missing "
-                    "reality pricing information for T&M invoice."
-                )
+                f"Job {self.job.id} does not have an 'actual' CostSet for invoicing."
             )
 
-        xero_line_items = []
-        xero_line_items.append(
-            LineItem(
-                description=(
-                    f"Job: {self.job.job_number}"
-                    f"{(' - ' + self.job.description) if self.job.description else ''}"
-                ),
-                quantity=1,  # Typically T&M is invoiced as a single line item sum
-                unit_amount=float(self.job.latest_reality_pricing.total_revenue)
-                or 0.00,
-                account_code=self._get_account_code(),
-            ),
-        )
-        return xero_line_items
+        # Try to get total revenue from summary, otherwise sum unit_rev from cost lines
+        total_revenue = None
+        if latest_actual.summary and isinstance(latest_actual.summary, dict):
+            total_revenue = latest_actual.summary.get("rev")
+        if total_revenue is None:
+            total_revenue = sum(cl.unit_rev for cl in latest_actual.cost_lines.all())
+        total_revenue = float(total_revenue or 0.0)
 
-    def _get_fixed_price_line_items(self):
-        """
-        Generates LineItems for fixed price pricing based on the quote.
-        """
-        if (
-            not self.job
-            or not hasattr(self.job, "latest_quote_pricing")
-            or not self.job.latest_quote_pricing
-        ):
-            raise ValueError(
-                (
-                    f"Job {self.job.id if self.job else 'Unknown'} is missing "
-                    "quote pricing information for Fixed Price invoice."
-                )
-            )
+        description = f"Job: {self.job.job_number}"
+        if self.job.description:
+            description += f" - {self.job.description} (Invoice)"
+        else:
+            description += " (Invoice)"
 
-        xero_line_items: list[LineItem] = []
-        # It seems the original code added an empty description line first
-        # - keeping for consistency?
-        # xero_line_items.append(LineItem(description="Price as quoted"))
-        # Consider if this is needed
-        job_suffix = (
-            f" - {self.job.description} (Fixed Price)"
-            if self.job.description
-            else " (Fixed Price)"
-        )
-        xero_line_items.append(
+        return [
             LineItem(
-                description=f"Job: {self.job.job_number}{job_suffix}",
+                description=description,
                 quantity=1,
-                unit_amount=(
-                    float(self.job.latest_quote_pricing.total_revenue) or 0.00
-                ),
+                unit_amount=total_revenue,
                 account_code=self._get_account_code(),
             )
-        )
-        return xero_line_items
+        ]
 
     def get_xero_document(self, type):
         """
@@ -351,41 +306,30 @@ class XeroInvoiceManager(XeroDocumentManager):
 
             if response and response.invoices:
                 # Check if the response indicates successful deletion
-                # (e.g., status is DELETED)
                 xero_invoice_data = response.invoices[0]
-                if str(getattr(xero_invoice_data, "status", "")).upper() == "DELETED":
-                    # Delete local record only after confirming Xero deletion/update
-                    if hasattr(self.job, "invoice") and self.job.invoice:
-                        local_invoice_id = self.job.invoice.id
-                        self.job.invoice.delete()
-                        logger.info(
-                            f"""
-                            Invoice {local_invoice_id} deleted successfully
-                            for job {self.job.id}
-                            """.strip()
-                        )
-                    else:
-                        logger.warning(
-                            f"No local invoice found for job {self.job.id} to delete."
-                        )
+                status = str(getattr(xero_invoice_data, "status", "")).upper()
+                xero_invoice_id = getattr(xero_invoice_data, "invoice_id", None)
+                if status == "DELETED" and xero_invoice_id:
+                    # Remove local Invoice if exists
+                    deleted_count = Invoice.objects.filter(
+                        xero_id=xero_invoice_id
+                    ).delete()[0]
+                    logger.info(
+                        f"Invoice {xero_invoice_id} deleted in Xero and {deleted_count} local record(s) removed."
+                    )
                     return JsonResponse(
                         {
                             "success": True,
-                            "messages": [
-                                {
-                                    "level": "success",
-                                    "message": "Invoice deleted successfully.",
-                                }
-                            ],
+                            "xero_id": str(xero_invoice_id),
+                            "message": "Invoice deleted successfully in Xero and locally.",
                         }
                     )
                 else:
-                    error_msg = "Xero response did not confirm invoice deletion."
-                    status = getattr(xero_invoice_data, "status", "Unknown")
-                    logger.error(f"{error_msg} Status: {status}")
+                    error_msg = f"Invoice deletion failed or status not DELETED. Status: {status}, Xero ID: {xero_invoice_id}"
+                    logger.error(error_msg)
                     return JsonResponse(
                         {"success": False, "message": error_msg}, status=400
-                    )  # Changed "error" to "message"
+                    )
             else:
                 error_msg = """
                 No invoices found in the Xero response or failed to delete invoice.
@@ -393,7 +337,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                 logger.error(error_msg)
                 return JsonResponse(
                     {"success": False, "message": error_msg}, status=400
-                )  # Changed "error" to "message"
+                )
         except AccountingBadRequestException as e:
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
@@ -441,3 +385,66 @@ class XeroInvoiceManager(XeroDocumentManager):
                 },
                 status=500,
             )
+
+    def get_or_create_xero_contact(self):
+        """
+        Searches for an existing Xero contact by client name. If found, returns the Contact object with ContactID.
+        If not found, creates a new contact and returns the created Contact object.
+        """
+        client_name = (
+            self.client.name.strip() if self.client and self.client.name else None
+        )
+        if not client_name:
+            raise ValueError("Client name is required to sync with Xero.")
+
+        try:
+            # Search for existing contacts in Xero by name (case-insensitive)
+            contacts_response = self.xero_api.get_contacts(
+                self.xero_tenant_id, where=f'Name=="{client_name}"'
+            )
+            contacts = getattr(contacts_response, "contacts", [])
+            if contacts:
+                logger.info(
+                    f"Found existing Xero contact for '{client_name}' (ContactID: {contacts[0].contact_id})"
+                )
+                return contacts[0]  # Return the first found contact
+        except Exception as e:
+            logger.warning(f"Error searching for existing Xero contact: {str(e)}")
+            # Do not interrupt the flow, try to create contact below
+
+        # If not found, create new contact
+        logger.info(
+            f"No existing Xero contact found for '{client_name}', creating new contact."
+        )
+        contact_data = {
+            "name": client_name,
+            "email_address": getattr(self.client, "email", None),
+            "first_name": getattr(self.client, "first_name", None),
+            "last_name": getattr(self.client, "last_name", None),
+            # Add other relevant fields if necessary
+        }
+        # Remove None fields
+        contact_data = {k: v for k, v in contact_data.items() if v}
+        new_contact = XeroContact(**contact_data)
+        try:
+            create_response = self.xero_api.create_contacts(
+                self.xero_tenant_id, contacts=[new_contact]
+            )
+            created_contacts = getattr(create_response, "contacts", [])
+            if created_contacts:
+                logger.info(
+                    f"Created new Xero contact for '{client_name}' (ContactID: {created_contacts[0].contact_id})"
+                )
+                return created_contacts[0]
+        except Exception as e:
+            logger.error(f"Failed to create Xero contact for '{client_name}': {str(e)}")
+            raise ValueError(
+                f"Could not create or find Xero contact for '{client_name}'. {str(e)}"
+            )
+        raise ValueError(f"Could not create or find Xero contact for '{client_name}'.")
+
+    def get_xero_contact(self):
+        """
+        Returns the Xero contact (with ContactID if already exists, or new if not).
+        """
+        return self.get_or_create_xero_contact()

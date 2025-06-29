@@ -139,7 +139,10 @@ class JobDetailRestView(BaseJobRestView):
         Update Job data (autosave).
         """
         try:
-            self.parse_json_body(request)
+            data = self.parse_json_body(request)
+
+            # Update the job using the service layer
+            JobRestService.update_job(job_id, data, request.user)
 
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)

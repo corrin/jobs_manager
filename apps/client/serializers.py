@@ -29,3 +29,10 @@ class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = "__all__"
+
+
+class ClientNameOnlySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = ["id", "name"]
+        read_only_fields = ["id", "name"]

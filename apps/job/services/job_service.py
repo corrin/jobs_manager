@@ -131,7 +131,7 @@ def get_latest_job_pricings(job):
 def get_paid_complete_jobs():
     """Fetches the jobs that are both completed and paid."""
     return (
-        Job.objects.filter(status="completed", paid=True)
+        Job.objects.filter(status__in=["completed", "recently_completed"], paid=True)
         .select_related("client")
         .order_by("-updated_at")
     )

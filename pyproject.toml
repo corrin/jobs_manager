@@ -61,12 +61,13 @@ httpcore = "^1.0.9"
 httpx = "^0.28.1"
 pre-commit = "^4.2.0"
 mypy = "^1.16.1"
+django-stubs = "^5.2.1"
 
 [tool.poetry.scripts]
 post-install = "scripts.post_install:install_system_deps"  # Script to install system dependencies like poppler-utils
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.4.2"
+black = "^25.1.0"
 flake8 = "^7.0.0"
 mypy = "^1.11.2"
 pylint = "^3.2.7"
@@ -74,7 +75,7 @@ tox = "^4.18.1"
 django-stubs = "^5.0.4"
 mypy-extensions = "^1.0.0"
 types-pytz = "^2024.1.0.20240417"
-isort = "^5.13.2"
+isort = "^6.0.1"
 vulture = "^2.12"
 deptry = "^0.20.0"
 django-debug-toolbar = "^4.4.6"

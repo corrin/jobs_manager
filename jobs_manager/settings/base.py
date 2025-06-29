@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
+load_dotenv(BASE_DIR / ".env")
+
 AUTH_USER_MODEL = "accounts.Staff"
 
 # Application definition
@@ -53,8 +55,9 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
-    "apps.workflow.middleware.LoginRequiredMiddleware",
-    "apps.workflow.middleware.PasswordStrengthMiddleware",
+    # Not needed anymore, since we're already using Simple JWT
+    # "apps.workflow.middleware.LoginRequiredMiddleware",
+    # "apps.workflow.middleware.PasswordStrengthMiddleware",
 ]
 
 # JWT/general authentication settings
@@ -63,21 +66,11 @@ ENABLE_JWT_AUTH = True
 ENABLE_DUAL_AUTHENTICATION = False
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
-
-if ENABLE_JWT_AUTH:
-    REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].append(
-        "jobs_manager.authentication.JWTAuthentication"
-    )
-
-if not ENABLE_JWT_AUTH or ENABLE_DUAL_AUTHENTICATION:
-    REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].append(
-        "rest_framework.authentication.SessionAuthentication"
-    )
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
@@ -94,14 +87,14 @@ SIMPLE_JWT = {
     "AUTH_COOKIE": "access_token",
     "AUTH_COOKIE_SECURE": True,
     "AUTH_COOKIE_HTTP_ONLY": True,
-    "AUTH_COOKIE_SAMESITE": "Lax",
+    "AUTH_COOKIE_SAMESITE": str(os.getenv("COOKIE_SAMESITE", "Lax")),
 }
 
-LOGIN_URL = "accounts:login"
+FRONT_END_URL = os.getenv("FRONT_END_URL", "")
+LOGIN_URL = FRONT_END_URL.rstrip("/") + "/login"
 LOGOUT_URL = "accounts:logout"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_REDIRECT_URL = FRONT_END_URL
 LOGIN_EXEMPT_URLS = [
-    "accounts:login",
     "accounts:logout",
     "accounts:api_logout",
     "accounts:password_reset",
@@ -112,17 +105,6 @@ LOGIN_EXEMPT_URLS = [
     "accounts:token_obtain_pair",
     "accounts:token_refresh",
     "accounts:token_verify",
-    "api/",  # Exempt all API endpoints from session authentication
-    "accounts/api/",  # Include accounts API endpoints
-    "accounts/me/",  # Include user info endpoint
-    "accounts/logout/",  # Include logout API endpoint explicitly
-    "clients/rest/",  # Include client REST endpoints
-    "clients/api/",  # Include client API endpoints
-    "job/rest/",  # Include job REST endpoints
-    "job/api/",  # Include job API endpoints
-    "rest/",  # Include all REST endpoints
-    "timesheets/api/",  # Include timesheet API endpoints
-    "xero_webhook",
 ]
 
 LOGGING = {
@@ -305,8 +287,6 @@ CHANNEL_LAYERS = {
 DJANGO_MCP_AUTHENTICATION_CLASSES = [
     "rest_framework.authentication.SessionAuthentication",
 ]
-
-load_dotenv(BASE_DIR / ".env")
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases

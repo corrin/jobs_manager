@@ -166,7 +166,16 @@ class XeroDocumentManager(ABC):
                     "Unknown Xero document type for API payload structure."
                 )
 
-            logger.debug(f"Final API payload: {json.dumps(api_payload, indent=4)}")
+            def json_default(obj):
+                if hasattr(obj, "value"):
+                    return obj.value
+                if hasattr(obj, "__str__"):
+                    return str(obj)
+                return repr(obj)
+
+            logger.debug(
+                f"Final API payload: {json.dumps(api_payload, indent=4, default=json_default)}"
+            )
 
         except Exception as e:
             logger.error(

@@ -334,9 +334,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     f"Error during retry for PO {self.purchase_order.id}: {str(e)}"
                 )
 
-            # Se chegamos aqui, tanto a tentativa original quanto a nova falharam
-            # em obter um UUID válido
-            # Salvamos sem o UUID, mas com URL e data de sincronização
+            # If we reached this point, both the original and the retry attempt failed
+            # to obtain a valid UUID
+            # We save without the UUID, but with the URL and synchronisation date
             self._save_po_with_xero_data(None, xero_po_url, timezone.now())
             return JsonResponse(
                 {

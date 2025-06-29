@@ -4,6 +4,10 @@ from rest_framework_simplejwt.views import TokenVerifyView
 
 from apps.accounts.views import get_current_user, logout_user
 from apps.accounts.views.password_views import SecurityPasswordChangeView
+from apps.accounts.views.staff_api import (
+    StaffListCreateAPIView,
+    StaffRetrieveUpdateDestroyAPIView,
+)
 from apps.accounts.views.staff_views import (
     StaffCreateView,
     StaffListAPIView,
@@ -79,5 +83,12 @@ urlpatterns = [
             template_name="accounts/registration/password_reset_complete.html"
         ),
         name="password_reset_complete",
+    ),
+    # Staff API RESTful endpoints
+    path("api/staff/", StaffListCreateAPIView.as_view(), name="api_staff_list_create"),
+    path(
+        "api/staff/<uuid:pk>/",
+        StaffRetrieveUpdateDestroyAPIView.as_view(),
+        name="api_staff_detail",
     ),
 ]

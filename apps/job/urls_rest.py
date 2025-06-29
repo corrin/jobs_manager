@@ -35,6 +35,7 @@ from apps.job.views.modern_timesheet_views import (
     ModernTimesheetEntryView,
     ModernTimesheetJobView,
 )
+from apps.job.views.month_end_rest_view import MonthEndRestView
 from apps.job.views.quote_import_views import QuoteImportStatusView
 from apps.job.views.quote_sync_views import apply_quote, link_quote_sheet, preview_quote
 from apps.job.views.workshop_view import WorkshopPDFView
@@ -43,6 +44,7 @@ from apps.job.views.workshop_view import WorkshopPDFView
 rest_urlpatterns = [
     # Job CRUD operations (REST style)
     path("rest/jobs/", JobCreateRestView.as_view(), name="job_create_rest"),
+    path("rest/month-end/", MonthEndRestView.as_view(), name="month_end_rest"),
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
     ),

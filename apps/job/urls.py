@@ -110,7 +110,7 @@ urlpatterns = [
         name="api_update_job_status",
     ),
     path(
-        "api/jobs/<str:job_id>/reorder/",
+        "api/jobs/<uuid:job_id>/reorder/",
         kanban_view_api.reorder_job,
         name="api_reorder_job",
     ),

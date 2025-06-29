@@ -17,6 +17,7 @@ from apps.accounting.enums import QuoteStatus
 
 # Import models
 from apps.accounting.models import Quote
+from apps.job.models.costing import CostSet
 
 # Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
@@ -79,35 +80,41 @@ class XeroQuoteManager(XeroDocumentManager):
 
     def get_line_items(self):
         """
-        Generate quote-specific LineItems.
+        Generate quote LineItems using only CostSet/CostLine.
+        Uses the latest CostSet of kind 'quote'.
+        Rejects if not present or if the job is T&M.
         """
-        # Ensure job and pricing exist
+        if not self.job:
+            raise ValueError("Job is required to generate quote line items.")
+        # Reject if job is T&M
         if (
-            not self.job
-            or not hasattr(self.job, "latest_quote_pricing")
-            or not self.job.latest_quote_pricing
+            hasattr(self.job, "pricing_methodology")
+            and getattr(self.job, "pricing_methodology", None) == "TIME_AND_MATERIALS"
         ):
+            raise ValueError(f"Job {self.job.id} is T&M and cannot be quoted in Xero.")
+        latest_quote = (
+            CostSet.objects.filter(job=self.job, kind="quote")
+            .order_by("-rev", "-created")
+            .first()
+        )
+        if not latest_quote:
             raise ValueError(
-                (
-                    f"Job {self.job.id if self.job else 'Unknown'} is missing "
-                    "quote pricing information."
+                f"Job {self.job.id} does not have a 'quote' CostSet for quoting."
+            )
+        line_items = []
+        for cl in latest_quote.cost_lines.all():
+            line_items.append(
+                LineItem(
+                    description=cl.desc or "Quote item",
+                    quantity=float(cl.quantity),
+                    unit_amount=float(cl.unit_rev),
+                    account_code=self._get_account_code(),
                 )
             )
-
-        line_items = [
-            LineItem(
-                # Xero requires a description for quote line items, so we'll have to keep the placeholder in case there's no job description
-                description=(
-                    f"Quote for job: {self.job.job_number}"
-                    f"{(' - ' + self.job.description) if self.job.description else ''}"
-                ),
-                quantity=1,
-                unit_amount=(
-                    float(self.job.latest_quote_pricing.total_revenue) or 0.00
-                ),
-                account_code=self._get_account_code(),
+        if not line_items:
+            raise ValueError(
+                f"'quote' CostSet for job {self.job.id} has no cost lines."
             )
-        ]
         return line_items
 
     def get_xero_document(self, type: str) -> XeroQuote:

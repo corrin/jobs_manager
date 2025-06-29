@@ -10,8 +10,6 @@ Provides functionality to:
 """
 
 import logging
-from pathlib import Path
-from tempfile import NamedTemporaryFile
 
 import pandas as pd
 
@@ -22,6 +20,7 @@ from apps.job.importers.google_sheets import (
     fetch_sheet_df,
     populate_sheet_from_costset,
 )
+from apps.job.importers.quote_spreadsheet import parse_xlsx_with_validation
 
 # Excel import functionality removed - no longer supported
 from apps.job.models import Job
@@ -101,9 +100,30 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
                 f"https://docs.google.com/spreadsheets/d/{quote_file_id}/edit"
             )
             quote_sheet.save()
-        # Pre-populate sheet with estimate data if available AND copy to quote costset
-        estimate_cost_set = getattr(job, "latest_estimate", None)
-        if estimate_cost_set and hasattr(estimate_cost_set, "cost_lines"):
+
+        # Pre-populate sheet with existing quote data if available
+        quote_cost_set = job.latest_quote
+        if quote_cost_set and quote_cost_set.cost_lines.exists():
+            quote_lines_count = quote_cost_set.cost_lines.count()
+            if quote_lines_count > 0:
+                logger.info(
+                    f"Pre-populating quote sheet with {quote_lines_count} quote lines (priority)"
+                )
+                try:
+                    populate_sheet_from_costset(quote_file_id, quote_cost_set)
+                    logger.info(
+                        "Successfully pre-populated quote sheet with quote data"
+                    )
+                    return quote_sheet
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to pre-populate quote sheet from quote: {str(e)} - Sheet created but empty"
+                    )
+                    return quote_sheet
+
+        # Fallback: if there's no quote cost set, try to pre-populate from estimate
+        estimate_cost_set = job.latest_estimate
+        if estimate_cost_set and job.latest_estimate.cost_lines.exists():
             cost_lines_count = estimate_cost_set.cost_lines.count()
             if cost_lines_count > 0:
                 logger.info(
@@ -116,8 +136,7 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
                         "Successfully pre-populated quote sheet with estimate data"
                     )
 
-                    # 2. Copy estimate data to quote costset in database
-                    quote_cost_set = getattr(job, "latest_quote", None)
+                    # 2. Also copy to the quote cost set, if it exists
                     if quote_cost_set:
                         _copy_estimate_to_quote_costset(
                             estimate_cost_set, quote_cost_set
@@ -125,10 +144,9 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
                         logger.info(
                             "Successfully copied estimate data to quote costset"
                         )
-
                 except Exception as e:
                     logger.warning(
-                        f"Failed to pre-populate quote sheet: {str(e)} - Sheet created but empty"
+                        f"Failed to pre-populate quote sheet from estimate: {str(e)} - Sheet created but empty"
                     )
 
         logger.info(
@@ -143,14 +161,12 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
 
 def _fetch_drafts(job: Job):
     """
-    Download the linked sheet data and return DraftLine[] via DataFrame processing.
-    Raise RuntimeError if missing link.
+    Download the linked sheet as xlsx, parse using the same Excel parser, and return DraftLine[].
     """
     logger.info(f"Fetching drafts for job {job.job_number}")
 
     try:
-        # Check if job has linked quote sheet
-        if not hasattr(job, "quote_sheet") or not job.quote_sheet:
+        if not job.quote_sheet:
             raise RuntimeError(f"Job {job.job_number} has no linked quote sheet")
 
         quote_sheet = job.quote_sheet
@@ -305,18 +321,16 @@ def _ensure_jobs_manager_folder(
 
     Returns:
         str: Jobs Manager folder ID
-    """  # For now, assume we need to create it
+    """
+    # For now, assume we need to create it
     # TODO: Add logic to check if folder already exists
     try:
         jobs_manager_folder_id = create_folder("Jobs Manager", parent_folder_id)
 
-        # Update CompanyDefaults if needed
         if (
-            not hasattr(company_defaults, "jobs_manager_folder_id")
+            not company_defaults.jobs_manager_folder_id
             or company_defaults.jobs_manager_folder_id != jobs_manager_folder_id
         ):
-            # Note: This assumes the field exists in CompanyDefaults
-            # If not, this would need to be adjusted
             logger.info(f"Created/found Jobs Manager folder: {jobs_manager_folder_id}")
 
         return jobs_manager_folder_id

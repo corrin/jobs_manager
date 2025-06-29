@@ -45,9 +45,30 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class StaffSerializer(serializers.ModelSerializer):
+    def to_internal_value(self, data):
+        data = data.copy()  # QueryDict can be immutable, so we copy it
+        for field in ["groups", "user_permissions"]:
+            # Usually it comes as a QueryDict so we can use getlist directly without hasattr
+            value = data.getlist(field)
+            if value == [""]:
+                data.setlist(field, [])
+        return super().to_internal_value(data)
+
+    def validate(self, attrs):
+        return super().validate(attrs)
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password", None)
+        if password:
+            instance.set_password(password)
+        return super().update(instance, validated_data)
+
     class Meta:
         model = Staff
         fields = "__all__"
+        extra_kwargs = {
+            "password": {"required": False},
+        }
 
 
 class KanbanStaffSerializer(serializers.ModelSerializer):
@@ -74,6 +95,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     username = serializers.CharField(source="email", read_only=True)
     fullName = serializers.SerializerMethodField()
+    preferred_name = serializers.CharField(read_only=True)
 
     def get_fullName(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
@@ -86,6 +108,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
+            "preferred_name",
             "fullName",
             "is_active",
             "is_staff",
@@ -96,6 +119,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "email",
             "first_name",
             "last_name",
+            "preferred_name",
             "fullName",
             "is_active",
             "is_staff",
