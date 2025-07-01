@@ -162,6 +162,7 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
 def _fetch_drafts(job: Job):
     """
     Download the linked sheet as xlsx, parse using the same Excel parser, and return DraftLine[].
+    WARNING: THIS CODE WAS WRITTEN BY AI
     """
     logger.info(f"Fetching drafts for job {job.job_number}")
 
@@ -174,23 +175,23 @@ def _fetch_drafts(job: Job):
         tab = quote_sheet.tab or "Primary Details"
 
         # Download sheet data as DataFrame
-        logger.info(f"🔍 About to fetch sheet data for job {job.job_number}")
+        logger.info(f"About to fetch sheet data for job {job.job_number}")
         df = fetch_sheet_df(str(sheet_id), tab)
 
-        logger.info(f"📊 Received DataFrame with shape: {df.shape}")
-        logger.info(f"📋 DataFrame columns: {list(df.columns)}")
+        logger.info(f"Received DataFrame with shape: {df.shape}")
+        logger.info(f"DataFrame columns: {list(df.columns)}")
 
         if df.empty:
-            logger.warning(f"⚠️ Empty data from sheet {sheet_id}")
+            logger.warning(f"Empty data from sheet {sheet_id}")
             return []
 
         # Log sample of data
-        logger.info("📝 Sample DataFrame data (first 3 rows):")
+        logger.info("Sample DataFrame data (first 3 rows):")
         for i, row in df.head(3).iterrows():
             logger.info(f"    Row {i}: {row.to_dict()}")
 
         # Process DataFrame directly to create DraftLine objects
-        logger.info("🔧 Processing DataFrame to create draft lines...")
+        logger.info("Processing DataFrame to create draft lines...")
 
         # Import DraftLine here to avoid circular imports
         from apps.job.importers.draft import DraftLine, Kind
