@@ -1,19 +1,18 @@
-import html
 import logging
 import os
-from io import BytesIO
 import re
 import time
+from io import BytesIO
 
 from django.conf import settings
 from PIL import Image, ImageFile
 from PyPDF2 import PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Paragraph, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph, Table, TableStyle
 
 from apps.job.models import Job
 
@@ -122,7 +121,7 @@ def convert_html_to_reportlab(html_content):
         for i, item in enumerate(items):
             # Use the correct prefix based on list type
             if list_type == "ol":
-                prefix = f"{i+1}. "
+                prefix = f"{i + 1}. "
             else:  # list_type == "ul"
                 prefix = "• "
             result += f"{prefix}{item}<br/>"
@@ -256,7 +255,7 @@ def add_job_details_table(pdf, y_position, job: Job):
     job_details = [
         ["Job Number", job.job_number or "N/A"],
         ["Client", job.client.name if job.client else "N/A"],
-        ["Contact", job.contact_person or "N/A"],
+        ["Contact", job.contact.name if job.contact else "N/A"],
         ["Description", Paragraph(job.description or "N/A", description_style)],
         [
             "Notes",

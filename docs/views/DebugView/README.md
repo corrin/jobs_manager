@@ -110,7 +110,7 @@ def debug_sync_invoice_view(request, invoice_number):
 2. Successful Submission:
 - Redirects to invoice list view with invoice number parameter
 - Redirect URL format:
-    
+
     `/invoices/?invoice_number={invoice_number}`
 
 **Implementation Details**

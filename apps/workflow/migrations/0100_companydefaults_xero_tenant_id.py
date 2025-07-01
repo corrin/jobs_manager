@@ -4,12 +4,13 @@ from django.db import migrations, models
 
 
 def set_tenant_id(apps, schema_editor):
-    CompanyDefaults = apps.get_model('workflow', 'CompanyDefaults')
-    CompanyDefaults.objects.update(xero_tenant_id='75e57cfd-302d-4f84-8734-8aae354e76a7')
+    CompanyDefaults = apps.get_model("workflow", "CompanyDefaults")
+    CompanyDefaults.objects.update(
+        xero_tenant_id="75e57cfd-302d-4f84-8734-8aae354e76a7"
+    )
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0096_merge_20250310_2039"),
     ]

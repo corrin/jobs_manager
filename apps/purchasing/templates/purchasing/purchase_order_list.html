@@ -10,7 +10,7 @@
             <h1>{{ title }}</h1>
         </div>
         <div class="col-auto">
-            <div class="btn-group" style="gap: 5px;"> 
+            <div class="btn-group" style="gap: 5px;">
                 <a href="{% url 'purchasing:purchase_orders_create' %}" class="btn btn-success">
                     <i class="bi bi-plus-circle me-2"></i>New Purchase Order
                 </a>
@@ -67,5 +67,5 @@
 {% endblock content %}
 
 {% block extra_js %}
-<script src="{% static 'js/purchases/supplier_quote_to_po.js' %}"></script>
+<script src="{% static 'js/supplier_quote_to_po.js' %}"></script>
 {% endblock extra_js %}

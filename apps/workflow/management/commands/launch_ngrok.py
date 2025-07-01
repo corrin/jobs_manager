@@ -10,11 +10,13 @@ class Command(BaseCommand):
     help = "Starts ngrok tunnel using the ngrok CLI"
 
     def handle(self, *args: Any, **kwargs: Any) -> None:
-        ngrok_domain = os.environ.get("NGROK_DOMAIN", "msm-workflow.ngrok-free.app")
+        app_domain = os.environ.get("APP_DOMAIN", "msm-workflow.ngrok-free.app")
         django_port = os.environ.get("DJANGO_PORT", "8000")
 
         # Create ngrok command with the custom domain
-        ngrok_command = f"ngrok http --domain={ngrok_domain} --pooling-enabled {django_port}"
+        ngrok_command = (
+            f"ngrok http --domain={app_domain} --pooling-enabled {django_port}"
+        )
 
         # Start ngrok process
         self.stdout.write(

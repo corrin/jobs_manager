@@ -1,27 +1,30 @@
 # workflow/views/xero_quote_creator.py
-import logging
 import json
-from decimal import Decimal
+import logging
 from datetime import timedelta
+from decimal import Decimal
 
 from django.http import JsonResponse
 from django.utils import timezone
+from xero_python.accounting.models import LineItem
+from xero_python.accounting.models import Quote as XeroQuote
+from xero_python.exceptions import (  # If specific exceptions handled
+    AccountingBadRequestException,
+    ApiException,
+)
 
-# Import base class and helpers
-from .xero_base_manager import XeroDocumentManager
-from .xero_helpers import (
-    format_date,
-    parse_xero_api_error_message,
-)  # Assuming format_date is needed
+from apps.accounting.enums import QuoteStatus
 
 # Import models
 from apps.accounting.models import Quote
-from apps.accounting.enums import QuoteStatus
-from xero_python.accounting.models import LineItem, Quote as XeroQuote
-from xero_python.exceptions import (
-    AccountingBadRequestException,
-    ApiException,
-)  # If specific exceptions handled
+from apps.job.models.costing import CostSet
+
+# Import base class and helpers
+from .xero_base_manager import XeroDocumentManager
+from .xero_helpers import (  # Assuming format_date is needed
+    format_date,
+    parse_xero_api_error_message,
+)
 
 logger = logging.getLogger("xero")
 
@@ -77,27 +80,41 @@ class XeroQuoteManager(XeroDocumentManager):
 
     def get_line_items(self):
         """
-        Generate quote-specific LineItems.
+        Generate quote LineItems using only CostSet/CostLine.
+        Uses the latest CostSet of kind 'quote'.
+        Rejects if not present or if the job is T&M.
         """
-        # Ensure job and pricing exist
+        if not self.job:
+            raise ValueError("Job is required to generate quote line items.")
+        # Reject if job is T&M
         if (
-            not self.job
-            or not hasattr(self.job, "latest_quote_pricing")
-            or not self.job.latest_quote_pricing
+            hasattr(self.job, "pricing_methodology")
+            and getattr(self.job, "pricing_methodology", None) == "TIME_AND_MATERIALS"
         ):
+            raise ValueError(f"Job {self.job.id} is T&M and cannot be quoted in Xero.")
+        latest_quote = (
+            CostSet.objects.filter(job=self.job, kind="quote")
+            .order_by("-rev", "-created")
+            .first()
+        )
+        if not latest_quote:
             raise ValueError(
-                f"Job {self.job.id if self.job else 'Unknown'} is missing quote pricing information."
+                f"Job {self.job.id} does not have a 'quote' CostSet for quoting."
             )
-
-        line_items = [
-            LineItem(
-                # Xero requires a description for quote line items, so we'll have to keep the placeholder in case there's no job description
-                description=f"Quote for job: {self.job.job_number}{(" - " + self.job.description) if self.job.description else ''}",
-                quantity=1,
-                unit_amount=float(self.job.latest_quote_pricing.total_revenue) or 0.00,
-                account_code=self._get_account_code(),
+        line_items = []
+        for cl in latest_quote.cost_lines.all():
+            line_items.append(
+                LineItem(
+                    description=cl.desc or "Quote item",
+                    quantity=float(cl.quantity),
+                    unit_amount=float(cl.unit_rev),
+                    account_code=self._get_account_code(),
+                )
             )
-        ]
+        if not line_items:
+            raise ValueError(
+                f"'quote' CostSet for job {self.job.id} has no cost lines."
+            )
         return line_items
 
     def get_xero_document(self, type: str) -> XeroQuote:
@@ -108,7 +125,7 @@ class XeroQuoteManager(XeroDocumentManager):
         if not self.job:
             raise ValueError("Job is required to get Xero document for a quote.")
 
-        match (type):
+        match type:
             case "create":
                 # Use job.client which is guaranteed by __init__
                 contact = self.get_xero_contact()
@@ -216,12 +233,18 @@ class XeroQuoteManager(XeroDocumentManager):
                 )
         except AccountingBadRequestException as e:
             logger.error(
-                f"Xero API BadRequest during quote creation for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
+                (
+                    f"Xero API BadRequest during quote creation for job "
+                    f"{self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}"
+                ),
                 exc_info=True,
             )
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
-                default_message=f"Xero validation error ({e.status}): {e.reason} during quote creation. Please contact support.",
+                default_message=(
+                    f"Xero validation error ({e.status}): {e.reason} during "
+                    "quote creation. Please contact support."
+                ),
             )
             return JsonResponse(
                 {"success": False, "message": error_message}, status=e.status

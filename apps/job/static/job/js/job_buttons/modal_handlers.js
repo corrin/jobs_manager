@@ -40,7 +40,7 @@ export function showQuoteModal(jobId, provider = "gmail", contactOnly = false) {
                     </div>
                     <div class='modal-body'>
                         <p>The quote has been generated. Please preview it in the opened tab and confirm if you'd like to send it to the client.</p>
-                        
+
                         <div class='alert alert-info' role='alert'>
                             <p class='mb-1'>If the quote looks correct, please download the PDF from the opened tab and click 'Send Quote'.</p>
                             <hr>

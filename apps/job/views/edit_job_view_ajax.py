@@ -1,27 +1,26 @@
 import json
 import logging
 
+from django.db import transaction
 from django.forms import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
-from django.db import transaction
 
-from apps.job.enums import JobPricingMethodology, JobPricingStage
+from apps.accounting.models import Invoice, Quote
+from apps.job.enums import JobPricingStage
 from apps.job.helpers import DecimalEncoder, get_company_defaults
-from apps.accounting.models import Quote, Invoice
-from apps.job.serializers import JobPricingSerializer, JobSerializer
-
 from apps.job.models import Job, JobEvent
-
+from apps.job.serializers import JobPricingSerializer, JobSerializer
 from apps.job.services.file_service import sync_job_folder
 from apps.job.services.job_service import (
+    archive_and_reset_job_pricing,
     get_historical_job_pricings,
     get_job_with_pricings,
     get_latest_job_pricings,
-    archive_and_reset_job_pricing,
 )
+from apps.job.services.quote_sync_service import link_quote_sheet
 
 logger = logging.getLogger(__name__)
 DEBUG_JSON = False  # Toggle for JSON debugging
@@ -326,7 +325,7 @@ def edit_job_view_ajax(request, job_id=None):
     context = {
         "job": job,
         "job_id": job.id,
-        # Ensure job.contact_person and job.contact_email are available for initial hidden field values
+        # Job contact information is available via job.contact relationship
         # These are already available via the 'job' object itself
         "events": events,
         "quoted": job_quoted,
@@ -411,7 +410,7 @@ def autosave_job_view(request):
                 {
                     "id": job_id,
                     "client": client_name,
-                    "contact": job.contact_person,
+                    "contact": job.contact.name if job.contact else None,
                 },
             )
             logger.info(
@@ -419,7 +418,7 @@ def autosave_job_view(request):
                 {
                     "name": job.name,
                     "order": job.order_number,
-                    "phone": job.contact_phone,
+                    "phone": job.contact.phone if job.contact else None,
                 },
             )
 
@@ -612,61 +611,6 @@ def toggle_complex_job(request):
 
 
 @require_http_methods(["POST"])
-@transaction.atomic
-def toggle_pricing_methodology(request):
-    try:
-        data = json.loads(request.body)
-        if not isinstance(data, dict):
-            return JsonResponse({"error": "Invalid request format"}, status=400)
-
-        job_id = data.get("job_id")
-        new_type = data.get("pricing_methodology")
-
-        logger.info(f"[toggle_pricing_methodology]: data: {data}")
-
-        if job_id is None or new_type is None:
-            return JsonResponse(
-                {"error": "Missing required fields: job_id and pricing_methodology"},
-                status=400,
-            )
-
-        if new_type not in [choice[0] for choice in JobPricingMethodology.choices]:
-            return JsonResponse({"error": "Invalid pricing type value"}, status=400)
-
-        job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-
-        match (new_type):
-            case JobPricingMethodology.TIME_AND_MATERIALS:
-                new_type = JobPricingMethodology.TIME_AND_MATERIALS
-            case JobPricingMethodology.FIXED_PRICE:
-                new_type = JobPricingMethodology.FIXED_PRICE
-            case _:
-                return JsonResponse({"error": "Invalid pricing type value"}, status=400)
-
-        # Update job
-        job.pricing_methodology = new_type
-        job.save()
-
-        return JsonResponse(
-            {
-                "success": True,
-                "job_id": job_id,
-                "pricing_methodology": new_type,
-                "message": "Pricing type updated successfully",
-            }
-        )
-
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON in request body"}, status=400)
-    except ValidationError as e:
-        return JsonResponse({"error": str(e)}, status=400)
-    except Exception as e:
-        return JsonResponse(
-            {"error": f"An unexpected error occurred: {str(e)}"}, status=500
-        )
-
-
-@require_http_methods(["POST"])
 def delete_job(request, job_id):
     """
     Deletes a job if it doesn't have any reality job pricing with actual data.
@@ -730,21 +674,16 @@ def create_linked_quote_api(request, job_id):
         # Get the job
         job = get_object_or_404(Job, id=job_id)
 
-        # Get the client name
-        client_name = job.client.name if job.client else "No Client"
-
         # Create a new quote from the template
-        quote_url = create_quote_from_template(job.job_number, client_name)
+        quote_spreadsheet = link_quote_sheet(job)
 
         # Update the job with the new quote URL
-        job.linked_quote = quote_url
-        job.save(staff=request.user)
-
-        # Create a job event to record this action
+        job.linked_quote = quote_spreadsheet.url
+        job.save(staff=request.user)  # Create a job event to record this action
         JobEvent.objects.create(
             job=job,
-            event_type="linked_quote_created",
-            description=f"Created linked quote spreadsheet",
+            event_type="quote_created",
+            description="Quote spreadsheet created and linked",
             staff=request.user,
         )
 
@@ -752,7 +691,7 @@ def create_linked_quote_api(request, job_id):
         return JsonResponse(
             {
                 "success": True,
-                "quote_url": quote_url,
+                "quote_url": quote_spreadsheet.url,
                 "message": "Linked quote created successfully",
             }
         )

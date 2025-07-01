@@ -151,13 +151,13 @@ A function-based view designed to handle automatic saving of timesheet entries t
 ### **Response Format**
 
 - **Success**:
-    
+
     ```json
     {"success": true, "updated_entries": [1, 2, 3]}
     ```
-    
+
 - **Error**:
-    
+
     ```json
     {"error": "Invalid JSON", "messages": ["Details of the error."]
     ```

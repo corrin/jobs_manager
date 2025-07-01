@@ -228,8 +228,8 @@ function updateFileList(newFiles) {
             <div class="file-controls">
                 <label class="print-checkbox">
                     <input type="checkbox" name="jobfile_${file.id}_print_on_jobsheet"
-                        class="print-on-jobsheet" 
-                        data-file-id="${file.id}" 
+                        class="print-on-jobsheet"
+                        data-file-id="${file.id}"
                         ${file.print_on_jobsheet ? "checked" : ""}>
                     Print on Job Sheet
                 </label>

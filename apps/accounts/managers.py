@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Optional, cast
+
 from django.contrib.auth.base_user import BaseUserManager
-from typing import cast, TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from apps.accounts.models import Staff

@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0140_remove_staff_groups_remove_staff_user_permissions_and_more"),
     ]
 
-    operations = [
-    ]
+    operations = []

@@ -46,6 +46,26 @@ class Client(models.Model):
 
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
+    # Fields to track merged clients in Xero
+    xero_archived = models.BooleanField(
+        default=False,
+        help_text="Indicates if this client has been archived/merged in Xero",
+    )
+    xero_merged_into_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="The Xero contact ID this client was merged into (temporary storage)",
+    )
+    merged_into = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="merged_from_clients",
+        help_text="The client this was merged into",
+    )
+
     class Meta:
         ordering = ["name"]
         db_table = "workflow_client"
@@ -120,47 +140,83 @@ class Client(models.Model):
     @classmethod
     def get_shop_client_id(cls) -> str:
         """
-        Get the shop client ID. Enforces singleton pattern - exactly one shop client must exist.
-        
+        Get the shop client ID. Enforces singleton pattern -
+        exactly one shop client must exist.
+
         Returns:
             str: UUID of the shop client
-            
+
         Raises:
-            ValueError: If zero or multiple shop clients found
+            ValueError: If zero or multiple shop clients found,
+                or if shop_client_name not configured
             RuntimeError: If CompanyDefaults singleton is violated
         """
         from apps.workflow.models import CompanyDefaults
-        
+
         # Validate CompanyDefaults singleton
         company_count = CompanyDefaults.objects.count()
         if company_count == 0:
-            raise ValueError("No CompanyDefaults found - database not properly initialized")
+            raise ValueError(
+                "No CompanyDefaults found - database not properly initialized"
+            )
         elif company_count > 1:
-            raise RuntimeError(f"Multiple CompanyDefaults found ({company_count}) - singleton violated!")
-        
+            raise RuntimeError(
+                f"Multiple CompanyDefaults found ({company_count}) - "
+                f"singleton violated!"
+            )
+
         company_defaults = CompanyDefaults.objects.get()
-        
-        if not company_defaults.company_name:
-            raise ValueError("CompanyDefaults.company_name is empty")
-        
-        shop_name = f"{company_defaults.company_name} Shop"
-        
+
+        # Require explicit shop_client_name configuration
+        if not company_defaults.shop_client_name:
+            raise ValueError(
+                "CompanyDefaults.shop_client_name is not configured. "
+                "Please set the exact name of your shop client."
+            )
+
+        shop_name = company_defaults.shop_client_name
+
         # Find shop clients with exact name match
         shop_clients = cls.objects.filter(name=shop_name)
         shop_count = shop_clients.count()
-        
+
         if shop_count == 0:
             raise ValueError(f"No shop client found with name '{shop_name}'")
         elif shop_count > 1:
-            raise RuntimeError(f"Multiple shop clients found ({shop_count}) with name '{shop_name}' - singleton violated!")
-        
+            raise RuntimeError(
+                f"Multiple shop clients found ({shop_count}) with name "
+                f"'{shop_name}' - singleton violated!"
+            )
+
         shop_client = shop_clients.get()
-        
+
         # Validate the shop client has proper Xero integration
         if not shop_client.xero_contact_id:
-            raise ValueError(f"Shop client '{shop_name}' has no Xero contact ID - not properly synced")
-        
+            raise ValueError(
+                f"Shop client '{shop_name}' has no Xero contact ID - "
+                f"not properly synced"
+            )
+
         return str(shop_client.id)
+
+    def get_final_client(self):
+        """
+        Follow the merge chain to get the final client.
+        If this client was merged into another, return that client
+        (following the chain).
+        Otherwise return self.
+        """
+        current = self
+        seen = {self.id}  # Prevent infinite loops
+
+        while current.merged_into:
+            if current.merged_into.id in seen:
+                logger.warning(f"Circular merge chain detected for client {self.id}")
+                break
+            seen.add(current.merged_into.id)
+            current = current.merged_into
+
+        return current
 
 
 class ClientContact(models.Model):
@@ -169,63 +225,53 @@ class ClientContact(models.Model):
     This model stores contact information that was previously synced with Xero
     but is now managed entirely within our application.
     """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = models.ForeignKey(
         Client,
         on_delete=models.CASCADE,
-        related_name='contacts',
-        help_text="The client this contact belongs to"
+        related_name="contacts",
+        help_text="The client this contact belongs to",
     )
-    name = models.CharField(
-        max_length=255,
-        help_text="Full name of the contact person"
-    )
+    name = models.CharField(max_length=255, help_text="Full name of the contact person")
     email = models.EmailField(
-        null=True,
-        blank=True,
-        help_text="Email address of the contact"
+        null=True, blank=True, help_text="Email address of the contact"
     )
     phone = models.CharField(
-        max_length=150,
-        null=True,
-        blank=True,
-        help_text="Phone number of the contact"
+        max_length=150, null=True, blank=True, help_text="Phone number of the contact"
     )
     position = models.CharField(
         max_length=255,
         null=True,
         blank=True,
-        help_text="Job title if it's helpful - else leave blank"
+        help_text="Job title if it's helpful - else leave blank",
     )
     is_primary = models.BooleanField(
         default=False,
-        help_text="Indicates if this is the primary contact for the client"
+        help_text="Indicates if this is the primary contact for the client",
     )
     notes = models.TextField(
-        null=True,
-        blank=True,
-        help_text="Additional notes about this contact"
+        null=True, blank=True, help_text="Additional notes about this contact"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
-        ordering = ['-is_primary', 'name']
-        db_table = 'client_contact'
-        verbose_name = 'Client Contact'
-        verbose_name_plural = 'Client Contacts'
-        
+        ordering = ["-is_primary", "name"]
+        db_table = "client_contact"
+        verbose_name = "Client Contact"
+        verbose_name_plural = "Client Contacts"
+
     def __str__(self):
         return f"{self.name} ({self.client.name})"
-    
+
     def save(self, *args, **kwargs):
         # If this contact is being set as primary, ensure no other contacts
         # for this client are marked as primary
         if self.is_primary:
-            ClientContact.objects.filter(
-                client=self.client,
-                is_primary=True
-            ).exclude(id=self.id).update(is_primary=False)
+            ClientContact.objects.filter(client=self.client, is_primary=True).exclude(
+                id=self.id
+            ).update(is_primary=False)
         super().save(*args, **kwargs)
 
 

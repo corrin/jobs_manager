@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("client", "0001_initial"),
         ("job", "0014_alter_jobpart_table"),

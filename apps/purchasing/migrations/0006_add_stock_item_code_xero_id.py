@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0012_merge_20250604_2123"),
         ("purchasing", "0005_add_stock_in_database"),

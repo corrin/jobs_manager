@@ -1,22 +1,26 @@
 # workflow/views/xero_view.py
 import json
 import logging
-import uuid
 import time
+import uuid
 
-# from abc import ABC, abstractmethod # No longer needed here
-from datetime import timezone
-
+from django.conf import settings
+from django.contrib import messages
 from django.core.cache import cache
 from django.http import HttpRequest, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import TemplateView
-from django.contrib import messages
-from django.views.decorators.http import require_POST
-
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from xero_python.identity import IdentityApi
 
+from apps.accounting.models import Bill, CreditNote, Invoice, Quote
+from apps.client.models import Client
+from apps.job.models import Job
+from apps.purchasing.models import PurchaseOrder, Stock
+from apps.workflow.api.pagination import FiftyPerPagePagination
 from apps.workflow.api.xero.xero import (
     api_client,
     exchange_code_for_token,
@@ -25,34 +29,22 @@ from apps.workflow.api.xero.xero import (
     get_valid_token,
     refresh_token,
 )
-from apps.accounting.models import (
-    Invoice,
-    Bill,
-    CreditNote,
-    Quote,
-)
-
-from apps.workflow.models import (
-    XeroAccount,
-    XeroJournal,
-    XeroToken,
-)
-
-from apps.purchasing.models import PurchaseOrder
-from apps.job.models import Job
-from apps.client.models import Client
-from apps.workflow.utils import extract_messages
+from apps.workflow.models import XeroAccount, XeroError, XeroJournal, XeroToken
+from apps.workflow.serializers import XeroErrorSerializer
 from apps.workflow.services.xero_sync_service import XeroSyncService
+from apps.workflow.utils import extract_messages
+
+from .xero_invoice_manager import XeroInvoiceManager
 
 # Import the new creator classes
 from .xero_po_manager import XeroPurchaseOrderManager
 from .xero_quote_manager import XeroQuoteManager
-from .xero_invoice_manager import XeroInvoiceManager
 
 logger = logging.getLogger("xero")
 
 
 # Xero Authentication (Step 1: Redirect user to Xero OAuth2 login)
+@csrf_exempt
 def xero_authenticate(request: HttpRequest) -> HttpResponse:
     state = str(uuid.uuid4())
     request.session["oauth_state"] = state
@@ -63,6 +55,7 @@ def xero_authenticate(request: HttpRequest) -> HttpResponse:
 
 
 # OAuth callback
+@csrf_exempt
 def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
     code = request.GET.get("code")
     state = request.GET.get("state")
@@ -73,7 +66,6 @@ def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
             request, "xero/error_xero_auth.html", {"error_message": result["error"]}
         )
 
-    # Log available tenant IDs after successful authentication
     try:
         identity_api = IdentityApi(api_client)
         connections = identity_api.get_connections()
@@ -88,11 +80,27 @@ def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
             f"Failed to log available tenant IDs after authentication: {str(e)}"
         )
 
-    redirect_url = request.session.pop("post_login_redirect", "/")
+    redirect_path = request.session.pop("post_login_redirect", "/")
+    if not redirect_path:
+        redirect_path = "/"
+
+    frontend_url = getattr(settings, "FRONT_END_URL", None)
+
+    if not isinstance(frontend_url, str) or not frontend_url:
+        logger.info(f"Redirecting user to frontend: {redirect_path}")
+        return redirect(redirect_path)
+
+    if not redirect_path.startswith("/"):
+        logger.info(f"Redirecting user to frontend: {frontend_url.rstrip('/')}/")
+        return redirect(frontend_url.rstrip("/") + "/")
+
+    redirect_url = frontend_url.rstrip("/") + redirect_path
+    logger.info(f"Redirecting user to frontend: {redirect_url}")
     return redirect(redirect_url)
 
 
 # Refresh OAuth token and handle redirects
+@csrf_exempt
 def refresh_xero_token(request: HttpRequest) -> HttpResponse:
     refreshed_token = refresh_token()
     if not refreshed_token:
@@ -101,10 +109,12 @@ def refresh_xero_token(request: HttpRequest) -> HttpResponse:
 
 
 # Xero connection success view
+@csrf_exempt
 def success_xero_connection(request: HttpRequest) -> HttpResponse:
     return render(request, "xero/success_xero_connection.html")
 
 
+@csrf_exempt
 def refresh_xero_data(request):
     """Refresh Xero data, handling authentication properly."""
     try:
@@ -122,17 +132,10 @@ def refresh_xero_data(request):
 
 # workflow/views/xero_sync_events.py
 
-import json
 import logging
-import time
 
-from django.core.cache import cache
-from django.http import StreamingHttpResponse, HttpRequest
-from django.utils import timezone
+from django.http import HttpRequest
 from django.views.decorators.http import require_GET
-
-from apps.workflow.services.xero_sync_service import XeroSyncService
-from apps.workflow.api.xero.xero import get_valid_token
 
 logger = logging.getLogger("xero.events")
 
@@ -181,13 +184,25 @@ def generate_xero_sync_events():
 
             # 4a) If sync lock released and no pending messages → end
             if not cache.get("xero_sync_lock", False) and not messages:
+                # Check if there's an error in the sync messages
+                error_found = False
+                error_messages = []
+                all_msgs = XeroSyncService.get_messages(task_id, 0)
+                for m in all_msgs:
+                    if m.get("severity") == "error":
+                        error_found = True
+                        error_messages.append(m.get("message"))
                 end_payload = {
                     "datetime": timezone.now().isoformat(),
                     "entity": "sync",
                     "severity": "info",
                     "message": "Sync stream ended",
                     "progress": 1.0,
+                    "sync_status": "error" if error_found else "success",
                 }
+                if error_found:
+                    end_payload["error_messages"] = error_messages
+                logger.info(f"[SSE END PAYLOAD] {json.dumps(end_payload)}")
                 yield f"data: {json.dumps(end_payload)}\n\n"
                 break
 
@@ -221,6 +236,7 @@ def generate_xero_sync_events():
         yield f"data: {json.dumps(final_payload)}\n\n"
 
 
+@csrf_exempt
 @require_GET
 def stream_xero_sync(request: HttpRequest) -> StreamingHttpResponse:
     """
@@ -316,6 +332,7 @@ def _handle_creator_response(
         )
 
 
+@csrf_exempt
 def create_xero_invoice(request, job_id):
     """Creates an Invoice in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -352,6 +369,7 @@ def create_xero_invoice(request, job_id):
         )
 
 
+@csrf_exempt
 def create_xero_purchase_order(request, purchase_order_id):
     """Creates a Purchase Order in Xero for a given purchase order."""
     tenant_id = ensure_xero_authentication()
@@ -361,13 +379,8 @@ def create_xero_purchase_order(request, purchase_order_id):
         purchase_order = PurchaseOrder.objects.get(id=purchase_order_id)
         manager = XeroPurchaseOrderManager(purchase_order=purchase_order)
         # logger.info(f"Manager object type: {type(manager)}") # Keep for debugging if needed
-        response_data = manager.create_document()
-        return _handle_creator_response(
-            request,
-            response_data,
-            "Purchase order submitted to Xero successfully",
-            "Failed to create purchase order",
-        )
+        response_data = manager.sync_to_xero()
+        return response_data
     except PurchaseOrder.DoesNotExist:
         messages.error(
             request, f"Purchase Order with ID {purchase_order_id} not found."
@@ -400,6 +413,7 @@ def create_xero_purchase_order(request, purchase_order_id):
         )
 
 
+@csrf_exempt
 def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
     """Creates a quote in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -434,6 +448,7 @@ def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
         )
 
 
+@csrf_exempt
 def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
     """Deletes an invoice in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -470,6 +485,7 @@ def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
         )
 
 
+@csrf_exempt
 def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
     """Deletes a quote in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -504,6 +520,7 @@ def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
         )
 
 
+@csrf_exempt
 def delete_xero_purchase_order(
     request: HttpRequest, purchase_order_id: uuid.UUID
 ) -> HttpResponse:
@@ -548,6 +565,7 @@ def delete_xero_purchase_order(
         )
 
 
+@csrf_exempt
 def xero_disconnect(request):
     """Disconnects from Xero by clearing the token from cache and database."""
     try:  # Corrected indentation
@@ -567,6 +585,7 @@ class XeroIndexView(TemplateView):
     template_name = "xero_index.html"
 
 
+@csrf_exempt
 def xero_sync_progress_page(request):
     """Render the Xero sync progress page."""
     try:
@@ -587,8 +606,9 @@ def xero_sync_progress_page(request):
         return render(request, "general/generic_error.html", {"error_message": str(e)})
 
 
+@csrf_exempt
 def get_xero_sync_info(request):
-    """Get current sync status and last sync times."""
+    """Get current sync status and last sync times, including Xero Items/Stock."""
     try:
         token = get_valid_token()
         if not token:
@@ -648,6 +668,11 @@ def get_xero_sync_info(request):
                 if XeroJournal.objects.exists()
                 else None
             ),
+            "stock": (
+                Stock.objects.order_by("-xero_last_modified").first().xero_last_modified
+                if Stock.objects.exists()
+                else None
+            ),
         }
         sync_range = "Syncing data since last successful sync"
         sync_in_progress = cache.get("xero_sync_lock", False)
@@ -663,6 +688,7 @@ def get_xero_sync_info(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@csrf_exempt
 def start_xero_sync(request):
     """
     View function to start a Xero sync as a background task.
@@ -695,6 +721,7 @@ def start_xero_sync(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@csrf_exempt
 @require_POST
 def trigger_xero_sync(request):
     """
@@ -713,3 +740,31 @@ def trigger_xero_sync(request):
         )
 
     return JsonResponse({"success": True, "task_id": task_id, "started": started})
+
+
+@csrf_exempt
+def xero_ping(request: HttpRequest) -> JsonResponse:
+    """
+    Simple endpoint to check if the user is authenticated with Xero.
+    Returns {"connected": true} or {"connected": false}.
+    Always returns HTTP 200 for frontend simplicity.
+    """
+    try:
+        token = get_valid_token()
+        is_connected = bool(token)
+        logger.info(f"Xero ping: connected={is_connected}")
+        return JsonResponse({"connected": is_connected})
+    except Exception as e:
+        logger.error(f"Error in xero_ping: {str(e)}")
+        return JsonResponse({"connected": False})
+
+
+class XeroErrorListAPIView(ListAPIView):
+    queryset = XeroError.objects.all().order_by("-timestamp")
+    serializer_class = XeroErrorSerializer
+    pagination_class = FiftyPerPagePagination
+
+
+class XeroErrorDetailAPIView(RetrieveAPIView):
+    queryset = XeroError.objects.all()
+    serializer_class = XeroErrorSerializer

@@ -64,41 +64,41 @@ This view handles the OAuth2 authentication flow and data synchronizati
 ```mermaid
 flowchart TD
     A[User Request] --> B{Authentication Required?}
-    
+
     B -->|Yes| C[Generate State UUID]
     B -->|No| D{Has Valid Token?}
-    
+
     C --> E[Store State in Session]
     E --> F[Redirect to Xero Login]
-    
+
     F --> G[Xero OAuth Callback]
     G --> H{Validate State}
-    
+
     H -->|Invalid| I[Show Error Page]
     H -->|Valid| J[Exchange Code for Token]
-    
+
     J --> K{Token Exchange Success?}
     K -->|No| I
     K -->|Yes| D
-    
+
     D -->|No| L[Refresh Token]
     D -->|Yes| M{Request Type}
-    
+
     L --> N{Refresh Success?}
     N -->|No| C
     N -->|Yes| M
-    
+
     M -->|Get Contacts| O[Initialize API Client]
     M -->|Sync Data| P[Sync All Xero Data]
-    
+
     O --> Q[Get Tenant Connection]
     Q --> R[Fetch Contacts]
     R --> S[Render Contacts Page]
-    
+
     P --> T{Sync Success?}
     T -->|Yes| U[Redirect to Home]
     T -->|No| V[Show Error Page]
-    
+
     I --> W[End with Error]
     S --> X[End with Success]
     U --> X

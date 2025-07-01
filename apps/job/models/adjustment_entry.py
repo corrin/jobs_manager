@@ -31,6 +31,10 @@ class AdjustmentEntry(models.Model):
         default=timezone.now,  # Will use current date as default
         help_text="Date for accounting purposes (when the adjustment was made)",
     )
+    is_quote_adjustment = models.BooleanField(
+        default=False,
+        help_text="True if this adjustment was automatically created to match quoted revenue",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

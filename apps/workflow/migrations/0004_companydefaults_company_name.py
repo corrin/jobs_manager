@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0003_companydefaults_alter_client_xero_contact_id"),
     ]

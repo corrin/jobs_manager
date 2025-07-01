@@ -1,19 +1,15 @@
 import logging
 import os
 from io import BytesIO
-from datetime import datetime
 
 from django.conf import settings
-from PIL import Image, ImageFile
+from PIL import ImageFile
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.units import mm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
-from reportlab.platypus import Paragraph, Table, TableStyle
-
-from apps.purchasing.models import PurchaseOrder
+from reportlab.platypus import Table, TableStyle
 
 logger = logging.getLogger(__name__)
 
@@ -223,13 +219,13 @@ class PurchaseOrderPDFGenerator:
                     str(item.description)[:50]
                     + ("..." if len(str(item.description)) > 50 else ""),
                     f"{float(item.quantity):.2f}" if item.quantity else "0.00",
-                    f"£{float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
-                    f"£{line_total:.2f}" if not item.price_tbc else "TBC",
+                    f"${float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
+                    f"${line_total:.2f}" if not item.price_tbc else "TBC",
                 ]
             )
 
         # Add total row
-        table_data.append(["", "", "TOTAL:", f"£{total_amount:.2f}"])
+        table_data.append(["", "", "TOTAL:", f"${total_amount:.2f}"])
 
         # Create table
         lines_table = Table(

@@ -1,9 +1,11 @@
-import os
-import sys
 import csv
 import logging
-from decimal import Decimal, InvalidOperation
+import os
+import sys
 from collections import defaultdict
+from decimal import Decimal
+
+from apps.quoting.services.product_parser import populate_all_mappings_with_llm
 
 # Configure logging
 logging.basicConfig(
@@ -18,9 +20,10 @@ import django
 
 django.setup()
 
-from quoting.models import SupplierProduct
+from django.db import transaction
+
 from apps.client.models import Client
-from django.db import transaction, IntegrityError
+from apps.quoting.models import SupplierProduct
 
 
 def validate_and_parse_csv(csv_file_path):
@@ -178,6 +181,9 @@ def import_products(csv_file_path):
     logging.info(
         f"Successfully imported {imported_count} new products and updated {updated_count} existing products."
     )
+
+    # Batch process all new mappings with LLM
+    populate_all_mappings_with_llm()
 
 
 if __name__ == "__main__":

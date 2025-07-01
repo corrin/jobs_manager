@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0136_rename_job_status"),
     ]
 
-    operations = [
-    ]
+    operations = []

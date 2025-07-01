@@ -1,5 +1,4 @@
 from django.db import models
-from decimal import Decimal
 
 
 class JobPricingStage(models.TextChoices):

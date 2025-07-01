@@ -40,14 +40,14 @@ import debug_toolbar
 from django.urls import include, path
 from django.views.generic import RedirectView
 
-from apps.workflow.api import server
 from apps.workflow.api.enums import get_enum_choices
+from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.xero import xero_view
+from apps.workflow.xero_webhooks import XeroWebhookView
 
 urlpatterns = [
     # Redirect to Kanban board
     path("", RedirectView.as_view(url="/kanban/"), name="home"),
-    path("api/get-env-variable/", server.get_env_variable, name="get_env_variable"),
     path("api/enums/<str:enum_name>/", get_enum_choices, name="get_enum_choices"),
     path(
         "api/xero/authenticate/",
@@ -95,6 +95,11 @@ urlpatterns = [
         name="xero_sync_info",
     ),
     path(
+        "api/xero/create_purchase_order/<uuid:purchase_order_id>",
+        xero_view.create_xero_purchase_order,
+        name="create_xero_purchase_order",
+    ),
+    path(
         "api/xero/delete_purchase_order/<uuid:purchase_order_id>",
         xero_view.delete_xero_purchase_order,
         name="delete_xero_purchase_order",
@@ -104,11 +109,36 @@ urlpatterns = [
         xero_view.start_xero_sync,
         name="synchronise_xero_data",
     ),
+    path(
+        "api/xero/webhook/",
+        XeroWebhookView.as_view(),
+        name="xero_webhook",
+    ),
+    path(
+        "api/xero/ping/",
+        xero_view.xero_ping,
+        name="xero_ping",
+    ),
+    path(
+        "xero-errors/",
+        xero_view.XeroErrorListAPIView.as_view(),
+        name="xero-error-list",
+    ),
+    path(
+        "xero-errors/<uuid:pk>/",
+        xero_view.XeroErrorDetailAPIView.as_view(),
+        name="xero-error-detail",
+    ),
     path("xero/", xero_view.XeroIndexView.as_view(), name="xero_index"),
     path(
         "xero/sync-progress/",
         xero_view.xero_sync_progress_page,
         name="xero_sync_progress",
+    ),
+    path(
+        "api/company-defaults/",
+        CompanyDefaultsAPIView.as_view(),
+        name="api_company_defaults",
     ),
     path("__debug__/", include(debug_toolbar.urls)),
     # End of URL patterns

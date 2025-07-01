@@ -1,39 +1,27 @@
 import base64
 import json
 import logging
-
 from datetime import datetime
 
-from django.urls import reverse
-from django.views.generic import ListView, TemplateView
-from django.urls import reverse_lazy
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.shortcuts import redirect, get_object_or_404
-from django.http import JsonResponse, FileResponse
 from django.contrib import messages
-from django.views.decorators.http import require_http_methods
-from django.utils import timezone
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
-
-from rest_framework.views import APIView
+from django.http import FileResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
+from django.views.generic import ListView, TemplateView
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework.views import APIView
 
 # Django and Python Standard Library imports first
 from apps.job.models import Job
 
 # Apps Models
-from apps.purchasing.models import (
-    PurchaseOrder,
-    PurchaseOrderLine,
-    PurchaseOrderSupplierQuote,
-)
-from apps.client.models import Client
-from apps.workflow.models import CompanyDefaults
-
-# Apps Forms
-from apps.purchasing.forms import PurchaseOrderForm, PurchaseOrderLineForm
+from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
 
 # Apps Services
 from apps.purchasing.services.purchase_order_email_service import (
@@ -43,14 +31,17 @@ from apps.purchasing.services.purchase_order_pdf_service import (
     create_purchase_order_pdf,
 )
 from apps.purchasing.services.quote_to_po_service import (
-    save_quote_file,
     create_po_from_quote,
-    extract_data_from_supplier_quote,
+    save_quote_file,
 )
+from apps.workflow.models import AIProvider
 
 # Apps Utils and Managers
 from apps.workflow.utils import extract_messages
 from apps.workflow.views.xero.xero_po_manager import XeroPurchaseOrderManager
+
+# Apps Forms
+
 
 logger = logging.getLogger(__name__)
 
@@ -63,8 +54,8 @@ class PurchaseOrderListView(LoginRequiredMixin, ListView):
     context_object_name = "purchase_orders"
 
     def get_queryset(self):
-        """Return purchase orders ordered by date."""
-        return PurchaseOrder.objects.all().order_by("-order_date")
+        """Return purchase orders ordered by PO number (descending)."""
+        return PurchaseOrder.objects.all().order_by("-po_number")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -256,7 +247,7 @@ def autosave_purchase_order_view(request):
         try:
             data = json.loads(request.body.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
-            logger.warning("Malformed JSON body")
+            logger.error(f"Malformed JSON body: {str(e)}")
             return JsonResponse({"error": "Malformed JSON input"}, status=400)
 
         purchase_order_data = data.get("purchase_order", {})
@@ -444,7 +435,7 @@ def extract_supplier_quote_data_view(request):
 
         quote_file = request.FILES["quote_file"]
 
-        ai_provider = CompanyDefaults.get_instance().get_active_ai_provider()
+        ai_provider = AIProvider.objects.filter(default=True).first()
 
         logger.info(f"Processing quote with {ai_provider} AI provider")
 

@@ -175,13 +175,13 @@ document.addEventListener("DOMContentLoaded", function () {
               "job-details",
             );
           }
-          
+
           // Clear contact fields when client changes
           clearContactFields();
-          
+
           // Immediately refresh contacts and set default contact person
           refreshContactsAndSetDefault(client.id);
-          
+
           hideDropdown();
         });
 
@@ -231,12 +231,12 @@ document.addEventListener("DOMContentLoaded", function () {
   function clearContactFields() {
     const contactFields = [
       'contact_id',
-      'contact_display', 
+      'contact_display',
       'contact_person',
       'contact_phone',
       'contact_email'
     ];
-    
+
     contactFields.forEach(fieldId => {
       const field = document.getElementById(fieldId);
       if (field) {
@@ -249,52 +249,52 @@ document.addEventListener("DOMContentLoaded", function () {
   async function refreshContactsAndSetDefault(clientId) {
     try {
       console.log(`Refreshing contacts for client ${clientId}`);
-      
+
       // Fetch contacts for the new client
       const response = await fetch(`/clients/api/client/${clientId}/contacts/`);
       if (!response.ok) {
         throw new Error('Failed to fetch contacts');
       }
-      
+
       const contacts = await response.json();
       console.log(`Found ${contacts.length} contacts for client ${clientId}`);
-      
+
       // Find the primary contact
       const primaryContact = contacts.find(contact => contact.is_primary);
-      
+
       if (primaryContact) {
         console.log(`Setting primary contact: ${primaryContact.name}`);
-        
+
         // Update job contact fields
         const contactIdField = document.getElementById('contact_id');
         const contactDisplayField = document.getElementById('contact_display');
         const contactPersonField = document.getElementById('contact_person');
         const contactPhoneField = document.getElementById('contact_phone');
         const contactEmailField = document.getElementById('contact_email');
-        
+
         if (contactIdField) contactIdField.value = primaryContact.id;
         if (contactDisplayField) {
-          const displayValue = primaryContact.phone ? 
-            `${primaryContact.name} - ${primaryContact.phone}` : 
+          const displayValue = primaryContact.phone ?
+            `${primaryContact.name} - ${primaryContact.phone}` :
             primaryContact.name;
           contactDisplayField.value = displayValue;
         }
         if (contactPersonField) contactPersonField.value = primaryContact.name;
         if (contactPhoneField) contactPhoneField.value = primaryContact.phone || '';
         if (contactEmailField) contactEmailField.value = primaryContact.email || '';
-        
+
         // Trigger autosave for the contact changes
         if (contactIdField) {
           const event = new Event('change', { bubbles: true });
           contactIdField.dispatchEvent(event);
         }
-        
+
         console.log(`Successfully set default contact: ${primaryContact.name}`);
       } else {
         console.log('No primary contact found for this client');
         // Contact fields are already cleared by clearContactFields()
       }
-      
+
     } catch (error) {
       console.error('Error refreshing contacts:', error);
       // Show error message to user

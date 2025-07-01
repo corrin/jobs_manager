@@ -7,7 +7,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0059_rename_creditlineitem_creditnotelineitem_and_more"),
     ]

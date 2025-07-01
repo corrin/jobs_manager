@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime
 from decimal import Decimal
-from django.db.models import Sum, F, Q
+
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import user_passes_test
+from django.db.models import Sum
 from django.http import HttpRequest, HttpResponse
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.shortcuts import redirect, render
 
 from apps.job.models import Job, JobPricing
 from apps.job.services.job_service import archive_and_reset_job_pricing

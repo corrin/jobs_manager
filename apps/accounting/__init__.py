@@ -3,5 +3,5 @@
 from .apps import AccountingConfig
 
 __all__ = [
-    'AccountingConfig',
+    "AccountingConfig",
 ]

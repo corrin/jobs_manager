@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0113_remove_stock_source_id_materialentry_source_stock_and_more"),
     ]
 
-    operations = [
-    ]
+    operations = []

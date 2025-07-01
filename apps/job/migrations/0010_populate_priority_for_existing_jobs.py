@@ -17,11 +17,12 @@ def populate_priority_for_existing_jobs(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0009_historicaljob_priority_job_priority_and_more"),
     ]
 
     operations = [
-        migrations.RunPython(populate_priority_for_existing_jobs, migrations.RunPython.noop),
+        migrations.RunPython(
+            populate_priority_for_existing_jobs, migrations.RunPython.noop
+        ),
     ]

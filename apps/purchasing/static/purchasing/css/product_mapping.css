@@ -1,0 +1,119 @@
+.mapping-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    background: white;
+    transition: box-shadow 0.2s ease;
+}
+
+.mapping-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.mapping-header {
+    background: #f8f9fa;
+    padding: 15px;
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 8px 8px 0 0;
+}
+
+.mapping-body {
+    padding: 20px;
+}
+
+.validation-badge {
+    font-size: 0.8rem;
+}
+
+.input-data {
+    background: #f8f8f8;
+    padding: 15px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    border-left: 4px solid #007bff;
+}
+
+.mapped-output {
+    background: #f0f8ff;
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #28a745;
+}
+
+.confidence-bar {
+    width: 100px;
+    height: 20px;
+    background: #e9ecef;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #dc3545, #ffc107, #28a745);
+    transition: width 0.3s ease;
+}
+
+.action-buttons {
+    margin-top: 15px;
+}
+
+.hash-display {
+    font-family: 'Courier New', monospace;
+    color: #6c757d;
+    font-size: 0.9rem;
+    background: #f1f3f4;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.searchable-text mark {
+    background-color: #ffeb3b;
+    padding: 1px 2px;
+    border-radius: 2px;
+}
+
+#searchInput {
+    border: 2px solid #e9ecef;
+    transition: border-color 0.2s ease;
+}
+
+#searchInput:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.form-control-sm, .form-select-sm {
+    font-size: 0.875rem;
+}
+
+.mapping-form .form-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: #495057;
+    margin-bottom: 4px;
+}
+
+pre {
+    font-size: 0.75rem;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+@media (max-width: 768px) {
+    .mapping-body .row {
+        flex-direction: column;
+    }
+
+    .mapping-body .col-md-6 {
+        margin-bottom: 20px;
+    }
+
+    .confidence-bar {
+        width: 80px;
+    }
+}

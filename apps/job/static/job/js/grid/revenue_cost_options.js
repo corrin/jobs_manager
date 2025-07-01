@@ -180,7 +180,7 @@ export function calculateSimpleTotals() {
   if (revenueGridExists) {
     calculateTotalRevenue();
   }
-  
+
   if (costsGridExists) {
     calculateTotalCost();
   }
@@ -197,7 +197,7 @@ function processTimeGrid(section, useComplex, simpleTotals) {
   // 2. Processing logic (complex vs simple)
   const isRealitySection = section === "reality";
   const useComplexProcessing = useComplex; // This is the actual logic flag
-  
+
   const timeGridKey = useComplexProcessing
     ? `${section}TimeTable`
     : `simple${capitalize(section)}TimeTable`;
@@ -245,7 +245,7 @@ function processComplexTimeRow(data, section, simpleTotals) {
   } else {
     totalMinutes = parseFloat(data.total_minutes) || 0;
   }
-  
+
   const wage = parseFloat(data.wage_rate) || 0;
   const charge = parseFloat(data.charge_out_rate) || 0;
   const hours = totalMinutes / 60;
@@ -254,7 +254,7 @@ function processComplexTimeRow(data, section, simpleTotals) {
   // For complex time grids, calculate revenue from hours and charge rate
   // Some grids might have a 'revenue' field, others calculate from total_minutes and charge_out_rate
   const retail = parseFloat(data.revenue) || (hours * charge);
-  
+
   simpleTotals[section].cost += cost;
   simpleTotals[section].retail += retail;
 }

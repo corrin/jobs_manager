@@ -12,13 +12,13 @@
         padding-bottom: 5px;
         border-bottom: 1px solid #ddd;
     }
-    
+
     .btn-container {
         display: flex;
         justify-content: space-between;
         margin: 15px 0;
     }
-    
+
     .transfer-btn-group {
         display: flex;
         flex-direction: column;
@@ -26,12 +26,12 @@
         gap: 10px;
         padding: 0 15px;
     }
-    
+
     .archive-btn-container {
         margin-top: 20px;
         text-align: right;
     }
-    
+
     .spinner {
         display: inline-block;
         width: 20px;
@@ -42,11 +42,11 @@
         border-top-color: #fff;
         animation: spin 1s ease-in-out infinite;
     }
-    
+
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
-    
+
     #message-container {
         margin: 20px 0;
         padding: 15px;
@@ -61,11 +61,11 @@
     <h1 class="page-title mb-4">Archive Completed Jobs</h1>
     {% csrf_token %}
     <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1070;"></div>
-    
+
     <div class="grid-section">
         <h3 class="grid-section-title">Completed & Paid Jobs</h3>
         <div id="available-jobs-grid" class="ag-theme-alpine grid-container"></div>
-        
+
         <div class="btn-toolbar mt-3">
             <button id="btn-move-selected" class="btn btn-primary me-2">
                 <i class="fas fa-angle-down"></i> Move Selected
@@ -75,11 +75,11 @@
             </button>
         </div>
     </div>
-    
+
     <div class="grid-section">
         <h3 class="grid-section-title">Jobs to Archive</h3>
         <div id="to-archive-jobs-grid" class="ag-theme-alpine grid-container"></div>
-        
+
         <div class="btn-toolbar mt-3">
             <button id="btn-remove-selected" class="btn btn-outline-secondary me-2">
                 <i class="fas fa-angle-up"></i> Remove Selected
@@ -88,7 +88,7 @@
                 <i class="fas fa-angle-double-up"></i> Remove All
             </button>
         </div>
-        
+
         <div class="archive-btn-container">
             <button id="btn-archive-jobs" class="btn btn-danger" disabled>
                 <span class="archive-btn-text">Archive Selected Jobs</span>

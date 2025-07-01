@@ -112,7 +112,7 @@ class CalendarView {
       monthlyTotals.avg_daily_gp != null
         ? this.formatter.formatNumber(monthlyTotals.avg_daily_gp, 2)
         : "0.00";
-    
+
     // Calculate profit surplus/deficit: (Total GP - (Elapsed workdays × daily target))
     const dailyProfitTarget = thresholds?.daily_gp_target || 1250;
     const elapsedWorkdays = monthlyTotals.elapsed_workdays || 0;
@@ -142,10 +142,10 @@ class CalendarView {
       monthlyTotals.adjustment_profit != null
         ? this.formatter.formatCurrency(monthlyTotals.adjustment_profit)
         : "$0.00";
-    const totalNonLabourProfit = 
+    const totalNonLabourProfit =
       (monthlyTotals.material_profit || 0) + (monthlyTotals.adjustment_profit || 0);
     const totalNonLabourProfitFormatted = this.formatter.formatCurrency(totalNonLabourProfit);
-    
+
     document.getElementById("totalMaterialProfit").textContent = materialProfit;
     document.getElementById("totalAdjustmentProfit").textContent = adjustmentProfit;
     document.getElementById("totalNonLabourProfit").textContent = totalNonLabourProfitFormatted;
@@ -159,7 +159,7 @@ class CalendarView {
       monthlyTotals.labour_amber_days || 0;
     document.getElementById("labourRedDays").textContent =
       monthlyTotals.labour_red_days || 0;
-    
+
     document.getElementById("profitGreenDays").textContent =
       monthlyTotals.profit_green_days || 0;
     document.getElementById("profitAmberDays").textContent =
@@ -532,7 +532,7 @@ class CalendarView {
    */
   #createJobBreakdownTable(dayData) {
     const tableBody = document.getElementById("jobBreakdownTableBody");
-    
+
     if (!tableBody) {
       console.error("Job breakdown table body not found");
       return;
@@ -548,19 +548,25 @@ class CalendarView {
     }
 
     const jobBreakdown = dayData.details.job_breakdown;
-    
+
     const rows = jobBreakdown.map(job => {
       const labourProfit = this.formatter.formatCurrency(job.labour_profit);
       const materialProfit = this.formatter.formatCurrency(job.material_profit);
       const adjustmentProfit = this.formatter.formatCurrency(job.adjustment_profit);
       const totalProfit = this.formatter.formatCurrency(job.total_profit);
-      
+
       // Add row coloring based on total profit
       const rowClass = job.total_profit >= 0 ? 'table-success' : 'table-danger';
-      
+
       return `
         <tr class="${rowClass}">
-          <td><strong>${job.job_number}</strong></td>
+          <td>
+            <a href="/job/${job.job_id}/"
+               title="${job.job_display_name || job.job_number}"
+               class="text-decoration-none">
+              <strong>${job.job_number}</strong>
+            </a>
+          </td>
           <td class="text-end">${labourProfit}</td>
           <td class="text-end">${materialProfit}</td>
           <td class="text-end">${adjustmentProfit}</td>

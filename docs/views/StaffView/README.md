@@ -30,9 +30,9 @@ Handles the creation of new staff members.
 - **Model**: `Staff`
 - **Form**: `StaffCreationForm`
 - **Template**:
-    
+
     `create_staff.html`
-    
+
 - **Success URL** : Redirects to staff list
 - **Context**:
     - Default `CreateView` context
@@ -71,9 +71,9 @@ Function-based view that returns staff rate information.
 ## **Authorization Rules**
 
 - Most operations require staff manager status ( )
-    
+
     `is_staff_manager()`
-    
+
 - Staff members can update their own records
 - Unauthorized access returns appropriate error responses
 
@@ -84,23 +84,23 @@ flowchart TD
     A[User Request] --> B{Authentication Check}
     B -->|Unauthorized| C[403 Error]
     B -->|Authorized| D{Request Type}
-    
+
     D -->|List| E[StaffListView]
     E -->|Staff Manager| F[Display Staff List]
     E -->|Not Staff Manager| C
-    
+
     D -->|Create| G[StaffCreateView]
     G -->|Staff Manager| H[Create Staff Form]
     H -->|Valid Submit| I[Save & Redirect]
     H -->|Invalid| J[Show Errors]
     G -->|Not Staff Manager| C
-    
+
     D -->|Update| K[StaffUpdateView]
     K -->|Staff Manager or Self| L[Update Staff Form]
     L -->|Valid Submit| I
     L -->|Invalid| J
     K -->|Unauthorized| C
-    
+
     D -->|Get Rates| M[get_staff_rates]
     M -->|Staff Manager| N[Return JSON Rates]
     M -->|Not Staff Manager| C

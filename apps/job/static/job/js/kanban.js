@@ -29,7 +29,8 @@ function initializeColumns() {
     loadJobs(status);
   });
 
-  initializeDragAndDrop();
+  // Don't call initializeDragAndDrop() here - it runs before async loadJobs() completes
+  // Each column initializes its own drag and drop in renderJobs() after jobs are loaded
 }
 
 function loadJobs(status) {
@@ -84,18 +85,22 @@ function refreshAllColumns() {
 
 function renderJobs(status, jobs) {
   const container = document.querySelector(`#${status} .job-list`);
-  
+
   // Disable Sortable during job loading to prevent reorder events
-  if (container.sortableJobsInstance) {
+  if (container && container.sortableJobsInstance) {
     container.sortableJobsInstance.destroy();
+    container.sortableJobsInstance = null;
   }
-  
+
   container.innerHTML = "";
 
   if (jobs.length === 0) {
     container.innerHTML = `
       <div class="empty-message">No jobs found</div>
     `;
+    // Still need to initialize drag and drop for empty columns so they can receive drops
+    initializeDragAndDropForColumn(container);
+    initializeStaffDragAndDrop();
     return;
   }
 
@@ -105,7 +110,8 @@ function renderJobs(status, jobs) {
     container.appendChild(jobCard);
   });
 
-  // Re-initialize drag and drop for this column after jobs are loaded
+  // Initialize drag and drop for this specific column after jobs are loaded
+  // Can't rely on global initializeDragAndDrop() because it runs before async loadJobs() completes
   initializeDragAndDropForColumn(container);
   initializeStaffDragAndDrop();
 }
@@ -245,17 +251,17 @@ function initializeDragAndDropForColumn(container) {
 
       switch (true) {
         // top
-        case index === 0:               
+        case index === 0:
           afterId = cards[1] ? cards[1].dataset.id : null;
           break;
-          
+
         // bottom
-        case index === total - 1:      
+        case index === total - 1:
           beforeId = cards[total - 2] ? cards[total - 2].dataset.id : null;
           break;
 
         // middle
-        default:                        
+        default:
           beforeId = cards[index - 1].dataset.id;
           afterId = cards[index + 1].dataset.id;
           break;
@@ -264,6 +270,7 @@ function initializeDragAndDropForColumn(container) {
       const payload = {
         before_id: beforeId,
         after_id: afterId,
+        status: newStatus
       };
 
       fetch(`/job/${jobId}/reorder/`, {
@@ -276,10 +283,10 @@ function initializeDragAndDropForColumn(container) {
       })
         .then((response) => response.json())
         .then((data) => {
-          if (data.status === "success") {
+          if (data.success) {
             console.log("Job reordered successfully");
           } else {
-            console.error("Error reordering job:", data.message);
+            console.error("Error reordering job:", data.error);
           }
         })
         .catch((error) => {
@@ -338,17 +345,17 @@ function initializeDragAndDrop() {
 
         switch (true) {
           // top
-          case index === 0:               
+          case index === 0:
             afterId = cards[1] ? cards[1].dataset.id : null;
             break;
-            
+
           // bottom
-          case index === total - 1:      
+          case index === total - 1:
             beforeId = cards[total - 2] ? cards[total - 2].dataset.id : null;
             break;
 
           // middle
-          default:                        
+          default:
             beforeId = cards[index - 1].dataset.id;
             afterId = cards[index + 1].dataset.id;
             break;
@@ -360,7 +367,7 @@ function initializeDragAndDrop() {
           status: newStatus
         };
 
-        fetch(`/job/${jobId}/reorder/`, {              
+        fetch(`/job/${jobId}/reorder/`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -489,8 +496,9 @@ function setupToggleArchived() {
   const archiveContainer = document.getElementById("archiveContainer");
 
   let archivedVisible = false;
+  let archivedLoaded = false;
 
-  loadJobs("archived");
+  // Don't load archived jobs on init - causes Sortable errors on hidden container
 
   toggleButton.addEventListener("click", () => {
     archivedVisible = !archivedVisible;
@@ -500,7 +508,11 @@ function setupToggleArchived() {
       case true:
         archiveContainer.style.display = "grid";
         if (icon) icon.className = "bi bi-chevron-up";
-        loadJobs("archived");
+        // Only load archived jobs once, when first opened
+        if (!archivedLoaded) {
+          loadJobs("archived");
+          archivedLoaded = true;
+        }
         break;
       default:
         archiveContainer.style.display = "none";

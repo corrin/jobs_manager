@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('workflow', '0090_alter_staff_options'),
+        ("workflow", "0090_alter_staff_options"),
     ]
 
-    operations = [
-    ]
+    operations = []

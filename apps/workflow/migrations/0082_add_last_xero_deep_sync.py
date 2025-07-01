@@ -10,8 +10,8 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.AddField(
-            model_name='companydefaults',
-            name='last_xero_deep_sync',
+            model_name="companydefaults",
+            name="last_xero_deep_sync",
             field=models.DateTimeField(
                 null=True,
                 blank=True,

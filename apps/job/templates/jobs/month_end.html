@@ -9,7 +9,7 @@
 {% block content %}
 <div class="container">
   <h1 class="mb-4">{{ page_title }}</h1>
-  
+
   <div class="info-text">
     <p><strong>Month-End Processing</strong> archives the current pricing of selected jobs and resets them to default values based on company defaults.</p>
     <p>This operation should typically be performed at the end of each month for jobs with the 'Special' status.</p>
@@ -18,7 +18,7 @@
   {% if job_data %}
     <form method="post">
       {% csrf_token %}
-      
+
       <div class="job-selection">
         <div class="job-selection-header">
           <h3>Special Jobs</h3>
@@ -27,7 +27,7 @@
             <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAll">Deselect All</button>
           </div>
         </div>
-        
+
         <div class="table-responsive">
           <table class="table table-hover">
             <thead class="table-light">
@@ -71,7 +71,7 @@
           </table>
         </div>
       </div>
-      
+
       <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
         <a href="{% url 'view_kanban' %}" class="btn btn-secondary me-md-2">Cancel</a>
         <button type="submit" class="btn btn-primary" id="processButton" disabled>Process Selected Jobs</button>
@@ -82,7 +82,7 @@
       <p>No special jobs are available for month-end processing.</p>
       <p>To process a job for month-end, first change its status to 'Special' on the Kanban board.</p>
     </div>
-    
+
     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
       <a href="{% url 'view_kanban' %}" class="btn btn-primary">Go to Kanban Board</a>
     </div>
@@ -92,4 +92,4 @@
 
 {% block extra_js %}
 <script src="{% static 'js/job/month_end.js' %}"></script>
-{% endblock %} 
+{% endblock %}

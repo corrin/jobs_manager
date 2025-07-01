@@ -8,13 +8,10 @@ from rest_framework import serializers
 from rest_framework.test import APITestCase
 
 from apps.job.enums import JobPricingMethodology
-
-from apps.job.models import Job, JobFile, MaterialEntry, AdjustmentEntry
-
-from apps.timesheet.models import TimeEntry
-
+from apps.job.models import AdjustmentEntry, Job, JobFile, MaterialEntry
 from apps.job.serializers.job_pricing_serializer import JobPricingSerializer
 from apps.job.serializers.job_serializer import JobSerializer
+from apps.timesheet.models import TimeEntry
 
 django.setup()  # Force initialization
 load_dotenv()

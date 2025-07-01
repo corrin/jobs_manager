@@ -1,7 +1,9 @@
+import logging
+
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+
 from apps.timesheet.models import TimeEntry
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ class Command(BaseCommand):
         # Confirm the action unless --force is used
         if not force:
             message = f"You are about to mark {count} Shop job entries as non-billable."
-            message += f"\nAre you sure you want to continue? [y/N]: "
+            message += "\nAre you sure you want to continue? [y/N]: "
 
             if input(message).lower() != "y":
                 self.stdout.write(self.style.WARNING("Operation cancelled."))

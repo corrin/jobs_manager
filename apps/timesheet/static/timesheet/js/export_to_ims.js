@@ -184,7 +184,7 @@ function updateOverviewTable(data) {
                             </div>`
                             : ""
                         }
-                        
+
                         ${
                           dayData.time_and_half_hours > 0
                             ? `<div class="ims-hour-row">
@@ -193,7 +193,7 @@ function updateOverviewTable(data) {
                             </div>`
                             : ""
                         }
-                        
+
                         ${
                           dayData.double_time_hours > 0
                             ? `<div class="ims-hour-row">

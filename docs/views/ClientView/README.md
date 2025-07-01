@@ -7,7 +7,7 @@ This module contains views for managing client operations including listing, upd
 
 ### Required Permissions
 - `view_client`: Required for viewing client list and details
-- `add_client`: Required for creating new clients 
+- `add_client`: Required for creating new clients
 - `change_client`: Required for updating existing clients
 - `delete_client`: Required for removing clients
 
@@ -19,8 +19,8 @@ This module contains views for managing client operations including listing, upd
 ## Views
 
 ### ClientListView
-**Type**: Class-based View (SingleTableView)  
-**Model**: Client  
+**Type**: Class-based View (SingleTableView)
+**Model**: Client
 **Template**: `clients/list_clients.html`
 **Required Permissions**: `view_client`
 
@@ -32,9 +32,9 @@ Displays a paginated table of all clients in the system.
 - `template_name`: "clients/list_clients.html"
 
 ### ClientUpdateView
-**Type**: Class-based View (UpdateView)  
-**Model**: Client  
-**Form**: ClientForm  
+**Type**: Class-based View (UpdateView)
+**Model**: Client
+**Form**: ClientForm
 **Template**: `clients/update_client.html`
 **Required Permissions**: `change_client`
 
@@ -137,12 +137,12 @@ Same as ClientUpdateView
     - Local client record is created first
     - System attempts Xero synchronization
 2. **Xero Sync Steps** ( )
-    
+
     `sync_client_to_xero`
-    
+
     - Creates/updates contact in Xero
     - Maps local client fields to Xero contact fields:
-        
+
         ```python
         {
             'name': client.name,
@@ -150,13 +150,13 @@ Same as ClientUpdateView
             'phones': [{'phoneNumber': client.phone}],
             'addresses': [{'addressLine1': client.address}]
         }
-        
+
         ```
-        
+
 3. **Local Update** ( )
-    
+
     `single_sync_client`
-    
+
     - Fetches updated data from Xero
     - Updates local record with Xero contact ID
     - Synchronizes any additional Xero-specific fields
@@ -197,9 +197,9 @@ Content-Type: text/html
 3. **Phone Field**
     - Optional
     - Validated against regex:
-        
+
         `^\+?1?\d{9,15}$`
-        
+
     - Stripped of spaces and special characters
 4. **Address Field**
     - Optional

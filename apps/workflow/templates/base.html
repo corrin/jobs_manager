@@ -52,7 +52,6 @@
                                 {% get_xero_action as xero_action %}
                                 <li><a class="dropdown-item" href="{% url 'xero_sync_progress' %}">Refresh Xero Data</a></li>
                                 <li><a class="dropdown-item" href="{% url xero_action.url_name %}">{{ xero_action.action_text }}</a></li>
-                                <li><a class="dropdown-item" href="{% url 'clients:xero_unused_clients' %}">Manage Unused Clients</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
@@ -74,6 +73,8 @@
                                 <li><a class="dropdown-item" href="{% url 'admin:accounts_staff_changelist' %}">Edit Staff</a></li>
                                 <li><a class="dropdown-item" href="{% url 'admin:workflow_companydefaults_changelist' %}">Edit Company Defaults</a></li>
                                 <li><a href="{% url 'jobs:archive_complete_jobs' %}" class="dropdown-item">Archive Complete Jobs</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'purchasing:product_mapping_validation' %}">Product Mapping Validation</a></li>
                             </ul>
                         </li>
                         {% endif %}
@@ -120,7 +121,7 @@
             {% endfor %}
         </div>
         {% endif %}
-        
+
         {% block content %}{% endblock %}
     </div>
 

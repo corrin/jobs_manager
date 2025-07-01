@@ -100,7 +100,7 @@ function getStatusDisplayName(status) {
     quoting: "Quoting",
     accepted_quote: "Accepted Quote",
     awaiting_materials: "Awaiting Materials",
-    in_progress: "In Progress", 
+    in_progress: "In Progress",
     on_hold: "On Hold",
     special: "Special",
     completed: "Completed",

@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0011_update_purchase_order_line_reference"),
         ("purchasing", "0004_stock"),

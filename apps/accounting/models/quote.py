@@ -29,6 +29,6 @@ class Quote(models.Model):
 
     def __str__(self):
         return f"Quote ({self.status}) for Job {self.job.job_number}"
-    
+
     class Meta:
         db_table = "workflow_quote"

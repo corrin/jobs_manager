@@ -93,13 +93,13 @@ Note: production_like.py enables Xero/Dropbox integration but requires additiona
 ## **Typical Workflow**
 
 1. **Initial Contact**: Customer describes the problem.
-2. **Estimation**: 
-    - GM, quotes manager or similar describes the job 
+2. **Estimation**:
+    - GM, quotes manager or similar describes the job
     - Then they estimate the size of the job.
     - It can either be a simple estimate (time estimate + materials estimate + any adjustments)
     - or more complex with time/materials/adjustments broken out
 2. **Quoting**:
-    - If the customer wants a formal quote then you copy the estimate to a quote 
+    - If the customer wants a formal quote then you copy the estimate to a quote
     - Adjust the quote as appropriate, e.g. adding contingency
     - Customer approves the quote.
 3. **Production**:

@@ -1,33 +1,21 @@
-import datetime
-
 import calendar
+import datetime
+from datetime import date, timedelta
+from decimal import Decimal
+from logging import getLogger
+from typing import Any, Dict, List, Tuple
 
 import holidays
-
-from decimal import Decimal
-
-from typing import List, Dict, Any, Tuple
-
-from datetime import date, timedelta
-
-from django.db.models import Sum, Case, When, F, DecimalField, Value, Q
-
-from django.db.models.functions import TruncDate
-
+from django.db.models import Case, DecimalField, F, Sum, Value, When
 from django.utils import timezone
 
-from logging import getLogger
-
-from apps.workflow.models import CompanyDefaults
 from apps.accounting.utils import get_nz_tz
-
 from apps.accounts.utils import get_excluded_staff
-
-from apps.timesheet.models import TimeEntry
-
-from apps.job.models import AdjustmentEntry, MaterialEntry
 from apps.client.models import Client
 from apps.job.enums import JobPricingStage
+from apps.job.models import AdjustmentEntry, MaterialEntry
+from apps.timesheet.models import TimeEntry
+from apps.workflow.models import CompanyDefaults
 
 logger = getLogger(__name__)
 
@@ -148,120 +136,140 @@ class KPIService:
     def get_job_breakdown_for_date(cls, target_date: date) -> List[Dict[str, Any]]:
         """
         Get job-level profit breakdown for a specific date
-        
+
         Args:
             target_date: The date to get job breakdown for
-            
+
         Returns:
             List of job breakdowns with profit details
         """
-        from apps.job.models import Job
-        
+
         cls._ensure_shop_client_id()
         excluded_staff_ids = get_excluded_staff()
         # Get time entries for the date
-        time_entries = TimeEntry.objects.filter(
-            date=target_date,
-            job_pricing__pricing_stage=JobPricingStage.REALITY
-        ).exclude(staff_id__in=excluded_staff_ids).select_related('job_pricing__job')
-        
+        time_entries = (
+            TimeEntry.objects.filter(
+                date=target_date, job_pricing__pricing_stage=JobPricingStage.REALITY
+            )
+            .exclude(staff_id__in=excluded_staff_ids)
+            .select_related("job_pricing__job")
+        )
+
         # Get material entries for the date
-        aware_start = timezone.make_aware(
+        timezone.make_aware(
             datetime.datetime.combine(target_date, datetime.time.min), cls.nz_timezone
         )
-        aware_end = timezone.make_aware(
+        timezone.make_aware(
             datetime.datetime.combine(target_date, datetime.time.max), cls.nz_timezone
         )
-        
+
         material_entries = MaterialEntry.objects.filter(
             accounting_date=target_date,
-            job_pricing__pricing_stage=JobPricingStage.REALITY
-        ).select_related('job_pricing__job')
-        
+            job_pricing__pricing_stage=JobPricingStage.REALITY,
+        ).select_related("job_pricing__job")
+
         adjustment_entries = AdjustmentEntry.objects.filter(
             accounting_date=target_date,
-            job_pricing__pricing_stage=JobPricingStage.REALITY
-        ).select_related('job_pricing__job')
-        
+            job_pricing__pricing_stage=JobPricingStage.REALITY,
+        ).select_related("job_pricing__job")
+
         # Group by job
         job_data = {}
-        
+
         # Process time entries
         for entry in time_entries:
             job = entry.job_pricing.job
             job_number = job.job_number
-            
+
             if job_number not in job_data:
                 job_data[job_number] = {
-                    'job_number': job_number,
-                    'labour_revenue': 0,
-                    'labour_cost': 0,
-                    'material_revenue': 0,
-                    'material_cost': 0,
-                    'adjustment_revenue': 0,
-                    'adjustment_cost': 0,
+                    "job_id": str(job.id),
+                    "job_number": job_number,
+                    "job_display_name": job.job_display_name,
+                    "labour_revenue": 0,
+                    "labour_cost": 0,
+                    "material_revenue": 0,
+                    "material_cost": 0,
+                    "adjustment_revenue": 0,
+                    "adjustment_cost": 0,
                 }
-            
+
             if entry.is_billable and str(job.client_id) != cls.shop_client_id:
-                job_data[job_number]['labour_revenue'] += float(entry.hours * entry.charge_out_rate)
-            job_data[job_number]['labour_cost'] += float(entry.hours * entry.wage_rate)
-        
+                job_data[job_number]["labour_revenue"] += float(
+                    entry.hours * entry.charge_out_rate
+                )
+            job_data[job_number]["labour_cost"] += float(entry.hours * entry.wage_rate)
+
         # Process material entries
         for entry in material_entries:
             job = entry.job_pricing.job
             job_number = job.job_number
-            
+
             if job_number not in job_data:
                 job_data[job_number] = {
-                    'job_number': job_number,
-                    'labour_revenue': 0,
-                    'labour_cost': 0,
-                    'material_revenue': 0,
-                    'material_cost': 0,
-                    'adjustment_revenue': 0,
-                    'adjustment_cost': 0,
+                    "job_id": str(job.id),
+                    "job_number": job_number,
+                    "job_display_name": job.job_display_name,
+                    "labour_revenue": 0,
+                    "labour_cost": 0,
+                    "material_revenue": 0,
+                    "material_cost": 0,
+                    "adjustment_revenue": 0,
+                    "adjustment_cost": 0,
                 }
-            
-            job_data[job_number]['material_revenue'] += float(entry.unit_revenue * entry.quantity)
-            job_data[job_number]['material_cost'] += float(entry.unit_cost * entry.quantity)
-        
+
+            job_data[job_number]["material_revenue"] += float(
+                entry.unit_revenue * entry.quantity
+            )
+            job_data[job_number]["material_cost"] += float(
+                entry.unit_cost * entry.quantity
+            )
+
         # Process adjustment entries
         for entry in adjustment_entries:
             job = entry.job_pricing.job
             job_number = job.job_number
-            
+
             if job_number not in job_data:
                 job_data[job_number] = {
-                    'job_number': job_number,
-                    'labour_revenue': 0,
-                    'labour_cost': 0,
-                    'material_revenue': 0,
-                    'material_cost': 0,
-                    'adjustment_revenue': 0,
-                    'adjustment_cost': 0,
+                    "job_id": str(job.id),
+                    "job_number": job_number,
+                    "job_display_name": job.job_display_name,
+                    "labour_revenue": 0,
+                    "labour_cost": 0,
+                    "material_revenue": 0,
+                    "material_cost": 0,
+                    "adjustment_revenue": 0,
+                    "adjustment_cost": 0,
                 }
-            
-            job_data[job_number]['adjustment_revenue'] += float(entry.price_adjustment or 0)
-            job_data[job_number]['adjustment_cost'] += float(entry.cost_adjustment or 0)
-        
+
+            job_data[job_number]["adjustment_revenue"] += float(
+                entry.price_adjustment or 0
+            )
+            job_data[job_number]["adjustment_cost"] += float(entry.cost_adjustment or 0)
+
         # Calculate profits and return sorted list
         result = []
         for job_number, data in job_data.items():
-            labour_profit = data['labour_revenue'] - data['labour_cost']
-            material_profit = data['material_revenue'] - data['material_cost']
-            adjustment_profit = data['adjustment_revenue'] - data['adjustment_cost']
+            labour_profit = data["labour_revenue"] - data["labour_cost"]
+            material_profit = data["material_revenue"] - data["material_cost"]
+            adjustment_profit = data["adjustment_revenue"] - data["adjustment_cost"]
             total_profit = labour_profit + material_profit + adjustment_profit
-            
-            result.append({
-                'job_number': job_number,
-                'labour_profit': labour_profit,
-                'material_profit': material_profit,
-                'adjustment_profit': adjustment_profit,
-                'total_profit': total_profit
-            })
-        
+
+            result.append(
+                {
+                    "job_id": data["job_id"],
+                    "job_number": job_number,
+                    "job_display_name": data["job_display_name"],
+                    "labour_profit": labour_profit,
+                    "material_profit": material_profit,
+                    "adjustment_profit": adjustment_profit,
+                    "total_profit": total_profit,
+                }
+            )
+
         # Sort by total profit descending
-        result.sort(key=lambda x: x['total_profit'], reverse=True)
+        result.sort(key=lambda x: x["total_profit"], reverse=True)
         return result
 
     @classmethod
@@ -281,7 +289,8 @@ class KPIService:
         cls._ensure_shop_client_id()
         thresholds = cls.get_company_thresholds()
         logger.debug(
-            f"Using thresholds: green={thresholds['billable_threshold_green']}, amber={thresholds['billable_threshold_amber']}"
+            f"Using thresholds: green={thresholds['billable_threshold_green']}, "
+            f"amber={thresholds['billable_threshold_amber']}"
         )
 
         start_date, end_date, _ = cls.get_month_days_range(year, month)
@@ -323,7 +332,7 @@ class KPIService:
             entry["date"]: entry
             for entry in TimeEntry.objects.filter(
                 date__range=[start_date, end_date],
-                job_pricing__pricing_stage=JobPricingStage.REALITY
+                job_pricing__pricing_stage=JobPricingStage.REALITY,
             )
             .exclude(staff_id__in=excluded_staff_ids)
             .values("date")
@@ -334,9 +343,12 @@ class KPIService:
                         When(
                             is_billable=True,
                             then=Case(
-                                When(job_pricing__job__client_id=cls.shop_client_id, then=Value(0, output_field=decimal_field)),
-                                default="hours"
-                            )
+                                When(
+                                    job_pricing__job__client_id=cls.shop_client_id,
+                                    then=Value(0, output_field=decimal_field),
+                                ),
+                                default="hours",
+                            ),
                         ),
                         default=Value(0, output_field=decimal_field),
                     ),
@@ -347,9 +359,12 @@ class KPIService:
                         When(
                             is_billable=True,
                             then=Case(
-                                When(job_pricing__job__client_id=cls.shop_client_id, then=Value(0, output_field=decimal_field)),
-                                default=F("hours") * F("charge_out_rate")
-                            )
+                                When(
+                                    job_pricing__job__client_id=cls.shop_client_id,
+                                    then=Value(0, output_field=decimal_field),
+                                ),
+                                default=F("hours") * F("charge_out_rate"),
+                            ),
                         ),
                         default=Value(0, output_field=decimal_field),
                     ),
@@ -357,7 +372,9 @@ class KPIService:
                 ),
                 shop_hours=Sum(
                     Case(
-                        When(job_pricing__job__client_id=cls.shop_client_id, then="hours"),
+                        When(
+                            job_pricing__job__client_id=cls.shop_client_id, then="hours"
+                        ),
                         default=Value(0, output_field=decimal_field),
                     ),
                     output_field=decimal_field,
@@ -366,17 +383,17 @@ class KPIService:
             )
         }
 
-        aware_start = timezone.make_aware(
+        timezone.make_aware(
             datetime.datetime.combine(start_date, datetime.time.min), cls.nz_timezone
         )
-        aware_end = timezone.make_aware(
+        timezone.make_aware(
             datetime.datetime.combine(end_date, datetime.time.max), cls.nz_timezone
         )
 
         material_entries = (
             MaterialEntry.objects.filter(
                 accounting_date__range=[start_date, end_date],
-                job_pricing__pricing_stage=JobPricingStage.REALITY
+                job_pricing__pricing_stage=JobPricingStage.REALITY,
             )
             .annotate(local_date=F("accounting_date"))
             .values("local_date")
@@ -391,7 +408,7 @@ class KPIService:
         adjustment_entries = (
             AdjustmentEntry.objects.filter(
                 accounting_date__range=[start_date, end_date],
-                job_pricing__pricing_stage=JobPricingStage.REALITY
+                job_pricing__pricing_stage=JobPricingStage.REALITY,
             )
             .annotate(local_date=F("accounting_date"))
             .values("local_date")
@@ -497,21 +514,25 @@ class KPIService:
                 case _:
                     monthly_totals["days_red"] += 1
 
-            # Separate labour performance counting (≥45h green, ≥40h amber, <40h red)
-            if billable_hours >= 45:
-                monthly_totals["labour_green_days"] += 1
-            elif billable_hours >= 40:
-                monthly_totals["labour_amber_days"] += 1
-            else:
-                monthly_totals["labour_red_days"] += 1
+            # Only count performance for elapsed days (not future days)
+            if current_date <= current_date_system:
+                # Separate labour performance counting
+                # (>=45h green, >=40h amber, <40h red)
+                if billable_hours >= 45:
+                    monthly_totals["labour_green_days"] += 1
+                elif billable_hours >= 40:
+                    monthly_totals["labour_amber_days"] += 1
+                else:
+                    monthly_totals["labour_red_days"] += 1
 
-            # Separate profit performance counting (≥$1250 green, ≥$1000 amber, <$1000 red)
-            if gross_profit >= 1250:
-                monthly_totals["profit_green_days"] += 1
-            elif gross_profit >= 1000:
-                monthly_totals["profit_amber_days"] += 1
-            else:
-                monthly_totals["profit_red_days"] += 1
+                # Separate profit performance counting
+                # (>=$1250 green, >=$1000 amber, <$1000 red)
+                if gross_profit >= 1250:
+                    monthly_totals["profit_green_days"] += 1
+                elif gross_profit >= 1000:
+                    monthly_totals["profit_amber_days"] += 1
+                else:
+                    monthly_totals["profit_red_days"] += 1
 
             full_data = base_data.copy()
             full_data.update(
@@ -567,8 +588,8 @@ class KPIService:
             monthly_totals["staff_cost"] += staff_cost
             monthly_totals["material_cost"] += material_cost
             monthly_totals["adjustment_cost"] += adjustment_cost
-            monthly_totals["material_profit"] += (material_revenue - material_cost)
-            monthly_totals["adjustment_profit"] += (adjustment_revenue - adjustment_cost)
+            monthly_totals["material_profit"] += material_revenue - material_cost
+            monthly_totals["adjustment_profit"] += adjustment_revenue - adjustment_cost
 
             # Advance to next day
             current_date += timedelta(days=1)
@@ -601,10 +622,12 @@ class KPIService:
         )
 
         logger.info(
-            f"Monthly totals: billable: {monthly_totals['billable_hours']:.1f}h, billable %: {monthly_totals['billable_percentage']:.1f}%"
+            f"Monthly totals: billable: {monthly_totals['billable_hours']:.1f}h, "
+            f"billable %: {monthly_totals['billable_percentage']:.1f}%"
         )
         logger.info(
-            f"Performance: green days: {monthly_totals['days_green']}, amber: {monthly_totals['days_amber']}, red: {monthly_totals['days_red']}"
+            f"Performance: green days: {monthly_totals['days_green']}, "
+            f"amber: {monthly_totals['days_amber']}, red: {monthly_totals['days_red']}"
         )
         response_data = {
             "calendar_data": calendar_data,
@@ -647,7 +670,8 @@ class KPIService:
                 1,
             )
             logger.debug(
-                f"Calculated billable percentage: {monthly_totals['billable_percentage']}%, shop percentage: {monthly_totals['shop_percentage']}%"
+                f"Calculated billable %: {monthly_totals['billable_percentage']}%, "
+                f"shop percentage: {monthly_totals['shop_percentage']}%"
             )
 
         # Calculate average daily gross profit if we have working days
@@ -659,12 +683,14 @@ class KPIService:
                 2,
             )
             logger.debug(
-                f"Calculated average daily gross profit: ${monthly_totals['avg_daily_gp']}"
+                f"Calculated average daily gross profit: "
+                f"${monthly_totals['avg_daily_gp']}"
             )
         else:
             logger.warning("No working days found for month - average GP will be zero")
 
-        # Calculate average daily gross profit and billable hours so far based on elapsed days
+        # Calculate average daily gross profit and billable hours so far
+        # based on elapsed days
         if monthly_totals["elapsed_workdays"] > 0:
             monthly_totals["avg_daily_gp_so_far"] = round(
                 Decimal(monthly_totals["gross_profit"])

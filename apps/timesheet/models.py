@@ -5,7 +5,6 @@ from decimal import Decimal
 from django.db import models
 
 from apps.accounts.models import Staff
-
 from apps.job.models import JobPricing
 
 logger = logging.getLogger(__name__)

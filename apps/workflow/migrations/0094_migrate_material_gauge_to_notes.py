@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('workflow', '0093_historicaljob_notes_job_notes'),
+        ("workflow", "0093_historicaljob_notes_job_notes"),
     ]
 
-    operations = [
-    ]
+    operations = []

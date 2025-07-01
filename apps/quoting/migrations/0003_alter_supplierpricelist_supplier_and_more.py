@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("client", "0001_initial"),
         ("quoting", "0002_supplierpricelist_supplierproduct_price_list"),

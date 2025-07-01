@@ -1,6 +1,5 @@
 import uuid
 from decimal import Decimal
-from datetime import date
 
 from django.db import models
 from django.utils import timezone
@@ -42,7 +41,7 @@ class MaterialEntry(models.Model):
         help_text="The Stock item consumed to create this entry",
     )
     purchase_order_line = models.ForeignKey(
-        "purchasing.purchaseorderline",
+        "purchasing.PurchaseOrderLine",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

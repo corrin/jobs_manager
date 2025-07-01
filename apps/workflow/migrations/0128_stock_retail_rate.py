@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0127_remove_purchaseorder_raw_json_and_more"),
     ]
 
-    operations = [
-    ]
+    operations = []

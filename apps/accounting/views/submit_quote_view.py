@@ -127,10 +127,11 @@ def create_pdf(job):
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, 700, "Contact:")
     pdf.setFont("Helvetica", 12)
+    # BUG.  Fallback! yuck.  
     pdf.drawString(
         120,
         700,
-        f"{job.client.email if job.client.email else job.contact_person or 'N/A'}",
+        f"{job.client.email if job.client.email else (job.contact.email if job.contact else 'N/A')}",
     )
 
     pdf.setFont("Helvetica-Bold", 12)
@@ -299,7 +300,7 @@ def send_quote_email(request, job_id):
             else f"Please find the attached quote summary for {job.name}."
         )
 
-        mailto_url = f"mailto:{email}" f"?subject={subject}" f"&body={body}"
+        mailto_url = f"mailto:{email}?subject={subject}&body={body}"
 
         logger.info(f"Email prepared successfully for job {job_id}")
         return JsonResponse(

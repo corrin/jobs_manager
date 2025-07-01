@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0046_alter_adjustmententry_options_alter_bill_options_and_more"),
     ]

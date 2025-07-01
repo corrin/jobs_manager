@@ -3,7 +3,7 @@
   --ag-header-height: 32px;
   --ag-cell-horizontal-padding: 5px;
   --ag-cell-widget-spacing: 4px;
-  
+
   --ag-foreground-color: var(--dark-text);
   --ag-background-color: rgba(255, 255, 255, 0.7);
   --ag-header-background-color: rgba(67, 97, 238, 0.1);
@@ -14,7 +14,7 @@
   --ag-row-border-color: rgba(0, 0, 0, 0.05);
   --ag-row-hover-color: rgba(67, 97, 238, 0.05);
   --ag-selected-row-background-color: rgba(67, 97, 238, 0.1);
-  
+
   overflow: hidden;
   height: auto;
   box-shadow: var(--card-shadow);
@@ -162,7 +162,7 @@
   --ag-row-height: 28px;
   --ag-header-height: 32px;
   border-radius: var(--border-radius);
-  
+
   /* Shared scroll behavior */
   overflow-y: auto !important;
   overflow-x: hidden;

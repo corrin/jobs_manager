@@ -1,8 +1,8 @@
 """Utility functions for job-related operations."""
 
-from apps.job.models import Job
-
 from django.db import models
+
+from apps.job.models import Job
 
 
 def get_jobs_data(related_jobs):

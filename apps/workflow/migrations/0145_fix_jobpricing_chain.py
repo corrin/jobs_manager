@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0144_remove_adjustmententry_job_pricing_and_more"),
         ("timesheet", "0002_alter_timeentry_job_pricing_fk"),

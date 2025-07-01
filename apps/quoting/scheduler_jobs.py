@@ -4,6 +4,7 @@ These functions must be independent to ensure they can be properly serialized.
 """
 
 import logging
+
 from django.core.management import call_command
 from django.db import close_old_connections
 

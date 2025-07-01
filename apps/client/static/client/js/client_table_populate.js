@@ -16,11 +16,11 @@ document.addEventListener("DOMContentLoaded", function () {
         tableBody.innerHTML = ""; // Clear any existing content
         data.forEach((client) => {
           const row = `
-                        <tr class="client-row" 
-                            data-name="${client.name}" 
-                            data-email="${client.email || ""}" 
-                            data-phone="${client.phone || ""}" 
-                            data-address="${client.address || ""}" 
+                        <tr class="client-row"
+                            data-name="${client.name}"
+                            data-email="${client.email || ""}"
+                            data-phone="${client.phone || ""}"
+                            data-address="${client.address || ""}"
                             data-account-customer="${client.is_account_customer ? "Yes" : "No"}">
                             <td>${client.name}</td>
                             <td>${client.email || ""}</td>

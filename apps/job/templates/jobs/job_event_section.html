@@ -2,10 +2,10 @@
 {% load tz %}
 
 <div class="job-events grid-section">
-    <div class="d-flex justify-content-between align-items-center mb-3" 
-         data-bs-toggle="collapse" 
-         data-bs-target="#jobEventsCollapse" 
-         role="button" 
+    <div class="d-flex justify-content-between align-items-center mb-3"
+         data-bs-toggle="collapse"
+         data-bs-target="#jobEventsCollapse"
+         role="button"
          aria-expanded="true"
          aria-controls="jobEventsCollapse">
         <h3 class="page-title m-0">Job History</h3>
@@ -13,14 +13,14 @@
             <i class="bi bi-chevron-down toggle-icon"></i>
         </div>
     </div>
-    
+
     <div class="collapse show" id="jobEventsCollapse">
         <div class="d-flex justify-content-end mb-3">
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addJobEventModal">
                 <i class="bi bi-plus-circle me-2"></i>Add Event
             </button>
         </div>
-        
+
         <div class="timeline list-group mb-3">
             {% if events %}
                 {% for event in events %}
@@ -35,7 +35,7 @@
                     <div class="timeline-content">
                         <h6 class="mb-1">{{ event.event_type|replace:"_| "|title }}</h6>
                         <p class="mb-1">{{ event.description|linebreaksbr }}</p>
-                        <small class="text-muted">By 
+                        <small class="text-muted">By
                             {% if event.staff %}
                                 {{ event.staff.get_display_full_name }}
                             {% else %}

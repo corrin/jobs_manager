@@ -24,14 +24,14 @@
 <div class="job-pricing-sections">
     <div class="d-flex align-items-center justify-content-between">
         <div class="form-check form-switch d-flex align-items-center mx-4">
-            <input class="form-check-input form-check-input-lg" type="checkbox" role="switch" id="toggleGridButton" 
+            <input class="form-check-input form-check-input-lg" type="checkbox" role="switch" id="toggleGridButton"
             {% if complex_job %}checked{% endif %}>
             <label class="form-check-label mx-2 fw-bold form-check-label-lg" for="toggleGridButton">
                 Itemised pricing: <span class="toggle-state-off">OFF</span><span class="toggle-state-on">ON</span>
             </label>
         </div>
 
-        
+
         <!-- Add Historical Navigation Controls -->
         {% if job.status == 'special' %}
         <div id="historicalPricingNav" class="historical-nav">
@@ -47,7 +47,7 @@
             </button>
         </div>
         {% endif %}
-        
+
         <div>
             <label for="pricingTypeDropdown" class="form-label fw-bold">Pricing type:</label>
             <select id="pricingTypeDropdown" class="form-select">
@@ -134,7 +134,7 @@
             <div id="simpleRealityAdjustmentsTable" class="ag-theme-alpine price-entry-table hover-lift simple-pricing-table"></div>
         </div>
         <div id="simpleRealityTotalsTable" class="ag-theme-alpine price-entry-table hover-lift totals-table simple-pricing-table"></div>
-        
+
         <div class="mt-3">
             <a href="{% url 'purchasing:use_stock' %}?job_id={{ job_id }}" class="btn btn-success" target="_blank">
                 <i class="bi bi-plus-circle me-1"></i> Add Stock

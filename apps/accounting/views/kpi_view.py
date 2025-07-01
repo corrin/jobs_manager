@@ -1,11 +1,11 @@
 import traceback
-
-from logging import getLogger
 from datetime import date
+from logging import getLogger
+
 from django.views.generic import TemplateView
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.accounting.services import KPIService
 
@@ -34,7 +34,8 @@ class KPICalendarAPIView(APIView):
             if not year.isdigit() or not month.isdigit():
                 return Response(
                     {
-                        "error": f"The provided query param 'year' or 'month' is not in the correct format (not a digit). Please try again."
+                        "error": "The provided query param 'year' or 'month' is "
+                        "not in the correct format (not a digit). Please try again."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
@@ -45,7 +46,8 @@ class KPICalendarAPIView(APIView):
             if not 1 <= month <= 12 or not 2000 <= year <= 2100:
                 return Response(
                     {
-                        "error": "Year or month out of valid range. Please check the query params."
+                        "error": "Year or month out of valid range. "
+                        "Please check the query params."
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )

@@ -34,7 +34,8 @@ def create_staff_mapping():
             ["Auckland", "Wellington", "Christchurch", "Hamilton", "Tauranga"]
         ),
         "HomePhone": f"{random.randint(1000000, 9999999)}.0",  # Format: 1234567.0
-        "HomePhone2": f"02{random.randint(100000000, 999999999)}",  # Format: 02123456789
+        # Format: 02123456789
+        "HomePhone2": f"02{random.randint(100000000, 999999999)}",
         "KSOptOutBankAccount": str(random.randint(100000000000000, 999999999999999)),
         "KSOptOutBankAccName": f"{first_name} {last_name}",
     }

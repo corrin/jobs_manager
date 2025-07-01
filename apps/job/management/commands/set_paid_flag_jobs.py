@@ -94,7 +94,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f'{"Would update" if dry_run else "Successfully updated"} '
+                f"{'Would update' if dry_run else 'Successfully updated'} "
                 f"{len(jobs_to_update)} jobs as paid\n"
                 f"Jobs with unpaid invoices: {unpaid_invoices}\n"
                 f"Jobs without invoices: {missing_invoices}\n"

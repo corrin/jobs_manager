@@ -7,13 +7,12 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 from django.core.cache import cache
+from xero_python.accounting import AccountingApi
 from xero_python.api_client import ApiClient, Configuration
 from xero_python.api_client.oauth2 import OAuth2Token, TokenApi
 from xero_python.identity import IdentityApi
-from xero_python.accounting import AccountingApi
 
-from apps.workflow.models import XeroToken
-from apps.workflow.models import CompanyDefaults
+from apps.workflow.models import CompanyDefaults, XeroToken
 
 logger = logging.getLogger("xero")
 
@@ -155,7 +154,7 @@ def refresh_token() -> Optional[Dict[str, Any]]:
     # Log the current token state
     current_expiry = datetime.fromtimestamp(token["expires_at"], tz=timezone.utc)
     current_token = token["access_token"][:10] + "..."
-    logger.debug(f"Current token before refresh:")
+    logger.debug("Current token before refresh:")
     logger.debug(f"  Access token: {current_token}")
     logger.debug(f"  Expires at: {current_expiry}")
 
@@ -344,13 +343,35 @@ def get_xero_items(if_modified_since: Optional[datetime] = None) -> Any:
     Handles rate limiting and other API errors.
     """
     logger.info(f"Fetching Xero Items. If modified since: {if_modified_since}")
+
     tenant_id = get_tenant_id()
     accounting_api = AccountingApi(api_client)
+    logger.info(f"Using tenant ID: {tenant_id}")
+
+    # Convert string to datetime if needed
+    # Hack because some items don't go through the coorrect code path
+    # which has the conversion logic
+    if isinstance(if_modified_since, str):
+        if_modified_since = datetime.fromisoformat(
+            if_modified_since.replace("Z", "+00:00")
+        )
 
     try:
-        items = accounting_api.get_items(
-            xero_tenant_id=tenant_id, if_modified_since=if_modified_since
-        )
+        match if_modified_since:
+            case None:
+                logger.info("No 'if_modified_since' provided, fetching all items.")
+                items = accounting_api.get_items(xero_tenant_id=tenant_id)
+            case datetime():
+                logger.info(
+                    f"'if_modified_since' provided: {if_modified_since.isoformat()}"
+                )
+                items = accounting_api.get_items(
+                    xero_tenant_id=tenant_id, if_modified_since=if_modified_since
+                )
+            case _:
+                raise ValueError(
+                    f"Invalid type for 'if_modified_since': {type(if_modified_since)}. Expected datetime or None."
+                )
         logger.info(f"Successfully fetched {len(items.items)} Xero Items.")
         return items.items
     except Exception as e:

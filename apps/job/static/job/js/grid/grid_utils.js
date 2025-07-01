@@ -144,7 +144,7 @@ export function calculateTotalRevenue() {
           break;
       }
     });
-    
+
     revenueGrid.api.refreshCells();
   }
 }
@@ -278,11 +278,15 @@ export function calculateRetailRate(costRate, markupRate) {
   // Ensure we're working with numbers
   costRate = parseFloat(costRate) || 0;
   markupRate = parseFloat(markupRate) || 0.2; // Default 20% markup
-  
+
   // Calculate and ensure we return a number, not NaN
   const result = costRate + (costRate * markupRate);
-  console.log(`calculateRetailRate: ${costRate} + (${costRate} * ${markupRate}) = ${result}`);
-  return result;
+
+  // Round to 2 decimal places to match database precision
+  const roundedResult = Math.round(result * 100) / 100;
+
+  console.log(`calculateRetailRate: ${costRate} + (${costRate} * ${markupRate}) = ${result} (rounded: ${roundedResult})`);
+  return roundedResult;
 }
 
 export function fetchMaterialsMarkup(rowData) {

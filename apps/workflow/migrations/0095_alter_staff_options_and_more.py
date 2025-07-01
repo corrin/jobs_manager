@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0094_migrate_material_gauge_to_notes"),
     ]
 
-    operations = [
-    ]
+    operations = []

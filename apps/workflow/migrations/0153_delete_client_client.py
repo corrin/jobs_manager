@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("client", "0001_initial"),
         ("job", "0010_populate_priority_for_existing_jobs"),

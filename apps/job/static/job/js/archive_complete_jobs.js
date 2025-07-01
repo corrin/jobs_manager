@@ -26,19 +26,19 @@ window.toArchiveJobsGrid = null;
 function adjustGridHeight(grid, elementId) {
     const element = document.getElementById(elementId);
     if (!element) return;
-    
+
     let rowCount = 0;
     grid.forEachNode(() => rowCount++);
-    
+
     const visibleRowCount = Math.min(rowCount, MAX_ROW_COUNT);
     const calculatedHeight = (visibleRowCount * GRID_HEIGHT_PER_ROW) + GRID_HEADER_HEIGHT + GRID_PADDING;
-    
+
     // Set minimum height if there are no rows
     const gridHeight = Math.max(calculatedHeight, GRID_HEADER_HEIGHT + GRID_HEIGHT_PER_ROW + GRID_PADDING);
-    
+
     // Update grid container height
     element.style.height = `${gridHeight}px`;
-    
+
     // Update grid container classes for scrolling behavior
     if (rowCount > MAX_ROW_COUNT) {
         element.classList.add('grid-scrollable');
@@ -60,34 +60,34 @@ function createColumnDefs() {
             suppressSizeToFit: true,
             resizable: false
         },
-        { 
-            field: 'job_number', 
-            headerName: 'Job #', 
-            sortable: true, 
+        {
+            field: 'job_number',
+            headerName: 'Job #',
+            sortable: true,
             filter: true,
             minWidth: 80,
             flex: 1
         },
-        { 
-            field: 'name', 
-            headerName: 'Job Name', 
-            sortable: true, 
-            filter: true, 
+        {
+            field: 'name',
+            headerName: 'Job Name',
+            sortable: true,
+            filter: true,
             minWidth: 200,
             flex: 2
         },
-        { 
-            field: 'client_name', 
-            headerName: 'Client', 
-            sortable: true, 
-            filter: true, 
+        {
+            field: 'client_name',
+            headerName: 'Client',
+            sortable: true,
+            filter: true,
             minWidth: 150,
             flex: 1.5
         },
-        { 
-            field: 'updated_at', 
-            headerName: 'Last Updated', 
-            sortable: true, 
+        {
+            field: 'updated_at',
+            headerName: 'Last Updated',
+            sortable: true,
             filter: true,
             valueFormatter: params => {
                 return new Date(params.value).toLocaleDateString();
@@ -127,7 +127,7 @@ function createCommonGridOptions() {
 function initializeGrids() {
     const columnDefs = createColumnDefs();
     const commonGridOptions = createCommonGridOptions();
-    
+
     // Available jobs grid
     const availableGridElement = document.getElementById('available-jobs-grid');
     const availableGridOptions = {
@@ -141,7 +141,7 @@ function initializeGrids() {
             adjustGridHeight(window.availableJobsGrid, 'available-jobs-grid');
         }
     };
-    
+
     // To archive jobs grid
     const archiveGridElement = document.getElementById('to-archive-jobs-grid');
     const archiveGridOptions = {
@@ -153,7 +153,7 @@ function initializeGrids() {
             adjustGridHeight(window.toArchiveJobsGrid, 'to-archive-jobs-grid');
         }
     };
-    
+
     // Create grids using the correct API method
     window.availableJobsGrid = agGrid.createGrid(availableGridElement, availableGridOptions);
     window.toArchiveJobsGrid = agGrid.createGrid(archiveGridElement, archiveGridOptions);
@@ -168,23 +168,23 @@ function updateButtonStates() {
     const btnRemoveSelected = document.getElementById('btn-remove-selected');
     const btnRemoveAll = document.getElementById('btn-remove-all');
     const btnArchiveJobs = document.getElementById('btn-archive-jobs');
-    
+
     // Get selected rows
     const availableSelected = [];
     const toArchiveSelected = [];
-    
+
     window.availableJobsGrid.forEachNode(node => {
         if (node.isSelected()) {
             availableSelected.push(node.data);
         }
     });
-    
+
     window.toArchiveJobsGrid.forEachNode(node => {
         if (node.isSelected()) {
             toArchiveSelected.push(node.data);
         }
     });
-    
+
     btnMoveSelected.disabled = availableSelected.length === 0;
     btnMoveAll.disabled = availableJobs.length === 0;
     btnRemoveSelected.disabled = toArchiveSelected.length === 0;
@@ -214,34 +214,34 @@ function updateGrids() {
     const availableTransaction = {
         remove: []
     };
-    
+
     // First, collect all nodes to remove
     window.availableJobsGrid.forEachNode(node => {
         availableTransaction.remove.push(node.data);
     });
-    
+
     // Then add new data
     availableTransaction.add = availableJobs;
     window.availableJobsGrid.applyTransaction(availableTransaction);
-    
+
     // Clear to-archive grid
     const archiveTransaction = {
         remove: []
     };
-    
+
     // First, collect all nodes to remove
     window.toArchiveJobsGrid.forEachNode(node => {
         archiveTransaction.remove.push(node.data);
     });
-    
+
     // Then add new data
     archiveTransaction.add = jobsToArchive;
     window.toArchiveJobsGrid.applyTransaction(archiveTransaction);
-    
+
     // Adjust heights after data change
     adjustGridHeight(window.availableJobsGrid, 'available-jobs-grid');
     adjustGridHeight(window.toArchiveJobsGrid, 'to-archive-jobs-grid');
-    
+
     // Update button states
     updateButtonStates();
 }
@@ -256,15 +256,15 @@ function moveSelectedToArchive() {
             selectedRows.push(node.data);
         }
     });
-    
+
     if (selectedRows.length === 0) return;
-    
+
     // Add to archive list and remove from available list
     jobsToArchive = [...jobsToArchive, ...selectedRows];
-    availableJobs = availableJobs.filter(job => 
+    availableJobs = availableJobs.filter(job =>
         !selectedRows.some(selected => selected.id === job.id)
     );
-    
+
     updateGrids();
 }
 
@@ -274,7 +274,7 @@ function moveSelectedToArchive() {
 function moveAllToArchive() {
     jobsToArchive = [...jobsToArchive, ...availableJobs];
     availableJobs = [];
-    
+
     updateGrids();
 }
 
@@ -288,15 +288,15 @@ function removeSelectedFromArchive() {
             selectedRows.push(node.data);
         }
     });
-    
+
     if (selectedRows.length === 0) return;
-    
+
     // Add back to available list and remove from archive list
     availableJobs = [...availableJobs, ...selectedRows];
-    jobsToArchive = jobsToArchive.filter(job => 
+    jobsToArchive = jobsToArchive.filter(job =>
         !selectedRows.some(selected => selected.id === job.id)
     );
-    
+
     updateGrids();
 }
 
@@ -306,7 +306,7 @@ function removeSelectedFromArchive() {
 function removeAllFromArchive() {
     availableJobs = [...availableJobs, ...jobsToArchive];
     jobsToArchive = [];
-    
+
     updateGrids();
 }
 
@@ -318,7 +318,7 @@ function fetchCompletedJobs() {
         level: "info",
         message: "Loading completed jobs..."
     }], 'toast-container');
-    
+
     fetch('/api/job/completed/')
         .then(response => {
             if (!response.ok) {
@@ -330,7 +330,7 @@ function fetchCompletedJobs() {
             // Store jobs and update grid
             availableJobs = data.results || [];
             jobsToArchive = [];
-            
+
             updateGrids();
         })
         .catch(error => {
@@ -338,7 +338,7 @@ function fetchCompletedJobs() {
                 level: "error",
                 message: "Error loading jobs: " + error.message
             }], 'toast-container');
-            
+
             console.error('Error fetching jobs:', error);
         });
 }
@@ -348,22 +348,22 @@ function fetchCompletedJobs() {
  */
 function archiveSelectedJobs() {
     if (jobsToArchive.length === 0) return;
-    
+
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-    
+
     // Update UI to show progress
     const btnArchiveJobs = document.getElementById('btn-archive-jobs');
     const spinner = btnArchiveJobs.querySelector('.spinner');
     const buttonText = btnArchiveJobs.querySelector('.archive-btn-text');
-    
+
     btnArchiveJobs.disabled = true;
     spinner.style.display = 'inline-block';
     buttonText.textContent = 'Archiving...';
-    
+
     // Collect job IDs to archive
     const jobIds = jobsToArchive.map(job => job.id);
-    
+
     // Call the API to archive jobs
     fetch('/api/job/completed/archive', {
         method: 'POST',
@@ -379,24 +379,24 @@ function archiveSelectedJobs() {
         btnArchiveJobs.disabled = false;
         spinner.style.display = 'none';
         buttonText.textContent = 'Archive Selected Jobs';
-        
+
         if (data.success) {
             renderMessages([{
                 level: "success",
                 message: data.message
             }], 'toast-container');
-            
+
             // Clear the to-archive list and refresh the available jobs
             jobsToArchive = [];
             fetchCompletedJobs();
         } else {
             const errorMsg = data.error || 'Unknown error occurred';
-            
+
             let messages = [{
                 level: "error",
                 message: errorMsg
             }];
-            
+
             // Add individual error messages if available
             if (data.errors && Array.isArray(data.errors)) {
                 data.errors.forEach(err => {
@@ -406,9 +406,9 @@ function archiveSelectedJobs() {
                     });
                 });
             }
-            
+
             renderMessages(messages, 'toast-container');
-            
+
             if (data.errors && Array.isArray(data.errors)) {
                 console.error('Errors during archiving:', data.errors);
             }
@@ -419,12 +419,12 @@ function archiveSelectedJobs() {
         btnArchiveJobs.disabled = false;
         spinner.style.display = 'none';
         buttonText.textContent = 'Archive Selected Jobs';
-        
+
         renderMessages([{
             level: "error",
             message: "Error: " + error.message
         }], 'toast-container');
-        
+
         console.error('Error archiving jobs:', error);
     });
 }
@@ -435,14 +435,14 @@ function archiveSelectedJobs() {
 function initializePage() {
     // Initialize grids
     initializeGrids();
-    
+
     // Register button event handlers
     document.getElementById('btn-move-selected').addEventListener('click', moveSelectedToArchive);
     document.getElementById('btn-move-all').addEventListener('click', moveAllToArchive);
     document.getElementById('btn-remove-selected').addEventListener('click', removeSelectedFromArchive);
     document.getElementById('btn-remove-all').addEventListener('click', removeAllFromArchive);
     document.getElementById('btn-archive-jobs').addEventListener('click', archiveSelectedJobs);
-    
+
     // Fetch initial data
     fetchCompletedJobs();
 }

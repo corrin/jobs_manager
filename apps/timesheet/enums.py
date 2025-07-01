@@ -22,4 +22,3 @@ class RateType(models.TextChoices):
             self.UNPAID: Decimal("0.0"),
         }
         return multipliers[self]
-    

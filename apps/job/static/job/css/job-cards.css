@@ -268,7 +268,7 @@
   .job-card:hover {
     transform: translateY(-3px);
   }
-  
+
   .job-details-grid {
     grid-template-columns: 1fr;
   }

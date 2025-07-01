@@ -1,28 +1,26 @@
 # workflow/views/xero/xero_base_manager.py
-import logging
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from django.http import JsonResponse
-
+from django.utils import timezone
 from xero_python.accounting import AccountingApi
 from xero_python.accounting.models import Contact
 
-from django.utils import timezone
+from apps.client.models import Client
 
 # Import models used in type hints or logic
 from apps.job.models import Job
+from apps.workflow.api.xero.xero import api_client, get_tenant_id
 
-from apps.client.models import Client
+from .xero_helpers import clean_payload, convert_to_pascal_case  # Import helpers
 
 # Type hints will use string literals to avoid circular imports
 # from .xero_invoice_manager import XeroInvoiceManager
 # from .xero_quote_manager import XeroQuoteManager
 # from .xero_po_manager import XeroPurchaseOrderManager
 
-from apps.workflow.api.xero.xero import api_client, get_tenant_id
-from .xero_helpers import clean_payload, convert_to_pascal_case  # Import helpers
 
 logger = logging.getLogger("xero")
 
@@ -60,7 +58,6 @@ class XeroDocumentManager(ABC):
         """
         Returns the Xero ID for the document if it exists locally.
         """
-        pass
 
     @abstractmethod
     def state_valid_for_xero(self) -> bool:
@@ -68,28 +65,24 @@ class XeroDocumentManager(ABC):
         Checks if the document is in a valid state to be sent to Xero.
         Returns True if valid, False otherwise.
         """
-        pass
 
     @abstractmethod
     def get_line_items(self) -> list:
         """
         Returns a list of xero_python LineItem objects for the document.
         """
-        pass
 
     @abstractmethod
     def get_xero_document(self, type: str) -> Any:
         """
         Returns a xero_python document model object (e.g., XeroInvoice, XeroQuote).
         """
-        pass
 
     @abstractmethod
     def _get_local_model(self) -> Any:
         """
         Returns the local Django model class for the document (e.g., Invoice, Quote).
         """
-        pass
 
     @abstractmethod
     def _get_xero_update_method(self) -> Any:
@@ -97,7 +90,6 @@ class XeroDocumentManager(ABC):
         Returns the appropriate Xero API method for updating/creating the document
         (e.g., self.xero_api.update_or_create_invoices).
         """
-        pass
 
     def _get_account_code(self) -> str:
         """
@@ -139,7 +131,7 @@ class XeroDocumentManager(ABC):
         self.validate_client()
 
         if not self.state_valid_for_xero():
-            raise ValueError(f"Document is not in a valid state for Xero submission.")
+            raise ValueError("Document is not in a valid state for Xero submission.")
 
         # Use 'create' type for initial creation attempt
         xero_document = self.get_xero_document(type="create")
@@ -156,9 +148,6 @@ class XeroDocumentManager(ABC):
             # This depends on the specific endpoint (Invoices, Quotes, PurchaseOrders)
             # We need to import the specific creator types here eventually
             # Defer imports to avoid circular dependencies until files are created
-            from .xero_invoice_manager import XeroInvoiceManager
-            from .xero_quote_manager import XeroQuoteManager
-            from .xero_po_manager import XeroPurchaseOrderManager
 
             if hasattr(self, "_is_invoice_manager"):
                 api_payload = {"Invoices": [payload]}
@@ -177,7 +166,16 @@ class XeroDocumentManager(ABC):
                     "Unknown Xero document type for API payload structure."
                 )
 
-            logger.debug(f"Final API payload: {json.dumps(api_payload, indent=4)}")
+            def json_default(obj):
+                if hasattr(obj, "value"):
+                    return obj.value
+                if hasattr(obj, "__str__"):
+                    return str(obj)
+                return repr(obj)
+
+            logger.debug(
+                f"Final API payload: {json.dumps(api_payload, indent=4, default=json_default)}"
+            )
 
         except Exception as e:
             logger.error(

@@ -1,6 +1,7 @@
 from datetime import timezone
 from zoneinfo import ZoneInfo
 
+
 def get_nz_tz() -> timezone | ZoneInfo:
     """
     Gets the New Zealand timezone object using either zoneinfo or pytz.

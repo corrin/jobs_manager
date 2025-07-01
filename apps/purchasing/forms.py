@@ -2,12 +2,8 @@
 import logging
 
 from django import forms
-from django.utils.translation import gettext_lazy as _
 
-from apps.purchasing.models import (
-    PurchaseOrder,
-    PurchaseOrderLine,
-)
+from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
 
 logger = logging.getLogger(__name__)
 DEBUG_FORM = False  # Toggle form debugging

@@ -28,19 +28,19 @@
         height: 600px;
         width: 100%;
     }
-    
+
     /* Custom styling for compact rows */
     .ag-row-compact {
         height: 40px !important;
         min-height: 40px !important;
     }
-    
+
     /* Make buttons in grid smaller */
     .ag-row-compact .btn-sm {
         padding: 0.15rem 0.4rem;
         font-size: 0.75rem;
     }
-    
+
     /* Ensure action buttons are properly aligned */
     .ag-row-compact .d-flex {
         display: flex !important;
@@ -103,22 +103,22 @@
             <div class="modal-body">
                 <form id="useStockForm">
                     <input type="hidden" id="stockItemId">
-                    
+
                     <div class="mb-3">
                         <label for="stockDescription" class="form-label">Stock Item</label>
                         <input type="text" class="form-control" id="stockDescription" readonly>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="availableQuantity" class="form-label">Available Quantity</label>
                         <input type="text" class="form-control" id="availableQuantity" readonly>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="unitCost" class="form-label">Unit Cost</label>
                         <input type="text" class="form-control" id="unitCost" readonly>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="jobSelect" class="form-label">Assign to Job</label>
                         <select class="form-select" id="jobSelect" required>
@@ -128,7 +128,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="quantityUsed" class="form-label">Quantity to Use</label>
                         <input type="number" class="form-control" id="quantityUsed" min="0.01" step="any" required>
@@ -160,41 +160,41 @@
                         <label for="newStockDescription" class="form-label">Description</label>
                         <input type="text" class="form-control" id="newStockDescription" required>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="newStockQuantity" class="form-label">Quantity</label>
                         <input type="number" class="form-control" id="newStockQuantity" min="0.01" step="0.01" value="1" required>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="newStockUnitCost" class="form-label">Unit Cost</label>
                         <input type="number" class="form-control" id="newStockUnitCost" min="0.01" step="0.01" required>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="newStockMetalType" class="form-label">Metal Type</label>
                         <select class="form-select" id="newStockMetalType">
                             <option value="" disabled selected>Loading metal types...</option>
                         </select>
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="newStockAlloy" class="form-label">Alloy (optional)</label>
                         <input type="text" class="form-control" id="newStockAlloy" placeholder="e.g., 304, 6061">
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="newStockSpecifics" class="form-label">Specifics (optional)</label>
                         <input type="text" class="form-control" id="newStockSpecifics" placeholder="e.g., m8 countersunk socket screw">
                     </div>
-                    
+
                     <div class="mb-3">
                         <label for="newStockLocation" class="form-label">Location (optional)</label>
                         <input type="text" class="form-control" id="newStockLocation" placeholder="Where this item is stored">
                     </div>
-                    
+
                     <input type="hidden" id="newStockSource" value="manual">
-                    
+
                     <div class="mb-3">
                         <label for="newStockNotes" class="form-label">Notes</label>
                         <textarea class="form-control" id="newStockNotes" rows="3"></textarea>

@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0099_historicaljob_created_by_job_created_by"),
         ("workflow", "0100_companydefaults_xero_tenant_id"),

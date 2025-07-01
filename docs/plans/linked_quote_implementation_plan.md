@@ -40,7 +40,7 @@ TEST EVERYTHING
 After this change, everything MUST go through the parts.  I.e. you cannot get the time entries for a job pricing.
 This requires fixing the APIs, the serialisers, the JS, etc.
 
-No UI changes.   
+No UI changes.
 
 ### Ticket 1: Add Linked Quote Field and Master Template to Company Defaults
 **Goal**: Add the basic fields needed for linked quotes without changing functionality.

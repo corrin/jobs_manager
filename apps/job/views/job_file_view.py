@@ -1,17 +1,17 @@
 import logging
 import os
 
-from django.http import FileResponse, JsonResponse
+from django.conf import settings
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-# Use django.conf.settings to access the fully configured Django settings
-# This ensures we get settings after all imports and env vars are processed
-from django.conf import settings
-
+from apps.job.mixins import JobLookupMixin, JobNumberLookupMixin
 from apps.job.models import Job, JobFile
+from apps.job.serializers.job_file_serializer import JobFileSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ class BinaryFileRenderer(BaseRenderer):
         return data
 
 
-class JobFileView(APIView):
+class JobFileView(JobNumberLookupMixin, APIView):
     renderer_classes = [JSONRenderer, BinaryFileRenderer]
 
     def save_file(self, job, file_obj, print_on_jobsheet):
@@ -109,20 +109,11 @@ class JobFileView(APIView):
         """
         logger.debug("Processing POST request to upload files (creating new).")
 
-        job_number = request.data.get("job_number")
-        if not job_number:
-            return Response(
-                {"status": "error", "message": "Job number is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            job = Job.objects.get(job_number=job_number)
-        except Job.DoesNotExist:
-            return Response(
-                {"status": "error", "message": "Job not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        job, error_response = self.get_job_from_request_data(
+            request, error_format="legacy"
+        )
+        if error_response:
+            return error_response
 
         files = request.FILES.getlist("files")
         if not files:
@@ -169,25 +160,15 @@ class JobFileView(APIView):
         """
         Return the file list of a job.
         """
-        try:
-            job = Job.objects.get(job_number=job_number)
-        except Job.DoesNotExist:
-            return Response(
-                {"status": "error", "message": "Job not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        job_files = JobFile.objects.filter(job=job)
-        if not job_files.exists():
-            return Response([], status=status.HTTP_200_OK)
-
-        return Response(
-            [
-                {"filename": file.filename, "file_path": file.file_path, "id": file.id}
-                for file in job_files
-            ],
-            status=status.HTTP_200_OK,
+        job, error_response = self.get_job_or_404_response(
+            job_number=job_number, error_format="legacy"
         )
+        if error_response:
+            return error_response
+
+        qs = JobFile.objects.filter(job=job, status="active")
+        serializer = JobFileSerializer(qs, many=True, context={"request": self.request})
+        return Response(serializer.data, status=200)
 
     def _get_by_path(self, file_path):
         """
@@ -255,13 +236,11 @@ class JobFileView(APIView):
             "1",
         ]
 
-        try:
-            job = Job.objects.get(job_number=job_number)
-        except Job.DoesNotExist:
-            return Response(
-                {"status": "error", "message": "Job not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        job, error_response = self.get_job_or_404_response(
+            job_number=job_number, error_format="legacy"
+        )
+        if error_response:
+            return error_response
 
         file_obj = request.FILES.get("files")
         if not file_obj:
@@ -411,3 +390,20 @@ class JobFileView(APIView):
                 {"status": "error", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class JobFileThumbnailView(JobLookupMixin, APIView):
+    lookup_url_kwarg = "file_id"  # Note: this view uses file_id, not job_id
+    """
+    Serve a JPEG thumbnail of a JobFile via its UUID
+    """
+
+    def get(self, request, file_id):
+        job_file = get_object_or_404(JobFile, id=file_id, status="active")
+        thumb = job_file.thumbnail_path
+        if not thumb or not os.path.exists(thumb):
+            return Response(
+                {"status": "error", "message": "Thumbnail not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return FileResponse(open(thumb, "rb"), content_type="image/jpeg")

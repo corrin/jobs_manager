@@ -3,7 +3,8 @@ RESTful URLs for the purchasing app.
 Following REST conventions with clear resource-based naming.
 """
 
-from django.urls import path
+from django.urls import include, path
+
 from . import views
 
 app_name = "purchasing"
@@ -37,12 +38,12 @@ urlpatterns = [
         name="purchase_orders_autosave",
     ),
     path(
-        "api/purchase-orders/<uuid:pk>/pdf/",
+        "api/purchase-orders/<uuid:purchase_order_id>/pdf/",
         views.PurchaseOrderPDFView.as_view(),
         name="purchase_orders_pdf",
     ),
     path(
-        "api/purchase-orders/<uuid:pk>/email/",
+        "api/purchase-orders/<uuid:purchase_order_id>/email/",
         views.PurchaseOrderEmailView.as_view(),
         name="purchase_orders_email",
     ),
@@ -82,4 +83,17 @@ urlpatterns = [
     path(
         "api/stock/search/", views.search_available_stock_api, name="stock_search_api"
     ),
+    # Product Mapping Validation
+    path(
+        "product-mapping/",
+        views.product_mapping_validation,
+        name="product_mapping_validation",
+    ),
+    path(
+        "api/product-mapping/<uuid:mapping_id>/validate/",
+        views.validate_mapping,
+        name="validate_mapping",
+    ),
 ]
+
+urlpatterns += [path("rest/", include("apps.purchasing.urls_rest"))]

@@ -17,17 +17,17 @@ for creating new material entries.
 ### **Class Attributes**
 
 - **model** :
-    
+
     `MaterialEntry`
-    
+
 - **form_class** :
-    
+
     `MaterialEntryForm`
-    
+
 - **template_name** :
-    
+
     `"jobs/create_material_entry.html"`
-    
+
 
 ### **Methods**
 
@@ -36,22 +36,22 @@ for creating new material entries.
 - Handles valid form submission
 - Creates new MaterialEntry instance without committing
 - Associates entry with JobPricing using URL parameter
-    
+
     `job_pricing_id`
-    
+
 - Updates job's  timestamp
-    
+
     `last_updated`
-    
+
 - Returns JSON response via parent class implementation
 
 ### **`get_success_url() -> str`**
 
 - Generates URL for redirect after successful creation
 - Returns URL to edit job pricing page using
-    
+
     `self.object.job_pricing.pk`
-    
+
 
 ### **`form_invalid(form: MaterialEntryForm) -> JsonResponse`**
 
@@ -77,17 +77,17 @@ for editing existing material entries.
 ### **Class Attributes**
 
 - **model** :
-    
+
     `MaterialEntry`
-    
+
 - **form_class** :
-    
+
     `MaterialEntryForm`
-    
+
 - **template_name** :
-    
+
     `"jobs/edit_material_entry.html"`
-    
+
 
 ### **Methods**
 
@@ -101,9 +101,9 @@ for editing existing material entries.
 
 - Generates URL for redirect after successful update
 - Returns URL to edit job pricing page using
-    
+
     `self.object.job_pricing.pk`
-    
+
 
 ### **Template Context**
 
@@ -164,7 +164,7 @@ flowchart TD
     A[User Request] --> B{Create or Update?}
     B -->|Create| C[CreateMaterialEntryView]
     B -->|Update| D[MaterialEntryUpdateView]
-    
+
     C --> E[Validate Form]
     E -->|Valid| F[Create MaterialEntry]
     F --> G[Link to JobPricing]

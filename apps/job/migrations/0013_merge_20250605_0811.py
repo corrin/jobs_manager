@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0012_alter_jobevent_job"),
         ("job", "0012_merge_20250604_2123"),

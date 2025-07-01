@@ -318,9 +318,8 @@ export function initializeGrid() {
       autoHeight: true,
       wrapText: true,
       valueFormatter: (params) => {
-        if (!params.value) return "";
-        const job = state.purchaseData.jobs.find((j) => j.id === params.value);
-        return job ? job.job_display_name : "";
+        // Just display the job_display_name that's already in the data
+        return params.data?.job_display_name || "";
       },
       cellStyle: {
         "white-space": "normal",

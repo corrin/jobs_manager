@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0157_remove_bill_client_remove_billlineitem_bill_and_more"),
     ]
@@ -36,6 +35,6 @@ class Migration(migrations.Migration):
             ],
             database_operations=[
                 # Don't touch database - accounting app now manages these tables
-            ]
+            ],
         ),
     ]

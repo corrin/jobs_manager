@@ -4,11 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0009_historicaljob_job_is_valid_job_job_is_valid"),
     ]
 
-    operations = [
-
-    ]
+    operations = []

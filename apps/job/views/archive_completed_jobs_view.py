@@ -1,18 +1,12 @@
-import json
-import traceback
-
 import logging
 
-from django.db import transaction
-
 from django.views.generic import TemplateView
-
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
 
 from apps.job.serializers.job_serializer import CompleteJobSerializer
 from apps.job.services.job_service import archive_complete_jobs, get_paid_complete_jobs

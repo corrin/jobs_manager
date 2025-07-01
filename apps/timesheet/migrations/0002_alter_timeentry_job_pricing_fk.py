@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0002_alter_historicaljob_pricing_type_and_more"),
         ("timesheet", "0001_initial"),

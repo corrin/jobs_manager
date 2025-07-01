@@ -1,16 +1,14 @@
-from datetime import datetime, date
-
 import uuid
+from datetime import date, datetime
+from typing import ClassVar, List, Optional
 
-from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.db import models
 from django.utils import timezone
 from django.utils.timezone import now as timezone_now
+from simple_history.models import HistoricalRecords
 
 from .managers import StaffManager
-from typing import Optional, List, ClassVar
-
-from simple_history.models import HistoricalRecords
 
 
 class Staff(AbstractBaseUser, PermissionsMixin):

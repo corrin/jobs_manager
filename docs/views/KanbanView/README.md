@@ -23,17 +23,17 @@ def kanban_view(request: HttpRequest) -> HttpResponse
 ### **Context Data**
 
 - : QuerySet of all Job objects
-    
+
     `jobs`
-    
+
 - : Available job status choices from Job model
-    
+
     `status_choices`
-    
+
 - : Tooltips for each status
-    
+
     `status_tooltips`
-    
+
 
 ### **Data Flow**
 
@@ -69,13 +69,13 @@ def update_job_status(request: HttpRequest, job_id: UUID) -> HttpResponse
 ### **Parameters**
 
 - : HTTP request object
-    
+
     `request`
-    
+
 - : UUID of the job to update
-    
+
     `job_id`
-    
+
 
 ### **Request Format**
 
@@ -148,17 +148,17 @@ def fetch_jobs(request: HttpRequest, status: str) -> JsonResponse
 ### **Parameters**
 
 - : HTTP request object
-    
+
     `request`
-    
+
 - : Status value to filter jobs
-    
+
     `status`
-    
+
 - Query Parameter:  (optional, default=10)
-    
+
     `max_jobs`
-    
+
 
 ### **Response Format**
 

@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0070_jobevent_event_type"),
     ]
 
-    operations = [
-    ]
+    operations = []

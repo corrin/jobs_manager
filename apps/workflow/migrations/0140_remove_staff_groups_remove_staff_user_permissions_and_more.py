@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0139_bill_xero_tenant_id_client_xero_tenant_id_and_more"),
     ]
 
-    operations = [
-    ]
+    operations = []

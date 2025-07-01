@@ -45,7 +45,7 @@ def convert_to_pascal_case(obj):
 
 
 def _get_messages_from_validation_errors(
-    val_errors_list: Optional[List[Dict[str, Any]]]
+    val_errors_list: Optional[List[Dict[str, Any]]],
 ) -> List[str]:
     """
     Extracts 'Message' strings from a list of validation error dictionaries.
@@ -63,7 +63,7 @@ def _get_messages_from_validation_errors(
 
 
 def _extract_messages_from_elements(
-    elements_list: Optional[List[Dict[str, Any]]]
+    elements_list: Optional[List[Dict[str, Any]]],
 ) -> List[str]:
     """
     Extracts all relevant messages from a list of 'Elements' dictionaries.

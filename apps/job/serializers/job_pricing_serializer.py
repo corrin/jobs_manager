@@ -7,11 +7,12 @@ from rest_framework import serializers
 
 from apps.job.enums import JobPricingStage
 from apps.job.models import JobPricing
-from .adjustment_entry_serializer import AdjustmentEntrySerializer
-from .material_entry_serializer import MaterialEntrySerializer
 from apps.timesheet.serializers import (
     TimeEntryForJobPricingSerializer as TimeEntrySerializer,
 )
+
+from .adjustment_entry_serializer import AdjustmentEntrySerializer
+from .material_entry_serializer import MaterialEntrySerializer
 
 logger = logging.getLogger(__name__)
 DEBUG_SERIALIZER = False  # Toggle serializer debugging
@@ -21,6 +22,8 @@ class JobPricingSerializer(serializers.ModelSerializer):
     time_entries = TimeEntrySerializer(many=True, required=False)
     material_entries = MaterialEntrySerializer(many=True, required=False)
     adjustment_entries = AdjustmentEntrySerializer(many=True, required=False)
+    total_cost = serializers.SerializerMethodField()
+    total_revenue = serializers.SerializerMethodField()
 
     class Meta:
         model = JobPricing
@@ -33,6 +36,8 @@ class JobPricingSerializer(serializers.ModelSerializer):
             "time_entries",
             "material_entries",
             "adjustment_entries",
+            "total_cost",
+            "total_revenue",
         ]
 
     def to_representation(self, instance):
@@ -201,3 +206,9 @@ class JobPricingSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+    def get_total_cost(self, obj):
+        return obj.total_cost
+
+    def get_total_revenue(self, obj):
+        return obj.total_revenue

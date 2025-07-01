@@ -8,7 +8,6 @@ from django.db import migrations, models
 # (workflow_staff_groups and workflow_staff_user_permissions) when creating a fresh db.
 # These tables were removed when Staff model was moved from workflow app to accounts app.
 class Migration(migrations.Migration):
-
     dependencies = [
         ("accounts", "0003_alter_historicalstaff_updated_at_and_more"),
         ("auth", "0012_alter_user_first_name_max_length"),

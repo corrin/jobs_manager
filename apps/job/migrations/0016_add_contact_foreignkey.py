@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("client", "0002_clientcontact"),
         ("job", "0015_alter_historicaljob_client_alter_job_client_and_more"),

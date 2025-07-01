@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0130_purchaseorderline_raw_line_data_stock_job_and_more"),
     ]

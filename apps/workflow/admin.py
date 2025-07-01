@@ -1,11 +1,8 @@
 # workflow/admin.py
 
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin
-from simple_history.admin import SimpleHistoryAdmin
 
-from apps.workflow.models import CompanyDefaults
-from apps.workflow.models import AIProvider
+from apps.workflow.models import AIProvider, CompanyDefaults
 
 
 class AIProviderInline(admin.TabularInline):
@@ -13,14 +10,14 @@ class AIProviderInline(admin.TabularInline):
 
     model = AIProvider
     extra = 1
-    fields = ("name", "provider_type", "api_key", "active")
+    fields = ("name", "provider_type", "model_name", "api_key", "default")
 
     def save_model(self, request, obj, form, change):
-        """Ensure only one provider is active by deactivating others when a new one is activated."""
-        if obj.active:
-            AIProvider.objects.filter(company=obj.company, active=True).exclude(
+        """Ensure only one provider is default by deactivating others when a new one is set as default."""
+        if obj.default:
+            AIProvider.objects.filter(company=obj.company, default=True).exclude(
                 pk=obj.pk
-            ).update(active=False)
+            ).update(default=False)
         super().save_model(request, obj, form, change)
 
 
@@ -81,6 +78,18 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Google Sheets Integration (for Job Quotes)",
+            {
+                "fields": (
+                    "master_quote_template_url",
+                    "master_quote_template_id",
+                    "gdrive_quotes_folder_url",
+                    "gdrive_quotes_folder_id",
+                ),
+                "description": "These fields are used to configure the Google Sheets integration for job quotes. The master template is used to generate new quotes, and the folder is where all quotes are stored.",
+            },
+        ),
+        (
             "Xero Integration",
             {
                 "fields": (
@@ -95,7 +104,7 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
             "AI Providers",
             {
                 "fields": (),
-                "description": "LLM providers are managed in the section below. Only one provider can be active at a time.",
+                "description": "LLM providers are managed in the section below. Only one provider can be default at a time.",
             },
         ),
     )

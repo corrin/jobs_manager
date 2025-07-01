@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0134_alter_purchaseorder_order_date"),
     ]
 
-    operations = [
-    ]
+    operations = []

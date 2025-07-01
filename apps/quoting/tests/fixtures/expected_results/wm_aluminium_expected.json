@@ -1,0 +1,56 @@
+{
+  "WARNING: THIS FILE IS WRONG.  Kept to remind me to regnerate it (correctly)": "true",
+  "supplier_name": "Unknown Supplier",
+  "customer": "",
+  "date": "",
+  "expected_item_count": 155,
+  "pages_processed": 4,
+  "total_lines": 160,
+  "sample_items": [
+    {
+      "description": "CAVEGURY",
+      "supplier_item_code": "",
+      "variant_id": "CAVEGURY",
+      "unit_price": null,
+      "category": "ALUMINIUM & STAINLESS STEEL SHEET PRICE LIST",
+      "specifications": "CAVEGURY",
+      "dimensions": {
+        "width": null,
+        "length": null,
+        "thickness": null,
+        "diameter": null
+      },
+      "product_name": "ALUMINIUM & STAINLESS STEEL SHEET PRICE LIST - CAVEGURY"
+    },
+    {
+      "description": "---",
+      "supplier_item_code": "",
+      "variant_id": "---",
+      "unit_price": null,
+      "category": "ALUMINIUM & STAINLESS STEEL SHEET PRICE LIST",
+      "specifications": "---",
+      "dimensions": {
+        "width": null,
+        "length": null,
+        "thickness": null,
+        "diameter": null
+      },
+      "product_name": "ALUMINIUM & STAINLESS STEEL SHEET PRICE LIST - ---"
+    },
+    {
+      "description": "ALUMINIUM",
+      "supplier_item_code": "",
+      "variant_id": "ALUMINIUM",
+      "unit_price": 5005.0,
+      "category": "ALUMINIUM & STAINLESS STEEL SHEET PRICE LIST",
+      "specifications": "ALUMINIUM",
+      "dimensions": {
+        "width": null,
+        "length": null,
+        "thickness": null,
+        "diameter": null
+      },
+      "product_name": "ALUMINIUM & STAINLESS STEEL SHEET PRICE LIST - ALUMINIUM"
+    }
+  ]
+}

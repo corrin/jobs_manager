@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django import forms
 from django.db.models import Q
 
@@ -31,11 +29,15 @@ class PaidAbsenceForm(forms.Form):
     )
 
     staff = forms.ModelChoiceField(
-        queryset=Staff.objects.filter(is_active=True, is_staff=False).exclude(
-            Q(id__in=get_excluded_staff())
-        ),
+        queryset=Staff.objects.none(),  # Will be set in __init__
         widget=forms.Select(attrs={"class": "form-control"}),
         label="Staff Member",
         empty_label="Select a staff member",
         required=True,
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["staff"].queryset = Staff.objects.filter(
+            is_active=True, is_staff=False
+        ).exclude(Q(id__in=get_excluded_staff()))

@@ -1,39 +1,88 @@
+import logging
+
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from django.utils import timezone
-from apps.workflow.api.xero.xero import refresh_token
-
-import logging
-
-from apps.workflow.services.xero_sync_service import XeroSyncService
-from apps.workflow.api.xero.sync import synchronise_xero_data
+from apps.workflow.api.xero.sync import (
+    deep_sync_xero_data,
+    one_way_sync_all_xero_data,
+    synchronise_xero_data,
+)
 
 logger = logging.getLogger("xero")
 
 
 class Command(BaseCommand):
-    help = "Triggers a manual, one-off Xero synchronization."
+    help = "Triggers a manual, one-off Xero synchronization with options for deep sync and entity selection."
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--deep-sync",
+            action="store_true",
+            help="Force a deep sync going back many days instead of normal incremental sync",
+        )
+        parser.add_argument(
+            "--days-back",
+            type=int,
+            default=90,
+            help="Number of days to look back for deep sync (default: 90)",
+        )
+        parser.add_argument(
+            "--entity",
+            choices=[
+                "contacts",
+                "invoices",
+                "bills",
+                "quotes",
+                "accounts",
+                "journals",
+                "purchase_orders",
+                "credit_notes",
+                "stock",
+            ],
+            help="Sync only the specified entity type (default: sync all)",
+        )
 
     def handle(self, *args, **options):
-        # Basic logging setup for a single execution command
-        handler = logging.StreamHandler()
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+        # Parse options
+        deep_sync = options["deep_sync"]
+        days_back = options["days_back"]
+        entity = options["entity"]
 
-        logger.info("Attempting to start a manual Xero synchronization...")
-        logger.info("Starting manual Xero synchronization...")
+        # Convert single entity to list
+        entities = [entity] if entity else None
+
+        # Determine sync type and log the plan
+        if entity:
+            sync_type = f"single entity: {entity}"
+        elif deep_sync:
+            sync_type = f"deep sync (going back {days_back} days)"
+        else:
+            sync_type = "normal incremental sync"
+
+        logger.info(f"Starting manual Xero synchronization: {sync_type}")
+
         try:
-            for message in synchronise_xero_data():
+            # Choose the appropriate sync function
+            if entity or deep_sync:
+                if deep_sync:
+                    logger.info(f"Starting deep sync looking back {days_back} days")
+                    sync_generator = deep_sync_xero_data(
+                        days_back=days_back, entities=entities
+                    )
+                else:
+                    logger.info(f"Starting incremental sync for {entity}")
+                    sync_generator = one_way_sync_all_xero_data(entities=entities)
+            else:
+                logger.info("Starting normal bidirectional sync")
+                sync_generator = synchronise_xero_data()
+
+            # Process the sync messages
+            for message in sync_generator:
                 # Log messages from the sync process
                 severity = message.get("severity", "info")
                 msg_text = message.get("message", "No message")
-                entity = message.get("entity", "N/A")
+                msg_entity = message.get("entity", "N/A")
                 progress = message.get("progress", "N/A")
 
                 log_func = getattr(logger, severity, logger.info)
@@ -43,10 +92,11 @@ class Command(BaseCommand):
                     else f"{progress:.2f}"
                 )
                 log_func(
-                    f"Sync Progress ({entity}): {msg_text} (Progress: {progress_display})"
+                    f"Sync Progress ({msg_entity}): {msg_text} (Progress: {progress_display})"
                 )
 
             logger.info("Manual Xero synchronization completed successfully.")
+
         except Exception as e:
             logger.error(
                 f"Error during manual Xero synchronization: {e}", exc_info=True

@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0058_alter_billlineitem_options_and_more"),
     ]
 
-    operations = [
-    ]
+    operations = []

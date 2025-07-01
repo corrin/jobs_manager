@@ -71,8 +71,8 @@
                     <tbody id="pendingItems">
                         {% for line in purchase_order.po_lines.all %}
                             {% if line.received_quantity < line.quantity %}
-                            <tr 
-                                data-line-id="{{ line.id }}" 
+                            <tr
+                                data-line-id="{{ line.id }}"
                                 data-line-job-id="{{ line.job_id }}"
                                 data-line-job-name="{{ line.job }}"
                                 data-unit-cost="{{ line.unit_cost }}"
@@ -85,7 +85,7 @@
                                 data-line-description="{{ line.description }}"
                             >
                                 <td>
-                                    <input type="checkbox" class="form-check-input line-checkbox" 
+                                    <input type="checkbox" class="form-check-input line-checkbox"
                                            data-line-id="{{ line.id }}">
                                 </td>
                                 <td>{{ line.job }}</td>
@@ -146,9 +146,9 @@
                     <tbody id="receivedItems">
                         {% for line in purchase_order.po_lines.all %}
                             {% if line.received_quantity > 0 %}
-                            <tr data-line-id="{{ line.id }}" 
-                                data-ordered-qty="{{ line.quantity }}" 
-                                data-unit-cost="{{ line.unit_cost }}" 
+                            <tr data-line-id="{{ line.id }}"
+                                data-ordered-qty="{{ line.quantity }}"
+                                data-unit-cost="{{ line.unit_cost }}"
                                 data-line-job-id="{{ line.job.id|default:'' }}"
                                 data-line-job-name="{{ line.job|default:'None' }}"
                                 data-metal-type="{{ line.metal_type|default:'unspecified' }}"

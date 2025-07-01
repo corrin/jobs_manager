@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0013_merge_20250605_0811"),
         ("purchasing", "0007_stock_unique_xero_id"),

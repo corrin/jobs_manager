@@ -1,13 +1,13 @@
 {% load crispy_forms_tags %}
 
-<!-- 
+<!--
     Form template for managing entries of paid absences with a modal.
-    Loaded dynamically by AJAX in TimesheetEntryView.  
+    Loaded dynamically by AJAX in TimesheetEntryView.
 -->
 <form id="paid-absence-form" method="post" class="animated-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="add_paid_absence">
-    
+
     {% if form.non_field_errors %}
     <div class="alert alert-danger">
         {{ form.non_field_errors }}
@@ -15,7 +15,7 @@
     {% endif %}
 
     {{ form|crispy }}
-    
+
     <div class="form-actions">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
             <i class="bi bi-x-circle me-1"></i>Cancel

@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0048_billlineitem_xero_id_invoicelineitem_xero_id"),
     ]

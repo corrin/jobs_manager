@@ -37,19 +37,19 @@
         <div class="col-md-12">
             <label for="contact_display" class="form-label">Contact Person</label>
             <div class="d-flex gap-2">
-                <input type="text" id="contact_display" class="form-control" 
-                    value="{% if job.contact %}{{ job.contact.name }} - {{ job.contact.phone|default:'' }}{% else %}{{ job.contact_person|default_if_none:'' }}{% endif %}" 
+                <input type="text" id="contact_display" class="form-control"
+                    value="{% if job.contact %}{{ job.contact.name }} - {{ job.contact.phone|default:'' }}{% else %}{{ job.contact_person|default_if_none:'' }}{% endif %}"
                     placeholder="No contact selected" readonly>
-                <input type="hidden" id="contact_id" name="contact_id" class="autosave-input" 
+                <input type="hidden" id="contact_id" name="contact_id" class="autosave-input"
                     value="{{ job.contact.id|default:'' }}">
-                <button type="button" class="btn btn-primary" id="manage_contact_btn" 
+                <button type="button" class="btn btn-primary" id="manage_contact_btn"
                     data-bs-toggle="modal" data-bs-target="#contactModal">
                     <i class="bi bi-person-plus"></i> Manage
                 </button>
             </div>
         </div>
     </div>
-    
+
     <!-- Legacy contact fields - hidden but preserved for backward compatibility -->
     <input type="hidden" id="contact_person" name="contact_person" class="autosave-input"
         value="{{ job.contact_person|default_if_none:'' }}">
@@ -73,7 +73,7 @@
         </div>
     </div>
 
-    <input type="hidden" id="material_gauge_quantity" name="material_gauge_quantity" 
+    <input type="hidden" id="material_gauge_quantity" name="material_gauge_quantity"
     class="autosave-input" value="{{ job.material_gauge_quantity|default_if_none:'' }}">
 
     <div class="row mb-3">
@@ -111,7 +111,7 @@
                 <div class="mb-3">
                     <strong>Client:</strong> <span id="modal_client_name">{{ job.client.name|default:'No client selected' }}</span>
                 </div>
-                
+
                 <!-- Existing contacts list -->
                 <div class="mb-4">
                     <h6>Select Existing Contact:</h6>
@@ -119,7 +119,7 @@
                         <!-- Will be populated by JavaScript -->
                     </div>
                 </div>
-                
+
                 <!-- Add new contact form -->
                 <div class="border-top pt-3">
                     <h6>Or Add New Contact:</h6>

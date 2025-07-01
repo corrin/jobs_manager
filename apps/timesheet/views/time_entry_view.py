@@ -1,9 +1,9 @@
+import decimal
 import json
 import logging
+import math
 from datetime import datetime
 from decimal import Decimal
-import math
-import decimal
 
 from django.contrib import messages
 from django.core.cache import cache
@@ -15,19 +15,16 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView
 
-from apps.timesheet.enums import RateType
-from apps.job.models import Job
-from apps.job.utils import get_active_jobs, get_jobs_data
-
-from apps.workflow.utils import extract_messages
-
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
-
+from apps.job.models import Job
+from apps.job.utils import get_active_jobs, get_jobs_data
+from apps.timesheet.enums import RateType
 from apps.timesheet.models import TimeEntry
 from apps.timesheet.serializers import (
     TimeEntryForTimeEntryViewSerializer as TimeEntrySerializer,
 )
+from apps.workflow.utils import extract_messages
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +43,8 @@ def sanitize_decimal_input(raw_value, default=Decimal(0)):
         logger.warning(f"Sanitizing invalid float {raw_value} to {default}.")
         return default
     try:
-        # Convert to string first to handle floats safely and allow Decimal to parse strings.
+        # Convert to string first to handle floats safely
+        # and allow Decimal to parse strings.
         val_str = str(raw_value)
         d = decimal.Decimal(val_str)  # Use decimal.Decimal to avoid conflict
         if d.is_nan() or d.is_infinite():
@@ -55,7 +53,10 @@ def sanitize_decimal_input(raw_value, default=Decimal(0)):
         return d
     except (decimal.InvalidOperation, TypeError, ValueError) as e:
         logger.warning(
-            f"Sanitizing invalid decimal input '{raw_value}' (type: {type(raw_value)}) to {default} due to {e}."
+            (
+                f"Sanitizing invalid decimal input '{raw_value}' "
+                f"(type: {type(raw_value)}) to {default} due to {e}."
+            )
         )
         return default
 
@@ -78,30 +79,37 @@ class TimesheetEntryView(TemplateView):
 
     Attributes:
     - `template_name` (str): Path to the template used for rendering the view.
-    - `EXCLUDED_STAFF_IDS` (list): List of Django staff IDs to be excluded from timesheet views.
+    - `EXCLUDED_STAFF_IDS` (list): List of Django staff IDs to be excluded
+      from timesheet views.
 
     Usage:
     - Accessed via a URL pattern that includes the date and staff ID as parameters.
-    - Provides the back-end logic for the `time_entries/timesheet_entry.html` template.
+    - Provides the back-end logic for the
+      `time_entries/timesheet_entry.html` template.
     """
 
     template_name = "timesheet/timesheet_entry.html"
 
-    # Excluding app users ID's to avoid them being loaded in timesheet views because they do not have entries
+    # Excluding app users ID's to avoid them being loaded in timesheet views
+    # because they do not have entries
     # (Valerie and Corrin included as they are not supposed to enter hours)
     EXCLUDED_STAFF_IDS = get_excluded_staff()
 
     def get(self, request, date, staff_id, *args, **kwargs):
         """
-        Handles GET requests to display the timesheet entry page for a given staff member and date.
+        Handles GET requests to display the timesheet entry page for a given
+        staff member and date.
 
         Purpose:
-        - Retrieves and validates the date and staff member based on URL parameters.
-        - Fetches timesheet entries, open jobs, and navigation details for the UI.
+        - Retrieves and validates the date and staff member based on
+          URL parameters.
+        - Fetches timesheet entries, open jobs, and navigation details
+          for the UI.
         - Ensures the context contains all data needed to render the page.
 
         Workflow:
-        1. Validates the `date` parameter to ensure it is in the correct format (YYYY-MM-DD).
+        1. Validates the `date` parameter to ensure it is in the correct
+           format (YYYY-MM-DD).
         2. Checks if the `staff_id` is excluded. If so, denies access.
         3. Retrieves the staff member and raises a 404 error if not found.
         4. Queries:
@@ -116,7 +124,8 @@ class TimesheetEntryView(TemplateView):
         - `staff_id` (UUID): The ID of the staff member.
 
         Returns:
-        - Rendered HTML template with the context for the timesheet entry page.
+        - Rendered HTML template with the context for the timesheet
+          entry page.
 
         Error Handling:
         - Raises `ValueError` for invalid date formats.
@@ -124,7 +133,8 @@ class TimesheetEntryView(TemplateView):
         - Raises `Http404` if the staff member is not found.
 
         Context:
-        - Includes data for the staff member, timesheet entries, open jobs, and navigation links.
+        - Includes data for the staff member, timesheet entries, open jobs,
+          and navigation links.
 
         Dependencies:
         - `Staff`, `TimeEntry`, and `Job` models for querying database records.
@@ -133,7 +143,8 @@ class TimesheetEntryView(TemplateView):
         - Template: `time_entries/timesheet_entry.html`.
 
         Notes:
-        - The `EXCLUDED_STAFF_IDS` attribute should be updated as needed to reflect changes in app/system users.
+        - The `EXCLUDED_STAFF_IDS` attribute should be updated as needed to
+          reflect changes in app/system users.
         """
         try:
             target_date = datetime.strptime(date, "%Y-%m-%d").date()
@@ -193,7 +204,9 @@ class TimesheetEntryView(TemplateView):
                 "job_pricing_id": entry["job_pricing_id"],
                 "job_number": entry["job_pricing__job__job_number"],
                 "job_name": entry["job_pricing__job__name"],
-                "client_name": entry["job_pricing__job__client__name"] or "No client!?",
+                "client_name": (
+                    entry["job_pricing__job__client__name"] or "No client!?"
+                ),
                 "description": entry["description"] or "",
                 "hours": float(entry["hours"]),
                 "rate_multiplier": float(entry["wage_rate_multiplier"]),
@@ -227,7 +240,7 @@ class TimesheetEntryView(TemplateView):
                     if job.latest_reality_pricing
                     else 0
                 ),
-                "client_name": job.client.name if job.client else "NO CLIENT!?",
+                "client_name": (job.client.name if job.client else "NO CLIENT!?"),
                 "charge_out_rate": float(job.charge_out_rate),
                 "job_status": job.status,
             }
@@ -261,17 +274,22 @@ class TimesheetEntryView(TemplateView):
 
     def _get_staff_navigation_list(self, excluded_ids, cache_timeout=3600):
         """
-        Retrieves the ordered staff list for navigation, annotated with a computed display_full_name.
+        Retrieves the ordered staff list for navigation, annotated with a
+        computed display_full_name.
 
         Intention:
-        - Compute the display_first_name using only the first token of the preferred_name (or first_name).
-        - Concatenate it with the full last_name to get display_full_name.
+        - Compute the display_first_name using only the first token of the
+          preferred_name (or first_name).
+        - Concatenate it with the full last_name to get
+          display_full_name.
         - Order by display_full_name.
-        - Cache the resulting list to reduce database load if the staff list does not change frequently.
+        - Cache the resulting list to reduce database load if the staff
+          list does not change frequently.
 
         Parameters:
         - excluded_ids: List or set of staff IDs to exclude.
-        - cache_timeout (int): The time in seconds for which the result should be cached.
+        - cache_timeout (int): The time in seconds for which the result
+          should be cached.
 
         Returns:
         - A list of dictionaries with keys 'id' and 'display_full_name'.
@@ -309,14 +327,17 @@ def autosave_timesheet_view(request):
     Handles autosave requests for timesheet data.
 
     Purpose:
-    - Automates the saving of timesheet changes, including updates, creations, and deletions.
+    - Automates the saving of timesheet changes, including updates,
+      creations, and deletions.
     - Dynamically updates related jobs and entries in the front-end.
-    - Ensures data consistency and prevents duplication during processing.
+    - Ensures data consistency and prevents duplication during
+      processing.
 
     Workflow:
     1. Parsing and Validation:
     - Parses the incoming request body as JSON.
-    - Separates entries into `time_entries` (to save or update) and `deleted_entries` (to remove).
+    - Separates entries into `time_entries` (to save or update) and
+      `deleted_entries` (to remove).
 
     2. Deletion Processing:
     - Deletes specified entries by ID if they exist.
@@ -325,15 +346,18 @@ def autosave_timesheet_view(request):
 
     3. Time Entry Processing:
     - Skips incomplete or invalid entries.
-    - Updates existing entries or creates new ones while avoiding duplicates.
+    - Updates existing entries or creates new ones while avoiding
+      duplicates.
     - Adds or updates jobs related to new or updated entries.
 
     4. Response:
-    - Returns success responses with related jobs, action type (`add` or `remove`), and feedback messages.
+    - Returns success responses with related jobs, action type
+      (`add` or `remove`), and feedback messages.
     - Sends error responses for invalid data or unexpected issues.
 
     Parameters:
-    - `request` (HttpRequest): The HTTP POST request containing timesheet data in JSON format.
+    - `request` (HttpRequest): The HTTP POST request containing timesheet
+      data in JSON format.
 
     Error Handling:
     - Validates JSON format and structure (`time_entries` and `deleted_entries`).
@@ -431,7 +455,7 @@ def autosave_timesheet_view(request):
                 target_date = datetime.strptime(timesheet_date, "%Y-%m-%d").date()
             except (ValueError, TypeError):
                 logger.error(
-                    f"Invalid timesheet_date format: {entry_data.get("timesheet_date")}"
+                    f"Invalid timesheet_date format: {entry_data.get('timesheet_date')}"
                 )
                 continue
 
@@ -450,7 +474,10 @@ def autosave_timesheet_view(request):
                                 staff = Staff.objects.get(id=staff_id)
                                 entry.staff = staff
                                 logger.info(
-                                    f"Restored staff {staff.name} assignment for entry {entry.id}"
+                                    (
+                                        f"Restored staff {staff.name} assignment "
+                                        f"for entry {entry.id}"
+                                    )
                                 )
                             except Staff.DoesNotExist:
                                 logger.error(f"Staff with ID {staff_id} not found")
@@ -508,8 +535,7 @@ def autosave_timesheet_view(request):
                     elif job.status in ["completed", "quoting"]:
                         messages.error(
                             request,
-                            f"Timesheet saved, but note job status "
-                            f"is {job.status}.",
+                            f"Timesheet saved, but note job status is {job.status}.",
                         )
                     else:
                         messages.success(
@@ -535,7 +561,8 @@ def autosave_timesheet_view(request):
                     logger.error(f"TimeEntry with ID {entry_id} not found")
 
             else:
-                # Verify if there's already a registry with same data to avoid creating multiple entries
+                # Verify if there's already a registry with same data to avoid
+                # creating multiple entries
                 job = Job.objects.get(id=job_id)
                 job_pricing = job.latest_reality_pricing
                 staff = Staff.objects.get(id=entry_data.get("staff_id"))
@@ -582,18 +609,17 @@ def autosave_timesheet_view(request):
 
                 scheduled_hours = entry.staff.get_scheduled_hours(target_date)
                 if scheduled_hours < hours:
-                    messages.warning(
-                        request,
-                        (
-                            "Timesheet created successfully, but hours exceed "
-                            f"scheduled hours for {target_date}"
-                        ),
+                    warning_msg = (
+                        "Timesheet created successfully, but hours exceed "
+                        f"scheduled hours for {target_date}"
                     )
+                    messages.warning(request, warning_msg)
                 elif job.status in ["completed", "quoting"]:
-                    messages.error(
-                        request,
-                        f"Timesheet created successfully, but note job status is {job.status}.",
+                    error_msg = (
+                        f"Timesheet created successfully, but note job status is "
+                        f"{job.status}."
                     )
+                    messages.error(request, error_msg)
                 else:
                     messages.success(request, "Timesheet created successfully.")
                 logger.debug("Timesheet created successfully")

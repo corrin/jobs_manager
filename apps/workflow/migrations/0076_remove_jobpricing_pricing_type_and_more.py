@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0075_jobfile_print_on_jobsheet"),
     ]
 
-    operations = [
-    ]
+    operations = []

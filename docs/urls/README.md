@@ -107,4 +107,3 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/__debug__/` | `debug_toolbar.urls` | N/A | Django Debug Toolbar (development only) |
-

@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0069_rename_user_jobevent_staff"),
     ]
 
-    operations = [
-    ]
+    operations = []

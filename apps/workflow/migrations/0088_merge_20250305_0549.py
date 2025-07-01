@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0080_alter_historicaljob_material_gauge_quantity_and_more"),
         ("workflow", "0087_companydefaults_is_primary"),

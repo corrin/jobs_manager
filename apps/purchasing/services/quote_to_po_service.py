@@ -1,31 +1,24 @@
+import base64
+import json
 import logging
 import os
-import json
-import base64
-import tempfile
-from typing import Literal, Optional, Tuple, Union
-import requests
-import mimetypes
+from typing import Optional, Tuple
+
 import pdfplumber
-import re
-from decimal import Decimal, InvalidOperation
-from rapidfuzz import process, fuzz
-
-from google import genai
-
+import requests
 from django.conf import settings
-from django.db.models import Q
+from google import genai
+from rapidfuzz import fuzz, process
 
+from apps.client.models import Client
+from apps.job.enums import MetalType
 from apps.purchasing.models import (
     PurchaseOrder,
     PurchaseOrderLine,
     PurchaseOrderSupplierQuote,
 )
-from apps.client.models import Client
-from apps.workflow.helpers import get_company_defaults
-from apps.job.enums import MetalType
-from apps.workflow.models import AIProvider
 from apps.workflow.enums import AIProviderTypes
+from apps.workflow.models import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -126,22 +119,21 @@ def extract_data_from_supplier_quote(
     """Extract data from a supplier quote file using Claude."""
     try:
         # Get the active AI provider and its API key
-        company_defaults = get_company_defaults()
-        active_ai_provider = company_defaults.get_active_ai_provider()
+        default_ai_provider = AIProvider.objects.filter(default=True).first()
 
-        if not active_ai_provider:
+        if not default_ai_provider:
             return (
                 None,
                 "No active AI provider configured. Please set one in company settings.",
             )
 
-        if active_ai_provider.provider_type != AIProviderTypes.ANTHROPIC:
+        if default_ai_provider.provider_type != AIProviderTypes.ANTHROPIC:
             return (
                 None,
-                f"Configured AI provider is {active_ai_provider.provider_type}, but this function requires Anthropic (Claude).",
+                f"Configured AI provider is {default_ai_provider.provider_type}, but this function requires Anthropic (Claude).",
             )
 
-        api_key = active_ai_provider.api_key
+        api_key = default_ai_provider.api_key
 
         if not api_key:
             return (
@@ -272,7 +264,7 @@ def extract_data_from_supplier_quote(
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-3-7-sonnet-20250219",
+                "model": "claude-sonnet-4-20250514",
                 "max_tokens": 4000,
                 "messages": [
                     {
@@ -284,9 +276,8 @@ def extract_data_from_supplier_quote(
                             # If we have extracted text, send it as text
                             [{"type": "text", "text": extracted_text}]
                             if extracted_text
-                            else
                             # Otherwise send the file
-                            [
+                            else [
                                 {
                                     "type": api_content_type,
                                     "source": {
@@ -372,7 +363,6 @@ def extract_data_from_supplier_quote(
                 }
         except (KeyError, TypeError):
             logging.warning("Supplier name not found in quote JSON")
-            pass
 
         # Return the extracted data
         return quote_data, None
@@ -560,8 +550,7 @@ def extract_data_from_supplier_quote_gemini(
     """
     try:
         if not ai_provider:
-            company_defaults = get_company_defaults()
-            ai_provider = company_defaults.get_active_ai_provider()
+            ai_provider = AIProvider.objects.filter(default=True).first()
 
         if not ai_provider:
             return (

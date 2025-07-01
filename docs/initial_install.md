@@ -114,7 +114,7 @@ npm install
 2.  Open the `.env` file in a text editor.
 3.  **Populate with Recorded Details:** Fill in the following values using the details you recorded in Phase 1:
     *   `DATABASE_URL`: Construct using your DB user, password, and name (e.g., `mysql://<your-app-name>:your-strong-password@localhost:3306/<your-app-name>`).
-    *   `NGROK_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
+    *   `APP_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
     *   `XERO_CLIENT_ID`: Paste your Xero app's Client ID.
     *   `XERO_CLIENT_SECRET`: Paste your Xero app's Client Secret.
     *   Review other settings and adjust if needed (e.g., `DJANGO_SECRET_KEY` should be changed for any non-local testing).
@@ -129,11 +129,19 @@ npm install
     ```bash
     python manage.py migrate
     ```
-3.  Load essential initial data fixtures:
+3.  Load essential configuration and initial data fixtures:
     ```bash
+    # Load essential company configuration
+    python manage.py loaddata apps/workflow/fixtures/company_defaults.json
+
+    # EITHER
+    # Load demo data for development (optional - skip if restoring production data)
     python manage.py loaddata apps/workflow/fixtures/initial_data.json
+    # OR...  restore from prod
+    python manage.py backport_data_restore
+
     ```
-    **Default Admin Credentials:**
+    **Default Admin Credentials (from initial_data.json):**
     *   **Username:** `defaultadmin@example.com`
     *   **Password:** `Default-admin-password`
 
@@ -141,7 +149,7 @@ npm install
     ```bash
     python manage.py backport_data_restore restore/prod_backup_YYYYMMDD_HHMMSS.json
     ```
-    This loads production data (jobs, timesheets, etc.) while preserving local settings.
+    This loads production data (jobs, timesheets, etc.) while preserving essential configuration. The restore command automatically loads `company_defaults.json` after clearing the database, so you don't need to load it separately.
 
 ## Phase 3: Running the Application & Connecting Xero
 
@@ -182,7 +190,7 @@ npm install
 **Before proceeding with the development setup, you must create a specific contact in Xero:**
 
 1. **Log into Xero Demo Company:** After authorization, log into your Xero Demo Company account at [https://go.xero.com/](https://go.xero.com/).
-2. **Create Shop Contact:** 
+2. **Create Shop Contact:**
    - Navigate to Contacts → Add Contact
    - Name: `Demo Company Shop` (exactly this name - case sensitive)
    - This contact represents internal shop work/maintenance jobs
@@ -260,6 +268,7 @@ To wipe the local database and start fresh:
 4.  **Re-initialize Application:** (Activate `poetry shell` if needed)
     ```bash
     python manage.py migrate
+    python manage.py loaddata apps/workflow/fixtures/company_defaults.json
     python manage.py loaddata apps/workflow/fixtures/initial_data.json
     # Optional: python manage.py backport_data_restore restore/prod_backup_YYYYMMDD_HHMMSS.json
     ```

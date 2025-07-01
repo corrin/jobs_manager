@@ -8,13 +8,13 @@
 {% block content %}
 <div class="form-container card-enhanced fadeInUp">
     <h1 class="page-title">Staff List</h1>
-    
+
     <ul class="staff-list">
         {% for staff_member in staff_list %}
             <li><a href="#">{{ staff_member.get_display_name }}</a></li>
         {% endfor %}
     </ul>
-    
+
     <div class="form-actions">
         <a href="{% url 'home' %}" class="btn btn-secondary">
             <i class="bi bi-arrow-left me-2"></i>Back

@@ -1,11 +1,8 @@
 import uuid
-
 from abc import abstractmethod
-
 from decimal import Decimal
 
 from django.db import models
-
 from django.utils import timezone
 
 from apps.accounting.enums import InvoiceStatus
@@ -48,7 +45,6 @@ class BaseXeroInvoiceDocument(models.Model):
     @abstractmethod
     def get_line_items(self):
         """Return the queryset of line items related to this document."""
-        pass
 
     @property
     def total_amount(self):
@@ -119,7 +115,9 @@ class Invoice(BaseXeroInvoiceDocument):
 
     @property
     def paid(self):
-        """Computes whether this invoice was already paid based on the amount due value."""
+        """
+        Computes whether this invoice was already paid based on the amount due value.
+        """
         return (
             (self.amount_due == self.total_incl_tax and self.total_incl_tax > 0)
             or (self.amount_due == self.total_excl_tax and self.total_incl_tax == 0)

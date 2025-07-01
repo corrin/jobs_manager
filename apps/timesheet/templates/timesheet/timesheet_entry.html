@@ -13,7 +13,7 @@
 <div class="container">
     <div class="timesheet-daily-header">
         <h2 class="timesheet-daily-date">Timesheet Entry - {{ staff_member.get_display_full_name }} - {{ timesheet_date }}</h2>
-        
+
         <div class="timesheet-daily-controls">
             <a href="{% url 'timesheet:timesheet_entry' date=timesheet_date staff_id=prev_staff.id %}" class="btn btn-primary">
                 <i class="bi bi-arrow-left me-1"></i>{{ prev_staff.name }}
@@ -74,7 +74,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- AG Grid will be initialized here -->
     <div id="timesheet-grid" class="ag-theme-alpine timesheet-grid">
     </div>

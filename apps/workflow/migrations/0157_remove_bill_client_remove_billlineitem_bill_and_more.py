@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("accounting", "0001_initial"),
         ("workflow", "0156_remove_stock_job_remove_stock_source_parent_stock_and_more"),
@@ -163,7 +162,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.SeparateDatabaseAndState(
-            state_operations=state_operations,
-            database_operations=[]
+            state_operations=state_operations, database_operations=[]
         )
     ]

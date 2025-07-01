@@ -4,7 +4,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("job", "0003_historicaljob_contact_email_job_contact_email"),
     ]

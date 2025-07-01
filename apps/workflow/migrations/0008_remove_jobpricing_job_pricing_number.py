@@ -4,10 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0007_remove_historicaljob_client_name_and_more"),
     ]
 
-    operations = [
-    ]
+    operations = []

@@ -4,7 +4,6 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0068_purchase_created_at_purchase_updated_at_and_more"),
         ("workflow", "0071_alter_jobevent_timestamp"),

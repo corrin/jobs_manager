@@ -1,16 +1,15 @@
-from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
-from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.forms import StaffChangeForm, StaffCreationForm
+from apps.accounts.models import Staff
 from apps.accounts.serializers import KanbanStaffSerializer
 from apps.accounts.utils import get_excluded_staff
-from apps.accounts.models import Staff
 
 
 class StaffListAPIView(generics.ListAPIView):
@@ -24,8 +23,8 @@ class StaffListAPIView(generics.ListAPIView):
         return JsonResponse(serializer.data, safe=False)
 
     def get_queryset(self):
-        header_value = self.request.headers.get("X-Actual-Users", "false").lower()
-        actual_users = header_value == "true"
+        actual_users_param = self.request.GET.get("actual_users", "false").lower()
+        actual_users = actual_users_param == "true"
         if actual_users:
             excluded_ids = get_excluded_staff()
             return Staff.objects.exclude(id__in=excluded_ids)

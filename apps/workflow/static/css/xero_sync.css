@@ -152,13 +152,13 @@
     .sync-container {
         padding: 1rem;
     }
-    
+
     .sync-table {
         display: block;
         overflow-x: auto;
     }
-    
+
     .sync-card {
         padding: 1rem;
     }
-} 
+}

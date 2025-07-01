@@ -1,7 +1,7 @@
 from django.urls import path
 
 from apps.accounting.views import generate_quote_pdf, send_quote_email
-from apps.accounting.views.kpi_view import KPICalendarTemplateView, KPICalendarAPIView
+from apps.accounting.views.kpi_view import KPICalendarAPIView, KPICalendarTemplateView
 
 app_name = "accounting"
 

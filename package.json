@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prettier-format": "prettier --write \"./apps/**/static/js/**/*.js\""
+    "prettier-format": "prettier --write \"./apps/**/static/js/**/*.js\"",
+    "prettier-check": "prettier --check \"./apps/**/static/js/**/*.js\""
   },
   "husky": {
     "hooks": {

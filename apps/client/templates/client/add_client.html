@@ -104,24 +104,24 @@
                         </div>
                 {% endif %}
                 {% endfor %}
-            
+
             <!-- Xero Contact ID field -->
             <div class="mb-3">
                 <label for="{{ form.xero_contact_id.id_for_label }}" class="form-label">{{ form.xero_contact_id.label }}</label>
-                <input type="text" 
-                       name="{{ form.xero_contact_id.name }}" 
-                       id="{{ form.xero_contact_id.id_for_label }}" 
-                       class="form-control" 
-                       readonly 
+                <input type="text"
+                       name="{{ form.xero_contact_id.name }}"
+                       id="{{ form.xero_contact_id.id_for_label }}"
+                       class="form-control"
+                       readonly
                        value="{{ form.xero_contact_id.value|default:'' }}"
                        placeholder="Will be generated when client is created">
             </div>
-            
+
             <!-- Keep the hidden raw_json field -->
             {{ form.raw_json.as_hidden }}
             </div>
         </div>
-        
+
         <div class="form-actions">
             <button type="button" class="btn btn-secondary" onclick="window.close()">
                 <i class="bi bi-x-circle me-2"></i>Cancel

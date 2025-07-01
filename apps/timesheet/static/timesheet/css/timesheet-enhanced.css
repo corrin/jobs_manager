@@ -492,37 +492,37 @@
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .week-navigation {
     flex-direction: column;
     width: 100%;
   }
-  
+
   .week-nav-btn {
     width: 100%;
   }
-  
+
   .timesheet-daily-controls {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .timesheet-title {
     font-size: 1.5rem;
   }
-  
+
   .timesheet-date-display {
     font-size: 1rem;
   }
-  
+
   .summary-section, .current-jobs-container {
     padding: 1rem;
   }
-  
+
   .timesheet-card-header, .timesheet-card-body {
     padding: 1rem;
   }
-  
+
   .summary-section:hover,
   .current-jobs-container:hover,
   .timesheet-card:hover,

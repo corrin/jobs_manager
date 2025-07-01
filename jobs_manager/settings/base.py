@@ -1,19 +1,21 @@
-from datetime import timedelta
 import os
+from datetime import timedelta
 from pathlib import Path
 
-from concurrent_log_handler import ConcurrentRotatingFileHandler
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 
+load_dotenv(BASE_DIR / ".env")
+
 AUTH_USER_MODEL = "accounts.Staff"
 
 # Application definition
 
 INSTALLED_APPS = [
+    "corsheaders",
     "crispy_forms",
     "crispy_bootstrap5",
     "django_apscheduler",
@@ -37,11 +39,14 @@ INSTALLED_APPS = [
     "apps.quoting.apps.QuotingConfig",
     "apps.client.apps.ClientConfig",
     "apps.purchasing.apps.PurchasingConfig",
+    "channels",
+    "mcp_server",
 ]
 
 CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -50,31 +55,22 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
-    "apps.workflow.middleware.LoginRequiredMiddleware",
-    "apps.workflow.middleware.PasswordStrengthMiddleware",
+    # Not needed anymore, since we're already using Simple JWT
+    # "apps.workflow.middleware.LoginRequiredMiddleware",
+    # "apps.workflow.middleware.PasswordStrengthMiddleware",
 ]
 
 # JWT/general authentication settings
 
-ENABLE_JWT_AUTH = False
-ENABLE_DUAL_AUTHENTICATION = True
+ENABLE_JWT_AUTH = True
+ENABLE_DUAL_AUTHENTICATION = False
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
-
-if ENABLE_JWT_AUTH:
-    REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].append(
-        "jobs_manager.authentication.JWTAuthentication"
-    )
-
-if not ENABLE_JWT_AUTH or ENABLE_DUAL_AUTHENTICATION:
-    REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"].append(
-        "rest_framework.authentication.SessionAuthentication"
-    )
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
@@ -91,20 +87,24 @@ SIMPLE_JWT = {
     "AUTH_COOKIE": "access_token",
     "AUTH_COOKIE_SECURE": True,
     "AUTH_COOKIE_HTTP_ONLY": True,
-    "AUTH_COOKIE_SAMESITE": "Lax",
+    "AUTH_COOKIE_SAMESITE": str(os.getenv("COOKIE_SAMESITE", "Lax")),
 }
 
-LOGIN_URL = "accounts:login"
+FRONT_END_URL = os.getenv("FRONT_END_URL", "")
+LOGIN_URL = FRONT_END_URL.rstrip("/") + "/login"
 LOGOUT_URL = "accounts:logout"
-LOGIN_REDIRECT_URL = "/"
+LOGIN_REDIRECT_URL = FRONT_END_URL
 LOGIN_EXEMPT_URLS = [
-    "accounts:login",
     "accounts:logout",
+    "accounts:api_logout",
     "accounts:password_reset",
     "accounts:password_reset_done",
     "accounts:reset",
     "accounts:password_reset_confirm",
     "accounts:password_reset_complete",
+    "accounts:token_obtain_pair",
+    "accounts:token_refresh",
+    "accounts:token_verify",
 ]
 
 LOGGING = {
@@ -166,6 +166,19 @@ LOGGING = {
             "backupCount": 5,
             "formatter": "verbose",
         },
+        "ai_extraction_file": {
+            "level": "DEBUG",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/ai_extraction.log"),
+            "maxBytes": 10 * 1024 * 1024,  # Larger for detailed OCR/parsing logs
+            "backupCount": 10,
+            "formatter": "verbose",
+        },
+        "mail_admins": {
+            "level": "ERROR",
+            "class": "django.utils.log.AdminEmailHandler",
+            "include_html": True,
+        },
     },
     "loggers": {
         # your SQL logger only writes to sql_file, and bubbles up to root
@@ -201,9 +214,20 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        # AI extraction logs (OCR, parsing, price lists)
+        "apps.quoting.services.ai_price_extraction": {
+            "handlers": ["ai_extraction_file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "apps.quoting.services.providers": {
+            "handlers": ["ai_extraction_file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
     },
     "root": {
-        "handlers": ["console", "app_file"],
+        "handlers": ["console", "app_file", "mail_admins"],
         "level": "DEBUG",
     },
 }
@@ -226,6 +250,7 @@ TEMPLATES = [
             os.path.join(BASE_DIR, "apps/client/templates"),
             os.path.join(BASE_DIR, "apps/purchasing/templates"),
             os.path.join(BASE_DIR, "apps/accounting/templates"),
+            os.path.join(BASE_DIR, "apps/quoting/templates"),
         ],
         "APP_DIRS": True,
         "OPTIONS": {
@@ -241,7 +266,27 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "jobs_manager.wsgi.application"
-load_dotenv(BASE_DIR / ".env")
+ASGI_APPLICATION = "jobs_manager.asgi.application"
+
+# Django Channels configuration
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [
+                (
+                    os.getenv("REDIS_HOST", "127.0.0.1"),
+                    int(os.getenv("REDIS_PORT", 6379)),
+                )
+            ],
+        },
+    },
+}
+
+# MCP Configuration
+DJANGO_MCP_AUTHENTICATION_CLASSES = [
+    "rest_framework.authentication.SessionAuthentication",
+]
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -332,7 +377,13 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Load SECRET_KEY from environment - critical security requirement
 SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ImproperlyConfigured(
+        "SECRET_KEY environment variable must be set. "
+        "Generate one using: from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+    )
 
 # ===========================
 # CUSTOM SETTINGS
@@ -341,6 +392,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 XERO_CLIENT_ID = os.getenv("XERO_CLIENT_ID", "")
 XERO_CLIENT_SECRET = os.getenv("XERO_CLIENT_SECRET", "")
 XERO_REDIRECT_URI = os.getenv("XERO_REDIRECT_URI", "")
+XERO_WEBHOOK_KEY = os.getenv("XERO_WEBHOOK_KEY", "")
 # Default scopes if not specified in .env
 DEFAULT_XERO_SCOPES = " ".join(
     [

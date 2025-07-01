@@ -1,8 +1,7 @@
+import logging
 import uuid
 
 from django.contrib.messages import get_messages
-import logging
-
 
 logger = logging.getLogger(__name__)
 

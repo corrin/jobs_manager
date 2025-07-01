@@ -4,13 +4,10 @@ from django.db import transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 
-from apps.workflow.models import CompanyDefaults
-
-from apps.job.models import Job, JobPricing, AdjustmentEntry, MaterialEntry
-
-from apps.timesheet.models import TimeEntry
-
 from apps.accounts.models import Staff
+from apps.job.models import AdjustmentEntry, Job, JobPricing, MaterialEntry
+from apps.timesheet.models import TimeEntry
+from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +131,7 @@ def get_latest_job_pricings(job):
 def get_paid_complete_jobs():
     """Fetches the jobs that are both completed and paid."""
     return (
-        Job.objects.filter(status="completed", paid=True)
+        Job.objects.filter(status__in=["completed", "recently_completed"], paid=True)
         .select_related("client")
         .order_by("-updated_at")
     )

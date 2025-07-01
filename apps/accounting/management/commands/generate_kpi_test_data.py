@@ -1,6 +1,6 @@
-import random
 import calendar
 import datetime
+import random
 from datetime import date
 from decimal import Decimal
 
@@ -8,19 +8,16 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
+from apps.accounting.utils import get_nz_tz
+from apps.accounts.models import Staff
+from apps.client.models import Client
+from apps.job.enums import JobPricingStage
+from apps.job.models import AdjustmentEntry, Job, JobPricing, MaterialEntry
+from apps.timesheet.models import TimeEntry
 from apps.workflow.models import CompanyDefaults
 
-from apps.job.enums import JobPricingStage
-
-from apps.job.models import Job, JobPricing, AdjustmentEntry, MaterialEntry
-
-from apps.timesheet.models import TimeEntry
-
-from apps.client.models import Client
-
-from apps.accounting.utils import get_nz_tz
-
-from apps.accounts.models import Staff
+STOCK_CLIENT_ID = "00000000-0000-0000-0000-000000000001"
+# TODO: Change to a proper import: Client.get_shop_client_id()
 
 
 class Command(BaseCommand):
@@ -47,7 +44,10 @@ class Command(BaseCommand):
         parser.add_argument(
             "--days",
             type=str,
-            help='Days pattern (good:medium:bad) e.g. "10:5:5" for 10 good, 5 medium, 5 bad days',
+            help=(
+                'Days pattern (good:medium:bad) e.g. "10:5:5" for '
+                "10 good, 5 medium, 5 bad days"
+            ),
             default="10:6:4",
         )
 
@@ -85,12 +85,16 @@ class Command(BaseCommand):
         except ValueError:
             self.stdout.write(
                 self.style.ERROR(
-                    'Invalid days pattern format. Use format "good:medium:bad" e.g. "10:5:5"'
+                    (
+                        "Invalid days pattern format. Use format "
+                        '"good:medium:bad" e.g. "10:5:5"'
+                    )
                 )
             )
             return
 
-        # Generate the data - explicitly pass the values instead of relying on options dictionary
+        # Generate the data - explicitly pass the values instead of
+        # relying on options dictionary
         self._generate_mock_data(
             int(year), int(month), good_days, medium_days, bad_days
         )
@@ -169,11 +173,10 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR("No job pricings found"))
                 return
 
-            # Get shop job pricings for non-billable work (using client_id instead of shop_job)
+            # Get shop job pricings for non-billable work (using client_id instead
+            # of shop_job)
             shop_job_pricings = [
-                jp
-                for jp in job_pricings
-                if str(jp.job.client_id) == "00000000-0000-0000-0000-000000000001"
+                jp for jp in job_pricings if str(jp.job.client_id) == STOCK_CLIENT_ID
             ]
 
             # Regular job pricings for billable work
@@ -240,11 +243,13 @@ class Command(BaseCommand):
 
             self.stdout.write(
                 self.style.SUCCESS(
-                    f"Successfully created {total_entries} mock entries for {calendar.month_name[month]} {year}\n"
+                    f"Successfully created {total_entries} mock entries for "
+                    f"{calendar.month_name[month]} {year}\n"
                     f"- Green days: {good_days}\n"
                     f"- Amber days: {medium_days}\n"
                     f"- Red days: {bad_days}\n"
-                    f"KPI thresholds: Green ≥ {green_threshold}, Amber ≥ {amber_threshold}"
+                    f"KPI thresholds: Green ≥ {green_threshold}, "
+                    f"Amber ≥ {amber_threshold}"
                 )
             )
 
@@ -266,13 +271,17 @@ class Command(BaseCommand):
             shop_client_exists = Client.objects.filter(
                 pk="00000000-0000-0000-0000-000000000001"
             ).exists()
-        except:
-            pass
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f"Error checking shop client existence: {str(e)}")
+            )
+            shop_client_exists = False
 
         if not shop_client_exists:
             self.stdout.write(
                 self.style.WARNING(
-                    "Shop client not found. Please run `python manage.py create_shop_jobs` first"
+                    "Shop client not found. Please run "
+                    "`python manage.py create_shop_jobs` first"
                 )
             )
             self.stdout.write(self.style.WARNING("Creating dummy data for testing..."))
@@ -280,12 +289,11 @@ class Command(BaseCommand):
 
     def _create_test_data(self):
         """Create minimal test data for the command to run"""
-        from django.conf import settings
 
         try:
             # Import models here to avoid circular imports
-            from apps.job.models import Job
             from apps.client.models import Client
+            from apps.job.models import Job
 
             # Create company defaults if needed
             if not CompanyDefaults.objects.exists():
@@ -360,7 +368,7 @@ class Command(BaseCommand):
             # Try alternative method using client name
             try:
                 shop_jobs = Job.objects.filter(client__name__icontains="Shop")
-            except:
+            except Exception:
                 pass
 
         shop_job_pricings = []
@@ -384,7 +392,7 @@ class Command(BaseCommand):
         if not regular_jobs.exists():
             try:
                 regular_jobs = Job.objects.exclude(client__name__icontains="Shop")
-            except:
+            except Exception:
                 pass
 
         regular_job_pricings = []
@@ -730,7 +738,8 @@ class Command(BaseCommand):
                         )
                         entries_created += 1
 
-                # Create non-billable entries if we have non-billable hours and shop jobs
+                # Create non-billable entries if we have non-billable hours and
+                # shop jobs
                 if non_billable_hours > 0 and shop_job_pricings:
                     # Pick 1-2 shop jobs
                     num_jobs = min(random.randint(1, 2), len(shop_job_pricings))

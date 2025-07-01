@@ -17,8 +17,8 @@ function deleteIconCellRenderer() {
 // Custom function to render the billable cell
 function billableCellRenderer(params) {
   if (params.data?.is_shop_job) {
-    return `<div class="non-billable-shop" title="Shop jobs cannot be billable" 
-            style="display: flex; align-items: center; justify-content: center; 
+    return `<div class="non-billable-shop" title="Shop jobs cannot be billable"
+            style="display: flex; align-items: center; justify-content: center;
             color: #888; cursor: not-allowed;">
             <span style="font-size: 16px">❌</span>
             </div>`;

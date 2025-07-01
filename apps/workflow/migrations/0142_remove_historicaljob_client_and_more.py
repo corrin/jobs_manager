@@ -4,10 +4,11 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ("workflow", "0141_remove_timeentry_job_pricing_remove_timeentry_staff_and_more"),
+        (
+            "workflow",
+            "0141_remove_timeentry_job_pricing_remove_timeentry_staff_and_more",
+        ),
     ]
 
-    operations = [
-    ]
+    operations = []

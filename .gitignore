@@ -12,6 +12,10 @@ __pycache__/
 # C extensions
 *.so
 
+# Excel extensions
+*.xls
+*.xlsx
+
 # Distribution / packaging
 .Python
 build/
@@ -98,7 +102,6 @@ dmypy.json
 
 /.__debug_sql.lock
 /node_modules/
-.github/
 
 # For Docker
 .yaml
@@ -116,3 +119,6 @@ restore/*.json
 .DS_Store
 *.csv
 steel_and_tube*
+restore/*.json.gz
+steel_and_tube_products.csv
+steel_and_tube_products.json

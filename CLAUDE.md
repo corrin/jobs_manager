@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Activate Python environment
 poetry shell
 
-# Install dependencies  
+# Install dependencies
 poetry install
 npm install
 
@@ -42,8 +42,15 @@ tox
 python manage.py migrate
 
 # Create database fixtures
-python manage.py loaddata workflow/fixtures/initial_data.json
+python manage.py loaddata apps/workflow/fixtures/company_defaults.json
+
+# then EITHER load demo data
+
+python manage.py loaddata apps/workflow/fixtures/initial_data.json
 python manage.py create_shop_jobs
+# OR backport from prod
+python manage.py backport_data_restore restore/prod_backup_20250614_095927.json.gz
+# You MUST do one of these.
 
 # Validate data integrity
 python manage.py validate_jobs
@@ -152,6 +159,14 @@ PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 - **Prettier** for JavaScript formatting with pre-commit hooks
 - **MyPy** with strict configuration for type safety
 - **Flake8** and **Pylint** for linting with Django-specific rules
+
+### Defensive Programming Principles
+- **TRUST THE DATA MODEL**: Never use `DoesNotExist` exception handling to mask data integrity issues
+- **FAIL EARLY**: Let the system fail loudly when data references are broken rather than silently continuing
+- **NO SILENT FAILURES**: Defensive programming means stopping bugs early, not letting them continue
+- Data integrity violations should cause immediate failure to surface the root problem
+- If foreign key references are missing, the backup/restore process or data model has a bug that must be fixed
+- FOCUS ON THE UNHAPPY CASE.  If it is appropriate to do error handling then do if <bad_case>: <handle_bad_case>.  NEVER write if <good case> to silently hide bad cases.
 
 ### Testing Approach
 Limited test coverage currently - focus on manual testing and data validation commands like `validate_jobs`.

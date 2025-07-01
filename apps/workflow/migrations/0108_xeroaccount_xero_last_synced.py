@@ -5,7 +5,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("workflow", "0107_purchaseorder_online_url_purchaseorder_raw_json"),
     ]

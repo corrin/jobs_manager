@@ -1,18 +1,19 @@
 import json
 import logging
 from decimal import Decimal, InvalidOperation
+from uuid import UUID
 
+from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.http import JsonResponse, Http404
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth.decorators import login_required
 
-from apps.workflow.models import CompanyDefaults
-from apps.purchasing.models import Stock
-from apps.job.models import Job, JobPricing, MaterialEntry
-from apps.job.enums import JobPricingStage
+from apps.job.models import Job
 from apps.job.utils import get_active_jobs
+from apps.purchasing.models import Stock
+from apps.purchasing.services.stock_service import consume_stock
+from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -67,15 +68,9 @@ def use_stock_view(request, job_id=None):
         )
 
     # If job_id is provided, get the job object to pass to the template
-    default_job = None
     if job_id:
-        try:
-            default_job = next(
-                (job for job in active_jobs if str(job.id) == str(job_id)), None
-            )
-        except Exception as e:
-            logger.error(f"Error finding job with ID {job_id}: {e}")
-            # redirect to the error page here
+        target_id = UUID(job_id)
+        job = next(j for j in active_jobs if j.id == target_id)  # StopIteration if none
 
     context = {
         "title": "Use Stock",
@@ -90,11 +85,9 @@ def use_stock_view(request, job_id=None):
 
 
 @require_http_methods(["POST"])
-@transaction.atomic  # Ensure database operations are atomic
+@transaction.atomic
 def consume_stock_api_view(request):
-    """
-    API endpoint to record stock consumption for a job and create a MaterialEntry.
-    """
+    """API endpoint to consume stock."""
     try:
         data = json.loads(request.body)
         job_id = data.get("job_id")
@@ -119,15 +112,10 @@ def consume_stock_api_view(request):
             logger.warning(f"Invalid quantity format received: {quantity_used_str}")
             return JsonResponse({"error": "Invalid quantity format."}, status=400)
 
-        job = get_object_or_404(Job, id=job_id)  # Raises 404 if not found
-        stock_item = get_object_or_404(
-            Stock, id=stock_item_id
-        )  # Raises 404 if not found
+        job = get_object_or_404(Job, id=job_id)
+        stock_item = get_object_or_404(Stock, id=stock_item_id)
 
         if quantity_used > stock_item.quantity:
-            logger.warning(
-                f"Attempted to consume {quantity_used} from stock {stock_item_id} with only {stock_item.quantity} available."
-            )
             return JsonResponse(
                 {
                     "error": f"Quantity used exceeds available stock ({stock_item.quantity})."
@@ -135,74 +123,11 @@ def consume_stock_api_view(request):
                 status=400,
             )
 
-        reality_pricing = JobPricing.objects.filter(
-            job=job, pricing_stage=JobPricingStage.REALITY
-        ).first()
-        if not reality_pricing:
-            logger.error(
-                f"CRITICAL: 'Reality' JobPricing not found for job {job.id} during stock consumption."
-            )
-            # Return 500 as this is a system setup issue
-            return JsonResponse(
-                {
-                    "error": f"Cannot record material cost: Reality pricing missing for job {job.id}"
-                },
-                status=500,
-            )
+        consume_stock(stock_item, job, quantity_used, request.user)
 
-        # --- Apply Business Logic / Pricing Rules ---
-        # TODO: Implement specific pricing rules (e.g., half-sheet rule) here
-        unit_cost = stock_item.unit_cost
-        unit_revenue = unit_cost * (1 + stock_item.retail_rate)
-
-        # --- Perform Database Operations ---
-        material_entry = MaterialEntry.objects.create(
-            job_pricing=reality_pricing,
-            source_stock=stock_item,
-            description=f"Consumed: {stock_item.description}",
-            quantity=quantity_used,
-            unit_cost=unit_cost,
-            unit_revenue=unit_revenue,
-            purchase_order_line=stock_item.source_purchase_order_line,
-        )
-        logger.info(
-            f"Created MaterialEntry {material_entry.id} for Job {job_id} from Stock {stock_item_id}"
-        )
-
-        stock_item.quantity -= quantity_used
-
-        # If quantity is now zero, set is_active to False
-        if stock_item.quantity <= 0:
-            stock_item.is_active = False
-            stock_item.save(update_fields=["quantity", "is_active"])
-            logger.info(
-                f"Updated Stock {stock_item_id} quantity to {stock_item.quantity} and deactivated it"
-            )
-        else:
-            stock_item.save(update_fields=["quantity"])
-            logger.info(
-                f"Updated Stock {stock_item_id} quantity to {stock_item.quantity}"
-            )
-
-        # --- Prepare Success Response ---
-        response_data = {
-            "success": True,
-            "message": "Stock consumed successfully.",
-            # Include data needed to refresh the AG Grid on the frontend
-            "new_material_entry": {
-                "id": str(material_entry.id),
-                "description": material_entry.description,
-                "quantity": float(material_entry.quantity),
-                "unit_cost": float(material_entry.unit_cost),
-                "unit_revenue": float(material_entry.unit_revenue),
-                "cost": float(material_entry.cost),
-                "revenue": float(material_entry.revenue),
-                "po_url": None,  # TODO: Generate PO URL if needed
-            },
-        }
         return JsonResponse(
-            response_data, status=200
-        )  # Use 200 for successful update/action
+            {"success": True, "message": "Stock consumed successfully."}
+        )
 
     except json.JSONDecodeError:
         logger.warning("Invalid JSON received for stock consumption.")
@@ -352,10 +277,6 @@ def search_available_stock_api(request):
 
     # Return results directly, matching ClientSearch response structure
     return JsonResponse({"results": results})
-
-
-# Note: Broad exception handling removed to strictly match ClientSearch style.
-# Consider adding it back if more robustness is needed.
 
 
 @require_http_methods(["POST"])

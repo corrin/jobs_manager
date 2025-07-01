@@ -1,24 +1,20 @@
 # workflow/views/xero_po_creator.py
-from datetime import datetime
-import logging
 import json
-from decimal import Decimal
-from datetime import date
+import logging
+from datetime import date, datetime
 
 from django.http import JsonResponse
 from django.utils import timezone
-
-# Import base class and helpers
-from .xero_base_manager import XeroDocumentManager
-from .xero_helpers import format_date, clean_payload, convert_to_pascal_case
+from xero_python.accounting.models import LineItem
+from xero_python.accounting.models import PurchaseOrder as XeroPurchaseOrder
 
 # Import models
 from apps.purchasing.models import PurchaseOrder
-
 from apps.workflow.models import XeroAccount
 
-from xero_python.accounting.models import LineItem, PurchaseOrder as XeroPurchaseOrder
-from xero_python.exceptions import AccountingBadRequestException
+# Import base class and helpers
+from .xero_base_manager import XeroDocumentManager
+from .xero_helpers import clean_payload, convert_to_pascal_case, format_date
 
 logger = logging.getLogger("xero")
 
@@ -64,7 +60,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
         if not has_valid_line:
             logger.info(
-                "PO %s cannot sync to Xero - no valid lines found (need at least one with description and unit_cost)",
+                (
+                    "PO %s cannot sync to Xero - no valid lines found "
+                    "(need at least one with description and unit_cost)"
+                ),
                 self.purchase_order.id,
             )
             return False
@@ -84,7 +83,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
     def _get_account_code(self) -> str | None:
         """
-        Return the Purchases account code for PO line creation, or None if it's not found.
+        Return the Purchases account code for PO line creation, or None if
+        it's not found.
         """
         try:
             return XeroAccount.objects.get(
@@ -92,13 +92,18 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             ).account_code
         except XeroAccount.DoesNotExist:
             logger.warning(
-                "Could not find 'Purchases' account in Xero accounts, omitting account code for PO lines."
+                (
+                    "Could not find 'Purchases' account in Xero accounts, "
+                    "omitting account code for PO lines."
+                )
             )
             return None
         except XeroAccount.MultipleObjectsReturned:
             accounts = XeroAccount.objects.filter(account_name__iexact="Purchases")
             logger.warning(
-                f"Found multiple 'Purchases' accounts: {[(a.account_name, a.account_code, a.xero_id) for a in accounts]}. Omitting account code."
+                f"Found multiple 'Purchases' accounts: "
+                f"{[(a.account_name, a.account_code, a.xero_id) for a in accounts]}. "
+                f"Omitting account code."
             )
             return None
 
@@ -145,12 +150,14 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     ):
                         if not self._is_zero_uuid(po.purchase_order_id):
                             logger.info(
-                                f"Found real UUID for PO {self.purchase_order.id}: {po.purchase_order_id}"
+                                f"Found real UUID for PO {self.purchase_order.id}: "
+                                f"{po.purchase_order_id}"
                             )
                             return po.purchase_order_id, po.updated_date_utc
 
                 logger.warning(
-                    f"Aditional query returned zero UUID for PO {self.purchase_order.id}"
+                    f"Aditional query returned zero UUID for PO "
+                    f"{self.purchase_order.id}"
                 )
         except Exception as e:
             logger.error(f"Error consulting real UUID for PO {po_number}: {str(e)}")
@@ -195,7 +202,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             JsonResponse with success or error status
         """
         if not hasattr(response, "purchase_orders") or not response.purchase_orders:
-            msg = f"Xero API response missing or empty 'purchase_orders' for PO {self.purchase_order.id}"
+            msg = (
+                f"Xero API response missing or empty 'purchase_orders' for PO "
+                f"{self.purchase_order.id}"
+            )
             logger.error(msg)
             return JsonResponse(
                 {
@@ -208,7 +218,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
         logger.info("Response received from Xero API: %s", response)
         xero_po = response.purchase_orders[0]
-        xero_po_url = f"https://go.xero.com/Accounts/Payable/PurchaseOrders/Edit/{xero_po.purchase_order_id}/"
+        xero_po_url = (
+            f"https://go.xero.com/Accounts/Payable/PurchaseOrders/Edit/"
+            f"{xero_po.purchase_order_id}/"
+        )
 
         if hasattr(xero_po, "validation_errors") and xero_po.validation_errors:
             error_messages = "; ".join(
@@ -218,12 +231,14 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 ]
             )
             logger.warning(
-                f"Xero validation errors for PO {self.purchase_order.id}: {error_messages}"
+                f"Xero validation errors for PO {self.purchase_order.id}: "
+                f"{error_messages}"
             )
 
         if self._is_zero_uuid(xero_po.purchase_order_id):
             logger.warning(
-                f"Xero returned zero UUID for PO {self.purchase_order.id}. Trying to consult real ID."
+                f"Xero returned zero UUID for PO {self.purchase_order.id}. "
+                f"Trying to consult real ID."
             )
 
             real_uuid, real_updated_date = self._fetch_uuid(
@@ -241,8 +256,12 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     }
                 )
 
-            logger.warning(
-                f"Could not find real UUID for PO {self.purchase_order.id}. Attempting to create it again."
+            logger.error(
+                f"""
+                Could not find real UUID for PO {self.purchase_order.id}.
+                Attempting to create it again.
+                """.strip()
+                # CORRIN: WHAT ON EARTH IS THIS?
             )
             try:
                 # Preparar o payload novamente
@@ -262,18 +281,25 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 )
 
                 # Verificar se a nova tentativa teve sucesso
+                # CORRIN: WHAT! retry?  Fail early.  This code is a mess.
                 if (
                     hasattr(retry_response, "purchase_orders")
                     and retry_response.purchase_orders
                 ):
                     retry_po = retry_response.purchase_orders[0]
-                    retry_url = f"https://go.xero.com/Accounts/Payable/PurchaseOrders/Edit/{retry_po.purchase_order_id}/"
+                    retry_url = (
+                        f"https://go.xero.com/Accounts/Payable/PurchaseOrders/Edit/"
+                        f"{retry_po.purchase_order_id}/"
+                    )
 
                     # Verificar se ainda recebemos um UUID zero
                     if not self._is_zero_uuid(retry_po.purchase_order_id):
                         # Sucesso na segunda tentativa!
                         logger.info(
-                            f"Successfully created PO on retry with UUID: {retry_po.purchase_order_id}"
+                            f"""
+                            Successfully created PO on retry with UUID:
+                            {retry_po.purchase_order_id}
+                            """.strip()
                         )
                         self._save_po_with_xero_data(
                             retry_po.purchase_order_id,
@@ -290,11 +316,17 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                         )
                     else:
                         logger.warning(
-                            f"Retry still returned zero UUID for PO {self.purchase_order.id}"
+                            f"""
+                            Retry still returned zero UUID for PO
+                            {self.purchase_order.id}
+                            """.strip()
                         )
                 else:
                     logger.warning(
-                        f"Retry did not return any purchase orders for PO {self.purchase_order.id}"
+                        f"""
+                        Retry did not return any purchase orders for PO
+                        {self.purchase_order.id}
+                        """.strip()
                     )
 
             except Exception as e:
@@ -302,15 +334,19 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     f"Error during retry for PO {self.purchase_order.id}: {str(e)}"
                 )
 
-            # Se chegamos aqui, tanto a tentativa original quanto a nova falharam em obter um UUID válido
-            # Salvamos sem o UUID, mas com URL e data de sincronização
+            # If we reached this point, both the original and the retry attempt failed
+            # to obtain a valid UUID
+            # We save without the UUID, but with the URL and synchronisation date
             self._save_po_with_xero_data(None, xero_po_url, timezone.now())
             return JsonResponse(
                 {
                     "success": True,
                     "xero_id": None,
                     "online_url": xero_po_url,
-                    "warning": "Could not obtain a valid UUID from Xero, but the PO may have been created",
+                    "warning": (
+                        "Could not obtain a valid UUID from Xero, "
+                        "but the PO may have been created"
+                    ),
                 }
             )
 
@@ -319,7 +355,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
         )
 
         logger.info(
-            f"Successfully synced PO {self.purchase_order.id} to Xero. Xero ID: {xero_po.purchase_order_id}"
+            f"""
+            Successfully synced PO {self.purchase_order.id} to Xero.
+            Xero ID: {xero_po.purchase_order_id}
+            """.strip()
         )
         return JsonResponse(
             {
@@ -355,7 +394,6 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             return []  # Or raise error
 
         for line in self.purchase_order.po_lines.all():  # Correct related name
-
             description = line.description
             # Prepend Job Number if available
             if line.job:
@@ -371,6 +409,11 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 "unit_amount": float(line.unit_cost) if line.unit_cost else 0.0,
             }
 
+            if line.item_code:
+                line_item_data["item_code"] = (
+                    line.item_code
+                )  # Corrigido para snake_case
+
             # Add account code only if found
             if account_code:
                 line_item_data["account_code"] = account_code
@@ -380,7 +423,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 xero_line_items.append(LineItem(**line_item_data))
             except Exception as e:
                 logger.error(
-                    f"Error creating xero-python LineItem object for PO line {line.id}: {e}",
+                    f"""
+                    Error creating xero-python LineItem object for PO line
+                    {line.id}: {e}
+                    """.strip(),
                     exc_info=True,
                 )
                 # Decide whether to skip this line or raise the error
@@ -413,19 +459,23 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             return XeroPurchaseOrder(purchase_order_id=xero_id, status="DELETED")
         elif type in ["create", "update"]:
             # Build the common document data dictionary using snake_case keys
+            order_date = self.purchase_order.order_date
+            if isinstance(order_date, str):
+                order_date = date.fromisoformat(order_date)
             document_data = {
                 "purchase_order_number": self.purchase_order.po_number,
                 "contact": self.get_xero_contact(),  # Uses base class method
-                "date": format_date(date.fromisoformat(self.purchase_order.order_date)),
+                "date": format_date(order_date),
                 "line_items": self.get_line_items(),
                 "status": status_map.get(self.purchase_order.status, "DRAFT"),
             }
 
             # Add optional fields if they exist
             if self.purchase_order.expected_delivery:
-                document_data["delivery_date"] = format_date(
-                    date.fromisoformat(self.purchase_order.expected_delivery)
-                )
+                expected_delivery = self.purchase_order.expected_delivery
+                if isinstance(expected_delivery, str):
+                    expected_delivery = date.fromisoformat(expected_delivery)
+                document_data["delivery_date"] = format_date(expected_delivery)
             if self.purchase_order.reference:
                 document_data["reference"] = self.purchase_order.reference
 
@@ -469,7 +519,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             return JsonResponse(
                 {
                     "success": True,
-                    "error": "Purchase order is not ready for sync. Please complete all required fields.",
+                    "error": (
+                        "Purchase order is not ready for sync. "
+                        "Please complete all required fields."
+                    ),
                     "exception_type": "ValidationError",
                     "is_incomplete_po": True,
                 }
@@ -490,7 +543,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             )
         except Exception as e:
             logger.error(
-                f"Error preparing or serializing Xero document for PO {self.purchase_order.id}: {str(e)}",
+                f"""
+                Error preparing or serializing Xero document for PO
+                {self.purchase_order.id}: {str(e)}
+                """.strip(),
                 exc_info=True,
             )
             return JsonResponse(
@@ -545,7 +601,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             )
 
         logger.info(
-            f"Attempting to delete purchase order {self.purchase_order.id} (Xero ID: {xero_id}) by setting status to DELETED."
+            f"""
+            Attempting to delete purchase order {self.purchase_order.id}
+            (Xero ID: {xero_id}) by setting status to DELETED.
+            """.strip()
         )
 
         try:
@@ -604,12 +663,18 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                         [f"{err.message}" for err in xero_po_data.validation_errors]
                     )
                     logger.error(
-                        f"Xero validation errors during delete for PO {self.purchase_order.id}: {error_details}"
+                        f"""
+                        Xero validation errors during delete for PO
+                        {self.purchase_order.id}: {error_details}
+                        """.strip()
                     )
                     return JsonResponse(
                         {
                             "success": False,
-                            "error": f"Xero validation errors during delete: {error_details}",
+                            "error": (
+                                f"Xero validation errors during delete: "
+                                f"{error_details}"
+                            ),
                         },
                         status=400,
                     )
@@ -619,7 +684,8 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     getattr(xero_po_data, "status", None) == "DELETED"
                     or http_status < 300
                 ):
-                    # Clear local Xero ID and update status (optional, could just clear ID)
+                    # Clear local Xero ID and update status
+                    # (optional, could just clear ID)
                     self.purchase_order.xero_id = None
                     self.purchase_order.xero_last_synced = timezone.now()
                     self.purchase_order.status = "deleted"
@@ -628,11 +694,18 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     )
 
                     logger.info(
-                        f"Successfully deleted purchase order {self.purchase_order.id} in Xero (Xero ID: {xero_id})."
+                        f"""
+                        Successfully deleted purchase order {self.purchase_order.id}
+                        in Xero (Xero ID: {xero_id}).
+                        """.strip()
                     )
                     return JsonResponse({"success": True, "action": "delete"})
                 else:
-                    error_msg = f"Xero did not confirm deletion status for PO {self.purchase_order.id}. Status: {getattr(xero_po_data, 'status', 'Unknown')}"
+                    error_msg = (
+                        f"Xero did not confirm deletion status for PO "
+                        f"{self.purchase_order.id}. Status: "
+                        f"{getattr(xero_po_data, 'status', 'Unknown')}"
+                    )
                     logger.error(error_msg)
                     return JsonResponse(
                         {"success": False, "error": error_msg}, status=500
@@ -646,7 +719,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
         except Exception as e:
             logger.error(
-                f"Unexpected error deleting PO {self.purchase_order.id} from Xero: {str(e)}",
+                f"""
+                Unexpected error deleting PO {self.purchase_order.id} from Xero:
+                {str(e)}
+                """.strip(),
                 exc_info=True,
             )
             return JsonResponse(

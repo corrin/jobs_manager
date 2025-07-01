@@ -13,7 +13,7 @@
         height: 70vh;
         text-align: center;
     }
-    
+
     .spinner {
         width: 60px;
         height: 60px;
@@ -23,17 +23,17 @@
         border-top-color: var(--primary-color, #3498db);
         animation: spin 1s ease-in-out infinite;
     }
-    
+
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
-    
+
     .redirect-message {
         font-size: 1.2rem;
         margin: 15px 0;
         color: var(--text-color, #333);
     }
-    
+
     .error-message {
         display: none;
         color: var(--danger-color, #e74c3c);
@@ -86,7 +86,7 @@
         const csrftoken = getCookie('csrftoken');
         const errorMessage = document.getElementById('errorMessage');
         const errorText = document.getElementById('errorText');
-        
+
         fetch('/api/create-job/', {
             method: 'POST',
             headers: {
