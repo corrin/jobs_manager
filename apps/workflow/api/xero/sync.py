@@ -298,8 +298,16 @@ def transform_journal(xero_journal, xero_id):
     created_date_utc = getattr(xero_journal, "created_date_utc", None)
     journal_number = getattr(xero_journal, "journal_number", None)
     raw_json = process_xero_data(xero_journal)
-    validate_required_fields({"journal_date": journal_date, "created_date_utc": created_date_utc, "journal_number": journal_number}, "journal", xero_id)
-    
+    validate_required_fields(
+        {
+            "journal_date": journal_date,
+            "created_date_utc": created_date_utc,
+            "journal_number": journal_number,
+        },
+        "journal",
+        xero_id,
+    )
+
     journal, created = XeroJournal.objects.get_or_create(
         xero_id=xero_id,
         defaults={
@@ -366,11 +374,11 @@ def transform_stock(xero_item, xero_id):
     if not xero_item.purchase_details or xero_item.purchase_details.unit_price is None:
         logger.error(f"Item {xero_id}: Missing purchase_details.unit_price")
         raise ValueError(f"Item {xero_id}: Missing purchase_details.unit_price")
-    
+
     if not xero_item.sales_details or xero_item.sales_details.unit_price is None:
         logger.error(f"Item {xero_id}: Missing sales_details.unit_price")
         raise ValueError(f"Item {xero_id}: Missing sales_details.unit_price")
-    
+
     # Happy case runs with zero checks
     defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
     defaults["unit_revenue"] = Decimal(str(xero_item.sales_details.unit_price))

@@ -276,10 +276,12 @@ class Stock(models.Model):
     )
 
     unit_revenue = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text="Revenue per unit (what customer pays)"
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Revenue per unit (what customer pays)",
     )
-
 
     date = models.DateTimeField(
         default=timezone.now, help_text="Date the stock item was created"
@@ -395,13 +397,15 @@ class Stock(models.Model):
                 "Unit cost must be set and greater than zero to calculate retail rate"
             )
 
-    @retail_rate.setter  
+    @retail_rate.setter
     def retail_rate(self, value):
         """Set unit_revenue based on unit_cost and markup rate"""
         if self.unit_cost and self.unit_cost > 0:
             self.unit_revenue = self.unit_cost * (Decimal("1") + value)
         else:
-            raise ValueError("Unit cost must be set and greater than zero to set retail rate")
+            raise ValueError(
+                "Unit cost must be set and greater than zero to set retail rate"
+            )
 
     def save(self, *args, **kwargs):
         """
