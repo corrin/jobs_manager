@@ -65,7 +65,7 @@ class JobRestService:
         }
 
         # Optional fields - only if provided
-        optional_fields = ["description", "order_number", "notes", "contact_person"]
+        optional_fields = ["description", "order_number", "notes"]
         for field in optional_fields:
             if data.get(field):
                 job_data[field] = data[field]
@@ -165,9 +165,10 @@ class JobRestService:
             "charge_out_rate": job.charge_out_rate,
             "order_number": job.order_number,
             "notes": job.notes,
-            "contact_person": job.contact_person,
-            "contact_email": job.contact_email,
-            "contact_phone": job.contact_phone,
+            "contact_id": job.contact.id if job.contact else None,
+            "contact_name": job.contact.name if job.contact else None,
+            "contact_email": job.contact.email if job.contact else None,
+            "contact_phone": job.contact.phone if job.contact else None,
         }
 
         # Use serialiser for validation and updating
@@ -394,7 +395,8 @@ class JobRestService:
             "charge_out_rate": "Charge out rate",
             "order_number": "Order number",
             "notes": "Notes",
-            "contact_person": "Contact person",
+            "contact_id": "Contact person",
+            "contact_name": "Contact name",
             "contact_email": "Contact email",
             "contact_phone": "Contact phone",
             "complex_job": "Itemised billing",
