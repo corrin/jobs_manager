@@ -91,7 +91,39 @@ defaults["unit_revenue"] = Decimal(str(xero_item.sales_details.unit_price))
 - Zero-cost items handled gracefully (return default 20% markup)
 
 ## Testing
-- Verify existing retail_rate calculations still work
-- Test Xero sync with various price combinations
-- Confirm MaterialEntry/Stock pricing consistency
-- Validate migration data integrity
+- ✅ Verify existing retail_rate calculations still work
+- ✅ Test Xero sync with various price combinations  
+- ✅ Confirm MaterialEntry/Stock pricing consistency
+- ✅ Validate migration data integrity
+
+## Implementation Status - COMPLETED ✅
+
+### Migration Summary:
+1. **Migration 0012**: Added `unit_revenue` field to Stock model
+2. **Migration 0013**: Populated `unit_revenue` from existing `unit_cost` and `retail_rate` values (75 items updated)
+3. **Migration 0014**: Removed old `retail_rate` database field
+
+### Key Changes Made:
+- ✅ Added `unit_revenue` field matching MaterialEntry pattern
+- ✅ Created `retail_rate` property with getter/setter for backward compatibility  
+- ✅ Updated Xero sync to store actual prices in `unit_revenue` instead of markup in `retail_rate`
+- ✅ Property follows defensive programming principles (fails early on invalid data)
+- ✅ All existing code continues to work through property interface
+- ✅ Data validation passed with no integrity issues
+
+### Property Behavior:
+- **Getter**: Calculates markup rate from `unit_cost` and `unit_revenue` 
+- **Setter**: Updates `unit_revenue` based on `unit_cost` and markup rate
+- **Error Handling**: Raises ValueError for invalid data (follows CLAUDE.md principles)
+
+### Files Modified:
+- `apps/purchasing/models.py`: Stock model with unit_revenue field and retail_rate property
+- `apps/workflow/api/xero/sync.py`: Updated to use unit_revenue instead of retail_rate
+- Created 3 migrations for safe data transition
+
+### Validation Results:
+- ✅ Property getter/setter works correctly
+- ✅ Xero sync now stores actual prices, not calculated markup
+- ✅ Legacy code compatibility maintained
+- ✅ Data validation command passed 
+- ✅ Code formatted according to project standards

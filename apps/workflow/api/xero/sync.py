@@ -181,7 +181,11 @@ def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
     total_excl_tax = getattr(xero_obj, "sub_total", None)
     tax = getattr(xero_obj, "total_tax", None)
     total_incl_tax = getattr(xero_obj, "total", None)
-    amount_due = getattr(xero_obj, "amount_due", None)
+    # Credit notes use remaining_credit instead of amount_due
+    if doc_type == "credit_note":
+        amount_due = getattr(xero_obj, "remaining_credit", None)
+    else:
+        amount_due = getattr(xero_obj, "amount_due", None)
     xero_last_modified = getattr(xero_obj, "updated_date_utc", None)
     raw_json = process_xero_data(xero_obj)
 
