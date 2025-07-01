@@ -44,7 +44,7 @@ class KanbanService:
                     Q(name__icontains=term)
                     | Q(description__icontains=term)
                     | Q(client__name__icontains=term)
-                    | Q(contact_person__icontains=term)
+                    | Q(contact__name__icontains=term)
                     | Q(created_by__email__icontains=term)
                 )
                 query &= term_query
@@ -111,7 +111,7 @@ class KanbanService:
             "description": job.description,
             "job_number": job.job_number,
             "client_name": job.client.name if job.client else "",
-            "contact_person": job.contact_person,
+            "contact_person": job.contact.name if job.contact else "",
             "people": [
                 {
                     "id": staff.id,
@@ -347,7 +347,7 @@ class KanbanService:
             jobs_query = jobs_query.filter(client__name__icontains=client_name)
 
         if contact_person := filters.get("contact_person", "").strip():
-            jobs_query = jobs_query.filter(contact_person__icontains=contact_person)
+            jobs_query = jobs_query.filter(contact__name__icontains=contact_person)
 
         if created_by := filters.get("created_by", "").strip():
             jobs_query = jobs_query.filter(events__staff=created_by)
@@ -439,7 +439,7 @@ class KanbanService:
                     "name": job.name,
                     "description": job.description or "",
                     "client_name": job.client.name if job.client else "No Client",
-                    "contact_person": job.contact_person or "",
+                    "contact_person": job.contact.name if job.contact else "",
                     "people": [],  # This would need to be populated with assigned staff
                     "status": job.status,
                     "status_key": job.status,

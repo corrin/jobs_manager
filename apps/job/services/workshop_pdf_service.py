@@ -255,7 +255,7 @@ def add_job_details_table(pdf, y_position, job: Job):
     job_details = [
         ["Job Number", job.job_number or "N/A"],
         ["Client", job.client.name if job.client else "N/A"],
-        ["Contact", job.contact_person or "N/A"],
+        ["Contact", job.contact.name if job.contact else "N/A"],
         ["Description", Paragraph(job.description or "N/A", description_style)],
         [
             "Notes",

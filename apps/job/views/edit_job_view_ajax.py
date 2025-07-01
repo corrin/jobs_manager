@@ -325,7 +325,7 @@ def edit_job_view_ajax(request, job_id=None):
     context = {
         "job": job,
         "job_id": job.id,
-        # Ensure job.contact_person and job.contact_email are available for initial hidden field values
+        # Job contact information is available via job.contact relationship
         # These are already available via the 'job' object itself
         "events": events,
         "quoted": job_quoted,
@@ -410,7 +410,7 @@ def autosave_job_view(request):
                 {
                     "id": job_id,
                     "client": client_name,
-                    "contact": job.contact_person,
+                    "contact": job.contact.name if job.contact else None,
                 },
             )
             logger.info(
@@ -418,7 +418,7 @@ def autosave_job_view(request):
                 {
                     "name": job.name,
                     "order": job.order_number,
-                    "phone": job.contact_phone,
+                    "phone": job.contact.phone if job.contact else None,
                 },
             )
 
