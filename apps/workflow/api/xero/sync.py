@@ -319,7 +319,7 @@ def transform_journal(xero_journal, xero_id):
             "created_date_utc": created_date_utc,
             "journal_number": journal_number,
             "raw_json": raw_json,
-            "xero_last_modified": updated_date_utc,
+            "xero_last_modified": created_date_utc, # CREATED is correct! Xero journals are non-editable
         },
     )
     set_journal_fields(journal)
