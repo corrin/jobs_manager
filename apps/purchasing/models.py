@@ -275,12 +275,11 @@ class Stock(models.Model):
         max_digits=10, decimal_places=2, help_text="Cost per unit of the stock item"
     )
 
-    retail_rate = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=Decimal("0.2"),
-        help_text="Retail markup rate for this stock item (e.g., 0.2 for 20%)",
+    unit_revenue = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Revenue per unit (what customer pays)"
     )
+
 
     date = models.DateTimeField(
         default=timezone.now, help_text="Date the stock item was created"
@@ -385,6 +384,24 @@ class Stock(models.Model):
 
     def __str__(self):
         return f"{self.description} ({self.quantity})"
+
+    @property
+    def retail_rate(self):
+        """Calculate markup rate from unit_cost and unit_revenue"""
+        if self.unit_cost and self.unit_cost > 0 and self.unit_revenue:
+            return (self.unit_revenue - self.unit_cost) / self.unit_cost
+        else:
+            raise ValueError(
+                "Unit cost must be set and greater than zero to calculate retail rate"
+            )
+
+    @retail_rate.setter  
+    def retail_rate(self, value):
+        """Set unit_revenue based on unit_cost and markup rate"""
+        if self.unit_cost and self.unit_cost > 0:
+            self.unit_revenue = self.unit_cost * (Decimal("1") + value)
+        else:
+            raise ValueError("Unit cost must be set and greater than zero to set retail rate")
 
     def save(self, *args, **kwargs):
         """
