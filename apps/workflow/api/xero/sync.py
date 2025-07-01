@@ -374,17 +374,18 @@ def transform_stock(xero_item, xero_id):
         "xero_last_modified": xero_last_modified,
         "xero_inventory_tracked": is_tracked,
     }
-    # Handle unhappy cases first
-    if not xero_item.purchase_details or xero_item.purchase_details.unit_price is None:
-        logger.error(f"Item {xero_id}: Missing purchase_details.unit_price")
-        raise ValueError(f"Item {xero_id}: Missing purchase_details.unit_price")
-
+    # Handle missing sales_details.unit_price (required)
     if not xero_item.sales_details or xero_item.sales_details.unit_price is None:
         logger.error(f"Item {xero_id}: Missing sales_details.unit_price")
         raise ValueError(f"Item {xero_id}: Missing sales_details.unit_price")
 
-    # Happy case runs with zero checks
-    defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
+    # Zero cost means we can supply it at no cost to us.  
+    if not xero_item.purchase_details or xero_item.purchase_details.unit_price is None:
+        logger.warning(f"Item {xero_id}: Missing purchase_details.unit_price, setting unit_cost to 0")
+        defaults["unit_cost"] = Decimal("0")
+    else:
+        defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
+    
     defaults["unit_revenue"] = Decimal(str(xero_item.sales_details.unit_price))
     stock, created = Stock.objects.get_or_create(xero_id=xero_id, defaults=defaults)
     updated = False
