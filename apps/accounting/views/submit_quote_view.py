@@ -127,6 +127,7 @@ def create_pdf(job):
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, 700, "Contact:")
     pdf.setFont("Helvetica", 12)
+    # BUG.  Fallback! yuck.  
     pdf.drawString(
         120,
         700,
