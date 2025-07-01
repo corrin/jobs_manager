@@ -85,6 +85,9 @@ class XeroSyncService:
     @staticmethod
     def run_sync(task_id):
         """Execute the sync and record messages under ``task_id``."""
+        # Import here to avoid circular import
+        from apps.workflow.api.xero.sync import ENTITY_CONFIGS, synchronise_xero_data
+
         messages_key = f"xero_sync_messages_{task_id}"
         current_key = f"xero_sync_current_entity_{task_id}"
         progress_key = f"xero_sync_entity_progress_{task_id}"
