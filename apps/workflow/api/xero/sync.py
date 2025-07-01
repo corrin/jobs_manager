@@ -181,7 +181,11 @@ def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
     total_excl_tax = getattr(xero_obj, "sub_total", None)
     tax = getattr(xero_obj, "total_tax", None)
     total_incl_tax = getattr(xero_obj, "total", None)
-    amount_due = getattr(xero_obj, "amount_due", None)
+    # Credit notes use remaining_credit instead of amount_due
+    if doc_type == "credit_note":
+        amount_due = getattr(xero_obj, "remaining_credit", None)
+    else:
+        amount_due = getattr(xero_obj, "amount_due", None)
     xero_last_modified = getattr(xero_obj, "updated_date_utc", None)
     raw_json = process_xero_data(xero_obj)
 
@@ -295,13 +299,27 @@ def transform_journal(xero_journal, xero_id):
         The saved XeroJournal model.
     """
     journal_date = getattr(xero_journal, "journal_date", None)
+    created_date_utc = getattr(xero_journal, "created_date_utc", None)
+    journal_number = getattr(xero_journal, "journal_number", None)
     raw_json = process_xero_data(xero_journal)
-    validate_required_fields({"journal_date": journal_date}, "journal", xero_id)
+    validate_required_fields(
+        {
+            "journal_date": journal_date,
+            "created_date_utc": created_date_utc,
+            "journal_number": journal_number,
+        },
+        "journal",
+        xero_id,
+    )
+
     journal, created = XeroJournal.objects.get_or_create(
         xero_id=xero_id,
         defaults={
             "journal_date": journal_date,
+            "created_date_utc": created_date_utc,
+            "journal_number": journal_number,
             "raw_json": raw_json,
+            "xero_last_modified": updated_date_utc,
         },
     )
     set_journal_fields(journal)
@@ -356,10 +374,19 @@ def transform_stock(xero_item, xero_id):
         "xero_last_modified": xero_last_modified,
         "xero_inventory_tracked": is_tracked,
     }
-    if xero_item.purchase_details and xero_item.purchase_details.unit_price is not None:
+    # Handle missing sales_details.unit_price (required)
+    if not xero_item.sales_details or xero_item.sales_details.unit_price is None:
+        logger.error(f"Item {xero_id}: Missing sales_details.unit_price")
+        raise ValueError(f"Item {xero_id}: Missing sales_details.unit_price")
+
+    # Zero cost means we can supply it at no cost to us.  
+    if not xero_item.purchase_details or xero_item.purchase_details.unit_price is None:
+        logger.warning(f"Item {xero_id}: Missing purchase_details.unit_price, setting unit_cost to 0")
+        defaults["unit_cost"] = Decimal("0")
+    else:
         defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
-    if xero_item.sales_details and xero_item.sales_details.unit_price is not None:
-        defaults["retail_rate"] = Decimal(str(xero_item.sales_details.unit_price))
+    
+    defaults["unit_revenue"] = Decimal(str(xero_item.sales_details.unit_price))
     stock, created = Stock.objects.get_or_create(xero_id=xero_id, defaults=defaults)
     updated = False
     for key, value in defaults.items():

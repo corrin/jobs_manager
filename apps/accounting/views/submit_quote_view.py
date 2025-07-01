@@ -47,9 +47,13 @@ def collect_pricing_data(pricing):
     for entry in pricing.time_entries.all():
         time_entries.append(
             [
-                entry.description or "N/A",
+                entry.description or "N/A",  # BUG
                 entry.items or 0,
-                f"{entry.minutes_per_item:.2f}" if entry.minutes_per_item else "0.00",
+                (
+                    f"{entry.minutes_per_item:.2f}"
+                    if entry.minutes_per_item
+                    else "0.00"
+                ),  # BUG
                 f"{entry.minutes:.2f}",
                 f"NZD {entry.wage_rate:.2f}",
                 f"NZD {entry.charge_out_rate:.2f}",
@@ -60,7 +64,7 @@ def collect_pricing_data(pricing):
     for entry in pricing.material_entries.all():
         material_entries.append(
             [
-                entry.item_code or "N/A",
+                entry.item_code or "N/A",  # BUG: NEVER USE "OR".  OR IS A FALLBACK
                 entry.description or "N/A",
                 f"{entry.quantity:.2f}" if entry.quantity else "0.00",
                 f"NZD {entry.unit_cost:.2f}",
@@ -73,10 +77,10 @@ def collect_pricing_data(pricing):
     for entry in pricing.adjustment_entries.all():
         adjustment_entries.append(
             [
-                entry.description or "N/A",
+                entry.description or "N/A",  # BUG
                 f"NZD {entry.cost_adjustment:.2f}",
                 f"NZD {entry.price_adjustment:.2f}",
-                entry.comments or "N/A",
+                entry.comments or "N/A",  # BUG
             ]
         )
 
@@ -127,7 +131,7 @@ def create_pdf(job):
     pdf.setFont("Helvetica-Bold", 12)
     pdf.drawString(50, 700, "Contact:")
     pdf.setFont("Helvetica", 12)
-    # BUG.  Fallback! yuck.  
+    # BUG.  Fallback! yuck.
     pdf.drawString(
         120,
         700,
