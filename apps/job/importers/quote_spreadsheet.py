@@ -240,7 +240,7 @@ def parse_xlsx(
         logger.info(f"📋 DataFrame columns: {list(df.columns)}")
 
         # Log sample of raw data
-        logger.info(f"📝 Sample raw data (first 3 rows):")
+        logger.info("📝 Sample raw data (first 3 rows):")
         for i in range(min(3, len(df))):
             row_data = df.iloc[i].to_dict()
             logger.info(f"    Row {i}: {row_data}")
@@ -249,9 +249,9 @@ def parse_xlsx(
         pricing_df = None
         try:
             pricing_df = pd.read_excel(path, sheet_name="pricing details - inhouse")
-            logger.info(f"📊 Also loaded pricing details sheet")
+            logger.info("📊 Also loaded pricing details sheet")
         except Exception:
-            logger.info(f"📊 No pricing details sheet found (optional)")
+            logger.info("📊 No pricing details sheet found (optional)")
             pass  # Optional sheet for validation
 
         # Detect columns
@@ -291,7 +291,7 @@ def parse_xlsx(
         valid_items_count = 0
         skipped_items_count = 0
 
-        logger.info(f"🔧 Starting to process rows (max 45 rows)...")
+        logger.info("🔧 Starting to process rows (max 45 rows)...")
         # Process rows - only those with valid item numbers in column A or valid quantity
         auto_item_number = 1  # Counter for auto-assigned item numbers
 
@@ -407,15 +407,15 @@ def parse_xlsx(
             df, draft_lines, total_minutes, labour_col, materials_markup, pricing_df
         )
 
-        logger.info(f"✅ Parsing completed!")
-        logger.info(f"📊 Final statistics:")
+        logger.info("✅ Parsing completed!")
+        logger.info("📊 Final statistics:")
         logger.info(f"    Valid items processed: {valid_items_count}")
         logger.info(f"    Items skipped: {skipped_items_count}")
         logger.info(f"    Draft lines created: {len(draft_lines)}")
         logger.info(f"    Total minutes: {total_minutes}")
 
         # Log sample of created draft lines
-        logger.info(f"📝 Sample draft lines created:")
+        logger.info("📝 Sample draft lines created:")
         for i, line in enumerate(draft_lines[:3]):
             logger.info(f"    Line {i}: {line}")
 
