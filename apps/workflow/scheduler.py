@@ -78,7 +78,8 @@ def start_scheduler() -> bool:
     Start the scheduler if appropriate conditions are met.
 
     Returns:
-        bool: True if scheduler was started, False if it was already running or shouldn't start
+        bool: True if scheduler was started, False if it was already running or
+              shouldn't start
     """
     if not should_start_scheduler():
         return False

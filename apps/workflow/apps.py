@@ -19,7 +19,7 @@ class WorkflowConfig(AppConfig):
     name = "apps.workflow"
     verbose_name = "Workflow"
 
-    def ready(self):
+    def ready(self) -> None:
         # This app (workflow) is responsible for scheduling Xero-related jobs.
         # The 'quoting' app handles its own scheduled jobs (e.g., scrapers).
         # Both apps use the same shared scheduler instance for job management.
@@ -30,7 +30,7 @@ class WorkflowConfig(AppConfig):
         # Attempt to start the shared scheduler (only one app will succeed)
         start_scheduler()
 
-    def _register_xero_jobs(self):
+    def _register_xero_jobs(self) -> None:
         """Register Xero-related jobs with the shared scheduler."""
         scheduler = get_scheduler()
 
@@ -60,7 +60,8 @@ class WorkflowConfig(AppConfig):
         )
         logger.info("Added 'xero_regular_sync' job to shared scheduler.")
 
-        # Xero 30-Day Sync: Perform full Xero synchronization on a Saturday morning every ~30 days
+        # Xero 30-Day Sync: Perform full Xero synchronization on Saturday morning
+        # every ~30 days
         scheduler.add_job(
             xero_30_day_sync_job,  # Use standalone function
             trigger="cron",

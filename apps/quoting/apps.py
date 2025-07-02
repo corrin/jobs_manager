@@ -11,7 +11,7 @@ class QuotingConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.quoting"
 
-    def ready(self):
+    def ready(self) -> None:
         # Import signals to ensure they're connected
         import apps.quoting.signals  # noqa
 
@@ -24,7 +24,7 @@ class QuotingConfig(AppConfig):
         # Attempt to start the shared scheduler (only one app will succeed)
         start_scheduler()
 
-    def _register_scraper_jobs(self):
+    def _register_scraper_jobs(self) -> None:
         """Register scraper-related jobs with the shared scheduler."""
         # Import the standalone job functions
         from apps.quoting.scheduler_jobs import (
