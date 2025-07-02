@@ -1,9 +1,8 @@
 import logging
-import os
-import sys
 
 from django.apps import AppConfig
-from django.conf import settings
+
+from apps.workflow.scheduler import get_scheduler, start_scheduler
 
 # Import standalone job functions
 from apps.workflow.scheduler_jobs import (
@@ -20,93 +19,62 @@ class WorkflowConfig(AppConfig):
     name = "apps.workflow"
     verbose_name = "Workflow"
 
-    def ready(self):
+    def ready(self) -> None:
         # This app (workflow) is responsible for scheduling Xero-related jobs.
         # The 'quoting' app handles its own scheduled jobs (e.g., scrapers).
-        # Both apps use the same DjangoJobStore for persistence.
+        # Both apps use the same shared scheduler instance for job management.
 
-        # Prevent scheduler from running multiple times, especially during development
-        # or when running management commands like runserver.
-        # RUN_MAIN is set by Django in the main process.
-        # ── guard #1: skip Django auto-reload child in DEBUG (already present)
-        if settings.DEBUG and os.environ.get("RUN_MAIN") != "true":
-            logger.info("Skipping APScheduler setup in debug child process.")
-            return
+        # Register Xero jobs with the shared scheduler
+        self._register_xero_jobs()
 
-        # ── guard #2: skip all ad-hoc manage.py commands ──────────────────
-        if sys.argv[0].endswith("manage.py"):
-            cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-            if cmd not in {"runserver"}:  # list any long-running cmds you *do* want
-                logger.info(
-                    "Skipping APScheduler setup inside manage.py %s", cmd or "<no-cmd>"
-                )
-                return
+        # Attempt to start the shared scheduler (only one app will succeed)
+        start_scheduler()
 
-        # Only start the scheduler if it hasn't been started already
-        # This check is crucial to prevent multiple scheduler instances in production.
-        # Import scheduler-related modules here, when apps are ready
-        # These imports are placed here to avoid AppRegistryNotReady errors
-        # during Django management commands (like migrate) where the app registry
-        # might not be fully loaded when apps.py is initially processed.
-        from apscheduler.schedulers.background import BackgroundScheduler
-        from django_apscheduler.jobstores import DjangoJobStore
+    def _register_xero_jobs(self) -> None:
+        """Register Xero-related jobs with the shared scheduler."""
+        scheduler = get_scheduler()
 
-        if not hasattr(self, "xero_scheduler_started"):
-            self.xero_scheduler_started = True
-            logger.info("Starting APScheduler for Xero-related jobs...")
+        # Xero Heartbeat: Refresh Xero API token every 5 minutes
+        scheduler.add_job(
+            xero_heartbeat_job,  # Use standalone function
+            trigger="interval",
+            minutes=5,
+            id="xero_heartbeat",
+            max_instances=1,
+            replace_existing=True,
+            misfire_grace_time=60,  # 1 minute grace time
+            coalesce=True,
+        )
+        logger.info("Added 'xero_heartbeat' job to shared scheduler.")
 
-            scheduler = BackgroundScheduler(timezone=settings.TIME_ZONE)
-            scheduler.add_jobstore(DjangoJobStore(), "default")
+        # Xero Regular Sync: Perform full Xero synchronization hourly
+        scheduler.add_job(
+            xero_regular_sync_job,  # Use standalone function
+            trigger="interval",
+            hours=1,
+            id="xero_regular_sync",
+            max_instances=1,
+            replace_existing=True,
+            misfire_grace_time=60 * 60,  # 1 hour grace time
+            coalesce=True,
+        )
+        logger.info("Added 'xero_regular_sync' job to shared scheduler.")
 
-            # Clear old jobs to prevent duplicates on restart
-            scheduler.remove_all_jobs()
-
-            # Xero Heartbeat: Refresh Xero API token every 5 minutes
-            scheduler.add_job(
-                xero_heartbeat_job,  # Use standalone function
-                trigger="interval",
-                minutes=5,
-                id="xero_heartbeat",
-                max_instances=1,
-                replace_existing=True,
-                misfire_grace_time=60,  # 1 minute grace time
-                coalesce=True,
-            )
-            logger.info("Added 'xero_heartbeat' job to scheduler.")
-
-            # Xero Regular Sync: Perform full Xero synchronization hourly
-            scheduler.add_job(
-                xero_regular_sync_job,  # Use standalone function
-                trigger="interval",
-                hours=1,
-                id="xero_regular_sync",
-                max_instances=1,
-                replace_existing=True,
-                misfire_grace_time=60 * 60,  # 1 hour grace time
-                coalesce=True,
-            )
-            logger.info("Added 'xero_regular_sync' job to scheduler.")
-
-            # Xero 30-Day Sync: Perform full Xero synchronization on a Saturday morning every ~30 days
-            scheduler.add_job(
-                xero_30_day_sync_job,  # Use standalone function
-                trigger="cron",
-                day_of_week="sat",  # Saturday
-                hour=2,  # 2 AM
-                minute=0,
-                timezone="Pacific/Auckland",  # Explicitly set NZT
-                id="xero_30_day_sync",
-                max_instances=1,
-                replace_existing=True,
-                misfire_grace_time=24 * 60 * 60,  # 24 hour grace time
-                coalesce=True,
-            )
-            logger.info("Added 'xero_30_day_sync' job to scheduler (Saturday morning).")
-
-            try:
-                scheduler.start()
-                logger.info("APScheduler started successfully (for Xero related jobs).")
-            except Exception as e:
-                logger.error(
-                    f"Error starting APScheduler for Xero jobs: {e}", exc_info=True
-                )
+        # Xero 30-Day Sync: Perform full Xero synchronization on Saturday morning
+        # every ~30 days
+        scheduler.add_job(
+            xero_30_day_sync_job,  # Use standalone function
+            trigger="cron",
+            day_of_week="sat",  # Saturday
+            hour=2,  # 2 AM
+            minute=0,
+            timezone="Pacific/Auckland",  # Explicitly set NZT
+            id="xero_30_day_sync",
+            max_instances=1,
+            replace_existing=True,
+            misfire_grace_time=24 * 60 * 60,  # 24 hour grace time
+            coalesce=True,
+        )
+        logger.info(
+            "Added 'xero_30_day_sync' job to shared scheduler (Saturday morning)."
+        )

@@ -7,6 +7,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import UpdateView
 from django_tables2 import SingleTableView
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 from xero_python.accounting import AccountingApi
 
 from apps.client.forms import ClientForm
@@ -454,9 +457,6 @@ def AddClient(request):
 
 
 # API views for ClientContact management
-from rest_framework import status
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
 
 
 @api_view(["GET"])

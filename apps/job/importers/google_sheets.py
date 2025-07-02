@@ -8,7 +8,6 @@ Includes functions for:
 - Fetching sheet data as pandas DataFrames
 """
 
-import io
 import logging
 import os
 import re

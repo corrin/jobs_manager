@@ -48,7 +48,7 @@ class StaffSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         data = data.copy()  # QueryDict can be immutable, so we copy it
         for field in ["groups", "user_permissions"]:
-            # Usually it comes as a QueryDict so we can use getlist directly without hasattr
+            # Usually it comes as a QueryDict so we can use getlist directly
             value = data.getlist(field)
             if value == [""]:
                 data.setlist(field, [])

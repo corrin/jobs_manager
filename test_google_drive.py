@@ -45,7 +45,7 @@ def test_google_drive_access():
         print(f"   Created: {folder.get('createdTime', 'Unknown')}")
 
         # List folder contents
-        print(f"\n📋 Listing contents of folder...")
+        print("\n📋 Listing contents of folder...")
         results = (
             drive_service.files()
             .list(q=f"'{folder_id}' in parents", fields="files(id, name, mimeType)")
@@ -61,7 +61,7 @@ def test_google_drive_access():
             print("✅ Folder is empty (as expected)")
 
         # Test creating a subfolder
-        print(f"\n🆕 Testing folder creation...")
+        print("\n🆕 Testing folder creation...")
         test_folder_metadata = {
             "name": "Test Jobs Manager",
             "parents": [folder_id],
@@ -79,11 +79,11 @@ def test_google_drive_access():
         )
 
         # Clean up - delete test folder
-        print(f"\n🧹 Cleaning up test folder...")
+        print("\n🧹 Cleaning up test folder...")
         drive_service.files().delete(fileId=test_folder["id"]).execute()
         print("✅ Test folder deleted")
 
-        print(f"\n🎉 All tests passed! Google Drive integration is working correctly.")
+        print("\n🎉 All tests passed! Google Drive integration is working correctly.")
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
