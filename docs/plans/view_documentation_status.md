@@ -2,9 +2,9 @@
 
 **Audit Date**: 2025-07-02  
 **Total View Files**: 49  
-**Documented Views**: 29  
-**Undocumented Views**: 20  
-**Coverage**: 59.2%
+**Documented Views**: 36  
+**Undocumented Views**: 13  
+**Coverage**: 73.5%
 
 ## Documentation Status by View File
 
@@ -25,30 +25,34 @@
 ### ACCOUNTS APP
 
 #### apps/accounts/views/password_views.py
-- **Status**: NOT DOCUMENTED
+- **Status**: DOCUMENTED
 - **Views**: SecurityPasswordChangeView
-- **Priority**: Medium
+- **Documentation**: docs/views/PasswordView/
+- **Priority**: Medium (secure password management) - COMPLETED
 
 #### apps/accounts/views/staff_api.py
-- **Status**: NOT DOCUMENTED  
+- **Status**: DOCUMENTED
 - **Views**: StaffListCreateAPIView, StaffRetrieveUpdateDestroyAPIView, update
-- **Priority**: Medium
+- **Documentation**: docs/views/StaffAPIView/
+- **Priority**: Medium (staff management REST API) - COMPLETED
 
 #### apps/accounts/views/staff_views.py
-- **Status**: NOT DOCUMENTED
+- **Status**: DOCUMENTED
 - **Views**: StaffListAPIView, StaffListView, StaffCreateView, StaffUpdateView, list, get_staff_rates
-- **Priority**: Medium
-- **Note**: Some documentation exists at docs/views/StaffView/ - NEEDS VERIFICATION
+- **Documentation**: docs/views/StaffView/ (comprehensive update with all 6 views)
+- **Priority**: Medium (staff management web interface) - COMPLETED
 
 #### apps/accounts/views/token_view.py
-- **Status**: NOT DOCUMENTED
+- **Status**: DOCUMENTED
 - **Views**: CustomTokenObtainPairView, CustomTokenRefreshView, post, post
-- **Priority**: Medium
+- **Documentation**: docs/views/TokenView/
+- **Priority**: Medium (JWT authentication and security) - COMPLETED
 
 #### apps/accounts/views/user_profile_view.py
-- **Status**: NOT DOCUMENTED
+- **Status**: DOCUMENTED
 - **Views**: get_current_user, logout_user
-- **Priority**: Low
+- **Documentation**: docs/views/UserProfileView/
+- **Priority**: Low (user profile and logout functionality) - COMPLETED
 
 ### CLIENT APP
 
@@ -77,10 +81,10 @@
 - **Priority**: Medium
 
 #### apps/job/views/edit_job_view_ajax.py
-- **Status**: PARTIALLY DOCUMENTED
+- **Status**: DOCUMENTED
 - **Views**: get_company_defaults_api, create_job_view, api_fetch_status_values, create_job_api, fetch_job_pricing_api, edit_job_view_ajax, autosave_job_view, process_month_end, add_job_event, toggle_complex_job, delete_job, create_linked_quote_api
-- **Documentation**: docs/views/EditJobViewAjax/ - NEEDS VERIFICATION of accuracy
-- **Priority**: High (12 views - core job editing functionality)
+- **Documentation**: docs/views/EditJobViewAjax/ (comprehensive multi-file documentation)
+- **Priority**: HIGH (core job editing functionality with 12 views) - COMPLETED
 
 #### apps/job/views/job_costing_views.py
 - **Status**: DOCUMENTED
@@ -122,10 +126,10 @@
 - **Priority**: HIGH (major REST API for core job lifecycle management) - COMPLETED
 
 #### apps/job/views/kanban_view_api.py
-- **Status**: PARTIALLY DOCUMENTED
+- **Status**: DOCUMENTED
 - **Views**: fetch_all_jobs, update_job_status, reorder_job, fetch_jobs, fetch_status_values, advanced_search, fetch_jobs_by_column
-- **Documentation**: docs/views/KanbanView/ - NEEDS VERIFICATION of accuracy
-- **Priority**: High (7 views - some may be covered, others may be new)
+- **Documentation**: docs/views/KanbanView/
+- **Priority**: HIGH (visual job workflow management with 7 API views) - COMPLETED
 
 #### apps/job/views/modern_timesheet_views.py
 - **Status**: DOCUMENTED
