@@ -46,7 +46,7 @@ This plan addresses systematic improvements to the documentation structure in `/
 **Goal**: Document core business functionality
 
 **Priority 1 - Core Business Views**:
-- `job_costing_views` - Critical for project profitability tracking
+- `job_costing_views` - Critical for project profitability trackingI
 - `modern_timesheet_views` - Essential for time billing
 - `job_management_view` - Core workflow management
 - `purchasing_rest_views` - Inventory and cost management

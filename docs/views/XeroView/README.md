@@ -1,107 +1,129 @@
-# **Xero Integration Views Documentation**
+# Xero Integration Views Documentation
 
-## **Overview**
+## Business Purpose
+Provides comprehensive Xero accounting system integration for jobbing shop operations. Handles OAuth2 authentication, bidirectional data synchronization, financial document management (invoices, purchase orders, quotes), and real-time monitoring. Critical for seamless accounting integration throughout the quote → job → invoice workflow.
 
-This view handles the OAuth2 authentication flow and data synchronization with Xero's API. It provides endpoints for authenticating users managing OAuth tokens, and retrieving/syncing Xero data.
+## Architecture Overview
 
-## **Components**
+The Xero integration is organized into five main functional areas:
 
-### **1. xero_authenticate(request)**
+### 1. Authentication System
+**File**: [authentication.md](./authentication.md)
 
-- **Purpose** : Initiates the OAuth2 authentication flow with Xero
-- **Process** :
-    - Generates a unique UUID for state verification
-    - Stores the state in the session
-    - Redirects user to Xero's authentication URL
-- **Returns** : Redirect to Xero's OAuth login page
+Handles secure OAuth2 authentication flow with Xero accounting platform:
+- `xero_authenticate` - Initiates OAuth flow with state validation
+- `xero_oauth_callback` - Processes OAuth callback and token exchange
+- `refresh_xero_token` - Manages token refresh and expiration
+- `success_xero_connection` - Confirms successful authentication
 
-### **2. xero_oauth_callback(request)**
+### 2. Data Synchronization
+**File**: [synchronization.md](./synchronization.md)
 
-- **Purpose** : Handles the OAuth2 callback from Xero
-- **Process** :
-    - Retrieves authorization code and state from callback
-    - Validates state against session state
-    - Exchanges authorization code for access token
-    - Handles potential authentication errors
-- **Returns** : Redirects to data refresh or displays error page
+Manages real-time and background data sync between systems:
+- `stream_xero_sync` - Server-Sent Events for real-time sync progress
+- `start_xero_sync` - Initiates background sync tasks
+- `trigger_xero_sync` - Manual sync triggering
+- `get_xero_sync_info` - Sync status and entity timestamps
+- `xero_sync_progress_page` - User interface for sync monitoring
 
-### **3. refresh_xero_token(request)**
+### 3. Document Management
+**File**: [document_management.md](./document_management.md)
 
-- **Purpose** : Refreshes the OAuth2 token when expired
-- **Process** :
-    - Attempts to refresh the existing token
-    - Redirects to authentication if refresh fails
-- **Returns** : Redirects to contacts page or authentication
+Creates and manages financial documents in Xero:
+- `create_xero_invoice` - Job-to-invoice conversion
+- `create_xero_purchase_order` - Supplier purchase order sync
+- `create_xero_quote` - Job estimate to Xero quote
+- `delete_xero_invoice` - Invoice removal with local preservation
+- `delete_xero_quote` - Quote deletion and workflow management
+- `delete_xero_purchase_order` - Purchase order cleanup
+- `xero_disconnect` - Complete integration disconnection
 
-### **4. get_xero_contacts(request)**
+### 4. REST API Endpoints
+**File**: [api_views.md](./api_views.md)
 
-- **Purpose** : Retrieves contacts from Xero API
-- **Process** :
-    - Initializes Xero API clients
-    - Gets tenant connections
-    - Retrieves contacts for the first tenant
-- **Returns** : Renders contacts template with retrieved data
+Provides API access to Xero error tracking and monitoring:
+- `XeroErrorListAPIView` - Paginated error history
+- `XeroErrorDetailAPIView` - Detailed error information
 
-### **5. refresh_xero_data(request)**
+### 5. Utility Functions
+**File**: [utilities.md](./utilities.md)
 
-- **Purpose** : Synchronizes all Xero data
-- **Process** :
-    - Verifies authentication token
-    - Triggers full data sync
-    - Handles various error scenarios
-- **Returns** : Redirects to home page or error page
+Supporting views for health checking and user interface:
+- `xero_ping` - Connection status health check
+- `XeroIndexView` - Main dashboard interface
+- Helper functions for authentication validation
+- Template views for user experience
 
-## **Error Handling**
+## Key Features
 
-- OAuth authentication errors
-- Token refresh failures
-- API connection issues
-- Missing tenant errors
-- Generic exceptions with logging
+### OAuth2 Security
+- Secure state validation prevents CSRF attacks
+- Token refresh automation
+- Session management for multi-step authentication
+- Frontend/backend redirect coordination
 
-## **Data Flow Diagram**
+### Real-Time Synchronization
+- Server-Sent Events for live progress updates
+- Background task coordination
+- Entity-specific sync tracking
+- Cache-based sync lock management
 
-```mermaid
-flowchart TD
-    A[User Request] --> B{Authentication Required?}
+### Document Lifecycle Management
+- Job-to-invoice workflow integration
+- Purchase order supplier coordination
+- Quote approval and conversion tracking
+- Soft deletion with local data preservation
 
-    B -->|Yes| C[Generate State UUID]
-    B -->|No| D{Has Valid Token?}
+### Error Tracking & Monitoring
+- Comprehensive error logging
+- API-based error access
+- Debugging support with stack traces
+- Integration health monitoring
 
-    C --> E[Store State in Session]
-    E --> F[Redirect to Xero Login]
+### Business Integration
+- Bidirectional data flow with Xero
+- Job workflow state management
+- Client/supplier relationship sync
+- Financial document coordination
 
-    F --> G[Xero OAuth Callback]
-    G --> H{Validate State}
+## Integration Points
 
-    H -->|Invalid| I[Show Error Page]
-    H -->|Valid| J[Exchange Code for Token]
+### Core System Dependencies
+- **Job Management**: Job-to-invoice/quote conversion
+- **Purchase Orders**: Supplier procurement sync
+- **Client Management**: Contact synchronization
+- **Authentication**: OAuth token management
 
-    J --> K{Token Exchange Success?}
-    K -->|No| I
-    K -->|Yes| D
+### External Dependencies
+- **Xero API**: Accounting platform integration
+- **Background Tasks**: APScheduler coordination
+- **Cache System**: Redis for sync coordination
+- **Frontend**: Vue.js dashboard integration
 
-    D -->|No| L[Refresh Token]
-    D -->|Yes| M{Request Type}
+## Error Handling Strategy
 
-    L --> N{Refresh Success?}
-    N -->|No| C
-    N -->|Yes| M
+All Xero views implement comprehensive error handling:
+- **401 Unauthorized**: Authentication failures with redirect guidance
+- **404 Not Found**: Resource validation with user feedback
+- **500 Internal Server Error**: System failures with detailed logging
+- **Network Errors**: Graceful degradation and retry mechanisms
 
-    M -->|Get Contacts| O[Initialize API Client]
-    M -->|Sync Data| P[Sync All Xero Data]
+## Development Guidelines
 
-    O --> Q[Get Tenant Connection]
-    Q --> R[Fetch Contacts]
-    R --> S[Render Contacts Page]
+### Authentication First
+All Xero operations require valid authentication. Use `ensure_xero_authentication()` for consistent validation.
 
-    P --> T{Sync Success?}
-    T -->|Yes| U[Redirect to Home]
-    T -->|No| V[Show Error Page]
+### Error Response Consistency
+Use `_handle_creator_response()` for standardized document operation responses.
 
-    I --> W[End with Error]
-    S --> X[End with Success]
-    U --> X
-    V --> W
+### Real-Time Updates
+Implement Server-Sent Events for operations requiring progress feedback.
 
-```
+### Data Integrity
+Maintain bidirectional sync while preserving local data on Xero failures.
+
+## Related Documentation
+- [Xero API Integration Guide](../../integration/xero_api.md)
+- [Job Management Views](../JobManagementView/)
+- [Purchase Order Views](../PurchaseOrderView/)
+- [Authentication System](../AuthenticationView/)
