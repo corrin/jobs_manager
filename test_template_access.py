@@ -30,7 +30,7 @@ def test_template_access():
     drive_service = build("drive", "v3", credentials=creds)
 
     # Template from CompanyDefaults
-    template_url = "https://docs.google.com/spreadsheets/d/1EAnvpV-pZwYPPKfpFPTd60DsOhFk9oClNtx6HLvJtSI/edit?gid=0#gid=0"
+    # template_url = "https://docs.google.com/spreadsheets/d/1EAnvpV-pZwYPPKfpFPTd60DsOhFk9oClNtx6HLvJtSI/edit?gid=0#gid=0"  # Not used
     template_id = "1EAnvpV-pZwYPPKfpFPTd60DsOhFk9oClNtx6HLvJtSI"
 
     print(f"🔍 Testing template access: {template_id}")
@@ -45,7 +45,7 @@ def test_template_access():
         print(f"   Size: {template_info.get('size', 'Unknown')} bytes")
 
         # Try to copy the template to test the operation
-        print(f"\n🔨 Testing template copy operation...")
+        print("\n🔨 Testing template copy operation...")
 
         copy_metadata = {
             "name": "Test Copy - DELETE ME",

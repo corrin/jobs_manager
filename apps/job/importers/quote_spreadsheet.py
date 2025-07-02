@@ -935,7 +935,7 @@ def _validate_pricing_consistency(path: str, df) -> List[ValidationError]:
                 expected_charge = DEFAULT_CHARGE_OUT_RATE
                 expected_markup = DEFAULT_MATERIALS_MARKUP
         except (ImportError, Exception):
-            expected_wage = DEFAULT_WAGE_RATE
+            # expected_wage = DEFAULT_WAGE_RATE  # Not used
             expected_charge = DEFAULT_CHARGE_OUT_RATE
             expected_markup = DEFAULT_MATERIALS_MARKUP
 
