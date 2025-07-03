@@ -32,6 +32,12 @@ def index(request):
 
 
 class UploadSupplierPricingView(LoginRequiredMixin, TemplateView):
+    """
+    View for uploading and processing supplier pricing PDFs using AI extraction.
+    
+    Handles file upload, AI-powered data extraction via Gemini, and atomic
+    database insertion of supplier products with automatic LLM mapping.
+    """
     template_name = "purchasing/upload_supplier_pricing.html"
 
     def get_context_data(self, **kwargs):
@@ -227,6 +233,11 @@ class UploadSupplierPricingView(LoginRequiredMixin, TemplateView):
 
 
 class UploadPriceListView(LoginRequiredMixin, TemplateView):
+    """
+    View for uploading supplier price lists.
+    
+    Provides interface for uploading price list files and basic processing.
+    """
     template_name = "quoting/upload_price_list.html"
 
     def get_context_data(self, **kwargs):

@@ -44,16 +44,98 @@ def get_company_defaults_api(request):
 
 
 def create_job_view(request):
+    """
+    Render the create job template page.
+    
+    Returns a simple template that handles the job creation workflow,
+    typically redirecting to the job editing interface after creation.
+    """
     return render(request, "jobs/create_job_and_redirect.html")
 
 
 def api_fetch_status_values(request):
+    """
+    API endpoint to fetch all available job status values.
+    
+    Returns the complete list of job status choices as defined in the Job model,
+    formatted as a JSON object where keys are status codes and values are
+    human-readable status labels.
+    
+    Args:
+        request (HttpRequest): The HTTP request object (GET method expected)
+    
+    Returns:
+        JsonResponse: JSON object containing job status choices:
+            {
+                "quoting": "Quoting",
+                "accepted_quote": "Accepted Quote",
+                "awaiting_materials": "Awaiting Materials",
+                "in_progress": "In Progress",
+                "on_hold": "On Hold",
+                "special": "Special",
+                "completed": "Completed",
+                "rejected": "Rejected",
+                "archived": "Archived"
+            }
+    
+    Example:
+        GET /api/job/status-values/
+        
+        Response:
+        {
+            "quoting": "Quoting",
+            "in_progress": "In Progress",
+            ...
+        }
+    """
     status_values = dict(Job.JOB_STATUS_CHOICES)
     return JsonResponse(status_values)
 
 
 @require_http_methods(["POST"])
 def create_job_api(request):
+    """
+    API endpoint to create a new job with default values.
+    
+    Creates a new Job instance with minimal default values and automatically
+    generates associated pricing records. The job is created with empty/default
+    values for most fields and can be populated later via the autosave endpoint.
+    
+    Args:
+        request (HttpRequest): The HTTP request object containing:
+            - user: Authenticated user who will be set as the job creator
+            - method: Must be POST
+    
+    Returns:
+        JsonResponse: Response with different status codes:
+            - 201: Successfully created job, includes job_id
+            - 500: Server error during job creation
+    
+    Response Formats:
+        Success (201):
+        {
+            "job_id": "uuid-string-of-new-job"
+        }
+        
+        Error (500):
+        {
+            "error": "Error description"
+        }
+    
+    Side Effects:
+        - Creates new Job record in database
+        - Automatically creates associated JobPricing records for estimate/quote/reality stages
+        - Logs job creation event
+        - Assigns incremental job number
+    
+    Example:
+        POST /api/job/create/
+        
+        Response:
+        {
+            "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        }
+    """
     try:
         # Create the job with default values using the service function
         new_job = Job()
@@ -73,6 +155,50 @@ def create_job_api(request):
 
 @require_http_methods(["GET"])
 def fetch_job_pricing_api(request):
+    """
+    API endpoint to fetch job pricing data filtered by pricing methodology.
+    
+    Retrieves pricing records for a specific job that match the requested
+    pricing methodology. This is used to get pricing data for specific
+    calculation approaches (e.g., time_materials vs fixed_price).
+    
+    Args:
+        request (HttpRequest): The HTTP request object containing:
+            - GET parameters:
+                - job_id (str): UUID of the job to fetch pricing for
+                - pricing_methodology (str): Pricing method to filter by
+                  (e.g., 'time_materials', 'fixed_price')
+    
+    Returns:
+        JsonResponse: Response with different status codes:
+            - 200: Successfully retrieved pricing data, returns array of pricing records
+            - 400: Missing required parameters
+            - 404: Job not found or no pricing data matches criteria
+            - 500: Server error during data retrieval
+    
+    Response Formats:
+        Success (200):
+        [
+            {
+                "id": "pricing-uuid",
+                "pricing_stage": "estimate",
+                "pricing_methodology": "time_materials",
+                "total_cost": "150.00",
+                "total_revenue": "200.00",
+                "created_at": "2024-01-15T10:30:00Z",
+                ...
+            },
+            ...
+        ]
+        
+        Error responses:
+        {
+            "error": "Error description"
+        }
+    
+    Example:
+        GET /api/job/pricing/?job_id=f47ac10b-58cc-4372-a567-0e02b2c3d479&pricing_methodology=time_materials
+    """
     job_id = request.GET.get("job_id")
     pricing_methodology = request.GET.get("pricing_methodology")
 
@@ -119,6 +245,22 @@ def form_to_dict(form):
 
 @require_http_methods(["GET", "POST"])
 def edit_job_view_ajax(request, job_id=None):
+    """
+    Main view for editing jobs with comprehensive job data and pricing information.
+    
+    Renders the job editing interface with complete job details, pricing history,
+    related quotes/invoices, job files, and events for a specified job.
+    
+    Args:
+        request: HTTP request object
+        job_id: UUID of the job to edit (required)
+        
+    Returns:
+        Rendered job editing template with full job context
+        
+    Raises:
+        ValueError: If job_id is not provided
+    """
     if job_id:
         # Fetch the existing Job along with pricings
         job = get_job_with_pricings(job_id)
@@ -368,6 +510,88 @@ def edit_job_view_ajax(request, job_id=None):
 
 @require_http_methods(["POST"])
 def autosave_job_view(request):
+    """
+    API endpoint for automatically saving job data during form editing.
+    
+    This endpoint handles real-time job updates as users edit job forms,
+    providing seamless autosave functionality. It accepts partial job data
+    and updates only the provided fields while maintaining data integrity.
+    
+    The endpoint supports updating all job fields including:
+    - Basic job information (name, description, status, priority)
+    - Client and contact information
+    - Pricing methodology and rates
+    - Job settings (complex_job flag, delivery dates, etc.)
+    - Nested pricing entries (time, material, adjustment entries)
+    
+    Args:
+        request (HttpRequest): The HTTP request object containing:
+            - body (JSON): Job data to update, must include 'job_id'
+            - user: Authenticated user performing the update
+            - method: Must be POST
+    
+    Required JSON Fields:
+        - job_id (str): UUID of the job to update
+    
+    Optional JSON Fields:
+        - Any valid job field (name, description, status, etc.)
+        - Nested pricing data for time/material/adjustment entries
+        - Client and contact information
+    
+    Returns:
+        JsonResponse: Response with different status codes:
+            - 200: Successfully saved job data
+            - 400: Invalid JSON payload, missing job_id, or validation errors
+            - 500: Server error during save operation
+    
+    Response Formats:
+        Success (200):
+        {
+            "success": true,
+            "job_id": "uuid-of-updated-job"
+        }
+        
+        Validation Error (400):
+        {
+            "success": false,
+            "errors": {
+                "field_name": ["Error message"],
+                ...
+            }
+        }
+        
+        Error (400/500):
+        {
+            "error": "Error description"
+        }
+    
+    Side Effects:
+        - Updates job record and related pricing entries
+        - Creates job event log entry for audit trail
+        - May create/update client contacts if provided
+        - Triggers pricing recalculations
+    
+    Example:
+        POST /api/job/autosave/
+        {
+            "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "name": "Updated Job Name",
+            "status": "in_progress",
+            "estimate_time_entries": [
+                {
+                    "description": "Welding work",
+                    "hours": 5.5,
+                    "charge_out_rate": 85.00
+                }
+            ]
+        }
+    
+    Notes:
+        - Uses partial updates to avoid overwriting unchanged fields
+        - Validates all data through JobSerializer before saving
+        - Maintains referential integrity for related objects
+        - Logs detailed information for debugging and audit purposes
+    """
     try:
         logger.info("Autosave request received")
 
@@ -543,6 +767,75 @@ def add_job_event(request, job_id):
 @require_http_methods(["POST"])
 @transaction.atomic
 def toggle_complex_job(request):
+    """
+    API endpoint to toggle the complex job mode for a specific job.
+    
+    Complex job mode (also called "itemised billing") determines whether a job
+    can have multiple pricing entries per category (time, materials, adjustments)
+    or is limited to single entries per category for simplified billing.
+    
+    When disabling complex mode, the system validates that the job doesn't have
+    multiple pricing entries that would be incompatible with simple mode.
+    
+    Args:
+        request (HttpRequest): The HTTP request object containing:
+            - body (JSON): Request data with job_id and complex_job flag
+            - user: Authenticated user (for audit logging)
+            - method: Must be POST
+    
+    Required JSON Fields:
+        - job_id (str): UUID of the job to update
+        - complex_job (bool): New value for complex job mode
+    
+    Returns:
+        JsonResponse: Response with different status codes:
+            - 200: Successfully toggled complex job mode
+            - 400: Invalid request format, missing fields, validation errors
+            - 500: Server error during update
+    
+    Response Formats:
+        Success (200):
+        {
+            "success": true,
+            "job_id": "uuid-of-job",
+            "complex_job": true,
+            "message": "Job updated successfully"
+        }
+        
+        Validation Error (400):
+        {
+            "error": "Cannot disable complex mode with more than one pricing row",
+            "valid_job": false
+        }
+        
+        Error (400/500):
+        {
+            "error": "Error description"
+        }
+    
+    Business Rules:
+        - Complex mode can always be enabled
+        - Complex mode can only be disabled if ALL pricing stages have ≤1 entry per type
+        - Uses database locking to prevent race conditions
+        - Creates audit log entry for the change
+    
+    Side Effects:
+        - Updates job.complex_job field
+        - May create job event for audit trail
+        - Validates pricing entry constraints
+    
+    Example:
+        POST /api/job/toggle-complex/
+        {
+            "job_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+            "complex_job": false
+        }
+    
+    Notes:
+        - Uses select_for_update() to prevent concurrent modifications
+        - Validates business rules before making changes
+        - Atomic transaction ensures data consistency
+    """
     try:
         # Validate input data
         data = json.loads(request.body)

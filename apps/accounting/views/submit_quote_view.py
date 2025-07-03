@@ -257,6 +257,19 @@ def generate_quote_pdf(request, job_id):
 
 @csrf_exempt
 def send_quote_email(request, job_id):
+    """
+    Generate and prepare quote email with PDF attachment for a job.
+    
+    Creates a PDF quote summary and returns email details including
+    mailto URL and base64-encoded PDF content for frontend handling.
+    
+    Args:
+        request: HTTP request object
+        job_id: UUID of the job to send quote for
+        
+    Returns:
+        JsonResponse with email details and PDF content or error message
+    """
     try:
         job = get_object_or_404(Job, pk=job_id)
         logger.info(f"Processing quote email for job {job_id}")

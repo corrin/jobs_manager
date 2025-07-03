@@ -24,13 +24,17 @@ from apps.job.views import (
 
 app_name = "jobs"
 
+# Create URL pattern with functional grouping
+autosave_job_pattern = path(
+    "api/autosave-job/",
+    edit_job_view_ajax.autosave_job_view,
+    name="autosave_job_api",
+)
+autosave_job_pattern.functional_group = "Job Management"
+
 urlpatterns = [
     # Job API endpoints
-    path(
-        "api/autosave-job/",
-        edit_job_view_ajax.autosave_job_view,
-        name="autosave_job_api",
-    ),
+    autosave_job_pattern,
     path("api/create-job/", edit_job_view_ajax.create_job_api, name="create_job_api"),
     path(
         "api/fetch_job_pricing/",

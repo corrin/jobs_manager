@@ -13,6 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class StaffListCreateAPIView(generics.ListCreateAPIView):
+    """API endpoint for listing and creating staff members.
+
+    Supports both GET (list all staff) and POST (create new staff) operations.
+    Requires authentication and staff permissions. Handles multipart/form data
+    for file uploads (e.g., profile pictures).
+    """
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
     permission_classes = [IsAuthenticated, IsStaff]
@@ -23,6 +29,12 @@ class StaffListCreateAPIView(generics.ListCreateAPIView):
 
 
 class StaffRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """API endpoint for retrieving, updating, and deleting individual staff members.
+
+    Supports GET (retrieve), PUT/PATCH (update), and DELETE operations on
+    specific staff members. Includes comprehensive logging for update operations
+    and handles multipart/form data for file uploads.
+    """
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
     permission_classes = [IsAuthenticated, IsStaff]

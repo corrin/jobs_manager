@@ -8,6 +8,23 @@ from apps.workflow.services.company_defaults_service import get_company_defaults
 
 
 class CompanyDefaultsAPIView(APIView):
+    """
+    API view for managing company default settings.
+    
+    This view provides endpoints to retrieve and update the company's default
+    configuration settings. Only admin users are permitted to access these endpoints.
+    
+    Endpoints:
+        GET: Retrieve current company defaults
+        PUT: Update all company defaults (full update)
+        PATCH: Partially update company defaults
+    
+    Permissions:
+        - IsAdminUser: Only admin users can access this API
+    
+    Returns:
+        Company defaults data serialized using CompanyDefaultsSerializer
+    """
     permission_classes = [IsAdminUser]
 
     def get(self, request):
