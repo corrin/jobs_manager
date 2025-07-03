@@ -24,6 +24,12 @@ class AIProviderInline(admin.TabularInline):
 @admin.register(CompanyDefaults)
 class CompanyDefaultsAdmin(admin.ModelAdmin):
     def edit_link(self, obj):
+        """
+        Generate an edit link for the CompanyDefaults object.
+        
+        Creates a clickable "Edit defaults" link in the admin list view
+        that navigates to the change form for the company defaults.
+        """
         from django.utils.html import format_html
 
         return format_html('<a href="{}/change/">Edit defaults</a>', obj.pk)

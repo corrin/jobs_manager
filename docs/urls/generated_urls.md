@@ -135,13 +135,13 @@
 |-------------|------|------|-------------|
 | `/api/purchase-orders/<uuid:purchase_order_id>/email/` | `purchase_order.PurchaseOrderEmailView` | `purchasing:purchase_orders_email` | API view for generating email links for purchase orders. |
 | `/api/purchase-orders/<uuid:purchase_order_id>/pdf/` | `purchase_order.PurchaseOrderPDFView` | `purchasing:purchase_orders_pdf` | API view for generating and returning PDF documents for purchase orders. |
-| `/api/purchase-orders/autosave/` | `purchase_order.autosave_purchase_order_view` | `purchasing:purchase_orders_autosave` | No description available |
+| `/api/purchase-orders/autosave/` | `purchase_order.autosave_purchase_order_view` | `purchasing:purchase_orders_autosave` | Autosave purchase order data and sync with Xero. |
 
 #### Quote Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/quote/<uuid:job_id>/pdf-preview/` | `submit_quote_view.generate_quote_pdf` | `accounting:generate_quote_pdf` | Generate a PDF quote summary for a specific job. |
-| `/api/quote/<uuid:job_id>/send-email/` | `submit_quote_view.send_quote_email` | `accounting:send_quote_email` | No description available |
+| `/api/quote/<uuid:job_id>/send-email/` | `submit_quote_view.send_quote_email` | `accounting:send_quote_email` | Generate and prepare quote email with PDF attachment for a job. |
 
 #### Reports
 | URL Pattern | View | Name | Description |
@@ -152,7 +152,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/staff/` | `staff_api.StaffListCreateAPIView` | `accounts:api_staff_list_create` | API endpoint for listing and creating staff members. |
-| `/api/staff/` | `api.StaffListAPIView` | `timesheet:api_staff_list` | API endpoint to get list of staff members for timesheet. |
+| `/api/staff/` | `api.StaffListAPIView` | `timesheet:api_staff_list` | API endpoint to get filtered list of staff members for timesheet operations. |
 | `/api/staff/<str:staff_id>/daily/` | `daily_timesheet_views.staff_daily_detail` | `timesheet:api_staff_daily_detail` | Get detailed timesheet data for a specific staff member |
 | `/api/staff/<str:staff_id>/daily/<str:target_date>/` | `daily_timesheet_views.staff_daily_detail` | `timesheet:api_staff_daily_detail_with_date` | Get detailed timesheet data for a specific staff member |
 | `/api/staff/<uuid:pk>/` | `staff_api.StaffRetrieveUpdateDestroyAPIView` | `accounts:api_staff_detail` | API endpoint for retrieving, updating, and deleting individual staff members. |
@@ -214,7 +214,7 @@
 ### Add Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/add/` | `client_views.AddClient` | `clients:add_client` | No description available |
+| `/add/` | `client_views.AddClient` | `clients:add_client` | View for adding new clients with Xero integration. |
 
 ### All Management
 | URL Pattern | View | Name | Description |
@@ -250,14 +250,14 @@
 ### Day Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/day/<str:date>/` | `time_overview_view.TimesheetDailyView` | `timesheet:timesheet_daily_view` | No description available |
+| `/day/<str:date>/` | `time_overview_view.TimesheetDailyView` | `timesheet:timesheet_daily_view` | View for displaying daily timesheet data for all staff members. |
 | `/day/<str:date>/<uuid:staff_id>/` | `time_entry_view.TimesheetEntryView` | `timesheet:timesheet_entry` | View to manage and display timesheet entries for a specific staff member and date. |
 
 ### Delivery-Receipts Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/delivery-receipts/` | `delivery_receipt.DeliveryReceiptListView` | `purchasing:delivery_receipts_list` | View to list all purchase orders that can be received. |
-| `/delivery-receipts/` | `purchasing_rest_views.DeliveryReceiptRestView` | `purchasing:delivery_receipts_rest` | No description available |
+| `/delivery-receipts/` | `purchasing_rest_views.DeliveryReceiptRestView` | `purchasing:delivery_receipts_rest` | REST API view for processing delivery receipts. |
 | `/delivery-receipts/<uuid:pk>/` | `delivery_receipt.DeliveryReceiptCreateView` | `purchasing:delivery_receipts_create` | View to create a delivery receipt for a purchase order. |
 
 ### Django Admin
@@ -265,7 +265,7 @@
 |-------------|------|------|-------------|
 | `/(?P<app_label>django_apscheduler\|auth\|sites\|workflow\|accounts\|job\|purchasing)/` | `app_index` | `admin:app_list` | No description available |
 | `/(?P<url>.*)/` | `catch_all_view` | `admin:N/A` | No description available |
-| `/([/]+)/history/([/]+)/` | `history_form_view` | `admin:accounts_staff_simple_history` | No description available |
+| `/([/]+)/history/([/]+)/` | `history_form_view` | `admin:accounts_staff_simple_history` | Display the historical form view for a specific object version. |
 | `//` | `index` | `admin:index` | Display the main admin index page, which lists all of the installed |
 | `//` | `changelist_view` | `admin:django_apscheduler_djangojob_changelist` | The 'change list' admin view for this model. |
 | `//` | `changelist_view` | `admin:django_apscheduler_djangojobexecution_changelist` | The 'change list' admin view for this model. |
@@ -277,7 +277,7 @@
 | `//` | `changelist_view` | `admin:job_costline_changelist` | The 'change list' admin view for this model. |
 | `//` | `changelist_view` | `admin:purchasing_purchaseorder_changelist` | The 'change list' admin view for this model. |
 | `//` | `changelist_view` | `admin:purchasing_purchaseorderline_changelist` | The 'change list' admin view for this model. |
-| `/<id>/password/` | `user_change_password` | `admin:auth_user_password_change` | No description available |
+| `/<id>/password/` | `user_change_password` | `admin:auth_user_password_change` | Display the password change form for a specific user. |
 | `/<path:object_id>/` | `base.RedirectView` | `admin:N/A` | Provide a redirect on any GET request. |
 | `/<path:object_id>/` | `base.RedirectView` | `admin:N/A` | Provide a redirect on any GET request. |
 | `/<path:object_id>/` | `base.RedirectView` | `admin:N/A` | Provide a redirect on any GET request. |
@@ -381,7 +381,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `//` | `APIRootView` | `quoting:api-root` | The default basic root view for DefaultRouter |
-| `//` | `client_views.ClientListView` | `clients:list_clients` | No description available |
+| `//` | `client_views.ClientListView` | `clients:list_clients` | View for displaying a list of all clients in a table format. |
 | `/<drf_format_suffix:format>/` | `APIRootView` | `quoting:api-root` | The default basic root view for DefaultRouter |
 | `/<uuid:pk>/` | `client_views.ClientUpdateView` | `clients:update_client` | context_object_name = "clients" |
 
@@ -394,7 +394,7 @@
 ### Password_Change Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/password_change/` | `password_views.SecurityPasswordChangeView` | `accounts:password_change` | No description available |
+| `/password_change/` | `password_views.SecurityPasswordChangeView` | `accounts:password_change` | Custom password change view with enhanced security requirements. |
 | `/password_change/done/` | `views.PasswordChangeDoneView` | `accounts:password_change_done` | No description available |
 
 ### Password_Reset Management
@@ -412,10 +412,10 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/purchase-orders/` | `purchase_order.PurchaseOrderListView` | `purchasing:purchase_orders_list` | View to list all purchase orders. |
-| `/purchase-orders/` | `purchasing_rest_views.PurchaseOrderListCreateRestView` | `purchasing:purchase_orders_rest` | No description available |
+| `/purchase-orders/` | `purchasing_rest_views.PurchaseOrderListCreateRestView` | `purchasing:purchase_orders_rest` | REST API view for listing and creating purchase orders. |
 | `/purchase-orders/<uuid:pk>/` | `purchase_order.PurchaseOrderCreateView` | `purchasing:purchase_orders_detail` | View to create or edit a purchase order, following the timesheet pattern. |
 | `/purchase-orders/<uuid:pk>/` | `purchasing_rest_views.PurchaseOrderDetailRestView` | `purchasing:purchase_order_detail_rest` | Returns a full PO (including lines) |
-| `/purchase-orders/<uuid:pk>/delete/` | `purchase_order.delete_purchase_order_view` | `purchasing:purchase_orders_delete` | No description available |
+| `/purchase-orders/<uuid:pk>/delete/` | `purchase_order.delete_purchase_order_view` | `purchasing:purchase_orders_delete` | Delete a purchase order if it's in draft status. |
 | `/purchase-orders/new/` | `purchase_order.PurchaseOrderCreateView` | `purchasing:purchase_orders_create` | View to create or edit a purchase order, following the timesheet pattern. |
 
 ### Render_Panel Management
@@ -503,9 +503,9 @@
 ### Stock Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/stock/` | `purchasing_rest_views.StockListRestView` | `purchasing:stock_list_rest` | No description available |
-| `/stock/<uuid:stock_id>/` | `purchasing_rest_views.StockDeactivateRestView` | `purchasing:stock_deactivate_rest` | No description available |
-| `/stock/<uuid:stock_id>/consume/` | `purchasing_rest_views.StockConsumeRestView` | `purchasing:stock_consume_rest` | No description available |
+| `/stock/` | `purchasing_rest_views.StockListRestView` | `purchasing:stock_list_rest` | REST API view for listing and creating stock items. |
+| `/stock/<uuid:stock_id>/` | `purchasing_rest_views.StockDeactivateRestView` | `purchasing:stock_deactivate_rest` | REST API view for deactivating stock items. |
+| `/stock/<uuid:stock_id>/consume/` | `purchasing_rest_views.StockConsumeRestView` | `purchasing:stock_consume_rest` | REST API view for consuming stock items for jobs. |
 
 ### System
 | URL Pattern | View | Name | Description |
@@ -521,12 +521,12 @@
 ### Upload-Price-List Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/upload-price-list/` | `views.UploadPriceListView` | `quoting:upload_price_list` | No description available |
+| `/upload-price-list/` | `views.UploadPriceListView` | `quoting:upload_price_list` | View for uploading supplier price lists. |
 
 ### Upload-Supplier-Pricing Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/upload-supplier-pricing/` | `views.UploadSupplierPricingView` | `quoting:upload_supplier_pricing` | No description available |
+| `/upload-supplier-pricing/` | `views.UploadSupplierPricingView` | `quoting:upload_supplier_pricing` | View for uploading and processing supplier pricing PDFs using AI extraction. |
 
 ### Use-Stock Management
 | URL Pattern | View | Name | Description |

@@ -111,6 +111,12 @@ class DeliveryReceiptRestView(APIView):
 
 
 class StockListRestView(APIView):
+    """
+    REST API view for listing and creating stock items.
+    
+    GET: Returns list of all stock items
+    POST: Creates new stock item from provided data
+    """
     def get(self, request):
         return Response(PurchasingRestService.list_stock())
 
@@ -123,6 +129,11 @@ class StockListRestView(APIView):
 
 
 class StockDeactivateRestView(APIView):
+    """
+    REST API view for deactivating stock items.
+    
+    DELETE: Marks a stock item as inactive instead of deleting it
+    """
     def delete(self, request, stock_id):
         item = get_object_or_404(Stock, id=stock_id)
         if item.is_active:
@@ -135,6 +146,11 @@ class StockDeactivateRestView(APIView):
 
 
 class StockConsumeRestView(APIView):
+    """
+    REST API view for consuming stock items for jobs.
+    
+    POST: Records stock consumption for a specific job, reducing available quantity
+    """
     def post(self, request, stock_id):
         job_id = request.data.get("job_id")
         qty = request.data.get("quantity")
