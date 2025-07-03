@@ -1,109 +1,103 @@
 from rest_framework import serializers
 
-from apps.workflow.models.ai_provider import AIProvider
-from apps.workflow.models.app_error import AppError, XeroError
-from apps.workflow.models.company_defaults import CompanyDefaults
+# Existing models used in this serializer module
+from .models import (
+    AIProvider,
+    CompanyDefaults,
+    XeroAccount,
+    XeroToken,
+    XeroError,  # Added to support XeroErrorSerializer
+)
+
+
+class XeroTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = XeroToken
+        fields = "__all__"
+
+
+class CompanyDefaultsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CompanyDefaults
+        fields = "__all__"
+
+
+class XeroAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = XeroAccount
+        fields = "__all__"
 
 
 class AIProviderSerializer(serializers.ModelSerializer):
+    """
+    Serializer for reading AIProvider instances.
+    This serializer is read-only and excludes the `api_key` for security.
+    """
+
     class Meta:
         model = AIProvider
-        fields = [
+        fields = (
             "id",
             "name",
             "provider_type",
             "model_name",
-            "api_key",
             "default",
-        ]
+        )
 
 
-class CompanyDefaultsSerializer(serializers.ModelSerializer):
-    ai_providers = AIProviderSerializer(many=True)
-    company_name = serializers.CharField(read_only=True)
+class AIProviderCreateUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating and updating AIProvider instances.
+    This serializer handles the `api_key` securely by making it write-only.
+    """
+
+    # Make api_key write-only for security. It can be provided on create/update,
+    # but it will never be included in a response.
+    api_key = serializers.CharField(
+        write_only=True,
+        required=False,  # Not required on update, but validated below for create.
+        allow_blank=True,
+        style={"input_type": "password"},
+        help_text="API Key for the provider. Leave blank to keep unchanged on update.",
+    )
 
     class Meta:
-        model = CompanyDefaults
-        fields = [
-            "company_name",
-            "time_markup",
-            "materials_markup",
-            "charge_out_rate",
-            "wage_rate",
-            "starting_job_number",
-            "starting_po_number",
-            "po_prefix",
-            "master_quote_template_url",
-            "master_quote_template_id",
-            "gdrive_quotes_folder_url",
-            "gdrive_quotes_folder_id",
-            "xero_tenant_id",
-            "mon_start",
-            "mon_end",
-            "tue_start",
-            "tue_end",
-            "wed_start",
-            "wed_end",
-            "thu_start",
-            "thu_end",
-            "fri_start",
-            "fri_end",
-            "created_at",
-            "updated_at",
-            "last_xero_sync",
-            "last_xero_deep_sync",
-            "shop_client_name",
-            "billable_threshold_green",
-            "billable_threshold_amber",
-            "daily_gp_target",
-            "shop_hours_target_percentage",
-            "ai_providers",
-        ]
-        read_only_fields = ["created_at", "updated_at"]
+        model = AIProvider
+        fields = (
+            "id",
+            "name",
+            "provider_type",
+            "model_name",
+            "default",
+            "api_key",
+            "company",  # Included to be set as read_only
+        )
+        read_only_fields = ("id", "company")
 
-    def validate_ai_providers(self, value):
-        default_count = sum(1 for provider in value if provider.get("default"))
-        if default_count > 1:
+    def validate(self, data):
+        """
+        Validate that a new provider has an API key.
+        """
+        # On create (when instance is not present), api_key is required.
+        if not self.instance and not data.get("api_key"):
             raise serializers.ValidationError(
-                "Only one AIProvider can be set as default."
+                {"api_key": "API key is required for a new provider."}
             )
-        return value
-
-    def update(self, instance, validated_data):
-        ai_providers_data = validated_data.pop("ai_providers", None)
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        if ai_providers_data is not None:
-            self._update_ai_providers(instance, ai_providers_data)
-        return instance
-
-    def _update_ai_providers(self, company_defaults, ai_providers_data):
-        existing_ids = [item.get("id") for item in ai_providers_data if item.get("id")]
-        # Delete removed providers
-        AIProvider.objects.filter(company=company_defaults).exclude(
-            id__in=existing_ids
-        ).delete()
-        for provider_data in ai_providers_data:
-            provider_id = provider_data.get("id")
-            if provider_id:
-                provider = AIProvider.objects.get(
-                    id=provider_id, company=company_defaults
-                )
-                for attr, value in provider_data.items():
-                    setattr(provider, attr, value)
-                provider.save()
-            else:
-                AIProvider.objects.create(company=company_defaults, **provider_data)
+        return data
 
 
-class AppErrorSerializer(serializers.ModelSerializer):
+# ---------------------------------------------------------------------------
+# Xero Error Serializers
+# ---------------------------------------------------------------------------
+
+class XeroErrorSerializer(serializers.ModelSerializer):
+    """
+    Basic serializer to expose all fields of XeroError.
+
+    This is required by apps that import `XeroErrorSerializer`
+    (e.g., `apps.workflow.views.xero.xero_view`).
+    """
+
     class Meta:
-        model = AppError
-        fields = ["id", "timestamp", "message", "data"]
-
-
-class XeroErrorSerializer(AppErrorSerializer):
-    class Meta(AppErrorSerializer.Meta):
         model = XeroError
-        fields = AppErrorSerializer.Meta.fields + ["entity", "reference_id", "kind"]
+        fields = "__all__"

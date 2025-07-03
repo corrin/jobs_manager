@@ -20,6 +20,7 @@ from apps.job.views.job_quote_chat_views import (
     JobQuoteChatHistoryView,
     JobQuoteChatMessageView,
 )
+from apps.job.views.job_quote_chat_api import JobQuoteChatInteractionView
 from apps.job.views.job_rest_views import (
     JobAdjustmentEntryRestView,
     JobCreateRestView,
@@ -192,5 +193,11 @@ rest_urlpatterns = [
         "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",
         JobQuoteChatMessageView.as_view(),
         name="job_quote_chat_message",
+    ),
+    # AI-powered chat interaction (LLM call + tool execution)
+    path(
+        "api/jobs/<uuid:job_id>/quote-chat/interaction/",
+        JobQuoteChatInteractionView.as_view(),
+        name="job_quote_chat_interaction",
     ),
 ]
