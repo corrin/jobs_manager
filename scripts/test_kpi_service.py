@@ -13,6 +13,7 @@ Examples:
     python scripts/test_kpi_service.py 2025 6  # Tests June 2025
 """
 
+import logging
 import os
 import sys
 import traceback
@@ -21,6 +22,10 @@ from datetime import date
 import django
 
 from apps.accounting.services import KPIService
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -38,24 +43,26 @@ def test_kpi_calendar(year=None, month=None):
         month = date.today().month
 
     try:
-        print(f"Testing KPI calendar for {year}-{month:02d}...")
+        logger.info(f"Testing KPI calendar for {year}-{month:02d}...")
         result = KPIService.get_calendar_data(year, month)
 
         calendar_data = result.get("calendar_data", {})
         monthly_totals = result.get("monthly_totals", {})
 
-        print(f"\n✓ Success! Got {len(calendar_data)} days of data")
-        print("\nMonthly summary:")
-        print(f"  - Working days: {monthly_totals.get('working_days', 0)}")
-        print(f"  - Billable hours: {monthly_totals.get('billable_hours', 0):.1f}")
-        print(f"  - Total hours: {monthly_totals.get('total_hours', 0):.1f}")
-        print(f"  - Gross profit: ${monthly_totals.get('gross_profit', 0):.2f}")
+        logger.info(f"✓ Success! Got {len(calendar_data)} days of data")
+        logger.info("")
+        logger.info("Monthly summary:")
+        logger.info(f"  - Working days: {monthly_totals.get('working_days', 0)}")
+        logger.info(f"  - Billable hours: {monthly_totals.get('billable_hours', 0):.1f}")
+        logger.info(f"  - Total hours: {monthly_totals.get('total_hours', 0):.1f}")
+        logger.info(f"  - Gross profit: ${monthly_totals.get('gross_profit', 0):.2f}")
 
         return True
     except Exception as e:
-        print(f"\n✗ Error: {str(e)}")
-        print("\nFull traceback:")
-        traceback.print_exc()
+        logger.error(f"✗ Error: {str(e)}")
+        logger.error("")
+        logger.error("Full traceback:")
+        logger.error(traceback.format_exc())
         return False
 
 

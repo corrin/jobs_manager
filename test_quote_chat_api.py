@@ -2,9 +2,14 @@
 """Test script to verify the quote chat API endpoint is working properly."""
 
 import json
+import logging
 import sys
 
 import requests
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 # Test configuration
 BASE_URL = "http://localhost:8000"
@@ -32,63 +37,65 @@ def test_with_different_headers():
         ),
     ]
 
-    print(f"Testing endpoint: {ENDPOINT}\n")
+    logger.info(f"Testing endpoint: {ENDPOINT}\n")
 
     for test_name, headers in test_cases:
-        print(f"Test: {test_name}")
-        print(f"Headers: {headers}")
+        logger.info(f"Test: {test_name}")
+        logger.info(f"Headers: {headers}")
 
         try:
             response = requests.post(
                 ENDPOINT, json=test_data, headers=headers, timeout=10
             )
 
-            print(f"Status Code: {response.status_code}")
-            print(
+            logger.info(f"Status Code: {response.status_code}")
+            logger.info(
                 f"Content-Type: {response.headers.get('Content-Type', 'Not specified')}"
             )
 
             if response.status_code == 406:
-                print("❌ FAILED: Still getting 406 Not Acceptable error")
+                logger.error("❌ FAILED: Still getting 406 Not Acceptable error")
             elif response.status_code == 200 or response.status_code == 201:
-                print("✅ SUCCESS: Request accepted")
+                logger.info("✅ SUCCESS: Request accepted")
             else:
-                print(
+                logger.warning(
                     f"⚠️  Got status code {response.status_code}: {response.text[:100]}..."
                 )
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ ERROR: {e}")
+            logger.error(f"❌ ERROR: {e}")
 
-        print("-" * 80)
-        print()
+        logger.info("-" * 80)
+        logger.info("")
 
 
 def test_options_request():
     """Test OPTIONS request to see CORS handling."""
-    print("Testing OPTIONS request:")
+    logger.info("Testing OPTIONS request:")
 
     try:
         response = requests.options(ENDPOINT, timeout=10)
-        print(f"Status Code: {response.status_code}")
-        print(f"Allow header: {response.headers.get('Allow', 'Not specified')}")
-        print(f"Content-Type: {response.headers.get('Content-Type', 'Not specified')}")
+        logger.info(f"Status Code: {response.status_code}")
+        logger.info(f"Allow header: {response.headers.get('Allow', 'Not specified')}")
+        logger.info(
+            f"Content-Type: {response.headers.get('Content-Type', 'Not specified')}"
+        )
 
         if response.status_code == 200:
-            print("✅ OPTIONS request successful")
+            logger.info("✅ OPTIONS request successful")
         else:
-            print(f"⚠️  Got status code {response.status_code}")
+            logger.warning(f"⚠️  Got status code {response.status_code}")
 
     except requests.exceptions.RequestException as e:
-        print(f"❌ ERROR: {e}")
+        logger.error(f"❌ ERROR: {e}")
 
-    print("-" * 80)
-    print()
+    logger.info("-" * 80)
+    logger.info("")
 
 
 if __name__ == "__main__":
-    print("Testing Quote Chat API Endpoint")
-    print("=" * 80)
+    logger.info("Testing Quote Chat API Endpoint")
+    logger.info("=" * 80)
 
     # First test OPTIONS
     test_options_request()
@@ -96,5 +103,5 @@ if __name__ == "__main__":
     # Then test POST with different headers
     test_with_different_headers()
 
-    print("\nNote: Make sure the Django server is running on port 8000")
-    print("If you're getting connection errors, the server might not be running.")
+    logger.info("\nNote: Make sure the Django server is running on port 8000")
+    logger.info("If you're getting connection errors, the server might not be running.")

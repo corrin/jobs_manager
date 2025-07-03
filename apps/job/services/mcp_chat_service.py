@@ -231,7 +231,10 @@ Always be helpful, professional, and specific in your responses. When providing 
 
     @transaction.atomic
     def generate_ai_response(
-        self, job_id: str, user_message: str, stream_callback: Optional[Callable[..., None]] = None
+        self,
+        job_id: str,
+        user_message: str,
+        stream_callback: Optional[Callable[..., None]] = None,
     ) -> JobQuoteChat:
         """
         Generate AI response using Claude with MCP tools.

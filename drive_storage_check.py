@@ -3,11 +3,16 @@
 Check Google Drive storage usage for service account.
 """
 
+import logging
 import os
 
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -25,23 +30,23 @@ def check_drive_storage():
     # Get credentials
     key_file = os.getenv("GCP_CREDENTIALS")
     if not key_file or not os.path.exists(key_file):
-        print(f"❌ Credentials file not found: {key_file}")
+        logger.error(f"Credentials file not found: {key_file}")
         return False
 
-    print(f"🔐 Loading credentials from: {key_file}")
+    logger.info(f"Loading credentials from: {key_file}")
 
     try:
         # Load credentials
         creds = service_account.Credentials.from_service_account_file(
             key_file, scopes=SCOPES
         )
-        print(f"✅ Service account: {creds.service_account_email}")
+        logger.info(f"Service account: {creds.service_account_email}")
 
         # Build Drive service
         drive_service = build("drive", "v3", credentials=creds)
 
         # Get storage quota information
-        print(f"\n📊 Checking storage quota...")
+        logger.info(f"Checking storage quota...")
         try:
             about = drive_service.about().get(fields="storageQuota,user").execute()
 
@@ -58,29 +63,29 @@ def check_drive_storage():
                 usage = bytes_to_gb(quota.get("usage"))
                 drive_usage = bytes_to_gb(quota.get("usageInDrive"))
 
-                print(f"📦 Storage Usage:")
-                print(f"   Total Used: {usage} GB")
-                print(f"   Drive Used: {drive_usage} GB")
-                print(f"   Limit: {limit} GB" if limit else "   Limit: Unlimited")
+                logger.info(f"Storage Usage:")
+                logger.info(f"   Total Used: {usage} GB")
+                logger.info(f"   Drive Used: {drive_usage} GB")
+                logger.info(f"   Limit: {limit} GB" if limit else "   Limit: Unlimited")
 
                 if limit:
                     percentage = round((usage / limit) * 100, 1)
-                    print(f"   Usage: {percentage}%")
+                    logger.info(f"   Usage: {percentage}%")
 
                     if percentage > 95:
-                        print("🚨 CRITICAL: Storage almost full!")
+                        logger.error("CRITICAL: Storage almost full!")
                     elif percentage > 80:
-                        print("⚠️  WARNING: Storage getting full")
+                        logger.warning("WARNING: Storage getting full")
                     else:
-                        print("✅ Storage OK")
+                        logger.info("Storage OK")
             else:
-                print("ℹ️  Storage quota information not available")
+                logger.info("ℹStorage quota information not available")
 
         except Exception as e:
-            print(f"❌ Could not get storage info: {e}")
+            logger.error(f"Could not get storage info: {e}")
 
         # List files by size to find large ones
-        print(f"\n📁 Finding largest files...")
+        logger.info(f"Finding largest files...")
         try:
             results = (
                 drive_service.files()
@@ -94,7 +99,7 @@ def check_drive_storage():
 
             files = results.get("files", [])
 
-            print(f"🗂️  Top {min(15, len(files))} largest files:")
+            logger.info(f"   Top {min(15, len(files))} largest files:")
 
             total_size = 0
             for i, file in enumerate(files[:15]):
@@ -108,16 +113,16 @@ def check_drive_storage():
                 if len(name) > 40:
                     name = name[:37] + "..."
 
-                print(f"   {i+1:2}. {name:40} {size_mb:8.2f} MB  {created}")
+                logger.info(f"   {i+1:2}. {name:40} {size_mb:8.2f} MB  {created}")
 
             total_mb = round(total_size / (1024 * 1024), 2)
-            print(f"\n📈 Top 15 files total: {total_mb} MB")
+            logger.info(f"  Top 15 files total: {total_mb} MB")
 
         except Exception as e:
-            print(f"❌ Could not list files: {e}")
+            logger.error(f"  Could not list files: {e}")
 
         # Count files by type
-        print(f"\n📊 File type breakdown...")
+        logger.info(f"  File type breakdown...")
         try:
             all_results = (
                 drive_service.files()
@@ -144,19 +149,19 @@ def check_drive_storage():
 
                 type_counts[file_type] = type_counts.get(file_type, 0) + 1
 
-            print(f"📋 File counts by type:")
+            logger.info(f"  File counts by type:")
             for file_type, count in sorted(type_counts.items()):
-                print(f"   {file_type:15}: {count:4} files")
+                logger.info(f"   {file_type:15}: {count:4} files")
 
-            print(f"\n📊 Total files: {len(all_files)}")
+            logger.info(f" Total files: {len(all_files)}")
 
         except Exception as e:
-            print(f"❌ Could not count file types: {e}")
+            logger.error(f"  Could not count file types: {e}")
 
         return True
 
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        logger.error(f"  ERROR: {e}")
         return False
 
 

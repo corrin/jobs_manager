@@ -1,4 +1,5 @@
 import logging
+
 from django.core.paginator import Paginator
 from django.db import transaction
 

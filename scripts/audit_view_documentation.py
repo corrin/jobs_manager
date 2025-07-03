@@ -80,14 +80,14 @@ def main():
 
     # Find documented views
     documented_views = find_documented_views()
-    print(f"Found {len(documented_views)} documented view directories:")
+    logger.info(f"Found {len(documented_views)} documented view directories:")
     for dv in documented_views:
-        print(f"  - {dv}")
+        logger.info(f"  - {dv}")
 
     logger.info("")
 
     # Extract view names from files
-    print("=== View Analysis ===")
+    logger.info("=== View Analysis ===")
     all_view_names = set()
     file_to_views = {}
 
@@ -96,17 +96,17 @@ def main():
         if views_in_file:
             file_to_views[view_file] = views_in_file
             all_view_names.update(views_in_file)
-            print(f"\n{view_file}:")
+            logger.info(f"{view_file}:")
             for view in views_in_file:
-                print(f"  - {view}")
+                logger.info(f"  - {view}")
 
-    print(f"\nTotal unique view names found: {len(all_view_names)}")
+    logger.info(f"Total unique view names found: {len(all_view_names)}")
 
     # Check coverage
-    print("\n=== Documentation Coverage ===")
+    logger.info("=== Documentation Coverage ===")
     documented_set = set(documented_views)
 
-    print("\nUndocumented view files (high priority for Phase 2):")
+    logger.info("Undocumented view files (high priority for Phase 2):")
     undocumented_files = []
     for view_file, views in file_to_views.items():
         file_basename = os.path.basename(view_file).replace(".py", "")
@@ -121,13 +121,15 @@ def main():
 
         if not documented:
             undocumented_files.append(view_file)
-            print(f"  - {view_file} ({len(views)} views)")
+            logger.info(f"  - {view_file} ({len(views)} views)")
 
-    print(f"\nSummary:")
-    print(f"  - View files: {len(view_files)}")
-    print(f"  - Documented view directories: {len(documented_views)}")
-    print(f"  - Undocumented view files: {len(undocumented_files)}")
-    print(f"  - Coverage: {(len(documented_views)/(len(view_files) or 1)*100):.1f}%")
+    logger.info(f"Summary:")
+    logger.info(f"  - View files: {len(view_files)}")
+    logger.info(f"  - Documented view directories: {len(documented_views)}")
+    logger.info(f"  - Undocumented view files: {len(undocumented_files)}")
+    logger.info(
+        f"  - Coverage: {(len(documented_views)/(len(view_files) or 1)*100):.1f}%"
+    )
 
 
 if __name__ == "__main__":

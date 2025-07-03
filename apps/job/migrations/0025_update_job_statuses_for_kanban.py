@@ -2,6 +2,7 @@
 # This migration maps old statuses to new ones where needed
 
 import logging
+
 from django.db import migrations
 
 logger = logging.getLogger(__name__)
