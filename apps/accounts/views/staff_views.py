@@ -13,6 +13,11 @@ from apps.accounts.utils import get_excluded_staff
 
 
 class StaffListAPIView(generics.ListAPIView):
+    """API endpoint for retrieving list of staff members for Kanban board.
+
+    Supports filtering to return only actual users (excluding system/test accounts)
+    based on the 'actual_users' query parameter.
+    """
     queryset = Staff.objects.all()
     serializer_class = KanbanStaffSerializer
     permission_classes = [IsAuthenticated]
@@ -35,6 +40,10 @@ class StaffListAPIView(generics.ListAPIView):
 
 
 class StaffListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """Display list of all staff members.
+
+    Restricted to staff managers only.
+    """
     model = Staff
     template_name = "accounts/staff/list_staff.html"
     context_object_name = "staff_list"
@@ -44,6 +53,11 @@ class StaffListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
 
 class StaffCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    """Create new staff member.
+
+    Restricted to staff managers only. Uses StaffCreationForm for validation
+    and redirects to staff list upon successful creation.
+    """
     model = Staff
     form_class = StaffCreationForm
     template_name = "accounts/staff/create_staff.html"
@@ -54,6 +68,11 @@ class StaffCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
 
 class StaffUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    """Update existing staff member details.
+
+    Accessible to staff managers or the staff member updating their own profile.
+    Uses StaffChangeForm for validation and redirects to staff list upon success.
+    """
     model = Staff
     form_class = StaffChangeForm
     template_name = "accounts/staff/update_staff.html"
@@ -67,6 +86,18 @@ class StaffUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
 def get_staff_rates(request, staff_id):
+    """Retrieve wage rates for a specific staff member.
+
+    Returns JSON response with staff member's wage rate information.
+    Restricted to authenticated staff managers only.
+
+    Args:
+        request: HTTP request object
+        staff_id: UUID of the staff member
+
+    Returns:
+        JsonResponse: Staff wage rate data or error message
+    """
     if not request.user.is_authenticated or not request.user.is_staff_manager():
         return JsonResponse({"error": "Unauthorized"}, status=403)
     staff = get_object_or_404(Staff, id=staff_id)

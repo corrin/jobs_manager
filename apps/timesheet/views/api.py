@@ -30,7 +30,12 @@ logger = logging.getLogger(__name__)
 
 
 class StaffListAPIView(APIView):
-    """API endpoint to get list of staff members for timesheet."""
+    """API endpoint to get filtered list of staff members for timesheet operations.
+
+    Returns staff members excluding system users and managers, formatted
+    for timesheet entry forms and interfaces. Filters out staff with
+    is_staff=True and excluded staff IDs from the utility function.
+    """
 
     permission_classes = [IsAuthenticated]
 

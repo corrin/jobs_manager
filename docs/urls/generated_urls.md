@@ -151,13 +151,13 @@
 #### Staff Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/staff/` | `staff_api.StaffListCreateAPIView` | `accounts:api_staff_list_create` | No description available |
+| `/api/staff/` | `staff_api.StaffListCreateAPIView` | `accounts:api_staff_list_create` | API endpoint for listing and creating staff members. |
 | `/api/staff/` | `api.StaffListAPIView` | `timesheet:api_staff_list` | API endpoint to get list of staff members for timesheet. |
 | `/api/staff/<str:staff_id>/daily/` | `daily_timesheet_views.staff_daily_detail` | `timesheet:api_staff_daily_detail` | Get detailed timesheet data for a specific staff member |
 | `/api/staff/<str:staff_id>/daily/<str:target_date>/` | `daily_timesheet_views.staff_daily_detail` | `timesheet:api_staff_daily_detail_with_date` | Get detailed timesheet data for a specific staff member |
-| `/api/staff/<uuid:pk>/` | `staff_api.StaffRetrieveUpdateDestroyAPIView` | `accounts:api_staff_detail` | No description available |
-| `/api/staff/all/` | `staff_views.StaffListAPIView` | `accounts:api_staff_list` | No description available |
-| `/api/staff/rates/<uuid:staff_id>/` | `staff_views.get_staff_rates` | `accounts:get_staff_rates` | No description available |
+| `/api/staff/<uuid:pk>/` | `staff_api.StaffRetrieveUpdateDestroyAPIView` | `accounts:api_staff_detail` | API endpoint for retrieving, updating, and deleting individual staff members. |
+| `/api/staff/all/` | `staff_views.StaffListAPIView` | `accounts:api_staff_list` | API endpoint for retrieving list of staff members for Kanban board. |
+| `/api/staff/rates/<uuid:staff_id>/` | `staff_views.get_staff_rates` | `accounts:get_staff_rates` | Retrieve wage rates for a specific staff member. |
 
 #### Stock Management
 | URL Pattern | View | Name | Description |
@@ -354,7 +354,7 @@
 |-------------|------|------|-------------|
 | `/job/` | `edit_job_view_ajax.create_job_view` | `jobs:create_job` | No description available |
 | `/job/<uuid:job_id>/` | `edit_job_view_ajax.edit_job_view_ajax` | `jobs:edit_job` | No description available |
-| `/job/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | No description available |
+| `/job/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
 | `/job/archive-complete/` | `archive_completed_jobs_view.ArchiveCompleteJobsTemplateView` | `jobs:archive_complete_jobs` | View for rendering the related page. |
 
 ### Main Redirect
@@ -450,7 +450,7 @@
 | `/rest/jobs/<uuid:job_id>/quote/import/preview/` | `<lambda>` | `jobs:quote_import_preview_deprecated` | Quote Import (DEPRECATED - file upload based) |
 | `/rest/jobs/<uuid:job_id>/quote/status/` | `quote_import_views.QuoteImportStatusView` | `jobs:quote_import_status` | Get current quote import status and latest quote information. |
 | `/rest/jobs/<uuid:job_id>/time-entries/` | `job_rest_views.JobTimeEntryRestView` | `jobs:job_time_entries_rest` | REST view for Job time entries. |
-| `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | No description available |
+| `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
 | `/rest/jobs/<uuid:pk>/cost_sets/<str:kind>/` | `job_costing_views.JobCostSetView` | `jobs:job_cost_set_rest` | No description available |
 | `/rest/jobs/<uuid:pk>/quote/apply/` | `quote_sync_views.apply_quote` | `jobs:quote_apply` | Apply quote import from linked Google Sheet. |
 | `/rest/jobs/<uuid:pk>/quote/link/` | `quote_sync_views.link_quote_sheet` | `jobs:quote_link_sheet` | Link a job to a Google Sheets quote template. |
@@ -459,7 +459,7 @@
 | `/rest/jobs/files/<int:file_path>/` | `job_file_view.JobFileView` | `jobs:job_file_delete` | API view for managing job files including upload, download, update, and deletion. |
 | `/rest/jobs/files/<int:job_number>/` | `job_file_view.JobFileView` | `jobs:job_files_list` | API view for managing job files including upload, download, update, and deletion. |
 | `/rest/jobs/files/<path:file_path>/` | `job_file_view.JobFileView` | `jobs:job_file_download` | API view for managing job files including upload, download, update, and deletion. |
-| `/rest/jobs/files/<uuid:file_id>/thumbnail/` | `job_file_view.JobFileThumbnailView` | `jobs:job_file_thumbnail` | No description available |
+| `/rest/jobs/files/<uuid:file_id>/thumbnail/` | `job_file_view.JobFileThumbnailView` | `jobs:job_file_thumbnail` | API view for serving JPEG thumbnails of job files. |
 | `/rest/jobs/files/upload/` | `job_file_upload.JobFileUploadView` | `jobs:job_file_upload` | No description available |
 | `/rest/jobs/toggle-complex/` | `job_rest_views.JobToggleComplexRestView` | `jobs:job_toggle_complex_rest` | REST view for toggling Job complex mode. |
 | `/rest/jobs/toggle-pricing-methodology/` | `job_rest_views.JobTogglePricingMethodologyRestView` | `jobs:job_toggle_pricing_methodology_rest` | DEPRECATED: This view is deprecated as pricing methodologies are not toggled. |
@@ -491,9 +491,9 @@
 ### Staff Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/staff/` | `staff_views.StaffListView` | `accounts:list_staff` | No description available |
-| `/staff/<uuid:pk>/` | `staff_views.StaffUpdateView` | `accounts:update_staff` | No description available |
-| `/staff/new/` | `staff_views.StaffCreateView` | `accounts:create_staff` | No description available |
+| `/staff/` | `staff_views.StaffListView` | `accounts:list_staff` | Display list of all staff members. |
+| `/staff/<uuid:pk>/` | `staff_views.StaffUpdateView` | `accounts:update_staff` | Update existing staff member details. |
+| `/staff/new/` | `staff_views.StaffCreateView` | `accounts:create_staff` | Create new staff member. |
 
 ### Static Management
 | URL Pattern | View | Name | Description |
