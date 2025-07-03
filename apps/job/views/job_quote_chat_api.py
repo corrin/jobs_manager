@@ -10,10 +10,8 @@ import logging
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 
 from apps.job.models import Job
 from apps.job.serializers import JobQuoteChatSerializer
@@ -37,10 +35,6 @@ class JobQuoteChatInteractionView(APIView):
 
     # Only allow POST (and implicit OPTIONS for CORS pre-flight)
     http_method_names = ["post", "options"]
-
-    # Require the user to be authenticated (session / token)
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def post(self, request, job_id):
         """
