@@ -227,9 +227,11 @@ Always be helpful, professional, and specific in your responses. When providing 
             
             model = self.get_gemini_client()
             logger.info(f"Gemini client configured with model: {model.model_name}")
+            logger.debug(f"Tools configured for model: {self._get_mcp_tools()}")
             
-            model.system_instruction = self._get_system_prompt(job)
-            logger.debug(f"System prompt set for job context")
+            system_prompt = self._get_system_prompt(job)
+            model.system_instruction = system_prompt
+            logger.debug(f"System prompt set: {system_prompt}")
 
             # Build conversation history for the model
             chat_history = []
@@ -239,6 +241,7 @@ Always be helpful, professional, and specific in your responses. When providing 
             logger.debug(f"Retrieved {len(recent_messages)} recent messages for context")
             
             for msg in recent_messages:
+                logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
                 chat_history.append(
                     {
                         # Gemini expects roles to be either "user" or "model"
@@ -249,12 +252,19 @@ Always be helpful, professional, and specific in your responses. When providing 
 
             # Start a chat session with history
             logger.debug(f"Starting chat session with {len(chat_history)} history messages")
+            logger.debug(f"Chat history being sent to Gemini: {chat_history}")
             chat = model.start_chat(history=chat_history)
 
             # Send the new user message
             logger.info(f"Sending message to Gemini: {user_message}")
             response = chat.send_message(user_message)
             logger.debug(f"Received initial response from Gemini")
+            logger.debug(f"Raw response object: {response}")
+            logger.debug(f"Response candidates: {response.candidates}")
+            try:
+                logger.debug(f"Response text: {response.text}")
+            except ValueError as e:
+                logger.debug(f"No text response available (likely function call): {e}")
 
             # Process tool calls if the model requests them
             tool_call_count = 0
