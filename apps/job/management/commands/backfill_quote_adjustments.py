@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
@@ -6,6 +7,8 @@ from django.utils import timezone
 
 from apps.job.enums import JobPricingMethodology
 from apps.job.models import AdjustmentEntry, Job
+
+logger = logging.getLogger(__name__)
 
 
 def get_accounting_date_for_job(job):
@@ -22,8 +25,8 @@ def get_accounting_date_for_job(job):
         if entry.date:
             latest_dates.append(entry.date)
         else:
-            print(
-                f"WARNING: Job {job.job_number} has time entry {entry.id} with no date"
+            logger.warning(
+                f"Job {job.job_number} has time entry {entry.id} with no date"
             )
 
     # Material entries
@@ -31,8 +34,8 @@ def get_accounting_date_for_job(job):
         if entry.accounting_date:
             latest_dates.append(entry.accounting_date)
         else:
-            print(
-                f"WARNING: Job {job.job_number} has material entry {entry.id} with no accounting_date"
+            logger.warning(
+                f"Job {job.job_number} has material entry {entry.id} with no accounting_date"
             )
 
     # Adjustment entries (excluding quote adjustments)
@@ -42,8 +45,8 @@ def get_accounting_date_for_job(job):
         if entry.accounting_date:
             latest_dates.append(entry.accounting_date)
         else:
-            print(
-                f"WARNING: Job {job.job_number} has adjustment entry {entry.id} with no accounting_date"
+            logger.warning(
+                f"Job {job.job_number} has adjustment entry {entry.id} with no accounting_date"
             )
 
     if latest_dates:

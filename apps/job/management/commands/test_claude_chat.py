@@ -8,7 +8,9 @@ the response, including any tool usage.
 """
 
 import logging
+
 from django.core.management.base import BaseCommand, CommandError
+
 from apps.job.models import Job
 from apps.job.services.gemini_chat_service import GeminiChatService
 
@@ -50,7 +52,9 @@ class Command(BaseCommand):
         user_message = options["message"]
 
         self.stdout.write(
-            self.style.SUCCESS(f"--- Starting Gemini Chat Test for Job ID: {job_id} ---")
+            self.style.SUCCESS(
+                f"--- Starting Gemini Chat Test for Job ID: {job_id} ---"
+            )
         )
         self.stdout.write(f"User Message: '{user_message}'")
 
@@ -67,7 +71,9 @@ class Command(BaseCommand):
 
             # 3. Generate the AI response
             self.stdout.write(
-                self.style.HTTP_INFO("Sending message to AI and waiting for response...")
+                self.style.HTTP_INFO(
+                    "Sending message to AI and waiting for response..."
+                )
             )
             assistant_message = chat_service.generate_ai_response(
                 job_id=job_id, user_message=user_message
@@ -91,7 +97,9 @@ class Command(BaseCommand):
                     self.stdout.write(f"Input: {tool_use.get('input')}")
                     self.stdout.write("---")
             else:
-                self.stdout.write(self.style.WARNING("No tools were used in this interaction."))
+                self.stdout.write(
+                    self.style.WARNING("No tools were used in this interaction.")
+                )
 
             if assistant_message.metadata and assistant_message.metadata.get("error"):
                 self.stderr.write(

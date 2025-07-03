@@ -243,7 +243,7 @@ class PurchaseOrderCreateView(LoginRequiredMixin, TemplateView):
 def autosave_purchase_order_view(request):
     """
     Autosave purchase order data and sync with Xero.
-    
+
     Handles real-time saving of purchase order details and line items,
     with automatic Xero synchronization when validation passes.
     """
@@ -399,7 +399,7 @@ def autosave_purchase_order_view(request):
 def delete_purchase_order_view(request, pk):
     """
     Delete a purchase order if it's in draft status.
-    
+
     Only allows deletion of draft purchase orders to prevent removing
     orders that have already been sent to suppliers.
     """

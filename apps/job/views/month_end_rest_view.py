@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 class MonthEndRestView(APIView):
     """
     REST API view for month-end processing of special jobs and stock data.
-    
+
     GET: Returns special jobs data and stock job information for month-end review
     POST: Processes selected jobs for month-end archiving and status updates
     """
+
     def get(self, request):
         jobs = MonthEndService.get_special_jobs_data()
         stock = MonthEndService.get_stock_job_data()

@@ -15,15 +15,16 @@ logger = logging.getLogger(__name__)
 class WorkshopPDFView(APIView):
     """
     API view for generating and serving workshop PDF documents for jobs.
-    
-    This view creates printable workshop PDFs that contain job details, 
+
+    This view creates printable workshop PDFs that contain job details,
     specifications, and any relevant files marked for workshop printing.
     The generated PDF is returned inline for direct printing or viewing
     in the browser.
-    
+
     GET: Generates a workshop PDF for the specified job ID and returns
          it as a file response with appropriate headers for printing.
     """
+
     def get(self, request, job_id):
         """Generate and return a workshop PDF for printing."""
         try:

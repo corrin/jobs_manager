@@ -19,10 +19,11 @@ logger = logging.getLogger(__name__)
 class JobFileUploadView(JobNumberLookupMixin, APIView):
     """
     REST API view for uploading files to jobs.
-    
+
     Handles multipart file uploads, saves files to the Dropbox workflow folder,
     and creates JobFile database records with proper file metadata.
     """
+
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):

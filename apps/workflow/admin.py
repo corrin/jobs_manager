@@ -26,7 +26,7 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
     def edit_link(self, obj):
         """
         Generate an edit link for the CompanyDefaults object.
-        
+
         Creates a clickable "Edit defaults" link in the admin list view
         that navigates to the change form for the company defaults.
         """

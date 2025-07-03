@@ -42,10 +42,11 @@ class ProductParser:
             if not ai_provider or not ai_provider.api_key:
                 raise ValueError("No active Gemini AI provider configured")
 
+            if not ai_provider.model_name:
+                raise ValueError("Gemini AI provider model name not configured")
+
             genai.configure(api_key=ai_provider.api_key)
-            self._gemini_client = genai.GenerativeModel(
-                "gemini-2.5-flash-lite-preview-06-17"
-            )  # TODO: Add to a config
+            self._gemini_client = genai.GenerativeModel(ai_provider.model_name)
 
         return self._gemini_client
 

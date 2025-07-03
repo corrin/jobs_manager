@@ -762,13 +762,14 @@ def xero_ping(request: HttpRequest) -> JsonResponse:
 class XeroErrorListAPIView(ListAPIView):
     """
     API view for listing Xero synchronization errors.
-    
+
     Returns a paginated list of all XeroError records ordered by timestamp
     (most recent first). Useful for monitoring and debugging Xero integration
     issues.
-    
+
     Endpoint: /api/xero/errors/
     """
+
     queryset = XeroError.objects.all().order_by("-timestamp")
     serializer_class = XeroErrorSerializer
     pagination_class = FiftyPerPagePagination
@@ -777,12 +778,13 @@ class XeroErrorListAPIView(ListAPIView):
 class XeroErrorDetailAPIView(RetrieveAPIView):
     """
     API view for retrieving a single Xero synchronization error.
-    
+
     Returns detailed information about a specific XeroError record
     including error message, context, and timestamp. Used for investigating
     specific Xero integration failures.
-    
+
     Endpoint: /api/xero/errors/<id>/
     """
+
     queryset = XeroError.objects.all()
     serializer_class = XeroErrorSerializer

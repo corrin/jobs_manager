@@ -49,7 +49,7 @@ class CostLineAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """
         Optimize queryset by selecting related cost_set and job data.
-        
+
         Reduces database queries by pre-fetching related CostSet and Job
         objects when displaying CostLine records in the admin interface.
         """

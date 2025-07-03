@@ -28,7 +28,9 @@ class AIProviderViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # Ensure user is a staff member and associated with a company
         if hasattr(user, "staff") and user.staff.company:
-            return AIProvider.objects.filter(company=user.staff.company).order_by("name")
+            return AIProvider.objects.filter(company=user.staff.company).order_by(
+                "name"
+            )
         return AIProvider.objects.none()
 
     def get_serializer_class(self):
@@ -51,9 +53,7 @@ class AIProviderViewSet(viewsets.ModelViewSet):
         else:
             # This case should ideally not be reached due to permissions/queryset logic
             # but serves as a safeguard.
-            raise permissions.PermissionDenied(
-                "User is not associated with a company."
-            )
+            raise permissions.PermissionDenied("User is not associated with a company.")
 
     @action(detail=True, methods=["post"], url_path="set-default")
     @transaction.atomic
@@ -67,7 +67,9 @@ class AIProviderViewSet(viewsets.ModelViewSet):
         company = provider.company
 
         # Ensure the user has permission for the company of the object
-        if not (hasattr(request.user, "staff") and request.user.staff.company == company):
+        if not (
+            hasattr(request.user, "staff") and request.user.staff.company == company
+        ):
             raise permissions.PermissionDenied()
 
         # Unset other defaults for the same company and provider type
@@ -81,4 +83,3 @@ class AIProviderViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(provider)
         return Response(serializer.data, status=status.HTTP_200_OK)
-

@@ -19,6 +19,7 @@ class StaffListCreateAPIView(generics.ListCreateAPIView):
     Requires authentication and staff permissions. Handles multipart/form data
     for file uploads (e.g., profile pictures).
     """
+
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
     permission_classes = [IsAuthenticated, IsStaff]
@@ -35,6 +36,7 @@ class StaffRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     specific staff members. Includes comprehensive logging for update operations
     and handles multipart/form data for file uploads.
     """
+
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
     permission_classes = [IsAuthenticated, IsStaff]

@@ -10,18 +10,19 @@ seamless way to generate intelligent, context-aware responses for quoting.
 
 import logging
 import uuid
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
-from django.db import transaction
 import google.generativeai as genai
-from google.generativeai.types import FunctionDeclaration
+from django.db import transaction
+
 # Correct import path for Part helper used to send function responses
 from google.generativeai.protos import Part  # For building function responses
+from google.generativeai.types import FunctionDeclaration
 
-from apps.workflow.models import AIProvider
-from apps.workflow.enums import AIProviderTypes
 from apps.job.models import Job, JobQuoteChat
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
+from apps.workflow.enums import AIProviderTypes
+from apps.workflow.models import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class GeminiChatService:
     Service for handling AI chat responses using Gemini with tool integration.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.quoting_tool = QuotingTool()
         self.query_tool = SupplierProductQueryTool()
 
@@ -57,14 +58,15 @@ class GeminiChatService:
                     "Please set the api_key in the AIProvider record."
                 )
 
+            if not ai_provider.model_name:
+                raise ValueError(
+                    "Gemini AI provider is missing a model name. "
+                    "Please set the model_name in the AIProvider record."
+                )
+
             genai.configure(api_key=ai_provider.api_key)
 
-            # Use per-provider model if set, otherwise fall back to the
-            # latest lightweight Gemini Flash model.
-            model_name = (
-                ai_provider.model_name
-                or "gemini-2.5-flash-lite-preview-06-17"
-            )
+            model_name = ai_provider.model_name
 
             return genai.GenerativeModel(
                 model_name=model_name,
@@ -96,8 +98,14 @@ Always be helpful, professional, and specific in your responses. When providing 
                 parameters={
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "Search term for products"},
-                        "supplier_name": {"type": "string", "description": "Optional supplier name to filter by"},
+                        "query": {
+                            "type": "string",
+                            "description": "Search term for products",
+                        },
+                        "supplier_name": {
+                            "type": "string",
+                            "description": "Optional supplier name to filter by",
+                        },
                     },
                     "required": ["query"],
                 },
@@ -108,8 +116,14 @@ Always be helpful, professional, and specific in your responses. When providing 
                 parameters={
                     "type": "object",
                     "properties": {
-                        "material_type": {"type": "string", "description": "Type of material (e.g., steel, aluminum)"},
-                        "dimensions": {"type": "string", "description": "Optional dimensions like '4x8'"},
+                        "material_type": {
+                            "type": "string",
+                            "description": "Type of material (e.g., steel, aluminum)",
+                        },
+                        "dimensions": {
+                            "type": "string",
+                            "description": "Optional dimensions like '4x8'",
+                        },
                     },
                     "required": ["material_type"],
                 },
@@ -120,9 +134,18 @@ Always be helpful, professional, and specific in your responses. When providing 
                 parameters={
                     "type": "object",
                     "properties": {
-                        "job_id": {"type": "string", "description": "The UUID of the job to create the quote for"},
-                        "materials": {"type": "string", "description": "A description of the materials needed"},
-                        "labor_hours": {"type": "number", "description": "Estimated labor hours"},
+                        "job_id": {
+                            "type": "string",
+                            "description": "The UUID of the job to create the quote for",
+                        },
+                        "materials": {
+                            "type": "string",
+                            "description": "A description of the materials needed",
+                        },
+                        "labor_hours": {
+                            "type": "number",
+                            "description": "Estimated labor hours",
+                        },
                     },
                     "required": ["job_id", "materials"],
                 },
@@ -133,7 +156,10 @@ Always be helpful, professional, and specific in your responses. When providing 
                 parameters={
                     "type": "object",
                     "properties": {
-                        "supplier_name": {"type": "string", "description": "Optional supplier name to filter by"},
+                        "supplier_name": {
+                            "type": "string",
+                            "description": "Optional supplier name to filter by",
+                        },
                     },
                 },
             ),
@@ -143,7 +169,10 @@ Always be helpful, professional, and specific in your responses. When providing 
                 parameters={
                     "type": "object",
                     "properties": {
-                        "material_query": {"type": "string", "description": "The material to compare prices for (e.g., 'steel angle')"},
+                        "material_query": {
+                            "type": "string",
+                            "description": "The material to compare prices for (e.g., 'steel angle')",
+                        },
                     },
                     "required": ["material_query"],
                 },
@@ -198,7 +227,9 @@ Always be helpful, professional, and specific in your responses. When providing 
 
             # Build conversation history for the model
             chat_history = []
-            recent_messages = JobQuoteChat.objects.filter(job=job).order_by('timestamp')[:20]
+            recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
+                "timestamp"
+            )[:20]
             for msg in recent_messages:
                 chat_history.append(
                     {
@@ -264,7 +295,9 @@ Always be helpful, professional, and specific in your responses. When providing 
             return assistant_message
 
         except Exception as e:
-            logger.exception(f"Gemini AI response generation failed for job {job_id}: {e}")
+            logger.exception(
+                f"Gemini AI response generation failed for job {job_id}: {e}"
+            )
             # Create and return an error message to be displayed in the chat
             error_message = JobQuoteChat.objects.create(
                 job=Job.objects.get(id=job_id),

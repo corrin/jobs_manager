@@ -1,12 +1,12 @@
 from rest_framework import serializers
 
 # Existing models used in this serializer module
+from .models import XeroError  # Added to support XeroErrorSerializer
 from .models import (
     AIProvider,
     CompanyDefaults,
     XeroAccount,
     XeroToken,
-    XeroError,  # Added to support XeroErrorSerializer
 )
 
 
@@ -89,6 +89,7 @@ class AIProviderCreateUpdateSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Xero Error Serializers
 # ---------------------------------------------------------------------------
+
 
 class XeroErrorSerializer(serializers.ModelSerializer):
     """

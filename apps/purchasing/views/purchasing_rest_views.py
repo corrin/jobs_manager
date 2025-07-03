@@ -37,10 +37,11 @@ class XeroItemList(APIView):
 class PurchaseOrderListCreateRestView(APIView):
     """
     REST API view for listing and creating purchase orders.
-    
+
     GET: Returns list of purchase orders with optional status filtering
     POST: Creates new purchase order from provided data
     """
+
     def get(self, request):
         status_filter = request.query_params.get("status", None)
         data = PurchasingRestService.list_purchase_orders()
@@ -99,9 +100,10 @@ class PurchaseOrderDetailRestView(APIView):
 class DeliveryReceiptRestView(APIView):
     """
     REST API view for processing delivery receipts.
-    
+
     POST: Processes delivery receipt for a purchase order with stock allocations
     """
+
     def post(self, request):
         purchase_order_id = request.data.get("purchase_order_id")
         allocations = request.data.get("allocations", {})
@@ -113,10 +115,11 @@ class DeliveryReceiptRestView(APIView):
 class StockListRestView(APIView):
     """
     REST API view for listing and creating stock items.
-    
+
     GET: Returns list of all stock items
     POST: Creates new stock item from provided data
     """
+
     def get(self, request):
         return Response(PurchasingRestService.list_stock())
 
@@ -131,9 +134,10 @@ class StockListRestView(APIView):
 class StockDeactivateRestView(APIView):
     """
     REST API view for deactivating stock items.
-    
+
     DELETE: Marks a stock item as inactive instead of deleting it
     """
+
     def delete(self, request, stock_id):
         item = get_object_or_404(Stock, id=stock_id)
         if item.is_active:
@@ -148,9 +152,10 @@ class StockDeactivateRestView(APIView):
 class StockConsumeRestView(APIView):
     """
     REST API view for consuming stock items for jobs.
-    
+
     POST: Records stock consumption for a specific job, reducing available quantity
     """
+
     def post(self, request, stock_id):
         job_id = request.data.get("job_id")
         qty = request.data.get("quantity")

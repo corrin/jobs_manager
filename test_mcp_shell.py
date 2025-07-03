@@ -3,10 +3,10 @@ Django shell script for testing MCP Quoting Tools
 Run with: python manage.py shell < test_mcp_shell.py
 """
 
-from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
 from apps.client.models import Client, Supplier
 from apps.job.models import Job
-from apps.quoting.models import SupplierProduct, SupplierPriceList, ScrapeJob
+from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
+from apps.quoting.models import ScrapeJob, SupplierPriceList, SupplierProduct
 
 # Initialize the tools
 quoting_tool = QuotingTool()
@@ -34,7 +34,9 @@ print("5. query_tool.get_queryset().count()")
 # Sample job for quote testing
 sample_job = Job.objects.first()
 if sample_job:
-    print(f"6. quoting_tool.create_quote_estimate('{sample_job.id}', 'steel sheet', 8.0)")
+    print(
+        f"6. quoting_tool.create_quote_estimate('{sample_job.id}', 'steel sheet', 8.0)"
+    )
 
 print("\n" + "=" * 50)
 print("Ready for testing! Try the commands above.")

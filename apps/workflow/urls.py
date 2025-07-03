@@ -42,8 +42,8 @@ from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 from apps.workflow.api.enums import get_enum_choices
-from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.ai_provider_viewset import AIProviderViewSet
+from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
 

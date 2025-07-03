@@ -259,14 +259,14 @@ def generate_quote_pdf(request, job_id):
 def send_quote_email(request, job_id):
     """
     Generate and prepare quote email with PDF attachment for a job.
-    
+
     Creates a PDF quote summary and returns email details including
     mailto URL and base64-encoded PDF content for frontend handling.
-    
+
     Args:
         request: HTTP request object
         job_id: UUID of the job to send quote for
-        
+
     Returns:
         JsonResponse with email details and PDF content or error message
     """

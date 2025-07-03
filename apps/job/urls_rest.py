@@ -16,11 +16,11 @@ from apps.job.views.job_costline_views import (
 )
 from apps.job.views.job_file_upload import JobFileUploadView
 from apps.job.views.job_file_view import JobFileThumbnailView, JobFileView
+from apps.job.views.job_quote_chat_api import JobQuoteChatInteractionView
 from apps.job.views.job_quote_chat_views import (
     JobQuoteChatHistoryView,
     JobQuoteChatMessageView,
 )
-from apps.job.views.job_quote_chat_api import JobQuoteChatInteractionView
 from apps.job.views.job_rest_views import (
     JobAdjustmentEntryRestView,
     JobCreateRestView,

@@ -141,6 +141,12 @@ def extract_data_from_supplier_quote(
                 "Anthropic API key not configured for the active AI provider. Please add it in company settings.",
             )
 
+        if not default_ai_provider.model_name:
+            return (
+                None,
+                "Anthropic model name not configured for the active AI provider. Please add it in company settings.",
+            )
+
         # Read and encode the file
         with open(quote_path, "rb") as file:
             file_content = file.read()
@@ -264,7 +270,7 @@ def extract_data_from_supplier_quote(
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-20250514",
+                "model": default_ai_provider.model_name,
                 "max_tokens": 4000,
                 "messages": [
                     {
@@ -572,6 +578,12 @@ def extract_data_from_supplier_quote_gemini(
                 "Gemini API key not configured for the active AI provider. Please add it in company settings.",
             )
 
+        if not ai_provider.model_name:
+            return (
+                None,
+                "Gemini model name not configured for the active AI provider. Please add it in company settings.",
+            )
+
         client = genai.Client(api_key=gemini_api_key)
 
         with open(quote_path, "rb") as file:
@@ -608,7 +620,7 @@ def extract_data_from_supplier_quote_gemini(
                 return None, f"Failed to process file: {str(e)}"
 
         response = client.models.generate_content(
-            model="gemini-2.5-pro-preview-05-06",
+            model=ai_provider.model_name,
             contents=contents,
             config={
                 "max_output_tokens": 4000,

@@ -29,6 +29,7 @@ class JobQuoteChatInteractionView(APIView):
     which orchestrates the call to the LLM, handles tool use, and returns
     the final generated response.
     """
+
     # ---------------------------------------------------------------------
     # DRF configuration
     # ---------------------------------------------------------------------
@@ -84,7 +85,9 @@ class JobQuoteChatInteractionView(APIView):
         except ValueError as e:
             # This can catch configuration errors from the service,
             # e.g., "No default Gemini AI provider configured"
-            logger.error(f"Configuration error in chat interaction for job {job_id}: {e}")
+            logger.error(
+                f"Configuration error in chat interaction for job {job_id}: {e}"
+            )
             return Response(
                 {"success": False, "error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
