@@ -220,16 +220,24 @@ Always be helpful, professional, and specific in your responses. When providing 
         Generates an AI response using the Gemini API and MCP tools.
         This method handles the entire conversation flow, including tool calls.
         """
+        logger.info(f"Starting AI response generation for job {job_id} with message: {user_message}")
         try:
             job = Job.objects.get(id=job_id)
+            logger.debug(f"Retrieved job: {job.name} (#{job.job_number})")
+            
             model = self.get_gemini_client()
+            logger.info(f"Gemini client configured with model: {model.model_name}")
+            
             model.system_instruction = self._get_system_prompt(job)
+            logger.debug(f"System prompt set for job context")
 
             # Build conversation history for the model
             chat_history = []
             recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
                 "timestamp"
             )[:20]
+            logger.debug(f"Retrieved {len(recent_messages)} recent messages for context")
+            
             for msg in recent_messages:
                 chat_history.append(
                     {
@@ -240,12 +248,16 @@ Always be helpful, professional, and specific in your responses. When providing 
                 )
 
             # Start a chat session with history
+            logger.debug(f"Starting chat session with {len(chat_history)} history messages")
             chat = model.start_chat(history=chat_history)
 
             # Send the new user message
+            logger.info(f"Sending message to Gemini: {user_message}")
             response = chat.send_message(user_message)
+            logger.debug(f"Received initial response from Gemini")
 
             # Process tool calls if the model requests them
+            tool_call_count = 0
             while True:
                 # Locate the first part that contains a function call
                 call_part = next(
@@ -259,6 +271,7 @@ Always be helpful, professional, and specific in your responses. When providing 
 
                 if call_part is None:
                     # No further tool invocations requested
+                    logger.info(f"No more tool calls requested. Total tool calls made: {tool_call_count}")
                     break
 
                 function_call = call_part.function_call
@@ -267,19 +280,24 @@ Always be helpful, professional, and specific in your responses. When providing 
                 raw_args = function_call.args or {}
                 tool_args: Dict[str, Any] = {k: v for k, v in raw_args.items()}
 
-                logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
+                tool_call_count += 1
+                logger.info(f"Tool call #{tool_call_count}: Executing {tool_name} with args: {tool_args}")
                 tool_result = self._execute_mcp_tool(tool_name, tool_args)
+                logger.debug(f"Tool {tool_name} returned: {tool_result[:200]}...")
 
                 # Send tool result back to the model
+                logger.debug(f"Sending tool result back to Gemini")
                 response = chat.send_message(
                     Part.from_function_response(
                         name=tool_name,
                         response={"result": tool_result},
                     )
                 )
+                logger.debug(f"Received response after tool call #{tool_call_count}")
 
             # The final response from the model
             final_content = response.text
+            logger.info(f"Final response from Gemini (length: {len(final_content)}): {final_content[:100]}...")
 
             # Persist the assistant's final message
             assistant_message = JobQuoteChat.objects.create(

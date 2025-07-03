@@ -174,6 +174,14 @@ LOGGING = {
             "backupCount": 10,
             "formatter": "verbose",
         },
+        "ai_chat_file": {
+            "level": "DEBUG",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/ai_chat.log"),
+            "maxBytes": 10 * 1024 * 1024,  # Larger for detailed AI chat logs
+            "backupCount": 10,
+            "formatter": "verbose",
+        },
         "mail_admins": {
             "level": "ERROR",
             "class": "django.utils.log.AdminEmailHandler",
@@ -222,6 +230,22 @@ LOGGING = {
         },
         "apps.quoting.services.providers": {
             "handlers": ["ai_extraction_file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        # AI chat services logs (Gemini, Claude, etc.)
+        "apps.job.services.gemini_chat_service": {
+            "handlers": ["ai_chat_file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "apps.job.services.mcp_chat_service": {
+            "handlers": ["ai_chat_file"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "apps.job.views.job_quote_chat_api": {
+            "handlers": ["ai_chat_file"],
             "level": "DEBUG",
             "propagate": True,
         },
