@@ -167,6 +167,24 @@ Always be helpful, professional, and specific in your responses. When providing 
             logger.error(f"MCP tool execution failed for {tool_name}: {e}")
             return f"Error executing tool '{tool_name}': {str(e)}"
 
+    # ---------------------------------------------------------------------
+    # Role Conversion Helpers
+    # ---------------------------------------------------------------------
+
+    @staticmethod
+    def _to_gemini_role(db_role: str) -> str:
+        """
+        Convert roles stored in the database (`user`, `assistant`) to the
+        role names expected by the Gemini API (`user`, `model`).
+
+        Args:
+            db_role: Role string from `JobQuoteChat.role`.
+
+        Returns:
+            A valid Gemini role string.
+        """
+        return "model" if db_role == "assistant" else "user"
+
     @transaction.atomic
     def generate_ai_response(self, job_id: str, user_message: str) -> JobQuoteChat:
         """
@@ -182,7 +200,13 @@ Always be helpful, professional, and specific in your responses. When providing 
             chat_history = []
             recent_messages = JobQuoteChat.objects.filter(job=job).order_by('timestamp')[:20]
             for msg in recent_messages:
-                chat_history.append({"role": msg.role, "parts": [msg.content]})
+                chat_history.append(
+                    {
+                        # Gemini expects roles to be either "user" or "model"
+                        "role": self._to_gemini_role(msg.role),
+                        "parts": [msg.content],
+                    }
+                )
 
             # Start a chat session with history
             chat = model.start_chat(history=chat_history)
