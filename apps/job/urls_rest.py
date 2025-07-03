@@ -189,15 +189,17 @@ rest_urlpatterns = [
         JobQuoteChatHistoryView.as_view(),
         name="job_quote_chat_history",
     ),
-    path(
-        "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",
-        JobQuoteChatMessageView.as_view(),
-        name="job_quote_chat_message",
-    ),
     # AI-powered chat interaction (LLM call + tool execution)
+    # Must be ABOVE the generic <message_id> route to avoid being
+    # captured by it.
     path(
         "api/jobs/<uuid:job_id>/quote-chat/interaction/",
         JobQuoteChatInteractionView.as_view(),
         name="job_quote_chat_interaction",
+    ),
+    path(
+        "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",
+        JobQuoteChatMessageView.as_view(),
+        name="job_quote_chat_message",
     ),
 ]
