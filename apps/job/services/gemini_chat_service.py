@@ -1,0 +1,252 @@
+"""
+Gemini Chat Service
+
+Handles AI-powered chat responses using Google's Gemini API and integrates
+with the application's internal tools (MCP - Model Context Protocol).
+
+This service replaces the Claude-based implementation and provides a
+seamless way to generate intelligent, context-aware responses for quoting.
+"""
+
+import logging
+import uuid
+from typing import List, Dict, Any
+
+from django.db import transaction
+import google.generativeai as genai
+from google.generativeai.types import FunctionDeclaration
+# Correct import path for Part helper used to send function responses
+from google.generativeai.protos import Part  # For building function responses
+
+from apps.workflow.models import AIProvider
+from apps.workflow.enums import AIProviderTypes
+from apps.job.models import Job, JobQuoteChat
+from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
+
+logger = logging.getLogger(__name__)
+
+
+class GeminiChatService:
+    """
+    Service for handling AI chat responses using Gemini with tool integration.
+    """
+
+    def __init__(self):
+        self.quoting_tool = QuotingTool()
+        self.query_tool = SupplierProductQueryTool()
+
+    def get_gemini_client(self) -> genai.GenerativeModel:
+        """
+        Configures and returns a Gemini client based on the default AIProvider.
+        """
+        try:
+            ai_provider = AIProvider.objects.filter(
+                provider_type=AIProviderTypes.GOOGLE,
+                default=True,
+            ).first()
+
+            if not ai_provider:
+                raise ValueError(
+                    "No default Gemini AI provider configured. "
+                    "Please add an AIProvider with type 'Gemini' and mark it as default."
+                )
+
+            if not ai_provider.api_key:
+                raise ValueError(
+                    "Gemini AI provider is missing an API key. "
+                    "Please set the api_key in the AIProvider record."
+                )
+
+            genai.configure(api_key=ai_provider.api_key)
+
+            # Use per-provider model if set, otherwise fall back to the
+            # latest lightweight Gemini Flash model.
+            model_name = (
+                ai_provider.model_name
+                or "gemini-2.5-flash-lite-preview-06-17"
+            )
+
+            return genai.GenerativeModel(
+                model_name=model_name,
+                tools=self._get_mcp_tools(),
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to configure Gemini client: {e}")
+            raise
+
+    def _get_system_prompt(self, job: Job) -> str:
+        """Generate system prompt with job context for Gemini."""
+        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works, a custom metal fabrication business. Your role is to help estimators create accurate quotes by using the available tools to find material pricing, compare suppliers, and generate estimates.
+
+Current Job Context:
+- Job: {job.name}
+- Client: {job.client.name}
+- Status: {job.get_status_display()}
+- Description: {job.description or 'No description available'}
+
+Always be helpful, professional, and specific in your responses. When providing pricing or material recommendations, explain your reasoning and mention any relevant supplier information. Use the tools provided to answer user queries about products, pricing, and suppliers."""
+
+    def _get_mcp_tools(self) -> List[FunctionDeclaration]:
+        """Define MCP tools for the Gemini API using FunctionDeclaration."""
+        return [
+            FunctionDeclaration(
+                name="search_products",
+                description="Search supplier products by description or specifications",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search term for products"},
+                        "supplier_name": {"type": "string", "description": "Optional supplier name to filter by"},
+                    },
+                    "required": ["query"],
+                },
+            ),
+            FunctionDeclaration(
+                name="get_pricing_for_material",
+                description="Get pricing information for specific materials",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "material_type": {"type": "string", "description": "Type of material (e.g., steel, aluminum)"},
+                        "dimensions": {"type": "string", "description": "Optional dimensions like '4x8'"},
+                    },
+                    "required": ["material_type"],
+                },
+            ),
+            FunctionDeclaration(
+                name="create_quote_estimate",
+                description="Create a quote estimate for a job, including materials and labor",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "job_id": {"type": "string", "description": "The UUID of the job to create the quote for"},
+                        "materials": {"type": "string", "description": "A description of the materials needed"},
+                        "labor_hours": {"type": "number", "description": "Estimated labor hours"},
+                    },
+                    "required": ["job_id", "materials"],
+                },
+            ),
+            FunctionDeclaration(
+                name="get_supplier_status",
+                description="Get the status of supplier data scraping and price lists",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "supplier_name": {"type": "string", "description": "Optional supplier name to filter by"},
+                    },
+                },
+            ),
+            FunctionDeclaration(
+                name="compare_suppliers",
+                description="Compare pricing across different suppliers for a specific material",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "material_query": {"type": "string", "description": "The material to compare prices for (e.g., 'steel angle')"},
+                    },
+                    "required": ["material_query"],
+                },
+            ),
+        ]
+
+    def _execute_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
+        """Execute an MCP tool by name and return its string output."""
+        try:
+            tool_map = {
+                "search_products": self.quoting_tool.search_products,
+                "get_pricing_for_material": self.quoting_tool.get_pricing_for_material,
+                "create_quote_estimate": self.quoting_tool.create_quote_estimate,
+                "get_supplier_status": self.quoting_tool.get_supplier_status,
+                "compare_suppliers": self.quoting_tool.compare_suppliers,
+            }
+            if tool_name in tool_map:
+                return tool_map[tool_name](**arguments)
+            return f"Unknown tool: {tool_name}"
+        except Exception as e:
+            logger.error(f"MCP tool execution failed for {tool_name}: {e}")
+            return f"Error executing tool '{tool_name}': {str(e)}"
+
+    @transaction.atomic
+    def generate_ai_response(self, job_id: str, user_message: str) -> JobQuoteChat:
+        """
+        Generates an AI response using the Gemini API and MCP tools.
+        This method handles the entire conversation flow, including tool calls.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+            model = self.get_gemini_client()
+            model.system_instruction = self._get_system_prompt(job)
+
+            # Build conversation history for the model
+            chat_history = []
+            recent_messages = JobQuoteChat.objects.filter(job=job).order_by('timestamp')[:20]
+            for msg in recent_messages:
+                chat_history.append({"role": msg.role, "parts": [msg.content]})
+
+            # Start a chat session with history
+            chat = model.start_chat(history=chat_history)
+
+            # Send the new user message
+            response = chat.send_message(user_message)
+
+            # Process tool calls if the model requests them
+            while True:
+                # Locate the first part that contains a function call
+                call_part = next(
+                    (
+                        p
+                        for p in response.candidates[0].content.parts
+                        if hasattr(p, "function_call") and p.function_call
+                    ),
+                    None,
+                )
+
+                if call_part is None:
+                    # No further tool invocations requested
+                    break
+
+                function_call = call_part.function_call
+                tool_name: str = function_call.name
+                # `args` may be `None` if no parameters supplied
+                raw_args = function_call.args or {}
+                tool_args: Dict[str, Any] = {k: v for k, v in raw_args.items()}
+
+                logger.info(f"Executing tool: {tool_name} with args: {tool_args}")
+                tool_result = self._execute_mcp_tool(tool_name, tool_args)
+
+                # Send tool result back to the model
+                response = chat.send_message(
+                    Part.from_function_response(
+                        name=tool_name,
+                        response={"result": tool_result},
+                    )
+                )
+
+            # The final response from the model
+            final_content = response.text
+
+            # Persist the assistant's final message
+            assistant_message = JobQuoteChat.objects.create(
+                job=job,
+                message_id=f"assistant-{uuid.uuid4()}",
+                role="assistant",
+                content=final_content,
+                metadata={
+                    "model": model.model_name,
+                    "tool_calls": [],  # Can be populated for audit if needed
+                },
+            )
+            return assistant_message
+
+        except Exception as e:
+            logger.exception(f"Gemini AI response generation failed for job {job_id}: {e}")
+            # Create and return an error message to be displayed in the chat
+            error_message = JobQuoteChat.objects.create(
+                job=Job.objects.get(id=job_id),
+                message_id=f"assistant-error-{uuid.uuid4()}",
+                role="assistant",
+                content=f"I apologize, but I encountered an error processing your request: {str(e)}",
+                metadata={"error": True, "error_message": str(e)},
+            )
+            return error_message

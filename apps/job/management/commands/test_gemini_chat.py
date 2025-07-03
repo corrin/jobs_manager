@@ -1,5 +1,5 @@
 """
-Integration Test Script for Claude Chat Functionality
+Integration Test Script for Gemini Chat Functionality
 
 This script provides a command-line interface to test the end-to-end
 flow of the AI-powered quoting chat. It initializes the Django environment,

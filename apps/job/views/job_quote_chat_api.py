@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.job.serializers import JobQuoteChatSerializer
-from apps.job.services.mcp_chat_service import MCPChatService
+from apps.job.services.gemini_chat_service import GeminiChatService
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class JobQuoteChatInteractionView(APIView):
 
         try:
             # Instantiate the chat service
-            chat_service = MCPChatService()
+            chat_service = GeminiChatService()
 
             # The service handles the entire LLM interaction, including tool use
             # and saving the final assistant message to the database.
@@ -77,7 +77,7 @@ class JobQuoteChatInteractionView(APIView):
             )
         except ValueError as e:
             # This can catch configuration errors from the service,
-            # e.g., "No default Claude AI provider configured"
+            # e.g., "No default Gemini AI provider configured"
             logger.error(f"Configuration error in chat interaction for job {job_id}: {e}")
             return Response(
                 {"success": False, "error": str(e)},
