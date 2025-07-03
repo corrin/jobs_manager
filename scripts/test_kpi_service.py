@@ -49,7 +49,7 @@ def test_kpi_calendar(year=None, month=None):
         calendar_data = result.get("calendar_data", {})
         monthly_totals = result.get("monthly_totals", {})
 
-        logger.info(f"✓ Success! Got {len(calendar_data)} days of data")
+        logger.info(f"Success! Got {len(calendar_data)} days of data")
         logger.info("")
         logger.info("Monthly summary:")
         logger.info(f"  - Working days: {monthly_totals.get('working_days', 0)}")
@@ -59,7 +59,7 @@ def test_kpi_calendar(year=None, month=None):
 
         return True
     except Exception as e:
-        logger.error(f"✗ Error: {str(e)}")
+        logger.error(f"Error: {str(e)}")
         logger.error("")
         logger.error("Full traceback:")
         logger.error(traceback.format_exc())
