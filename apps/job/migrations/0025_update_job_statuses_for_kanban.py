@@ -1,7 +1,10 @@
 # Migration to update existing job statuses for new kanban categorization
 # This migration maps old statuses to new ones where needed
 
+import logging
 from django.db import migrations
+
+logger = logging.getLogger(__name__)
 
 
 def update_job_statuses(apps, schema_editor):
@@ -21,7 +24,7 @@ def update_job_statuses(apps, schema_editor):
     for old_status, new_status in status_mapping.items():
         updated_count = Job.objects.filter(status=old_status).update(status=new_status)
         if updated_count > 0:
-            print(f"Updated {updated_count} jobs from '{old_status}' to '{new_status}'")
+            logger.info(f"Updated {updated_count} jobs from '{old_status}' to '{new_status}'")
 
 
 def reverse_job_statuses(apps, schema_editor):
@@ -40,7 +43,7 @@ def reverse_job_statuses(apps, schema_editor):
         # Only reverse if the old status existed
         updated_count = Job.objects.filter(status=new_status).update(status=old_status)
         if updated_count > 0:
-            print(
+            logger.info(
                 f"Reverted {updated_count} jobs from '{new_status}' to '{old_status}'"
             )
 

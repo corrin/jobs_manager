@@ -5,8 +5,13 @@ Compares actual view files with existing documentation.
 """
 
 import glob
+import logging
 import os
 from pathlib import Path
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def find_view_files():
@@ -57,21 +62,21 @@ def extract_view_names_from_file(filepath):
         view_names.extend(func_views)
 
     except Exception as e:
-        print(f"Error reading {filepath}: {e}")
+        logger.error(f"Error reading {filepath}: {e}")
 
     return view_names
 
 
 def main():
-    print("=== View Documentation Audit ===\n")
+    logger.info("=== View Documentation Audit ===\n")
 
     # Find all view files
     view_files = find_view_files()
-    print(f"Found {len(view_files)} view files:")
+    logger.info(f"Found {len(view_files)} view files:")
     for vf in view_files:
-        print(f"  - {vf}")
+        logger.info(f"  - {vf}")
 
-    print()
+    logger.info("")
 
     # Find documented views
     documented_views = find_documented_views()
@@ -79,7 +84,7 @@ def main():
     for dv in documented_views:
         print(f"  - {dv}")
 
-    print()
+    logger.info("")
 
     # Extract view names from files
     print("=== View Analysis ===")

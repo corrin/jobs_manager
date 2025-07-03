@@ -26,7 +26,7 @@ django.setup()
 from django.urls import URLPattern, URLResolver, get_resolver
 
 # Set up logging
-logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -618,7 +618,7 @@ def main():
 
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(markdown_content)
-        print(f"Generated documentation for {args.app} app: {output_file}")
+        logger.info(f"Generated documentation for {args.app} app: {output_file}")
     else:
         # Generate for all apps
         from django.apps import apps
@@ -633,7 +633,7 @@ def main():
                     app_name.split(".")[1]
                 )  # Extract app name from 'apps.appname'
 
-        print(f"Generating documentation for apps: {', '.join(project_apps)}")
+        logger.info(f"Generating documentation for apps: {', '.join(project_apps)}")
 
         for app_name in project_apps:
             urls = generator.extract_all_urls(app_name)
@@ -645,9 +645,9 @@ def main():
 
                 with open(output_file, "w", encoding="utf-8") as f:
                     f.write(markdown_content)
-                print(f"Generated documentation for {app_name}: {output_file}")
+                logger.info(f"Generated documentation for {app_name}: {output_file}")
             else:
-                print(f"No URLs found for {app_name} app, skipping...")
+                logger.info(f"No URLs found for {app_name} app, skipping...")
 
 
 if __name__ == "__main__":
