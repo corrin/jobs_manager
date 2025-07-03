@@ -44,6 +44,12 @@ def get_company_defaults_api(request):
 
 
 def create_job_view(request):
+    """
+    Render the create job template page.
+    
+    Returns a simple template that handles the job creation workflow,
+    typically redirecting to the job editing interface after creation.
+    """
     return render(request, "jobs/create_job_and_redirect.html")
 
 
@@ -239,6 +245,22 @@ def form_to_dict(form):
 
 @require_http_methods(["GET", "POST"])
 def edit_job_view_ajax(request, job_id=None):
+    """
+    Main view for editing jobs with comprehensive job data and pricing information.
+    
+    Renders the job editing interface with complete job details, pricing history,
+    related quotes/invoices, job files, and events for a specified job.
+    
+    Args:
+        request: HTTP request object
+        job_id: UUID of the job to edit (required)
+        
+    Returns:
+        Rendered job editing template with full job context
+        
+    Raises:
+        ValueError: If job_id is not provided
+    """
     if job_id:
         # Fetch the existing Job along with pricings
         job = get_job_with_pricings(job_id)

@@ -50,7 +50,11 @@ class URLDocumentationGenerator:
                 
             url_name = url_pattern.name
             if not url_name:
-                logger.warning(f"URL pattern has no name: {pattern}")
+                # Only warn for non-admin URLs that should have names
+                if not ('django.contrib.admin' in view_info.get('module', '') or 
+                       'debug_toolbar' in view_info.get('module', '') or
+                       view_info.get('function') in ['serve', 'RedirectView']):
+                    logger.warning(f"URL pattern has no name: {pattern}")
                 url_name = 'N/A'
                 
             if namespace:
@@ -58,10 +62,20 @@ class URLDocumentationGenerator:
                 
             description = self._extract_description(view_info)
             if not description:
-                logger.warning(f"No description found for: {pattern} -> {view_info['display_name']}")
+                # Only warn for custom views that should have docstrings
+                if not ('django.contrib' in view_info.get('module', '') or 
+                       'debug_toolbar' in view_info.get('module', '') or
+                       'rest_framework' in view_info.get('module', '') or
+                       view_info.get('function') in ['serve', 'shortcut']):
+                    logger.warning(f"No description found for: {pattern} -> {view_info['display_name']}")
                 description = "No description available"
                 
-            category = self._categorize_url(pattern, view_info, url_name)
+            # Check for functional group attribute, otherwise use app-based categorization
+            functional_group = getattr(url_pattern, 'functional_group', None)
+            if functional_group:
+                category = functional_group
+            else:
+                category = self._categorize_url(pattern, view_info, url_name)
                 
             return {
                 'pattern': pattern,
@@ -104,11 +118,15 @@ class URLDocumentationGenerator:
             
             # Handle case where pattern is already a string
             if isinstance(pattern_obj, str):
+                if pattern_obj == '':
+                    return '/'
                 return '/' + pattern_obj.strip('/') + '/'
             
             # Handle route-based patterns (path() function)
             elif hasattr(pattern_obj, '_route'):
                 route = pattern_obj._route
+                if route == '':
+                    return '/'
                 return '/' + route.rstrip('/') + '/'
                 
             # Handle regex-based patterns (re_path() function) 
@@ -207,6 +225,11 @@ class URLDocumentationGenerator:
             view_object = view_info.get('view_object')
             if not view_object:
                 return None
+            
+            # Special handling for built-in Django views
+            description = self._get_builtin_view_description(view_info)
+            if description:
+                return description
                 
             if hasattr(view_object, '__doc__') and view_object.__doc__:
                 docstring = view_object.__doc__.strip()
@@ -223,6 +246,79 @@ class URLDocumentationGenerator:
             
         except Exception:
             return None
+    
+    def _get_builtin_view_description(self, view_info: Dict[str, str]) -> Optional[str]:
+        """Provide descriptions for built-in Django views."""
+        display_name = view_info.get('display_name', '')
+        function_name = view_info.get('function', '')
+        module = view_info.get('module', '')
+        
+        # Django admin views
+        if 'django.contrib.admin' in module:
+            admin_descriptions = {
+                'add_view': "Django admin view for adding new model instances",
+                'change_view': "Django admin view for editing existing model instances", 
+                'delete_view': "Django admin view for deleting model instances",
+                'changelist_view': "Django admin view for listing model instances",
+                'autocomplete_view': "Django admin autocomplete view for foreign key lookups",
+                'history_view': "Django admin view showing change history for model instances",
+                'app_index': "Django admin view showing all models for a specific app",
+                'index': "Django admin main index page listing all installed apps"
+            }
+            if function_name in admin_descriptions:
+                return admin_descriptions[function_name]
+        
+        # Django auth views
+        if 'django.contrib.auth' in module:
+            auth_descriptions = {
+                'PasswordResetView': "Django built-in view for initiating password reset",
+                'PasswordResetDoneView': "Django built-in view shown after password reset email sent",
+                'PasswordResetConfirmView': "Django built-in view for confirming password reset via email link",
+                'PasswordResetCompleteView': "Django built-in view shown after successful password reset",
+                'PasswordChangeDoneView': "Django built-in view shown after successful password change"
+            }
+            if function_name in auth_descriptions:
+                return auth_descriptions[function_name]
+        
+        # Django static/media serving views
+        if 'django.views.static' in module:
+            if function_name == 'serve':
+                return "Django built-in view for serving static files in development"
+        
+        # Django generic views
+        if 'django.views.generic' in module:
+            generic_descriptions = {
+                'RedirectView': "Django built-in view for HTTP redirects"
+            }
+            if function_name in generic_descriptions:
+                return generic_descriptions[function_name]
+        
+        # Django debug toolbar views
+        if 'debug_toolbar' in module:
+            debug_descriptions = {
+                'render_panel': "Django Debug Toolbar view for rendering debug panels",
+                'template_source': "Django Debug Toolbar view for showing template source code"
+            }
+            if function_name in debug_descriptions:
+                return debug_descriptions[function_name]
+        
+        # Django REST Framework views
+        if 'rest_framework' in module:
+            drf_descriptions = {
+                'APIRootView': "Django REST Framework root API view listing available endpoints"
+            }
+            if function_name in drf_descriptions:
+                return drf_descriptions[function_name]
+        
+        # Handle lambda functions (usually deprecated endpoints)
+        if function_name == '<lambda>':
+            # Check if this is a deprecated endpoint by looking at the display name
+            if 'deprecated' in display_name.lower():
+                return "Deprecated endpoint returning HTTP 410 GONE status"
+            else:
+                return "Lambda function endpoint"
+        
+        return None
             
     def _extract_comment_from_source(self, view_object) -> Optional[str]:
         """Extract comment from source code above function."""
@@ -381,7 +477,12 @@ class URLDocumentationGenerator:
         else:
             title = "# Generated URLs Documentation"
             
-        content = [title, ""]
+        content = [
+            title,
+            "",
+            "<!-- This file is auto-generated. To regenerate, run: python scripts/generate_url_docs.py -->",
+            ""
+        ]
         
         # Split into API and non-API sections
         api_urls = [url for url in urls if url['is_api']]
@@ -454,16 +555,41 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     
     generator = URLDocumentationGenerator()
-    urls = generator.extract_all_urls(args.app)
-    markdown_content = generator.generate_markdown_documentation(urls, args.app)
     
     if args.app:
+        # Generate for specific app
+        urls = generator.extract_all_urls(args.app)
+        markdown_content = generator.generate_markdown_documentation(urls, args.app)
         output_file = output_dir / f"{args.app}.md"
-    else:
-        output_file = output_dir / "generated_urls.md"
         
-    with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(markdown_content)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+        print(f"Generated documentation for {args.app} app: {output_file}")
+    else:
+        # Generate for all apps
+        from django.apps import apps
+        
+        # Get all installed apps that are in the current project (not third-party)
+        project_apps = []
+        for app_config in apps.get_app_configs():
+            app_name = app_config.name
+            # Only include apps that are part of this project (start with 'apps.')
+            if app_name.startswith('apps.'):
+                project_apps.append(app_name.split('.')[1])  # Extract app name from 'apps.appname'
+        
+        print(f"Generating documentation for apps: {', '.join(project_apps)}")
+        
+        for app_name in project_apps:
+            urls = generator.extract_all_urls(app_name)
+            if urls:  # Only generate if there are URLs for this app
+                markdown_content = generator.generate_markdown_documentation(urls, app_name)
+                output_file = output_dir / f"{app_name}.md"
+                
+                with open(output_file, 'w', encoding='utf-8') as f:
+                    f.write(markdown_content)
+                print(f"Generated documentation for {app_name}: {output_file}")
+            else:
+                print(f"No URLs found for {app_name} app, skipping...")
 
 
 if __name__ == '__main__':

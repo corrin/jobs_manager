@@ -1,5 +1,7 @@
 # Quoting URLs Documentation
 
+<!-- This file is auto-generated. To regenerate, run: python scripts/generate_url_docs.py -->
+
 ## API Endpoints
 
 #### Extract-Supplier-Price-List Management
@@ -17,9 +19,9 @@
 ### Upload-Price-List Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/upload-price-list/` | `views.UploadPriceListView` | `quoting:upload_price_list` | No description available |
+| `/upload-price-list/` | `views.UploadPriceListView` | `quoting:upload_price_list` | View for uploading supplier price lists. |
 
 ### Upload-Supplier-Pricing Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/upload-supplier-pricing/` | `views.UploadSupplierPricingView` | `quoting:upload_supplier_pricing` | No description available |
+| `/upload-supplier-pricing/` | `views.UploadSupplierPricingView` | `quoting:upload_supplier_pricing` | View for uploading and processing supplier pricing PDFs using AI extraction. |

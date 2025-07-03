@@ -1,11 +1,13 @@
 # Workflow URLs Documentation
 
+<!-- This file is auto-generated. To regenerate, run: python scripts/generate_url_docs.py -->
+
 ## API Endpoints
 
 #### System
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/company-defaults/` | `company_defaults_api.CompanyDefaultsAPIView` | `api_company_defaults` | No description available |
+| `/api/company-defaults/` | `company_defaults_api.CompanyDefaultsAPIView` | `api_company_defaults` | API view for managing company default settings. |
 | `/api/enums/<str:enum_name>/` | `get_enum_choices` | `get_enum_choices` | API endpoint to get enum choices. |
 
 #### Xero Integration
@@ -29,8 +31,8 @@
 ### System
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/xero-errors/` | `xero_view.XeroErrorListAPIView` | `xero-error-list` | No description available |
-| `/xero-errors/<uuid:pk>/` | `xero_view.XeroErrorDetailAPIView` | `xero-error-detail` | No description available |
+| `/xero-errors/` | `xero_view.XeroErrorListAPIView` | `xero-error-list` | API view for listing Xero synchronization errors. |
+| `/xero-errors/<uuid:pk>/` | `xero_view.XeroErrorDetailAPIView` | `xero-error-detail` | API view for retrieving a single Xero synchronization error. |
 
 ### Xero Integration
 | URL Pattern | View | Name | Description |

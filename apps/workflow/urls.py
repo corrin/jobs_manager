@@ -45,9 +45,13 @@ from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
 
+# Create home redirect pattern with metadata
+home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")
+home_pattern.functional_group = "Main Redirect"
+
 urlpatterns = [
     # Redirect to Kanban board
-    path("", RedirectView.as_view(url="/kanban/"), name="home"),
+    home_pattern,
     path("api/enums/<str:enum_name>/", get_enum_choices, name="get_enum_choices"),
     path(
         "api/xero/authenticate/",

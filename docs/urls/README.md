@@ -1,5 +1,7 @@
 # Workflow URLs Documentation
 
+LEGACY handwritten docs.  Slated to be deleted but kept for now so we can copy patterns etc.
+
 ## Base URLs Structure
 
 ### Main Redirect
