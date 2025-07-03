@@ -250,6 +250,9 @@ Always be helpful, professional, and specific in your responses. When providing 
                     }
                 )
 
+            # Keep a copy of the history for metadata
+            history_for_metadata = chat_history.copy()
+
             # Start a chat session with history
             logger.debug(f"Starting chat session with {len(chat_history)} history messages")
             logger.debug(f"Chat history being sent to Gemini: {chat_history}")
@@ -318,7 +321,11 @@ Always be helpful, professional, and specific in your responses. When providing 
                 content=final_content,
                 metadata={
                     "model": model.model_name,
-                    "tool_calls": [],  # Can be populated for audit if needed
+                    "system_prompt": system_prompt,
+                    "user_message": user_message,
+                    "chat_history": history_for_metadata,
+                    "tool_definitions": tool_definitions,
+                    "tool_calls": tool_calls,
                 },
             )
             logger.info(f"Successfully generated AI response for job {job_id}. Message ID: {assistant_message.message_id}")
