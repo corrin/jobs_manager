@@ -300,6 +300,7 @@ Always be helpful, professional, and specific in your responses. When providing 
             logger.info(f"Final response from Gemini (length: {len(final_content)}): {final_content[:100]}...")
 
             # Persist the assistant's final message
+            logger.debug(f"Saving assistant message to database")
             assistant_message = JobQuoteChat.objects.create(
                 job=job,
                 message_id=f"assistant-{uuid.uuid4()}",
@@ -310,6 +311,7 @@ Always be helpful, professional, and specific in your responses. When providing 
                     "tool_calls": [],  # Can be populated for audit if needed
                 },
             )
+            logger.info(f"Successfully generated AI response for job {job_id}. Message ID: {assistant_message.message_id}")
             return assistant_message
 
         except Exception as e:
