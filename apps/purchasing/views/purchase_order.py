@@ -241,6 +241,12 @@ class PurchaseOrderCreateView(LoginRequiredMixin, TemplateView):
 @require_http_methods(["POST"])
 @transaction.atomic
 def autosave_purchase_order_view(request):
+    """
+    Autosave purchase order data and sync with Xero.
+    
+    Handles real-time saving of purchase order details and line items,
+    with automatic Xero synchronization when validation passes.
+    """
     request_timestamp = datetime.now().isoformat()
 
     try:
@@ -391,6 +397,12 @@ def autosave_purchase_order_view(request):
 
 @require_http_methods(["POST"])
 def delete_purchase_order_view(request, pk):
+    """
+    Delete a purchase order if it's in draft status.
+    
+    Only allows deletion of draft purchase orders to prevent removing
+    orders that have already been sent to suppliers.
+    """
     if not pk:
         return JsonResponse(
             {"success": False, "error": "Missing PO id in the request."}, status=400

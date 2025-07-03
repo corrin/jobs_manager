@@ -35,6 +35,12 @@ class XeroItemList(APIView):
 
 
 class PurchaseOrderListCreateRestView(APIView):
+    """
+    REST API view for listing and creating purchase orders.
+    
+    GET: Returns list of purchase orders with optional status filtering
+    POST: Creates new purchase order from provided data
+    """
     def get(self, request):
         status_filter = request.query_params.get("status", None)
         data = PurchasingRestService.list_purchase_orders()
@@ -91,6 +97,11 @@ class PurchaseOrderDetailRestView(APIView):
 
 
 class DeliveryReceiptRestView(APIView):
+    """
+    REST API view for processing delivery receipts.
+    
+    POST: Processes delivery receipt for a purchase order with stock allocations
+    """
     def post(self, request):
         purchase_order_id = request.data.get("purchase_order_id")
         allocations = request.data.get("allocations", {})

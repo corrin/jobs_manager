@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.http import HttpRequest, HttpResponse
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.accounts.forms import StaffChangeForm, StaffCreationForm
@@ -90,3 +91,39 @@ class StaffAdmin(UserAdmin, SimpleHistoryAdmin):
     )
     search_fields = ("email", "first_name", "last_name")
     ordering = ("email",)
+
+    def user_change_password(self, request: HttpRequest, id: str, form_url: str = "") -> HttpResponse:
+        """
+        Display the password change form for a specific user.
+        
+        This Django admin view handles password changes for individual users
+        in the admin interface. It displays a form allowing administrators
+        to set a new password for the selected user.
+        
+        Args:
+            request: The HTTP request object
+            id: The user ID whose password will be changed
+            form_url: Optional form URL for the password change form
+            
+        Returns:
+            HttpResponse containing the password change form or redirect after success
+        """
+        return super().user_change_password(request, id, form_url)
+
+    def history_form_view(self, request: HttpRequest, object_id: str, version_id: str) -> HttpResponse:
+        """
+        Display the historical form view for a specific object version.
+        
+        This view is provided by SimpleHistoryAdmin and shows a read-only form
+        displaying the state of an object at a specific point in history.
+        Used for viewing historical changes to Staff records.
+        
+        Args:
+            request: The HTTP request object
+            object_id: The ID of the staff object
+            version_id: The ID of the specific historical version
+            
+        Returns:
+            HttpResponse containing the historical form view
+        """
+        return super().history_form_view(request, object_id, version_id)

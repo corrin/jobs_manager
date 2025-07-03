@@ -177,6 +177,11 @@ def get_all_clients_api(request):
 
 
 class ClientListView(SingleTableView):
+    """
+    View for displaying a list of all clients in a table format.
+    
+    Uses django-tables2 for tabular display with sorting and filtering capabilities.
+    """
     model = Client
     template_name = "clients/list_clients.html"
     # table_class = ClientTable
@@ -282,6 +287,12 @@ def all_clients(request):
 
 
 def AddClient(request):
+    """
+    View for adding new clients with Xero integration.
+    
+    Handles both GET (display form) and POST (create client) requests.
+    Creates clients in Xero first, then syncs to local database.
+    """
     # Check for valid Xero token first
     token = get_valid_token()
     if not token:
