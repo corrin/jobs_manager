@@ -527,12 +527,13 @@ class PurchaseOrderEmailView(APIView):
             )
         except ValueError as e:
             logger.warning(
-                f"Value error for purchase order {purchase_order_id}: {str(e)}"
+                f"Validation error for purchase order {purchase_order_id}: {str(e)}"
             )
             return JsonResponse(
                 {
                     "success": False,
                     "error": str(e),
+                    "error_type": "validation_error",
                 },
                 status=400,
             )
@@ -543,7 +544,8 @@ class PurchaseOrderEmailView(APIView):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": "Could not generate email",
+                    "error": "Failed to generate email. Please check the purchase order details.",
+                    "error_type": "server_error",
                     "details": str(e),
                 },
                 status=500,
@@ -606,8 +608,9 @@ class PurchaseOrderPDFView(APIView):
             )
             return Response(
                 {
-                    "status": "error",
-                    "message": "Could not generate PDF",
+                    "success": False,
+                    "error": "Failed to generate PDF. Please check the purchase order details.",
+                    "error_type": "server_error",
                     "details": str(e),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

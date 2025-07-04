@@ -225,14 +225,21 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
         if hasattr(xero_po, "validation_errors") and xero_po.validation_errors:
             error_messages = "; ".join(
-                [
-                    err.get("message", "Unknown error")
-                    for err in xero_po.validation_errors
-                ]
+                [getattr(e, "message", str(e)) for e in xero_po.validation_errors]
             )
             logger.warning(
                 f"Xero validation errors for PO {self.purchase_order.id}: "
                 f"{error_messages}"
+            )
+
+            # If there are validation errors, return them immediately instead of trying to continue
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"Xero validation failed: {error_messages}",
+                    "error_type": "validation_error",
+                },
+                status=400,
             )
 
         if self._is_zero_uuid(xero_po.purchase_order_id):
@@ -257,97 +264,26 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 )
 
             logger.error(
-                f"""
-                Could not find real UUID for PO {self.purchase_order.id}.
-                Attempting to create it again.
-                """.strip()
-                # CORRIN: WHAT ON EARTH IS THIS?
+                f"Could not find real UUID for PO {self.purchase_order.id}. "
+                f"This may indicate validation errors prevented successful creation."
             )
-            try:
-                # Preparar o payload novamente
-                xero_doc = self.get_xero_document(type="create")
-                raw_payload = xero_doc.to_dict()
-                cleaned_payload = clean_payload(raw_payload)
-                payload = {"PurchaseOrders": [convert_to_pascal_case(cleaned_payload)]}
 
-                # Chamar a API do Xero novamente para criar a PO
-                update_method = self._get_xero_update_method()
-                logger.info(f"Retrying creation for PO {self.purchase_order.id}")
-                retry_response, _, _ = update_method(
-                    self.xero_tenant_id,
-                    purchase_orders=payload,
-                    summarize_errors=False,
-                    _return_http_data_only=False,
-                )
+            # Provide more helpful error message
+            error_msg = (
+                "Purchase order could not be properly created in Xero. "
+                "This typically happens when there are validation issues such as "
+                "missing supplier contact details or invalid data. "
+                "Please check that the supplier has valid Xero contact information."
+            )
 
-                # Verificar se a nova tentativa teve sucesso
-                # CORRIN: WHAT! retry?  Fail early.  This code is a mess.
-                if (
-                    hasattr(retry_response, "purchase_orders")
-                    and retry_response.purchase_orders
-                ):
-                    retry_po = retry_response.purchase_orders[0]
-                    retry_url = (
-                        f"https://go.xero.com/Accounts/Payable/PurchaseOrders/Edit/"
-                        f"{retry_po.purchase_order_id}/"
-                    )
-
-                    # Verificar se ainda recebemos um UUID zero
-                    if not self._is_zero_uuid(retry_po.purchase_order_id):
-                        # Sucesso na segunda tentativa!
-                        logger.info(
-                            f"""
-                            Successfully created PO on retry with UUID:
-                            {retry_po.purchase_order_id}
-                            """.strip()
-                        )
-                        self._save_po_with_xero_data(
-                            retry_po.purchase_order_id,
-                            retry_url,
-                            retry_po.updated_date_utc,
-                        )
-                        return JsonResponse(
-                            {
-                                "success": True,
-                                "xero_id": str(retry_po.purchase_order_id),
-                                "online_url": retry_url,
-                                "retry": True,
-                            }
-                        )
-                    else:
-                        logger.warning(
-                            f"""
-                            Retry still returned zero UUID for PO
-                            {self.purchase_order.id}
-                            """.strip()
-                        )
-                else:
-                    logger.warning(
-                        f"""
-                        Retry did not return any purchase orders for PO
-                        {self.purchase_order.id}
-                        """.strip()
-                    )
-
-            except Exception as e:
-                logger.error(
-                    f"Error during retry for PO {self.purchase_order.id}: {str(e)}"
-                )
-
-            # If we reached this point, both the original and the retry attempt failed
-            # to obtain a valid UUID
-            # We save without the UUID, but with the URL and synchronisation date
-            self._save_po_with_xero_data(None, xero_po_url, timezone.now())
             return JsonResponse(
                 {
-                    "success": True,
-                    "xero_id": None,
-                    "online_url": xero_po_url,
-                    "warning": (
-                        "Could not obtain a valid UUID from Xero, "
-                        "but the PO may have been created"
-                    ),
-                }
+                    "success": False,
+                    "error": error_msg,
+                    "error_type": "creation_failed",
+                    "details": "Could not retrieve valid Xero ID after creation attempt",
+                },
+                status=502,
             )
 
         self._save_po_with_xero_data(
@@ -410,9 +346,7 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             }
 
             if line.item_code:
-                line_item_data["item_code"] = (
-                    line.item_code
-                )  # Corrigido para snake_case
+                line_item_data["item_code"] = line.item_code
 
             # Add account code only if found
             if account_code:
@@ -510,22 +444,18 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 - On success: xero_id and online_url fields
                 - On failure: error and exception_type fields
         """
-        has_data = self.can_sync_to_xero()
-        if not has_data:
-            logger.warning(
-                "Cannot sync PO %s to Xero - not yet ready - validation failed",
-                self.purchase_order.id,
-            )
+        # Validate PO readiness before attempting sync
+        try:
+            self.validate_for_xero_sync()
+        except ValueError as e:
+            logger.warning(f"PO {self.purchase_order.id} validation failed: {str(e)}")
             return JsonResponse(
                 {
-                    "success": True,
-                    "error": (
-                        "Purchase order is not ready for sync. "
-                        "Please complete all required fields."
-                    ),
-                    "exception_type": "ValidationError",
-                    "is_incomplete_po": True,
-                }
+                    "success": False,
+                    "error": str(e),
+                    "error_type": "validation_error",
+                },
+                status=400,
             )
 
         try:
@@ -576,8 +506,27 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 f"Failed to sync PO {self.purchase_order.id} to Xero: {str(e)}",
                 exc_info=True,
             )
+
+            # Try to extract more specific error information
+            error_message = str(e)
+            error_type = type(e).__name__
+
+            # Handle common Xero API errors
+            if "Contact" in error_message and (
+                "not found" in error_message or "invalid" in error_message
+            ):
+                error_message = (
+                    f"Supplier contact issue: {error_message}. "
+                    f"Please verify that '{self.purchase_order.supplier.name}' "
+                    f"exists in Xero and has the correct contact ID."
+                )
+                error_type = "contact_error"
+            elif "validation" in error_message.lower():
+                error_message = f"Xero validation failed: {error_message}"
+                error_type = "validation_error"
+
             return JsonResponse(
-                {"success": False, "error": str(e), "exception_type": type(e).__name__},
+                {"success": False, "error": error_message, "error_type": error_type},
                 status=500,
             )
 
@@ -731,4 +680,32 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     "error": f"An unexpected error occurred during deletion: {str(e)}",
                 },
                 status=500,
+            )
+
+    def validate_for_xero_sync(self):
+        """
+        Validates that the purchase order and supplier are ready for Xero sync.
+
+        Raises:
+            ValueError: If validation fails with descriptive message
+        """
+        if not self.purchase_order:
+            raise ValueError("Purchase order is missing")
+
+        supplier = self.purchase_order.supplier
+        if not supplier:
+            raise ValueError("Purchase order must have a supplier assigned")
+
+        if not supplier.xero_contact_id:
+            raise ValueError(
+                f"Supplier '{supplier.name}' is not linked to Xero. "
+                f"Please ensure the supplier has a valid Xero contact ID configured. "
+                f"You may need to sync the supplier with Xero first."
+            )
+
+        # Additional validation for PO readiness
+        if not self.can_sync_to_xero():
+            raise ValueError(
+                "Purchase order is not ready for sync. "
+                "Please ensure all required fields are completed (supplier, lines with descriptions and costs)."
             )

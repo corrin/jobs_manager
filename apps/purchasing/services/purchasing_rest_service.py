@@ -43,6 +43,7 @@ class PurchasingRestService:
                 "status": po.status,
                 "order_date": po.order_date.isoformat(),
                 "supplier": po.supplier.name if po.supplier else "",
+                "supplier_id": str(po.supplier.id) if po.supplier else None,
             }
             for po in pos
         ]
@@ -101,6 +102,17 @@ class PurchasingRestService:
                     line.delete()
                 except PurchaseOrderLine.DoesNotExist:
                     continue
+
+        # Handle supplier updates
+        supplier_id = data.get("supplier_id")
+        if supplier_id:
+            try:
+                supplier = Supplier.objects.get(id=supplier_id)
+                po.supplier = supplier
+                logger.info(f"Updated supplier for PO {po.id} to {supplier.name}")
+            except Supplier.DoesNotExist:
+                logger.warning(f"Invalid supplier_id {supplier_id} for PO {po.id}")
+                # Don't fail the entire update, just log and continue
 
         for field in ["reference", "expected_delivery", "status"]:
             if field in data:

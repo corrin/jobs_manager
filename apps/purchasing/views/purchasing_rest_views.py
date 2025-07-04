@@ -46,7 +46,9 @@ class PurchaseOrderListCreateRestView(APIView):
         status_filter = request.query_params.get("status", None)
         data = PurchasingRestService.list_purchase_orders()
         if status_filter:
-            data = [po for po in data if po["status"] == status_filter]
+            # Support multiple status values separated by comma
+            allowed_statuses = [s.strip() for s in status_filter.split(",")]
+            data = [po for po in data if po["status"] in allowed_statuses]
         return Response(data)
 
     def post(self, request):
@@ -68,6 +70,7 @@ class PurchaseOrderDetailRestView(APIView):
                 "po_number": po.po_number,
                 "reference": po.reference,
                 "supplier": po.supplier.name if po.supplier else "",
+                "supplier_id": str(po.supplier.id) if po.supplier else None,
                 "supplier_has_xero_id": (
                     po.supplier.xero_contact_id is not None if po.supplier else False
                 ),

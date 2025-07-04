@@ -81,22 +81,34 @@ class Command(BaseCommand):
 
         # Iterate through the shop jobs and create them
         for idx, job_details in enumerate(shop_jobs, start=1):
+            # Check if job already exists
+            existing_job = Job.objects.filter(
+                name=job_details["name"], client=shop_client, status="special"
+            ).first()
+
+            if existing_job:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Shop job '{job_details['name']}' already exists. Skipping."
+                    )
+                )
+                continue
+
             # Create the job instance
             job = Job(
                 name=job_details["name"],
                 client=shop_client,
-                contact_person="Corrin Lakeland",
-                description="",
-                material_gauge_quantity=job_details[
-                    "description"
-                ],  # We put description here, so Kanban doesn't show it
+                description=job_details["description"],
                 status="special",
-                shop_job=True,  # Changed from shop_job to is_shop_job
                 job_is_valid=True,
                 paid=False,
                 charge_out_rate=0.00,
             )
             job.save()
+
+            self.stdout.write(
+                self.style.SUCCESS(f"Created shop job: {job_details['name']}")
+            )
 
         self.stdout.write(
             self.style.SUCCESS("Shop jobs have been successfully created.")
