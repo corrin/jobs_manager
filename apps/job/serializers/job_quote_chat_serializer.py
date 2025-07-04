@@ -11,8 +11,14 @@ class JobQuoteChatSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobQuoteChat
-        fields = ["message_id", "role", "content", "metadata"]
-        extra_kwargs = {"metadata": {"default": dict, "required": False}}
+        # Expose the server-generated `timestamp` so the frontend
+        # can display message date/time, but mark it read-only so
+        # clients cannot alter it.
+        fields = ["message_id", "role", "content", "metadata", "timestamp"]
+        extra_kwargs = {
+            "metadata": {"default": dict, "required": False},
+            "timestamp": {"read_only": True},
+        }
 
     def validate_role(self, value):
         """Validate that role is either 'user' or 'assistant'."""
