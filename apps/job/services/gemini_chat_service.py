@@ -83,7 +83,8 @@ class GeminiChatService:
         return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works, a custom metal fabrication business. Your role is to help estimators create accurate quotes by using the available tools to find material pricing, compare suppliers, and generate estimates.
 
 Current Job Context:
-- Job: {job.name}
+- Job: {job.name} (#{job.job_number})
+- Job ID: {job.id}
 - Client: {job.client.name}
 - Status: {job.get_status_display()}
 - Description: {job.description or 'No description available'}
