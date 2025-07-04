@@ -8,6 +8,7 @@ This service replaces the Claude-based implementation and provides a
 seamless way to generate intelligent, context-aware responses for quoting.
 """
 
+import json
 import logging
 import uuid
 from typing import Any, Dict, List
@@ -229,6 +230,12 @@ Always be helpful, professional, and specific in your responses. When providing 
             logger.info(f"Gemini client configured with model: {model.model_name}")
             logger.debug(f"Tools configured for model: {self._get_mcp_tools()}")
             
+            # -----------------------------------------------------------------
+            # Initialise tool metadata tracking
+            # -----------------------------------------------------------------
+            tool_definitions = self._get_mcp_tools()  # Available tools for this session
+            tool_calls: List[Dict[str, Any]] = []      # Record of executed tool calls
+
             system_prompt = self._get_system_prompt(job)
             model.system_instruction = system_prompt
             logger.debug(f"System prompt set: {system_prompt}")
@@ -298,6 +305,15 @@ Always be helpful, professional, and specific in your responses. When providing 
                 tool_result = self._execute_mcp_tool(tool_name, tool_args)
                 logger.debug(f"Tool {tool_name} returned: {tool_result[:200]}...")
 
+                # Record the tool invocation for metadata
+                tool_calls.append(
+                    {
+                        "name": tool_name,
+                        "arguments": tool_args,
+                        "result_preview": tool_result[:200],  # Store a preview to keep metadata small
+                    }
+                )
+
                 # Send tool result back to the model
                 logger.debug(f"Sending tool result back to Gemini")
                 response = chat.send_message(
@@ -312,6 +328,19 @@ Always be helpful, professional, and specific in your responses. When providing 
             final_content = response.text
             logger.info(f"Final response from Gemini (length: {len(final_content)}): {final_content[:100]}...")
 
+            # -----------------------------------------------------------------
+            # Ensure all metadata is JSON-serialisable before saving
+            # -----------------------------------------------------------------
+            # Convert FunctionDeclaration objects to plain dictionaries
+            serialisable_tool_definitions = []
+            for t in tool_definitions:
+                try:
+                    serialisable_tool_definitions.append(json.loads(t.to_json()))
+                except Exception:
+                    serialisable_tool_definitions.append({
+                        "name": getattr(t, "name", str(t)),
+                    })
+
             # Persist the assistant's final message
             logger.debug(f"Saving assistant message to database")
             assistant_message = JobQuoteChat.objects.create(
@@ -324,7 +353,7 @@ Always be helpful, professional, and specific in your responses. When providing 
                     "system_prompt": system_prompt,
                     "user_message": user_message,
                     "chat_history": history_for_metadata,
-                    "tool_definitions": tool_definitions,
+                    "tool_definitions": serialisable_tool_definitions,
                     "tool_calls": tool_calls,
                 },
             )
