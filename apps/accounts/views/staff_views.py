@@ -18,6 +18,7 @@ class StaffListAPIView(generics.ListAPIView):
     Supports filtering to return only actual users (excluding system/test accounts)
     based on the 'actual_users' query parameter.
     """
+
     queryset = Staff.objects.all()
     serializer_class = KanbanStaffSerializer
     permission_classes = [IsAuthenticated]
@@ -44,6 +45,7 @@ class StaffListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
 
     Restricted to staff managers only.
     """
+
     model = Staff
     template_name = "accounts/staff/list_staff.html"
     context_object_name = "staff_list"
@@ -58,6 +60,7 @@ class StaffCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     Restricted to staff managers only. Uses StaffCreationForm for validation
     and redirects to staff list upon successful creation.
     """
+
     model = Staff
     form_class = StaffCreationForm
     template_name = "accounts/staff/create_staff.html"
@@ -73,6 +76,7 @@ class StaffUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     Accessible to staff managers or the staff member updating their own profile.
     Uses StaffChangeForm for validation and redirects to staff list upon success.
     """
+
     model = Staff
     form_class = StaffChangeForm
     template_name = "accounts/staff/update_staff.html"

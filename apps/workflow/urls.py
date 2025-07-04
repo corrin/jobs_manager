@@ -39,11 +39,19 @@ Follow these patterns when adding new URLs to maintain consistency.
 import debug_toolbar
 from django.urls import include, path
 from django.views.generic import RedirectView
+from rest_framework.routers import DefaultRouter
 
 from apps.workflow.api.enums import get_enum_choices
+from apps.workflow.views.ai_provider_viewset import AIProviderViewSet
 from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
+
+# ---------------------------------------------------------------------------
+# DRF Router setup for AI Provider endpoints
+# ---------------------------------------------------------------------------
+router = DefaultRouter()
+router.register("ai-providers", AIProviderViewSet, basename="ai-provider")
 
 # Create home redirect pattern with metadata
 home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")
@@ -144,6 +152,8 @@ urlpatterns = [
         CompanyDefaultsAPIView.as_view(),
         name="api_company_defaults",
     ),
+    # AI Provider CRUD & custom actions
+    path("api/workflow/", include(router.urls)),
     path("__debug__/", include(debug_toolbar.urls)),
     # End of URL patterns
 ]

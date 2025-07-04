@@ -1,3 +1,4 @@
+import logging
 import os
 
 import django
@@ -6,6 +7,8 @@ from django.test import Client, TestCase
 from dotenv import load_dotenv
 from rest_framework import serializers
 from rest_framework.test import APITestCase
+
+logger = logging.getLogger(__name__)
 
 from apps.job.enums import JobPricingMethodology
 from apps.job.models import AdjustmentEntry, Job, JobFile, MaterialEntry
@@ -71,16 +74,16 @@ class SerializerFieldSyncTest(APITestCase):
         job_files_field = serializer.fields.get("job_files")
 
         if job_files_field and isinstance(job_files_field, serializers.DictField):
-            print("\nJobFile Handling Issues:")
-            print("------------------------")
-            print(
+            logger.info("JobFile Handling Issues:")
+            logger.info("------------------------")
+            logger.info(
                 "JobFile is handled as a dict in job_files, but these fields need attention:"
             )
             for field in jobfile_fields:
                 if field["name"] not in ["id", "job"]:  # Skip obvious fields
-                    print(f"- {field['name']} ({field['type']})")
+                    logger.info(f"- {field['name']} ({field['type']})")
                     if field["name"] == "print_on_jobsheet":
-                        print(
+                        logger.info(
                             "  Note: Currently only handled in update() method, not declared in fields"
                         )
 
@@ -90,11 +93,11 @@ class SerializerFieldSyncTest(APITestCase):
         for name, _ in pricing_serializer.fields.items():
             field_counts[name] = field_counts.get(name, 0) + 1
 
-        print("\nJobPricing Serializer Issues:")
-        print("-----------------------------")
+        logger.info("JobPricing Serializer Issues:")
+        logger.info("-----------------------------")
         for field, count in field_counts.items():
             if count > 1:
-                print(f"- {field} is declared {count} times in fields list")
+                logger.info(f"- {field} is declared {count} times in fields list")
 
         # Check for any fields that exist in models but not in serializers
         job_fields = self.get_model_fields(Job)
@@ -109,10 +112,10 @@ class SerializerFieldSyncTest(APITestCase):
                 missing_fields.append(field)
 
         if missing_fields:
-            print("\nMissing Model Fields:")
-            print("--------------------")
+            logger.info("Missing Model Fields:")
+            logger.info("--------------------")
             for field in missing_fields:
-                print(
+                logger.info(
                     f"- {field['model']}.{field['name']} ({field['type']}) is not handled in serializer"
                 )
 

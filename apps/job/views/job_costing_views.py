@@ -26,6 +26,7 @@ class JobCostSetView(JobLookupMixin, APIView):
     Returns the latest CostSet of the specified kind (estimate|quote|actual)
     for the given job, or 404 if not found.
     """
+
     lookup_url_kwarg = "pk"  # Match the URL parameter name
 
     def get(self, request, pk, kind):

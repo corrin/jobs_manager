@@ -362,8 +362,8 @@ def parse_xlsx(
 
             # Validation check: item cannot have both labour and material
             if has_labour and has_material:
-                print(
-                    f"⚠️  WARNING: Row {excel_row} has both labour ({minutes} min) and material costs (${material_total_cost}/${material_item_cost}). Using labour only."
+                logger.warning(
+                    f"Row {excel_row} has both labour ({minutes} min) and material costs (${material_total_cost}/${material_item_cost}). Using labour only."
                 )
 
             if has_labour:
@@ -489,7 +489,7 @@ def find_validation_cells(df, labour_col):
                         break
 
     except Exception as e:
-        print(f"Warning: Could not find all validation cells: {e}")
+        logger.warning(f"Could not find all validation cells: {e}")
 
     return validation_data
 

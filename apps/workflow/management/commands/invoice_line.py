@@ -1,8 +1,12 @@
+import logging
+
 from django.core.paginator import Paginator
 from django.db import transaction
 
 from apps.accounting.models import Invoice, InvoiceLineItem
 from apps.workflow.models import XeroAccount
+
+logger = logging.getLogger(__name__)
 
 
 def sync_line_items_for_existing_invoices(batch_size=1000):
@@ -10,7 +14,7 @@ def sync_line_items_for_existing_invoices(batch_size=1000):
     paginator = Paginator(Invoice.objects.all(), batch_size)
 
     for page_number in paginator.page_range:
-        print(f"Processing batch {page_number}")
+        logger.info(f"Processing batch {page_number}")
         with transaction.atomic():
             for invoice in paginator.page(page_number).object_list:
                 raw_json = invoice.raw_json  # Extract raw JSON data from the invoice
@@ -39,6 +43,6 @@ def sync_line_items_for_existing_invoices(batch_size=1000):
                             "account": account,
                         },
                     )
-        print(f"Batch {page_number} processed.")
+        logger.info(f"Batch {page_number} processed.")
 
-    print("Line item sync for existing invoices completed!")
+    logger.info("Line item sync for existing invoices completed!")

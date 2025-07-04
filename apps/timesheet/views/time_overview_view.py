@@ -772,10 +772,11 @@ class TimesheetOverviewView(TemplateView):
 class TimesheetDailyView(TemplateView):
     """
     View for displaying daily timesheet data for all staff members.
-    
+
     Provides detailed breakdown of individual staff hours, scheduled vs actual time,
     status indicators, and summary statistics for a specific date.
     """
+
     template_name = "timesheet/timesheet_daily_view.html"
 
     @classmethod

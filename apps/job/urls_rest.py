@@ -16,6 +16,7 @@ from apps.job.views.job_costline_views import (
 )
 from apps.job.views.job_file_upload import JobFileUploadView
 from apps.job.views.job_file_view import JobFileThumbnailView, JobFileView
+from apps.job.views.job_quote_chat_api import JobQuoteChatInteractionView
 from apps.job.views.job_quote_chat_views import (
     JobQuoteChatHistoryView,
     JobQuoteChatMessageView,
@@ -187,6 +188,14 @@ rest_urlpatterns = [
         "api/jobs/<uuid:job_id>/quote-chat/",
         JobQuoteChatHistoryView.as_view(),
         name="job_quote_chat_history",
+    ),
+    # AI-powered chat interaction (LLM call + tool execution)
+    # Must be ABOVE the generic <message_id> route to avoid being
+    # captured by it.
+    path(
+        "api/jobs/<uuid:job_id>/quote-chat/interaction/",
+        JobQuoteChatInteractionView.as_view(),
+        name="job_quote_chat_interaction",
     ),
     path(
         "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",

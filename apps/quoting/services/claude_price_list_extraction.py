@@ -135,6 +135,12 @@ def extract_data_from_supplier_price_list_claude(
                 "Claude API key not configured for the active AI provider. Please add it in company settings.",
             )
 
+        if not default_ai_provider.model_name:
+            return (
+                None,
+                "Claude model name not configured for the active AI provider. Please add it in company settings.",
+            )
+
         client = anthropic.Anthropic(api_key=claude_api_key)
 
         # Extract text from PDF using pdfplumber
@@ -156,7 +162,7 @@ def extract_data_from_supplier_price_list_claude(
         logger.info(f"Calling Claude API for price list extraction: {file_path}")
 
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=default_ai_provider.model_name,
             max_tokens=8192,
             messages=[{"role": "user", "content": full_prompt}],
         )

@@ -3,11 +3,16 @@
 Simple Google Drive API test - no Django required.
 """
 
+import logging
 import os
 
 from dotenv import load_dotenv
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -24,24 +29,24 @@ def test_drive_access():
 
     creds = os.getenv("GCP_CREDENTIALS")
     if not creds:
-        print("❌ GCP_CREDENTIALS environment variable not set.")
+        logger.error("GCP_CREDENTIALS environment variable not set.")
         return False
     # Get credentials file path from environment
     key_file = os.getenv("GCP_CREDENTIALS")
 
     if not os.path.exists(key_file):
-        print(f"❌ Credentials file not found: {key_file}")
+        logger.error(f"Credentials file not found: {key_file}")
         return False
 
-    print(f"🔐 Loading credentials from: {key_file}")
+    logger.info(f"Loading credentials from: {key_file}")
 
     try:
         # Load credentials
         creds = service_account.Credentials.from_service_account_file(
             key_file, scopes=SCOPES
         )
-        print("✅ Credentials loaded")
-        print(f"   Service account email: {creds.service_account_email}")
+        logger.info("Credentials loaded")
+        logger.info(f"   Service account email: {creds.service_account_email}")
         print(f"   Scopes: {list(creds.scopes)}")
 
         # Build Drive service

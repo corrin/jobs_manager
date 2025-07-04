@@ -27,17 +27,18 @@ class BinaryFileRenderer(BaseRenderer):
 class JobFileView(JobNumberLookupMixin, APIView):
     """
     API view for managing job files including upload, download, update, and deletion.
-    
+
     This view handles file operations for jobs including:
     - POST: Upload new files to a job
     - GET: Retrieve file list for a job or serve a specific file for download
     - PUT: Update existing files or their print_on_jobsheet setting
     - DELETE: Remove files from a job
-    
+
     Files are stored in the Dropbox workflow folder and tracked in the database
     via JobFile model instances. Supports both replacing file content and updating
     metadata like print_on_jobsheet flag for workshop printing.
     """
+
     renderer_classes = [JSONRenderer, BinaryFileRenderer]
 
     def save_file(self, job, file_obj, print_on_jobsheet):
@@ -408,14 +409,15 @@ class JobFileView(JobNumberLookupMixin, APIView):
 class JobFileThumbnailView(JobLookupMixin, APIView):
     """
     API view for serving JPEG thumbnails of job files.
-    
+
     This view generates and serves thumbnail images for job files that
     support thumbnail generation (typically image files). Thumbnails are
     cached on disk and served via file response for efficient delivery.
-    
+
     GET: Returns a JPEG thumbnail for the specified file ID, or 404 if
          the thumbnail doesn't exist or cannot be generated.
     """
+
     lookup_url_kwarg = "file_id"  # Note: this view uses file_id, not job_id
 
     def get(self, request, file_id):
