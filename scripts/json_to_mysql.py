@@ -46,6 +46,8 @@ class JSONToMySQLConverter:
             'client.clientcontact': 'client_contact',
             'quoting.supplierpricelist': 'quoting_supplierpricelist',
             'quoting.supplierproduct': 'quoting_supplierproduct',
+            'contenttypes.contenttype': 'django_content_type',
+            'migrations.migration': 'django_migrations',
         }
         
         # Field mappings for ForeignKey fields (Django field -> MySQL column)
@@ -94,6 +96,10 @@ class JSONToMySQLConverter:
             },
             'quoting_supplierproduct': {
                 'price_list': 'price_list_id',
+                'supplier': 'supplier_id',
+            },
+            'quoting_supplierpricelist': {
+                'supplier': 'supplier_id',
             },
         }
         

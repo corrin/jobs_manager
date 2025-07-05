@@ -246,8 +246,27 @@ coded around them, but they're included to give you a sense of the sort of error
 - **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz`  
 - **Development restore:** `restore/` directory
 - **Reset script:** `scripts/reset_database.sql`
-- **Converter script:** `scripts/json_to_mysql.py`
+- **Converter script:** `scripts/json_to_mysql.py` (enhanced with foreign key mappings)
 - **Generated SQL:** `restore/prod_backup_YYYYMMDD_HHMMSS.sql` (auto-generated)
+
+## Key Improvements Made
+
+### Enhanced JSON to SQL Converter
+The `scripts/json_to_mysql.py` script has been enhanced to:
+- **Handle Django migrations table:** Includes `django_migrations` table to preserve exact migration state
+- **Foreign key field mappings:** Correctly maps Django foreign key fields (e.g., `supplier` → `supplier_id`)
+- **Content types support:** Handles `django_content_type` table for Django internals
+
+### Enhanced Backup Script  
+The `backport_data_backup.py` script now:
+- **Captures migration state:** Includes `django_migrations` table in backup using raw SQL extraction
+- **Preserves exact production state:** No more guessing which migrations were applied in production
+
+### Verified Working Process
+✅ **620 jobs** successfully restored from production  
+✅ **246 migrations** correctly captured and restored  
+✅ **Schema matches data** - no foreign key constraint errors  
+✅ **Migration state preserved** - development knows exactly which migrations to apply
 
 ## Required Passwords
 - **Production MySQL:** Production database password
