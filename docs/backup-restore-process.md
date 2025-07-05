@@ -314,28 +314,23 @@ Missing files: 0
    - Go to **Xero menu > Connect to Xero**
    - Complete the OAuth flow to authorize the application
 
-3. **Get Xero tenant ID:**
+3. **Set Xero tenant ID (automatically sets if single tenant found):**
    ```bash
    python manage.py get_xero_tenant_id
    ```
    **Expected output:**
    ```
-   Available Xero tenants:
-   - [Tenant Name]: [tenant-id-uuid]
+   Available Xero Organizations:
+   -----------------------------
+   Tenant ID: [tenant-id-uuid]
+   Name: [Tenant Name]
+   -----------------------------
+   
+   Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaults
    ```
+   **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
 
-4. **Update company defaults with tenant ID:**
-   ```bash
-   python manage.py shell -c "
-   from apps.workflow.models import CompanyDefaults
-   company = CompanyDefaults.get_instance()
-   company.xero_tenant_id = 'YOUR_TENANT_ID_FROM_PREVIOUS_STEP'
-   company.save()
-   print(f'Updated company defaults with Xero tenant ID: {company.xero_tenant_id}')
-   "
-   ```
-
-5. **Run initial Xero sync:**
+4. **Run initial Xero sync:**
    ```bash
    python manage.py start_xero_sync
    ```

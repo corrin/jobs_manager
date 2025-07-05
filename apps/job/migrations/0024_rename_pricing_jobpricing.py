@@ -8,61 +8,71 @@ def rename_field_if_needed(apps, schema_editor):
     Rename pricing_methodology to pricing_stage only if the old field exists.
     This handles cases where the rename was already applied in production.
     """
-    db_alias = schema_editor.connection.alias
     with schema_editor.connection.cursor() as cursor:
         # Check if the old field exists
         cursor.execute("""
-            SELECT COUNT(*) 
-            FROM information_schema.columns 
-            WHERE table_schema = DATABASE() 
-            AND table_name = 'workflow_jobpricing' 
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+            AND table_name = 'workflow_jobpricing'
             AND column_name = 'pricing_methodology'
         """)
         old_field_exists = cursor.fetchone()[0] > 0
-        
+
         # Check if the new field exists
         cursor.execute("""
-            SELECT COUNT(*) 
-            FROM information_schema.columns 
-            WHERE table_schema = DATABASE() 
-            AND table_name = 'workflow_jobpricing' 
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+            AND table_name = 'workflow_jobpricing'
             AND column_name = 'pricing_stage'
         """)
         new_field_exists = cursor.fetchone()[0] > 0
-        
+
         if old_field_exists and not new_field_exists:
             # Perform the rename
-            cursor.execute("ALTER TABLE workflow_jobpricing CHANGE pricing_methodology pricing_stage VARCHAR(20) NOT NULL DEFAULT 'estimate'")
+            cursor.execute(
+                "ALTER TABLE workflow_jobpricing CHANGE pricing_methodology "
+                "pricing_stage VARCHAR(20) NOT NULL DEFAULT 'estimate'"
+            )
         elif new_field_exists and not old_field_exists:
             # Rename already done, no action needed
             pass
         elif old_field_exists and new_field_exists:
             # Both exist - something is wrong
-            raise Exception("Both pricing_methodology and pricing_stage fields exist - manual intervention required")
+            raise Exception(
+                "Both pricing_methodology and pricing_stage fields exist - "
+                "manual intervention required"
+            )
         else:
-            # Neither exists - something is wrong  
-            raise Exception("Neither pricing_methodology nor pricing_stage fields exist - manual intervention required")
+            # Neither exists - something is wrong
+            raise Exception(
+                "Neither pricing_methodology nor pricing_stage fields exist - "
+                "manual intervention required"
+            )
 
 
 def reverse_rename_field_if_needed(apps, schema_editor):
     """
     Reverse the rename operation if the new field exists.
     """
-    db_alias = schema_editor.connection.alias
     with schema_editor.connection.cursor() as cursor:
         # Check if the new field exists
         cursor.execute("""
-            SELECT COUNT(*) 
-            FROM information_schema.columns 
-            WHERE table_schema = DATABASE() 
-            AND table_name = 'workflow_jobpricing' 
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+            AND table_name = 'workflow_jobpricing'
             AND column_name = 'pricing_stage'
         """)
         new_field_exists = cursor.fetchone()[0] > 0
-        
+
         if new_field_exists:
             # Reverse the rename
-            cursor.execute("ALTER TABLE workflow_jobpricing CHANGE pricing_stage pricing_methodology VARCHAR(20) NOT NULL DEFAULT 'estimate'")
+            cursor.execute(
+                "ALTER TABLE workflow_jobpricing CHANGE pricing_stage "
+                "pricing_methodology VARCHAR(20) NOT NULL DEFAULT 'estimate'"
+            )
 
 
 class Migration(migrations.Migration):
