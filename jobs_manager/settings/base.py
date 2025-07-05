@@ -318,11 +318,11 @@ DJANGO_MCP_AUTHENTICATION_CLASSES = [
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("MYSQL_DATABASE", "msm_workflow"),
-        "USER": os.getenv("MSM_DB_USER", "root"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "password"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", 3306),
+        "NAME": os.getenv("MYSQL_DATABASE"),
+        "USER": os.getenv("MSM_DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
         "TEST": {
             "NAME": "test_msm_workflow",
         },
