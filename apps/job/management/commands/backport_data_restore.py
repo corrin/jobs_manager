@@ -117,7 +117,10 @@ class Command(BaseCommand):
                 "is_active": True,
                 "is_staff": True,
                 "is_superuser": True,
-                "password": "pbkdf2_sha256$870000$5Nw3RUuFaZZPCkeyVOm4kx$Attep1SqGF6ymdwm44LOte4wwszqte0W5ey3xcENFAI=",
+                "password": (
+                    "pbkdf2_sha256$870000$5Nw3RUuFaZZPCkeyVOm4kx$"
+                    "Attep1SqGF6ymdwm44LOte4wwszqte0W5ey3xcENFAI="
+                ),
                 "date_joined": "2024-01-01T00:00:00Z",
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",

@@ -6,10 +6,9 @@ Takes the anonymized JSON backup and produces SQL INSERT statements.
 
 import json
 import logging
-import re
 import sys
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from dateutil import parser
 
@@ -156,8 +155,11 @@ class JSONToMySQLConverter:
                     dt = parser.parse(value)
                     mysql_datetime = dt.strftime("%Y-%m-%d %H:%M:%S")
                     return f"'{mysql_datetime}'"
-                except:
+                except (ValueError, TypeError):
                     # If parsing fails, treat as regular string
+                    logging.warning(
+                        "Failed to parse datetime '%s' for field '%s'", value, field_name
+                    )
                     pass
 
             # Escape single quotes, backslashes, and newlines
@@ -177,9 +179,11 @@ class JSONToMySQLConverter:
                 escaped = json_str.replace("\\", "\\\\").replace("'", "\\'")
                 return f"'{escaped}'"
             else:
-                # For non-JSON fields, this shouldn't happen for regular fields, only M2M
+                # For non-JSON fields, this shouldn't happen for regular fields,
+                # only M2M
                 logging.warning(
-                    f"Unexpected dict/list value for non-JSON field '{field_name}': {type(value)} - {str(value)[:100]}..."
+                    f"Unexpected dict/list value for non-JSON field '{field_name}': "
+                    f"{type(value)} - {str(value)[:100]}..."
                 )
                 return "NULL"
         elif isinstance(value, list):
@@ -246,13 +250,15 @@ class JSONToMySQLConverter:
                         m2m_insert = (
                             f"INSERT INTO `{m2m_table}` "
                             f"(`job_id`, `jobpricing_id`) VALUES "
-                            f"({self.escape_sql_value(pk)}, {self.escape_sql_value(related_id)});"
+                            f"({self.escape_sql_value(pk)}, "
+                            f"{self.escape_sql_value(related_id)});"
                         )
                     elif field_name == "people":
                         m2m_insert = (
                             f"INSERT INTO `{m2m_table}` "
                             f"(`job_id`, `staff_id`) VALUES "
-                            f"({self.escape_sql_value(pk)}, {self.escape_sql_value(related_id)});"
+                            f"({self.escape_sql_value(pk)}, "
+                            f"{self.escape_sql_value(related_id)});"
                         )
                     else:
                         print(
