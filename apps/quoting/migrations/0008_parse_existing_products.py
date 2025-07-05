@@ -87,6 +87,9 @@ def parse_existing_products(apps, schema_editor):
     except ImportError as e:
         logger.error(f"Could not import parser during migration: {e}")
         logger.info("Mappings will be created when products are next accessed")
+    except Exception as e:
+        logger.error(f"Could not initialize parser during migration: {e}")
+        logger.info("Mappings will be created when products are next accessed")
 
 
 def reverse_parse_existing_products(apps, schema_editor):
@@ -99,6 +102,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("quoting", "0007_supplierproduct_parsed_alloy_and_more"),
         ("purchasing", "0008_stock_parsed_at_stock_parser_confidence_and_more"),
+        ("workflow", "0161_companydefaults_gdrive_quotes_folder_id_and_more"),
     ]
 
     operations = [

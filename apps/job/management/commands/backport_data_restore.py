@@ -10,6 +10,11 @@ from django.core.management.base import BaseCommand, CommandError
 
 class Command(BaseCommand):
     help = "Restore data from backup with cleanup"
+    
+    # WARNING: This command may not work correctly if the data model has changed
+    # significantly since the backup was created. Any changes result in falures and
+    # you should use the manual SQL-based process documented in
+    # docs/backup-restore-process.md instead.
 
     def add_arguments(self, parser):
         parser.add_argument(

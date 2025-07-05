@@ -36,7 +36,7 @@ class ProductParser:
         """Lazy initialization of Gemini client."""
         if self._gemini_client is None:
             ai_provider = self.company_defaults.ai_providers.filter(
-                provider_type=AIProviderTypes.GOOGLE, active=True
+                provider_type=AIProviderTypes.GOOGLE, default=True
             ).first()
 
             if not ai_provider or not ai_provider.api_key:
