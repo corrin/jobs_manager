@@ -82,7 +82,8 @@ class Command(BaseCommand):
             fake = Faker()
 
             self.stdout.write(
-                f"Anonymizing {len(data)} records (including {len(migrations_data)} migrations)..."
+                f"Anonymizing {len(data)} records "
+                f"(including {len(migrations_data)} migrations)..."
             )
 
             for item in data:

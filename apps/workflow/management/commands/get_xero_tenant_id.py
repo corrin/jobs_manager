@@ -15,7 +15,7 @@ class Command(BaseCommand):
             help="Do not automatically set the tenant ID if only one tenant is found",
         )
 
-    def handle(self, *args, **options):
+    def handle(self, **options):
         # First check we have a valid token
         token = get_valid_token()
         if not token:
@@ -48,7 +48,8 @@ class Command(BaseCommand):
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"\nAutomatically set tenant ID to {tenant_id} ({tenant_name}) in CompanyDefaults"
+                        f"\nAutomatically set tenant ID to {tenant_id} "
+                        f"({tenant_name}) in CompanyDefaults"
                     )
                 )
             except Exception as e:
@@ -60,12 +61,14 @@ class Command(BaseCommand):
         elif len(connections) == 1 and options["no_set"]:
             self.stdout.write(
                 self.style.WARNING(
-                    "\nSingle tenant found but --no-set specified, not updating CompanyDefaults"
+                    "\nSingle tenant found but --no-set specified, "
+                    "not updating CompanyDefaults"
                 )
             )
         elif len(connections) > 1:
             self.stdout.write(
                 self.style.WARNING(
-                    f"\nMultiple tenants found ({len(connections)}), not automatically setting tenant ID"
+                    f"\nMultiple tenants found ({len(connections)}), "
+                    "not automatically setting tenant ID"
                 )
             )
