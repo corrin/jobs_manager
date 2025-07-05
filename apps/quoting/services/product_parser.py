@@ -142,7 +142,8 @@ OUTPUT: {
         training_examples = self._get_training_examples()
 
         prompt = f"""
-Parse the following supplier product data and extract structured information for inventory management.
+Parse the following supplier product data and extract structured information for 
+inventory management.
 
 {training_examples}
 
@@ -157,7 +158,8 @@ RULES:
 - Metal types must be one of: {", ".join(metal_types)} or null
 
 OUTPUT FORMAT:
-Return a JSON array with one object per input product. Each object should have these fields:
+Return a JSON array with one object per input product. Each object should have 
+these fields:
 {{
     "item_code": "Standardized item code for inventory",
     "description": "Clean, standardized description (max 255 chars)",
@@ -181,8 +183,10 @@ Description: {product_data.get("description", "N/A")}
 Specifications: {product_data.get("specifications", "N/A")}
 Item Number: {product_data.get("item_no", "N/A")}
 Variant Info: {product_data.get("variant_id", "N/A")}
-Dimensions: {product_data.get("variant_width", "N/A")} x {product_data.get("variant_length", "N/A")}
-Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit", "N/A")}
+Dimensions: {product_data.get("variant_width", "N/A")} x \
+{product_data.get("variant_length", "N/A")}
+Price: {product_data.get("variant_price", "N/A")} \
+{product_data.get("price_unit", "N/A")}
 """
 
         return prompt
@@ -247,7 +251,7 @@ Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit"
         if confidence is not None:
             try:
                 confidence = Decimal(str(confidence))
-            except:
+            except (ValueError, TypeError):
                 confidence = None
 
         # Convert unit_cost to Decimal if present
@@ -255,7 +259,7 @@ Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit"
         if unit_cost is not None:
             try:
                 unit_cost = Decimal(str(unit_cost))
-            except:
+            except (ValueError, TypeError):
                 unit_cost = None
 
         # Use get_or_create to handle potential duplicates
@@ -279,7 +283,8 @@ Price: {product_data.get("variant_price", "N/A")} {product_data.get("price_unit"
 
         if not created:
             logger.info(
-                f"Mapping already exists for hash {input_hash[:8]}... (already processed)"
+                f"Mapping already exists for hash {input_hash[:8]}... "
+                f"(already processed)"
             )
 
         return mapping
