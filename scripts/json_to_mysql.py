@@ -158,7 +158,7 @@ class JSONToMySQLConverter:
                 except (ValueError, TypeError):
                     # If parsing fails, treat as regular string
                     logging.warning(
-                        "Failed to parse datetime '%s' for field '%s'", value, field_name
+                        f"Failed to parse datetime '{value}' for field '{field_name}'"
                     )
                     pass
 
