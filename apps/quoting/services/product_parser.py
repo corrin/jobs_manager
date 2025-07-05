@@ -142,7 +142,7 @@ OUTPUT: {
         training_examples = self._get_training_examples()
 
         prompt = f"""
-Parse the following supplier product data and extract structured information for 
+Parse the following supplier product data and extract structured information for
 inventory management.
 
 {training_examples}
@@ -158,7 +158,7 @@ RULES:
 - Metal types must be one of: {", ".join(metal_types)} or null
 
 OUTPUT FORMAT:
-Return a JSON array with one object per input product. Each object should have 
+Return a JSON array with one object per input product. Each object should have
 these fields:
 {{
     "item_code": "Standardized item code for inventory",
