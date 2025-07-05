@@ -34,7 +34,7 @@ class Command(BaseCommand):
             # 'purchasing.Stock',            # Xero-owned, will be synced from Xero
             "quoting.SupplierPriceList",
             "quoting.SupplierProduct",
-            "contenttypes",              # Django internal - needed for migrations
+            "contenttypes",  # Django internal - needed for migrations
         ]
 
         # Define the output directory and filename
@@ -56,28 +56,34 @@ class Command(BaseCommand):
 
             # Step 2: Add migrations data manually
             with connection.cursor() as cursor:
-                cursor.execute("SELECT id, app, name, applied FROM django_migrations ORDER BY id")
+                cursor.execute(
+                    "SELECT id, app, name, applied FROM django_migrations ORDER BY id"
+                )
                 migrations_rows = cursor.fetchall()
-            
+
             # Convert migrations to Django fixture format
             migrations_data = []
             for row in migrations_rows:
-                migrations_data.append({
-                    "model": "migrations.migration",
-                    "pk": row[0],
-                    "fields": {
-                        "app": row[1],
-                        "name": row[2],
-                        "applied": row[3].isoformat() if row[3] else None
+                migrations_data.append(
+                    {
+                        "model": "migrations.migration",
+                        "pk": row[0],
+                        "fields": {
+                            "app": row[1],
+                            "name": row[2],
+                            "applied": row[3].isoformat() if row[3] else None,
+                        },
                     }
-                })
+                )
 
             # Step 3: Parse and combine data
             data = json.loads(result.stdout)
             data.extend(migrations_data)
             fake = Faker()
 
-            self.stdout.write(f"Anonymizing {len(data)} records (including {len(migrations_data)} migrations)...")
+            self.stdout.write(
+                f"Anonymizing {len(data)} records (including {len(migrations_data)} migrations)..."
+            )
 
             for item in data:
                 self.anonymize_item(item, fake)

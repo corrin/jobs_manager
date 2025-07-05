@@ -10,9 +10,9 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--no-set',
-            action='store_true',
-            help='Do not automatically set the tenant ID if only one tenant is found',
+            "--no-set",
+            action="store_true",
+            help="Do not automatically set the tenant ID if only one tenant is found",
         )
 
     def handle(self, *args, **options):
@@ -35,17 +35,17 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Tenant ID: {conn.tenant_id}"))
             self.stdout.write(f"Name: {conn.tenant_name}")
             self.stdout.write("-----------------------------")
-        
+
         # If only one tenant and --no-set not specified, automatically set it
-        if len(connections) == 1 and not options['no_set']:
+        if len(connections) == 1 and not options["no_set"]:
             tenant_id = connections[0].tenant_id
             tenant_name = connections[0].tenant_name
-            
+
             try:
                 company_defaults = CompanyDefaults.get_instance()
                 company_defaults.xero_tenant_id = tenant_id
                 company_defaults.save()
-                
+
                 self.stdout.write(
                     self.style.SUCCESS(
                         f"\nAutomatically set tenant ID to {tenant_id} ({tenant_name}) in CompanyDefaults"
@@ -57,7 +57,7 @@ class Command(BaseCommand):
                         f"\nFailed to set tenant ID in CompanyDefaults: {e}"
                     )
                 )
-        elif len(connections) == 1 and options['no_set']:
+        elif len(connections) == 1 and options["no_set"]:
             self.stdout.write(
                 self.style.WARNING(
                     "\nSingle tenant found but --no-set specified, not updating CompanyDefaults"
