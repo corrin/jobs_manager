@@ -87,6 +87,9 @@ def parse_existing_products(apps, schema_editor):
     except ImportError as e:
         logger.error(f"Could not import parser during migration: {e}")
         logger.info("Mappings will be created when products are next accessed")
+    except Exception as e:
+        logger.error(f"Could not initialize parser during migration: {e}")
+        logger.info("Mappings will be created when products are next accessed")
 
 
 def reverse_parse_existing_products(apps, schema_editor):

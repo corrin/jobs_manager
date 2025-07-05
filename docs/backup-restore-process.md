@@ -2,6 +2,9 @@
 
 ## Complete Step-by-Step Guide
 
+Note! Important! Do not EVER use fake or fake-initial
+We need to create a flawless process so we are 100% certain that it will apply without issues on production
+
 ### PRODUCTION STEPS
 
 #### Step 1: Create Schema Backup (Production)
@@ -67,6 +70,8 @@ DB_HOST=localhost
 DB_PORT=3306
 ```
 **If any missing:** Add to .env file
+
+Note.  If you're using Claude or similar, you need to specify these explicitly on all subsequent command lines rather than use environment variables
 
 #### Step 5: Reset Database
 **Run as:** System root (for MySQL admin operations)
@@ -150,6 +155,39 @@ UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
 +-------------------+-------+
 ```
 
+#### Step 8a: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py migrate
+```
+**Why this step is critical:** The production schema may not match current Django models. Migrations align the schema with current code before loading fixtures that depend on the correct schema.
+
+**Check:**
+```bash
+python manage.py showmigrations
+```
+**Expected:** All migrations should show [X] (applied)
+
+#### Step 8b: Load Company Defaults Fixture
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py loaddata apps/workflow/fixtures/company_defaults.json
+```
+**Check:**
+```bash
+python manage.py shell -c "
+from apps.workflow.models import CompanyDefaults
+company = CompanyDefaults.get_instance()
+print(f'Company defaults loaded: {company.company_name}')
+"
+```
+**Expected output:**
+```
+Company defaults loaded: Demo Company
+```
+
 #### Step 9: Verify Specific Data
 **Run as:** Development system user
 **Command:**
@@ -191,27 +229,140 @@ Sample job: [Real Job Name] (#12345)
 Contact: [Real Contact Name]
 ```
 
-#### Step 11: Check Migration Status
+#### Step 11: Create Admin User
 **Run as:** Development system user
 **Command:**
 ```bash
-python manage.py showmigrations
+python manage.py shell -c "from apps.accounts.models import Staff; user = Staff.objects.create_user(email='defaultadmin@example.com', password='Default-admin-password', first_name='Default', last_name='Admin'); user.is_staff = True; user.is_superuser = True; user.save(); print(f'Created admin user: {user.email}')"
 ```
-**Check:** All migrations should show [X] (applied)
-**If unapplied migrations exist:**
+**Check:**
 ```bash
-python manage.py migrate
+python manage.py shell -c "from apps.accounts.models import Staff; user = Staff.objects.get(email='defaultadmin@example.com'); print(f'User exists: {user.email}'); print(f'Is active: {user.is_active}'); print(f'Is staff: {user.is_staff}'); print(f'Is superuser: {user.is_superuser}')"
+```
+**Expected output:**
+```
+Created admin user: defaultadmin@example.com
+User exists: defaultadmin@example.com
+Is active: True
+Is staff: True
+Is superuser: True
 ```
 
-#### Step 12: Final Application Test
+#### Step 11a: Create Dummy Files for JobFile Instances
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+import os
+from django.conf import settings
+from apps.job.models import JobFile
+
+print('Creating dummy files for JobFile instances...')
+count = 0
+for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(file_path=''):
+    dummy_path = os.path.join(settings.MEDIA_ROOT, str(job_file.file_path))
+    os.makedirs(os.path.dirname(dummy_path), exist_ok=True)
+    with open(dummy_path, 'w') as f:
+        f.write(f'Dummy file for JobFile {job_file.pk}\\n')
+        f.write(f'Original path: {job_file.file_path}\\n')
+        f.write(f'Original filename: {job_file.filename}\\n')
+        f.write(f'Job: {job_file.job.name if job_file.job else \"None\"}\\n')
+    count += 1
+    if count % 10 == 0:
+        print(f'Created {count} dummy files...')
+print(f'Created {count} dummy files total')
+"
+```
+**Check:**
+```bash
+python manage.py shell -c "
+from apps.job.models import JobFile
+import os
+from django.conf import settings
+
+total_files = JobFile.objects.filter(file_path__isnull=False).exclude(file_path='').count()
+existing_files = 0
+for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(file_path=''):
+    dummy_path = os.path.join(settings.MEDIA_ROOT, str(job_file.file_path))
+    if os.path.exists(dummy_path):
+        existing_files += 1
+
+print(f'Total JobFile records with file_path: {total_files}')
+print(f'Dummy files created: {existing_files}')
+print(f'Missing files: {total_files - existing_files}')
+"
+```
+**Expected output:**
+```
+Created X dummy files total
+Total JobFile records with file_path: X
+Dummy files created: X
+Missing files: 0
+```
+
+#### Step 12: Setup Xero Integration
+**Run as:** Development system user (after server is running)
+**Steps:**
+1. **Start the development server:**
+   ```bash
+   python manage.py runserver 0.0.0.0:8000
+   ```
+
+2. **Connect to Xero via web interface:**
+   - Navigate to http://localhost:8000
+   - Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
+   - Go to **Xero menu > Connect to Xero**
+   - Complete the OAuth flow to authorize the application
+
+3. **Get Xero tenant ID:**
+   ```bash
+   python manage.py get_xero_tenant_id
+   ```
+   **Expected output:**
+   ```
+   Available Xero tenants:
+   - [Tenant Name]: [tenant-id-uuid]
+   ```
+
+4. **Update company defaults with tenant ID:**
+   ```bash
+   python manage.py shell -c "
+   from apps.workflow.models import CompanyDefaults
+   company = CompanyDefaults.get_instance()
+   company.xero_tenant_id = 'YOUR_TENANT_ID_FROM_PREVIOUS_STEP'
+   company.save()
+   print(f'Updated company defaults with Xero tenant ID: {company.xero_tenant_id}')
+   "
+   ```
+
+5. **Run initial Xero sync:**
+   ```bash
+   python manage.py start_xero_sync
+   ```
+   **Check:** Should show sync progress and completion without errors
+
+**Verification:**
+```bash
+python manage.py shell -c "
+from apps.workflow.models import CompanyDefaults
+from apps.client.models import Client
+company = CompanyDefaults.get_instance()
+print(f'Xero tenant ID: {company.xero_tenant_id}')
+print(f'Last sync: {company.last_xero_sync}')
+print(f'Clients count: {Client.objects.count()}')
+"
+```
+
+#### Step 13: Final Application Test
 **Run as:** Development system user
 **Command:**
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
 **Check in browser:** Navigate to http://localhost:8000 and verify:
-- Login works
+- Login works with credentials: `defaultadmin@example.com` / `Default-admin-password`
 - Job list displays with real data
+- Xero integration shows connected status
 - No database errors in console
 
 ## Troubleshooting
@@ -256,6 +407,12 @@ The `scripts/json_to_mysql.py` script has been enhanced to:
 - **Handle Django migrations table:** Includes `django_migrations` table to preserve exact migration state
 - **Foreign key field mappings:** Correctly maps Django foreign key fields (e.g., `supplier` → `supplier_id`)
 - **Content types support:** Handles `django_content_type` table for Django internals
+
+<!-- FUTURE ENHANCEMENT: Consider adding data filtering to json_to_mysql.py to remove 
+     problematic MaterialEntry records with purchase_order_line or source_stock references.
+     This would prevent foreign key constraint errors when Xero purchase order data isn't available.
+     See apps/job/management/commands/backport_data_restore.py lines 51-66 for reference implementation. -->
+
 
 ### Enhanced Backup Script  
 The `backport_data_backup.py` script now:
