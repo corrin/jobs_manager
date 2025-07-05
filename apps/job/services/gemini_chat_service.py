@@ -81,9 +81,9 @@ class GeminiChatService:
 
     def _get_system_prompt(self, job: Job) -> str:
         """Generate system prompt with job context for Gemini."""
-        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works, 
-a custom metal fabrication business. Your role is to help estimators create accurate 
-quotes by using the available tools to find material pricing, compare suppliers, 
+        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works,
+a custom metal fabrication business. Your role is to help estimators create accurate
+quotes by using the available tools to find material pricing, compare suppliers,
 and generate estimates.
 
 Current Job Context:
@@ -93,9 +93,9 @@ Current Job Context:
 - Status: {job.get_status_display()}
 - Description: {job.description or 'No description available'}
 
-Always be helpful, professional, and specific in your responses. When providing 
-pricing or material recommendations, explain your reasoning and mention any relevant 
-supplier information. Use the tools provided to answer user queries about products, 
+Always be helpful, professional, and specific in your responses. When providing
+pricing or material recommendations, explain your reasoning and mention any relevant
+supplier information. Use the tools provided to answer user queries about products,
 pricing, and suppliers."""
 
     def _get_mcp_tools(self) -> List[FunctionDeclaration]:
@@ -187,7 +187,7 @@ pricing, and suppliers."""
                         "material_query": {
                             "type": "string",
                             "description": (
-                                "The material to compare prices for (e.g., 'steel angle')"
+                                "Material to compare prices for (e.g., 'steel angle')"
                             ),
                         },
                     },
@@ -291,7 +291,7 @@ pricing, and suppliers."""
             # Send the new user message
             logger.info(f"Sending message to Gemini: {user_message}")
             response = chat.send_message(user_message)
-            logger.debug(f"Received initial response from Gemini")
+            logger.debug("Received initial response from Gemini")
             logger.debug(f"Raw response object: {response}")
             logger.debug(f"Response candidates: {response.candidates}")
             try:
@@ -346,7 +346,7 @@ pricing, and suppliers."""
                 )
 
                 # Send tool result back to the model
-                logger.debug(f"Sending tool result back to Gemini")
+                logger.debug("Sending tool result back to Gemini")
                 response = chat.send_message(
                     Part.from_function_response(
                         name=tool_name,
@@ -378,7 +378,7 @@ pricing, and suppliers."""
                     )
 
             # Persist the assistant's final message
-            logger.debug(f"Saving assistant message to database")
+            logger.debug("Saving assistant message to database")
             assistant_message = JobQuoteChat.objects.create(
                 job=job,
                 message_id=f"assistant-{uuid.uuid4()}",
