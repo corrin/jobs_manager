@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.purchasing.models import PurchaseOrder, Stock
+from apps.purchasing.serializers import PurchaseOrderDetailSerializer
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
 from apps.purchasing.services.purchasing_rest_service import PurchasingRestService
 from apps.purchasing.services.stock_service import consume_stock
@@ -63,37 +64,14 @@ class PurchaseOrderDetailRestView(APIView):
     """Returns a full PO (including lines)"""
 
     def get(self, request, pk):
-        po = get_object_or_404(PurchaseOrder, id=pk)
-        return Response(
-            {
-                "id": str(po.id),
-                "po_number": po.po_number,
-                "reference": po.reference,
-                "supplier": po.supplier.name if po.supplier else "",
-                "supplier_id": str(po.supplier.id) if po.supplier else None,
-                "supplier_has_xero_id": (
-                    po.supplier.xero_contact_id is not None if po.supplier else False
-                ),
-                "status": po.status,
-                "order_date": po.order_date,
-                "expected_delivery": po.expected_delivery,
-                "lines": [
-                    {
-                        "id": str(l.id),
-                        "item_code": l.item_code,
-                        "description": l.description,
-                        "quantity": float(l.quantity),
-                        "unit_cost": (
-                            float(l.unit_cost) if l.unit_cost is not None else None
-                        ),
-                        "price_tbc": l.price_tbc,
-                    }
-                    for l in po.po_lines.all()
-                ],
-                "online_url": po.online_url if po.online_url else None,
-                "xero_id": po.xero_id if po.xero_id else None,
-            }
+        queryset = (
+            PurchaseOrder.objects.filter(status__in=["submitted", "partially_received"])
+            .select_related("supplier")
+            .prefetch_related("po_lines")
         )
+        po = get_object_or_404(queryset, id=pk)
+        serializer = PurchaseOrderDetailSerializer(po)
+        return Response(serializer.data)
 
     def patch(self, request, pk):
         po = PurchasingRestService.update_purchase_order(pk, request.data)
