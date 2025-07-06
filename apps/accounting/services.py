@@ -597,6 +597,29 @@ class KPIService:
         monthly_totals["remaining_workdays"] = (
             monthly_totals["working_days"] - monthly_totals["elapsed_workdays"]
         )
+
+        # Calculate total revenue and total cost for reference
+        monthly_totals["total_revenue"] = (
+            monthly_totals["time_revenue"]
+            + monthly_totals["material_revenue"]
+            + monthly_totals["adjustment_revenue"]
+        )
+        monthly_totals["total_cost"] = (
+            monthly_totals["staff_cost"]
+            + monthly_totals["material_cost"]
+            + monthly_totals["adjustment_cost"]
+        )
+
+        # Calculate net profit: Gross Profit - (Daily Target × Elapsed Working Days)
+        # This approximates operating expenses using daily GP target for elapsed days
+        daily_target = Decimal(str(thresholds["daily_gp_target"]))
+        elapsed_days = Decimal(str(monthly_totals["elapsed_workdays"]))
+        elapsed_target = daily_target * elapsed_days
+        monthly_totals["elapsed_target"] = float(elapsed_target)
+        monthly_totals["net_profit"] = float(
+            monthly_totals["gross_profit"] - elapsed_target
+        )
+
         # Calculate percentages after all days processed
         cls._calculate_monthly_percentages(monthly_totals)
 
