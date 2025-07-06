@@ -11,6 +11,11 @@ from django.core.management.base import BaseCommand, CommandError
 class Command(BaseCommand):
     help = "Restore data from backup with cleanup"
 
+    # WARNING: This command may not work correctly if the data model has changed
+    # significantly since the backup was created. Any changes result in falures and
+    # you should use the manual SQL-based process documented in
+    # docs/backup-restore-process.md instead.
+
     def add_arguments(self, parser):
         parser.add_argument(
             "backup_file", type=str, help="Path to the backup JSON file"
@@ -112,7 +117,10 @@ class Command(BaseCommand):
                 "is_active": True,
                 "is_staff": True,
                 "is_superuser": True,
-                "password": "pbkdf2_sha256$870000$5Nw3RUuFaZZPCkeyVOm4kx$Attep1SqGF6ymdwm44LOte4wwszqte0W5ey3xcENFAI=",
+                "password": (
+                    "pbkdf2_sha256$870000$5Nw3RUuFaZZPCkeyVOm4kx$"
+                    "Attep1SqGF6ymdwm44LOte4wwszqte0W5ey3xcENFAI="
+                ),
                 "date_joined": "2024-01-01T00:00:00Z",
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",

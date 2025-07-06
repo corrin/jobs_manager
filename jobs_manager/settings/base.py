@@ -318,11 +318,11 @@ DJANGO_MCP_AUTHENTICATION_CLASSES = [
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
-        "NAME": os.getenv("MYSQL_DATABASE", "msm_workflow"),
-        "USER": os.getenv("MSM_DB_USER", "root"),
-        "PASSWORD": os.getenv("DB_PASSWORD", "password"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", 3306),
+        "NAME": os.getenv("MYSQL_DATABASE"),
+        "USER": os.getenv("MSM_DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": os.getenv("DB_PORT"),
         "TEST": {
             "NAME": "test_msm_workflow",
         },
@@ -331,7 +331,10 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "UserAttributeSimilarityValidator"
+        ),
         "OPTIONS": {
             "user_attributes": ["email", "first_name", "last_name", "preferred_name"],
         },
@@ -406,7 +409,8 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
     raise ImproperlyConfigured(
         "SECRET_KEY environment variable must be set. "
-        "Generate one using: from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+        "Generate one using: from django.core.management.utils import "
+        "get_random_secret_key; print(get_random_secret_key())"
     )
 
 # ===========================
@@ -462,15 +466,18 @@ def validate_required_settings():
         "XERO_CLIENT_ID": XERO_CLIENT_ID,
         "XERO_CLIENT_SECRET": XERO_CLIENT_SECRET,
         "XERO_REDIRECT_URI": XERO_REDIRECT_URI,
-        # PRODUCTION_XERO_TENANT_ID and PRODUCTION_MACHINE_ID are hardcoded, no need to validate their presence in env
+        # PRODUCTION_XERO_TENANT_ID and PRODUCTION_MACHINE_ID are hardcoded,
+        # no need to validate their presence in env
     }
 
     missing_settings = [key for key, value in required_settings.items() if not value]
 
     if missing_settings:
         raise ImproperlyConfigured(
-            f"The following required settings are missing or empty: {', '.join(missing_settings)}\n"
-            f"Please check your .env file and ensure all required settings are configured."
+            f"The following required settings are missing or empty: "
+            f"{', '.join(missing_settings)}\n"
+            f"Please check your .env file and ensure all required settings "
+            f"are configured."
         )
 
 

@@ -1526,14 +1526,14 @@ files = [
 
 [[package]]
 name = "holidays"
-version = "0.71"
+version = "0.75"
 description = "Open World Holidays Framework"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "holidays-0.71-py3-none-any.whl", hash = "sha256:15803b167b71d9ca3e45198db84ed7fce15912b81ab27ba916b088f4a8f704f3"},
-    {file = "holidays-0.71.tar.gz", hash = "sha256:3ebd9c9de0927bee90ea7bfb551c2a030ef139cf6381c7a23add94d061787466"},
+    {file = "holidays-0.75-py3-none-any.whl", hash = "sha256:f87a75e9274ba60c0ae2b65fb91b8ee1b9547f384875b0fa6ee3e5a45012bdfc"},
+    {file = "holidays-0.75.tar.gz", hash = "sha256:73441b6f7ca2f2b8f67c1554b6850e5dfd84cb62831b6c756de81c43b1efee73"},
 ]
 
 [package.dependencies]
@@ -4245,4 +4245,4 @@ urllib3 = "*"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "478cee9567948b4b43b82364bf97f5ea56849729d7f9ff09d92f21c3d454b21a"
+content-hash = "0399517ce91c995a18917ff959795f5213d1962933f44af362d3afc0c80bd71f"

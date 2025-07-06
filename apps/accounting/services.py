@@ -449,11 +449,8 @@ class KPIService:
             if current_date <= current_date_system:
                 monthly_totals["elapsed_workdays"] += 1
 
-            if is_holiday:
-                base_data["holiday_name"] = holiday_dates[current_date]
-                calendar_data[date_key] = base_data
-                current_date += timedelta(days=1)
-                continue
+            # Process holidays same as regular days - can have financial activity
+            # (adjustments, material entries, etc.) but mark them as holidays
 
             logger.debug(f"Processing data for day: {current_date}")
 
@@ -535,6 +532,10 @@ class KPIService:
                     monthly_totals["profit_red_days"] += 1
 
             full_data = base_data.copy()
+            # Add holiday name if this is a holiday
+            if is_holiday:
+                full_data["holiday_name"] = holiday_dates[current_date]
+
             full_data.update(
                 {
                     "billable_hours": billable_hours,
@@ -597,6 +598,29 @@ class KPIService:
         monthly_totals["remaining_workdays"] = (
             monthly_totals["working_days"] - monthly_totals["elapsed_workdays"]
         )
+
+        # Calculate total revenue and total cost for reference
+        monthly_totals["total_revenue"] = (
+            monthly_totals["time_revenue"]
+            + monthly_totals["material_revenue"]
+            + monthly_totals["adjustment_revenue"]
+        )
+        monthly_totals["total_cost"] = (
+            monthly_totals["staff_cost"]
+            + monthly_totals["material_cost"]
+            + monthly_totals["adjustment_cost"]
+        )
+
+        # Calculate net profit: Gross Profit - (Daily Target × Elapsed Working Days)
+        # This approximates operating expenses using daily GP target for elapsed days
+        daily_target = Decimal(str(thresholds["daily_gp_target"]))
+        elapsed_days = Decimal(str(monthly_totals["elapsed_workdays"]))
+        elapsed_target = daily_target * elapsed_days
+        monthly_totals["elapsed_target"] = float(elapsed_target)
+        monthly_totals["net_profit"] = float(
+            monthly_totals["gross_profit"] - elapsed_target
+        )
+
         # Calculate percentages after all days processed
         cls._calculate_monthly_percentages(monthly_totals)
 

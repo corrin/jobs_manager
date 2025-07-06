@@ -119,6 +119,6 @@ restore/*.json
 .DS_Store
 *.csv
 steel_and_tube*
-restore/*.json.gz
+restore/*
 steel_and_tube_products.csv
 steel_and_tube_products.json

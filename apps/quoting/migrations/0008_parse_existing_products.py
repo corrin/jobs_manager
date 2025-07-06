@@ -25,7 +25,7 @@ def parse_existing_products(apps, schema_editor):
 
         # Process in batches of 100
         for i in range(0, len(supplier_products), parser.BATCH_SIZE):
-            batch = supplier_products[i : i + parser.BATCH_SIZE]
+            batch = supplier_products[i:i + parser.BATCH_SIZE]
             product_data_list = []
 
             for product in batch:
@@ -46,11 +46,13 @@ def parse_existing_products(apps, schema_editor):
             try:
                 results = parser.parse_products_batch(product_data_list)
                 logger.info(
-                    f"Processed batch {i//parser.BATCH_SIZE + 1}: {len(results)} products"
+                    f"Processed batch {i//parser.BATCH_SIZE + 1}: "
+                    f"{len(results)} products"
                 )
             except Exception as e:
                 logger.error(
-                    f"Error parsing supplier product batch {i//parser.BATCH_SIZE + 1}: {e}"
+                    f"Error parsing supplier product batch "
+                    f"{i//parser.BATCH_SIZE + 1}: {e}"
                 )
 
         logger.info("Parsing existing stock items in batches...")
@@ -58,7 +60,7 @@ def parse_existing_products(apps, schema_editor):
 
         # Process in batches of 100
         for i in range(0, len(stock_items), parser.BATCH_SIZE):
-            batch = stock_items[i : i + parser.BATCH_SIZE]
+            batch = stock_items[i:i + parser.BATCH_SIZE]
             stock_data_list = []
 
             for stock in batch:
@@ -77,7 +79,8 @@ def parse_existing_products(apps, schema_editor):
             try:
                 results = parser.parse_products_batch(stock_data_list)
                 logger.info(
-                    f"Processed stock batch {i//parser.BATCH_SIZE + 1}: {len(results)} items"
+                    f"Processed stock batch {i//parser.BATCH_SIZE + 1}: "
+                    f"{len(results)} items"
                 )
             except Exception as e:
                 logger.error(
@@ -88,6 +91,9 @@ def parse_existing_products(apps, schema_editor):
 
     except ImportError as e:
         logger.error(f"Could not import parser during migration: {e}")
+        logger.info("Mappings will be created when products are next accessed")
+    except Exception as e:
+        logger.error(f"Could not initialize parser during migration: {e}")
         logger.info("Mappings will be created when products are next accessed")
 
 
@@ -101,6 +107,7 @@ class Migration(migrations.Migration):
     dependencies = [
         ("quoting", "0007_supplierproduct_parsed_alloy_and_more"),
         ("purchasing", "0008_stock_parsed_at_stock_parser_confidence_and_more"),
+        ("workflow", "0161_companydefaults_gdrive_quotes_folder_id_and_more"),
     ]
 
     operations = [

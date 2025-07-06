@@ -50,7 +50,8 @@ class GeminiChatService:
             if not ai_provider:
                 raise ValueError(
                     "No default Gemini AI provider configured. "
-                    "Please add an AIProvider with type 'Gemini' and mark it as default."
+                    "Please add an AIProvider with type 'Gemini' and mark it as "
+                    "default."
                 )
 
             if not ai_provider.api_key:
@@ -80,7 +81,10 @@ class GeminiChatService:
 
     def _get_system_prompt(self, job: Job) -> str:
         """Generate system prompt with job context for Gemini."""
-        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works, a custom metal fabrication business. Your role is to help estimators create accurate quotes by using the available tools to find material pricing, compare suppliers, and generate estimates.
+        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works,
+a custom metal fabrication business. Your role is to help estimators create accurate
+quotes by using the available tools to find material pricing, compare suppliers,
+and generate estimates.
 
 Current Job Context:
 - Job: {job.name} (#{job.job_number})
@@ -89,7 +93,10 @@ Current Job Context:
 - Status: {job.get_status_display()}
 - Description: {job.description or 'No description available'}
 
-Always be helpful, professional, and specific in your responses. When providing pricing or material recommendations, explain your reasoning and mention any relevant supplier information. Use the tools provided to answer user queries about products, pricing, and suppliers."""
+Always be helpful, professional, and specific in your responses. When providing
+pricing or material recommendations, explain your reasoning and mention any relevant
+supplier information. Use the tools provided to answer user queries about products,
+pricing, and suppliers."""
 
     def _get_mcp_tools(self) -> List[FunctionDeclaration]:
         """Define MCP tools for the Gemini API using FunctionDeclaration."""
@@ -132,13 +139,17 @@ Always be helpful, professional, and specific in your responses. When providing 
             ),
             FunctionDeclaration(
                 name="create_quote_estimate",
-                description="Create a quote estimate for a job, including materials and labor",
+                description=(
+                    "Create a quote estimate for a job, including materials and labor"
+                ),
                 parameters={
                     "type": "object",
                     "properties": {
                         "job_id": {
                             "type": "string",
-                            "description": "The UUID of the job to create the quote for",
+                            "description": (
+                                "The UUID of the job to create the quote for"
+                            ),
                         },
                         "materials": {
                             "type": "string",
@@ -167,13 +178,17 @@ Always be helpful, professional, and specific in your responses. When providing 
             ),
             FunctionDeclaration(
                 name="compare_suppliers",
-                description="Compare pricing across different suppliers for a specific material",
+                description=(
+                    "Compare pricing across different suppliers for a specific material"
+                ),
                 parameters={
                     "type": "object",
                     "properties": {
                         "material_query": {
                             "type": "string",
-                            "description": "The material to compare prices for (e.g., 'steel angle')",
+                            "description": (
+                                "Material to compare prices for (e.g., 'steel angle')"
+                            ),
                         },
                     },
                     "required": ["material_query"],
@@ -223,7 +238,8 @@ Always be helpful, professional, and specific in your responses. When providing 
         This method handles the entire conversation flow, including tool calls.
         """
         logger.info(
-            f"Starting AI response generation for job {job_id} with message: {user_message}"
+            f"Starting AI response generation for job {job_id} with "
+            f"message: {user_message}"
         )
         try:
             job = Job.objects.get(id=job_id)
@@ -275,7 +291,7 @@ Always be helpful, professional, and specific in your responses. When providing 
             # Send the new user message
             logger.info(f"Sending message to Gemini: {user_message}")
             response = chat.send_message(user_message)
-            logger.debug(f"Received initial response from Gemini")
+            logger.debug("Received initial response from Gemini")
             logger.debug(f"Raw response object: {response}")
             logger.debug(f"Response candidates: {response.candidates}")
             try:
@@ -299,7 +315,8 @@ Always be helpful, professional, and specific in your responses. When providing 
                 if call_part is None:
                     # No further tool invocations requested
                     logger.info(
-                        f"No more tool calls requested. Total tool calls made: {tool_call_count}"
+                        f"No more tool calls requested. Total tool calls made: "
+                        f"{tool_call_count}"
                     )
                     break
 
@@ -311,7 +328,8 @@ Always be helpful, professional, and specific in your responses. When providing 
 
                 tool_call_count += 1
                 logger.info(
-                    f"Tool call #{tool_call_count}: Executing {tool_name} with args: {tool_args}"
+                    f"Tool call #{tool_call_count}: Executing {tool_name} with "
+                    f"args: {tool_args}"
                 )
                 tool_result = self._execute_mcp_tool(tool_name, tool_args)
                 logger.debug(f"Tool {tool_name} returned: {tool_result[:200]}...")
@@ -328,7 +346,7 @@ Always be helpful, professional, and specific in your responses. When providing 
                 )
 
                 # Send tool result back to the model
-                logger.debug(f"Sending tool result back to Gemini")
+                logger.debug("Sending tool result back to Gemini")
                 response = chat.send_message(
                     Part.from_function_response(
                         name=tool_name,
@@ -340,7 +358,8 @@ Always be helpful, professional, and specific in your responses. When providing 
             # The final response from the model
             final_content = response.text
             logger.info(
-                f"Final response from Gemini (length: {len(final_content)}): {final_content[:100]}..."
+                f"Final response from Gemini (length: {len(final_content)}): "
+                f"{final_content[:100]}..."
             )
 
             # -----------------------------------------------------------------
@@ -359,7 +378,7 @@ Always be helpful, professional, and specific in your responses. When providing 
                     )
 
             # Persist the assistant's final message
-            logger.debug(f"Saving assistant message to database")
+            logger.debug("Saving assistant message to database")
             assistant_message = JobQuoteChat.objects.create(
                 job=job,
                 message_id=f"assistant-{uuid.uuid4()}",
@@ -375,7 +394,8 @@ Always be helpful, professional, and specific in your responses. When providing 
                 },
             )
             logger.info(
-                f"Successfully generated AI response for job {job_id}. Message ID: {assistant_message.message_id}"
+                f"Successfully generated AI response for job {job_id}. "
+                f"Message ID: {assistant_message.message_id}"
             )
             return assistant_message
 
@@ -388,7 +408,10 @@ Always be helpful, professional, and specific in your responses. When providing 
                 job=Job.objects.get(id=job_id),
                 message_id=f"assistant-error-{uuid.uuid4()}",
                 role="assistant",
-                content=f"I apologize, but I encountered an error processing your request: {str(e)}",
+                content=(
+                    f"I apologize, but I encountered an error processing your "
+                    f"request: {str(e)}"
+                ),
                 metadata={"error": True, "error_message": str(e)},
             )
             return error_message
