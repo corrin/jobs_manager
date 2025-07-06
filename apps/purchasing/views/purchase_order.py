@@ -473,11 +473,20 @@ def extract_supplier_quote_data_view(request):
                 status=400,
             )
 
-        # Redirect to the PO form with the PO ID
-        redirect_url = reverse(
-            "purchasing:purchase_orders_detail", kwargs={"pk": purchase_order.id}
+        # Return success response with PO ID for SPA handling
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Quote processed successfully",
+                "purchase_order_id": str(purchase_order.id),
+                "po_number": purchase_order.po_number,
+                "redirect_url": reverse(
+                    "purchasing:purchase_orders_detail",
+                    kwargs={"pk": purchase_order.id},
+                ),
+            },
+            status=200,
         )
-        return redirect(redirect_url)
 
     except Exception as e:
         logger.exception(f"Error extracting data from quote: {e}")

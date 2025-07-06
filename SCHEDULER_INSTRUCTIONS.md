@@ -2,7 +2,7 @@
 
 ```mermaid
 graph TD
-  A[Create unit file<br/>django‑scheduler.service] --> B[Enable / Start]
+    A[Create unit file<br/>django‑scheduler.service] --
   A --> C[Logs & logrotate]
 ```
 
@@ -13,8 +13,7 @@ graph TD
 ```ini
 [Unit]
 Description=Django APScheduler
-After=network.target postgresql.service
-Requires=postgresql.service
+After=network.target
 
 [Service]
 Type=simple
