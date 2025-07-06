@@ -133,6 +133,8 @@ class PurchasingRestService:
                         line.description = line_data["description"]
                     if "item_code" in line_data:
                         line.item_code = line_data["item_code"]
+                    if "job_id" in line_data:
+                        line.job_id = line_data.get("job_id")
                     if "quantity" in line_data:
                         line.quantity = Decimal(str(line_data["quantity"]))
                     if "unit_cost" in line_data:

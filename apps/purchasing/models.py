@@ -1,7 +1,7 @@
 import logging
 import os
 import uuid
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.db import models
@@ -401,7 +401,20 @@ class Stock(models.Model):
     def retail_rate(self, value):
         """Set unit_revenue based on unit_cost and markup rate"""
         if self.unit_cost and self.unit_cost > 0:
-            self.unit_revenue = self.unit_cost * (Decimal("1") + value)
+            # Ensure value is converted to Decimal for proper arithmetic
+            try:
+                if isinstance(value, Decimal):
+                    decimal_value = value
+                elif isinstance(value, (int, float)):
+                    decimal_value = Decimal(str(value))
+                else:
+                    decimal_value = Decimal(str(value))
+
+                self.unit_revenue = self.unit_cost * (Decimal("1") + decimal_value)
+            except (ValueError, TypeError, InvalidOperation) as e:
+                raise ValueError(
+                    f"Invalid retail rate value: {value} (type: {type(value)}). Error: {e}"
+                )
         else:
             raise ValueError(
                 "Unit cost must be set and greater than zero to set retail rate"

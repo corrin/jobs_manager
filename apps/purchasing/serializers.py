@@ -15,6 +15,7 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
             "item_code",
             "description",
             "quantity",
+            "received_quantity",
             "unit_cost",
             "price_tbc",
             "metal_type",
