@@ -449,7 +449,7 @@ class KPIService:
             if current_date <= current_date_system:
                 monthly_totals["elapsed_workdays"] += 1
 
-            # Process holidays same as regular days since they can have financial activity
+            # Process holidays same as regular days - can have financial activity
             # (adjustments, material entries, etc.) but mark them as holidays
 
             logger.debug(f"Processing data for day: {current_date}")
