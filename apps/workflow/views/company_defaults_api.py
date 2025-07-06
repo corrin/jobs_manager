@@ -35,7 +35,9 @@ class CompanyDefaultsAPIView(APIView):
 
     def put(self, request):
         instance = get_company_defaults()
-        serializer = CompanyDefaultsSerializer(instance, data=request.data)
+        serializer = CompanyDefaultsSerializer(
+            instance, data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -43,7 +45,7 @@ class CompanyDefaultsAPIView(APIView):
     def patch(self, request):
         instance = get_company_defaults()
         serializer = CompanyDefaultsSerializer(
-            instance, data=request.data, partial=True
+            instance, data=request.data, partial=True, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()

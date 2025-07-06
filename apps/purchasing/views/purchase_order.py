@@ -10,7 +10,6 @@ from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.generic import ListView, TemplateView
@@ -36,7 +35,7 @@ from apps.purchasing.services.quote_to_po_service import (
     create_po_from_quote,
     save_quote_file,
 )
-from apps.workflow.models import AIProvider
+from apps.workflow.models import AIProvider, CompanyDefaults
 
 # Apps Utils and Managers
 from apps.workflow.utils import extract_messages
@@ -436,6 +435,7 @@ def delete_purchase_order_view(request, pk):
 
 
 @require_http_methods(["POST"])
+@csrf_exempt
 def extract_supplier_quote_data_view(request):
     """
     Extract data from a supplier quote to pre-fill a PO form.
@@ -449,7 +449,25 @@ def extract_supplier_quote_data_view(request):
 
         quote_file = request.FILES["quote_file"]
 
-        ai_provider = AIProvider.objects.filter(default=True).first()
+        # Get the company defaults and find default AI provider
+        try:
+            company_defaults = CompanyDefaults.get_instance()
+            ai_provider = AIProvider.get_default_for_company(company_defaults)
+        except Exception as e:
+            logger.error(f"Failed to get company defaults or AI provider: {e}")
+            ai_provider = None
+
+        if not ai_provider:
+            logger.error(
+                "No default AI provider found. Please configure an AI provider."
+            )
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "No AI provider configured. Please set up an AI provider in Company Defaults.",
+                },
+                status=400,
+            )
 
         logger.info(f"Processing quote with {ai_provider} AI provider")
 
