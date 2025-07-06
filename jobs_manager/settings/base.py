@@ -470,9 +470,7 @@ def validate_required_settings():
         # no need to validate their presence in env
     }
 
-    missing_settings = [
-        key for key, value in required_settings.items() if not value
-    ]
+    missing_settings = [key for key, value in required_settings.items() if not value]
 
     if missing_settings:
         raise ImproperlyConfigured(

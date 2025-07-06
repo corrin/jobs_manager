@@ -120,15 +120,20 @@ class Command(BaseCommand):
                 fields["email"] = fake.email()
 
         elif model == "client.client":
-            fields["name"] = fake.company()
-            if fields["primary_contact_name"]:
-                fields["primary_contact_name"] = fake.name()
-            if fields["primary_contact_email"]:
-                fields["primary_contact_email"] = fake.email()
-            if fields["email"]:
-                fields["email"] = fake.email()
-            if fields["phone"]:
-                fields["phone"] = fake.phone_number()
+            # Don't anonymize the shop client (preserve for system functionality)
+            if item["pk"] == "00000000-0000-0000-0000-000000000001":
+                # Special handling of the shop client
+                fields["name"] = "Demo Company Shop"
+            else:
+                fields["name"] = fake.company()
+                if fields["primary_contact_name"]:
+                    fields["primary_contact_name"] = fake.name()
+                if fields["primary_contact_email"]:
+                    fields["primary_contact_email"] = fake.email()
+                if fields["email"]:
+                    fields["email"] = fake.email()
+                if fields["phone"]:
+                    fields["phone"] = fake.phone_number()
 
         elif model == "client.clientcontact":
             fields["name"] = fake.name()
