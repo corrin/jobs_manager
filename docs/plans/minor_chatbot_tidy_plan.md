@@ -16,7 +16,7 @@ Multiple services contain hardcoded AI model names that should be extracted to c
 
 #### MCP Chat Service (`apps/job/services/mcp_chat_service.py`)
 - **Lines 258, 355, 372**: `"claude-3-5-sonnet-20241022"` hardcoded
-- **Fix**: Use `ai_provider.model_name` 
+- **Fix**: Use `ai_provider.model_name`
 
 #### Gemini Chat Service (`apps/job/services/gemini_chat_service.py`)
 - **Line 66**: `"gemini-2.5-flash-lite-preview-06-17"` hardcoded fallback
@@ -79,7 +79,7 @@ All `JobQuoteChat.objects.create()` calls properly include `job=job` parameter:
 
 ### Step 2: Update Service Classes
 1. **MCP Chat Service** - Replace 3 hardcoded instances
-2. **Gemini Chat Service** - Replace 1 hardcoded instance  
+2. **Gemini Chat Service** - Replace 1 hardcoded instance
 3. **Other Services** - Address remaining hardcoded models
 
 ### Step 3: Code Quality Improvements

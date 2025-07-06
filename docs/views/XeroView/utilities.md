@@ -57,7 +57,7 @@ Provides utility endpoints for Xero integration health checking, connection stat
 
 ### ensure_xero_authentication
 **Purpose**: Validates Xero authentication across multiple endpoints
-**Returns**: 
+**Returns**:
 - Tenant ID if authenticated
 - JsonResponse with error if authentication fails
 

@@ -64,8 +64,9 @@ class PurchaseOrderDetailRestView(APIView):
     """Returns a full PO (including lines)"""
 
     def get(self, request, pk):
+        # Allow fetching PO details regardless of status to match the list endpoint behavior
         queryset = (
-            PurchaseOrder.objects.filter(status__in=["submitted", "partially_received"])
+            PurchaseOrder.objects.exclude(status="deleted")
             .select_related("supplier")
             .prefetch_related("po_lines")
         )

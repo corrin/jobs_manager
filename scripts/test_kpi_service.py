@@ -53,7 +53,9 @@ def test_kpi_calendar(year=None, month=None):
         logger.info("")
         logger.info("Monthly summary:")
         logger.info(f"  - Working days: {monthly_totals.get('working_days', 0)}")
-        logger.info(f"  - Billable hours: {monthly_totals.get('billable_hours', 0):.1f}")
+        logger.info(
+            f"  - Billable hours: {monthly_totals.get('billable_hours', 0):.1f}"
+        )
         logger.info(f"  - Total hours: {monthly_totals.get('total_hours', 0):.1f}")
         logger.info(f"  - Gross profit: ${monthly_totals.get('gross_profit', 0):.2f}")
 

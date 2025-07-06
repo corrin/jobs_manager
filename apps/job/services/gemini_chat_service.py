@@ -222,20 +222,22 @@ Always be helpful, professional, and specific in your responses. When providing 
         Generates an AI response using the Gemini API and MCP tools.
         This method handles the entire conversation flow, including tool calls.
         """
-        logger.info(f"Starting AI response generation for job {job_id} with message: {user_message}")
+        logger.info(
+            f"Starting AI response generation for job {job_id} with message: {user_message}"
+        )
         try:
             job = Job.objects.get(id=job_id)
             logger.debug(f"Retrieved job: {job.name} (#{job.job_number})")
-            
+
             model = self.get_gemini_client()
             logger.info(f"Gemini client configured with model: {model.model_name}")
             logger.debug(f"Tools configured for model: {self._get_mcp_tools()}")
-            
+
             # -----------------------------------------------------------------
             # Initialise tool metadata tracking
             # -----------------------------------------------------------------
             tool_definitions = self._get_mcp_tools()  # Available tools for this session
-            tool_calls: List[Dict[str, Any]] = []      # Record of executed tool calls
+            tool_calls: List[Dict[str, Any]] = []  # Record of executed tool calls
 
             system_prompt = self._get_system_prompt(job)
             model.system_instruction = system_prompt
@@ -246,8 +248,10 @@ Always be helpful, professional, and specific in your responses. When providing 
             recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
                 "timestamp"
             )[:20]
-            logger.debug(f"Retrieved {len(recent_messages)} recent messages for context")
-            
+            logger.debug(
+                f"Retrieved {len(recent_messages)} recent messages for context"
+            )
+
             for msg in recent_messages:
                 logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
                 chat_history.append(
@@ -262,7 +266,9 @@ Always be helpful, professional, and specific in your responses. When providing 
             history_for_metadata = chat_history.copy()
 
             # Start a chat session with history
-            logger.debug(f"Starting chat session with {len(chat_history)} history messages")
+            logger.debug(
+                f"Starting chat session with {len(chat_history)} history messages"
+            )
             logger.debug(f"Chat history being sent to Gemini: {chat_history}")
             chat = model.start_chat(history=chat_history)
 
@@ -292,7 +298,9 @@ Always be helpful, professional, and specific in your responses. When providing 
 
                 if call_part is None:
                     # No further tool invocations requested
-                    logger.info(f"No more tool calls requested. Total tool calls made: {tool_call_count}")
+                    logger.info(
+                        f"No more tool calls requested. Total tool calls made: {tool_call_count}"
+                    )
                     break
 
                 function_call = call_part.function_call
@@ -302,7 +310,9 @@ Always be helpful, professional, and specific in your responses. When providing 
                 tool_args: Dict[str, Any] = {k: v for k, v in raw_args.items()}
 
                 tool_call_count += 1
-                logger.info(f"Tool call #{tool_call_count}: Executing {tool_name} with args: {tool_args}")
+                logger.info(
+                    f"Tool call #{tool_call_count}: Executing {tool_name} with args: {tool_args}"
+                )
                 tool_result = self._execute_mcp_tool(tool_name, tool_args)
                 logger.debug(f"Tool {tool_name} returned: {tool_result[:200]}...")
 
@@ -311,7 +321,9 @@ Always be helpful, professional, and specific in your responses. When providing 
                     {
                         "name": tool_name,
                         "arguments": tool_args,
-                        "result_preview": tool_result[:200],  # Store a preview to keep metadata small
+                        "result_preview": tool_result[
+                            :200
+                        ],  # Store a preview to keep metadata small
                     }
                 )
 
@@ -327,7 +339,9 @@ Always be helpful, professional, and specific in your responses. When providing 
 
             # The final response from the model
             final_content = response.text
-            logger.info(f"Final response from Gemini (length: {len(final_content)}): {final_content[:100]}...")
+            logger.info(
+                f"Final response from Gemini (length: {len(final_content)}): {final_content[:100]}..."
+            )
 
             # -----------------------------------------------------------------
             # Ensure all metadata is JSON-serialisable before saving
@@ -338,9 +352,11 @@ Always be helpful, professional, and specific in your responses. When providing 
                 try:
                     serialisable_tool_definitions.append(json.loads(t.to_json()))
                 except Exception:
-                    serialisable_tool_definitions.append({
-                        "name": getattr(t, "name", str(t)),
-                    })
+                    serialisable_tool_definitions.append(
+                        {
+                            "name": getattr(t, "name", str(t)),
+                        }
+                    )
 
             # Persist the assistant's final message
             logger.debug(f"Saving assistant message to database")
@@ -358,7 +374,9 @@ Always be helpful, professional, and specific in your responses. When providing 
                     "tool_calls": tool_calls,
                 },
             )
-            logger.info(f"Successfully generated AI response for job {job_id}. Message ID: {assistant_message.message_id}")
+            logger.info(
+                f"Successfully generated AI response for job {job_id}. Message ID: {assistant_message.message_id}"
+            )
             return assistant_message
 
         except Exception as e:

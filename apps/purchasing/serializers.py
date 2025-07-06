@@ -6,7 +6,7 @@ from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
 class PurchaseOrderLineSerializer(serializers.ModelSerializer):
     """Serializer for PurchaseOrderLine model."""
 
-    job_id = serializers.UUIDField(source="job_id", required=False, allow_null=True)
+    job_id = serializers.UUIDField(required=False, allow_null=True)
 
     class Meta:
         model = PurchaseOrderLine

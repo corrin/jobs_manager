@@ -22,7 +22,7 @@ Provides essential API endpoints for job editing interface support. Handles comp
 #### Returns
 - **200 OK**: JSON with company default settings
   - `materials_markup`: Default materials markup percentage
-  - `time_markup`: Default time markup percentage  
+  - `time_markup`: Default time markup percentage
   - `charge_out_rate`: Default hourly charge rate
   - `wage_rate`: Default wage rate
 

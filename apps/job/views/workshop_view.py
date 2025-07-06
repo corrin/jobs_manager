@@ -42,9 +42,9 @@ class WorkshopPDFView(APIView):
             )
 
             # Add header to trigger print dialog
-            response["Content-Disposition"] = (
-                f'inline; filename="workshop_{job.job_number}.pdf"'
-            )
+            response[
+                "Content-Disposition"
+            ] = f'inline; filename="workshop_{job.job_number}.pdf"'
 
             return response
 

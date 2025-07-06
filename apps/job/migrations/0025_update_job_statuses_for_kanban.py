@@ -25,7 +25,9 @@ def update_job_statuses(apps, schema_editor):
     for old_status, new_status in status_mapping.items():
         updated_count = Job.objects.filter(status=old_status).update(status=new_status)
         if updated_count > 0:
-            logger.info(f"Updated {updated_count} jobs from '{old_status}' to '{new_status}'")
+            logger.info(
+                f"Updated {updated_count} jobs from '{old_status}' to '{new_status}'"
+            )
 
 
 def reverse_job_statuses(apps, schema_editor):
