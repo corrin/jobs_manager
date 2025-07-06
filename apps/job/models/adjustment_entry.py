@@ -1,11 +1,22 @@
+import logging
 import uuid
+import warnings
 
 from django.db import models
 from django.utils import timezone
 
+logger = logging.getLogger(__name__)
+
 
 class AdjustmentEntry(models.Model):
-    """For when costs are manually added to a job"""
+    """
+    DEPRECATED: For when costs are manually added to a job
+
+    This model is deprecated and should not be used for new functionality.
+    Use CostLine with CostSet instead for all new adjustment tracking.
+
+    Legacy model for backward compatibility only.
+    """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job_pricing = models.ForeignKey(
@@ -41,6 +52,21 @@ class AdjustmentEntry(models.Model):
     class Meta:
         ordering = ["created_at"]
         db_table = "workflow_adjustmententry"
+
+    def save(self, *args, **kwargs):
+        """
+        Save method with deprecation warning.
+        """
+        warnings.warn(
+            "AdjustmentEntry is deprecated. Use CostLine with CostSet instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        logger.warning(
+            f"Creating deprecated AdjustmentEntry for job_pricing {self.job_pricing_id}. "
+            "Consider using CostLine with CostSet instead."
+        )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return (

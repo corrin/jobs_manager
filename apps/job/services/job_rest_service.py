@@ -528,7 +528,10 @@ class JobRestService:
         job_id: UUID, entry_data: Dict[str, Any], user: Staff
     ) -> Dict[str, Any]:
         """
-        Creates a new time entry for a Job.
+        DEPRECATED: Creates a new time entry for a Job using legacy JobPricing system.
+
+        This method is deprecated and should not be used for new functionality.
+        Use CostLine creation with CostSet instead.
 
         Args:
             job_id: Job UUID
@@ -538,63 +541,27 @@ class JobRestService:
         Returns:
             Dict with operation result and updated job data
         """
-        job = get_object_or_404(Job, id=job_id)
+        import warnings
 
-        # Guard clause - ensure estimate pricing exists
-        estimate_pricing = job.latest_estimate_pricing
-        if not estimate_pricing:
-            raise ValueError("Job must have estimate pricing to add time entries")
+        warnings.warn(
+            "create_time_entry is deprecated. Use CostLine creation with CostSet instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-        # Import TimeEntry model here to avoid circular imports
-        from apps.timesheet.models import TimeEntry
-
-        # Validate required fields
-        required_fields = ["description", "hours", "charge_out_rate"]
-        for field in required_fields:
-            if field not in entry_data:
-                raise ValueError(f"{field} is required")
-        # Create time entry
-        time_entry_data = {
-            "job_pricing": estimate_pricing,
-            "description": entry_data["description"],
-            "hours": Decimal(str(entry_data["hours"])),
-            "charge_out_rate": Decimal(str(entry_data["charge_out_rate"])),
-            "wage_rate": Decimal(str(entry_data.get("wage_rate", 0))),
-            "staff": user,
-            "items": entry_data.get("items", 1),
-            "minutes_per_item": Decimal(
-                str(entry_data.get("minutes_per_item", entry_data["hours"] * 60))
-            ),
-            "date": timezone.now().date(),  # Add current date
-            "is_billable": entry_data.get("is_billable", True),  # Add billable flag
-            "wage_rate_multiplier": Decimal(
-                str(entry_data.get("wage_rate_multiplier", 1.0))
-            ),  # Add rate multiplier
-        }
-
-        with transaction.atomic():
-            time_entry = TimeEntry.objects.create(**time_entry_data)
-            # Log the event
-            JobEvent.objects.create(
-                job=job,
-                staff=user,
-                event_type="entry_added",
-                description=f"Time entry added: {entry_data['description']}",
-            )
-
-        # Return minimal success response instead of full job data to avoid request dependency
-        return {
-            "success": True,
-            "job_id": str(job_id),
-            "time_entry_id": str(time_entry.id),
-        }
+        raise DeprecationWarning(
+            "This method is deprecated. Use CostLine creation endpoints with CostSet instead of legacy time entries."
+        )
 
     @staticmethod
     def create_material_entry(
         job_id: UUID, entry_data: Dict[str, Any], user: Staff
     ) -> Dict[str, Any]:
         """
-        Creates a new material entry for a Job.
+        DEPRECATED: Creates a new material entry for a Job using legacy JobPricing system.
+
+        This method is deprecated and should not be used for new functionality.
+        Use CostLine creation with CostSet instead.
 
         Args:
             job_id: Job UUID
@@ -604,58 +571,27 @@ class JobRestService:
         Returns:
             Dict with operation result and updated job data
         """
-        job = get_object_or_404(Job, id=job_id)
+        import warnings
 
-        # Guard clause - ensure estimate pricing exists
-        estimate_pricing = job.latest_estimate_pricing
-        if not estimate_pricing:
-            raise ValueError("Job must have estimate pricing to add material entries")
+        warnings.warn(
+            "create_material_entry is deprecated. Use CostLine creation with CostSet instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-        # Import MaterialEntry model here to avoid circular imports
-        from apps.job.models import MaterialEntry
-
-        # Validate required fields
-        required_fields = ["description", "quantity", "unit_cost"]
-        for field in required_fields:
-            if field not in entry_data:
-                raise ValueError(f"{field} is required")
-
-        # Calculate unit_revenue if not provided
-        unit_cost = Decimal(str(entry_data["unit_cost"]))
-        unit_revenue = Decimal(str(entry_data.get("unit_revenue", unit_cost)))
-
-        # Create material entry
-        material_entry_data = {
-            "job_pricing": estimate_pricing,
-            "description": entry_data["description"],
-            "quantity": Decimal(str(entry_data["quantity"])),
-            "unit_cost": unit_cost,
-            "unit_revenue": unit_revenue,
-        }
-
-        with transaction.atomic():
-            material_entry = MaterialEntry.objects.create(**material_entry_data)
-            # Log the event
-            JobEvent.objects.create(
-                job=job,
-                staff=user,
-                event_type="entry_added",
-                description=f"Material entry added: {entry_data['description']}",
-            )
-
-        # Return minimal success response
-        return {
-            "success": True,
-            "job_id": str(job_id),
-            "material_entry_id": str(material_entry.id),
-        }
+        raise DeprecationWarning(
+            "This method is deprecated. Use CostLine creation endpoints with CostSet instead of legacy material entries."
+        )
 
     @staticmethod
     def create_adjustment_entry(
         job_id: UUID, entry_data: Dict[str, Any], user: Staff
     ) -> Dict[str, Any]:
         """
-        Creates a new adjustment entry for a Job.
+        DEPRECATED: Creates a new adjustment entry for a Job using legacy JobPricing system.
+
+        This method is deprecated and should not be used for new functionality.
+        Use CostLine creation with CostSet instead.
 
         Args:
             job_id: Job UUID
@@ -665,43 +601,14 @@ class JobRestService:
         Returns:
             Dict with operation result and updated job data
         """
-        job = get_object_or_404(Job, id=job_id)
+        import warnings
 
-        # Guard clause - ensure estimate pricing exists
-        estimate_pricing = job.latest_estimate_pricing
-        if not estimate_pricing:
-            raise ValueError("Job must have estimate pricing to add adjustment entries")
+        warnings.warn(
+            "create_adjustment_entry is deprecated. Use CostLine creation with CostSet instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-        # Import AdjustmentEntry model here to avoid circular imports
-        from apps.job.models import AdjustmentEntry
-
-        # Validate required fields
-        required_fields = ["description", "amount"]
-        for field in required_fields:
-            if field not in entry_data:
-                raise ValueError(f"{field} is required")
-
-        # Create adjustment entry
-        adjustment_entry_data = {
-            "job_pricing": estimate_pricing,
-            "description": entry_data["description"],
-            "cost_adjustment": Decimal(str(entry_data["amount"])),
-            "revenue_adjustment": Decimal(str(entry_data["amount"])),
-        }
-
-        with transaction.atomic():
-            adjustment_entry = AdjustmentEntry.objects.create(**adjustment_entry_data)
-            # Log the event
-            JobEvent.objects.create(
-                job=job,
-                staff=user,
-                event_type="entry_added",
-                description=f"Adjustment entry added: {entry_data['description']}",
-            )
-
-        # Return minimal success response
-        return {
-            "success": True,
-            "job_id": str(job_id),
-            "adjustment_entry_id": str(adjustment_entry.id),
-        }
+        raise DeprecationWarning(
+            "This method is deprecated. Use CostLine creation endpoints with CostSet instead of legacy adjustment entries."
+        )

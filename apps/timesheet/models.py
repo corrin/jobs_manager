@@ -1,5 +1,6 @@
 import logging
 import uuid
+import warnings
 from decimal import Decimal
 
 from django.db import models
@@ -11,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 class TimeEntry(models.Model):
+    """
+    DEPRECATED: Legacy time entry model.
+
+    This model is deprecated and should not be used for new functionality.
+    Use CostLine with CostSet instead for all new time tracking.
+
+    Legacy model for backward compatibility only.
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job_pricing = models.ForeignKey(
         JobPricing,
@@ -74,6 +84,18 @@ class TimeEntry(models.Model):
         db_table = "workflow_timeentry"
 
     def save(self, *args, **kwargs):
+        # Add deprecation warning
+        warnings.warn(
+            "TimeEntry is deprecated. Use CostLine with CostSet instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        logger.warning(
+            f"Creating deprecated TimeEntry for job_pricing {self.job_pricing_id}. "
+            "Consider using CostLine with CostSet instead."
+        )
+
+        # Existing logic
         if (
             self.hours == 0
             and self.items is not None

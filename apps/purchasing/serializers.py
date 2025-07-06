@@ -22,6 +22,7 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
             "alloy",
             "specifics",
             "location",
+            "dimensions",
             "job_id",
         ]
 

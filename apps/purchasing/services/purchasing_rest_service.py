@@ -88,6 +88,10 @@ class PurchasingRestService:
                 unit_cost=unit_cost,
                 price_tbc=price_tbc,
                 item_code=line.get("item_code"),
+                metal_type=line.get("metal_type", ""),
+                alloy=line.get("alloy", ""),
+                specifics=line.get("specifics", ""),
+                location=line.get("location", ""),
             )
         return po
 
@@ -144,6 +148,17 @@ class PurchasingRestService:
                         )
                     if "price_tbc" in line_data:
                         line.price_tbc = bool(line_data["price_tbc"])
+                    # Update additional fields
+                    if "metal_type" in line_data:
+                        line.metal_type = line_data.get("metal_type", "")
+                    if "alloy" in line_data:
+                        line.alloy = line_data.get("alloy", "")
+                    if "specifics" in line_data:
+                        line.specifics = line_data.get("specifics", "")
+                    if "location" in line_data:
+                        line.location = line_data.get("location", "")
+                    if "dimensions" in line_data:
+                        line.dimensions = line_data.get("dimensions", "")
                     line.save()
                     updated_line_ids.add(str(line_id))
                 case False:
@@ -164,6 +179,11 @@ class PurchasingRestService:
                         ),
                         price_tbc=bool(line_data.get("price_tbc", False)),
                         item_code=line_data.get("item_code"),
+                        metal_type=line_data.get("metal_type", ""),
+                        alloy=line_data.get("alloy", ""),
+                        specifics=line_data.get("specifics", ""),
+                        location=line_data.get("location", ""),
+                        dimensions=line_data.get("dimensions", ""),
                     )
 
         return po
@@ -177,6 +197,14 @@ class PurchasingRestService:
                 "description": s.description,
                 "quantity": float(s.quantity),
                 "unit_cost": float(s.unit_cost),
+                "metal_type": s.metal_type,
+                "alloy": s.alloy,
+                "specifics": s.specifics,
+                "location": s.location,
+                "source": s.source,
+                "date": s.date.isoformat() if s.date else None,
+                "job_id": str(s.job.id) if s.job else None,
+                "notes": s.notes,
             }
             for s in items
         ]
