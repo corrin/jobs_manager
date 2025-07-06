@@ -15,7 +15,7 @@ class Command(BaseCommand):
         # instruct scheduler.py that we really want it to run
         os.environ["DJANGO_RUN_SCHEDULER"] = "1"
 
-        if not start_scheduler(force=True):
+        if not start_scheduler():
             self.stderr.write("Scheduler already running or failed to start.")
             sys.exit(1)
 
