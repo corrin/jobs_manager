@@ -14,7 +14,8 @@ from apps.job.helpers import get_company_defaults
 # We say . rather than job.models to avoid going through init,
 # otherwise it would have a circular import
 from .job_event import JobEvent
-from .job_pricing import JobPricing
+
+# NOTE: JobPricing import removed - it's deprecated
 
 if TYPE_CHECKING:
     from .costing import CostSet
@@ -121,35 +122,41 @@ class Job(models.Model):
         help_text="Type of pricing for the job (fixed price or time and materials).",
     )
 
-    # Direct relationships for estimate, quote, reality
+    # LEGACY RELATIONSHIPS - DEPRECATED
+    # These fields are maintained for backward compatibility only
+    # Use latest_estimate, latest_quote, latest_actual (CostSet) instead
     latest_estimate_pricing = models.OneToOneField(
         "JobPricing",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,  # Changed from CASCADE to avoid data loss
         null=True,
-        blank=False,
+        blank=True,
         related_name="latest_estimate_for_job",
+        help_text="DEPRECATED: Use latest_estimate (CostSet) instead",
     )
 
     latest_quote_pricing = models.OneToOneField(
         "JobPricing",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,  # Changed from CASCADE to avoid data loss
         null=True,
-        blank=False,
+        blank=True,
         related_name="latest_quote_for_job",
+        help_text="DEPRECATED: Use latest_quote (CostSet) instead",
     )
 
     latest_reality_pricing = models.OneToOneField(
         "JobPricing",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,  # Changed from CASCADE to avoid data loss
         null=True,
-        blank=False,
+        blank=True,
         related_name="latest_reality_for_job",
+        help_text="DEPRECATED: Use latest_actual (CostSet) instead",
     )
 
     archived_pricings = models.ManyToManyField(
         "JobPricing",
         related_name="archived_pricings_for_job",
         blank=True,
+        help_text="DEPRECATED: Historical pricing data",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -357,8 +364,7 @@ class Job(models.Model):
                 default_priority = self._calculate_next_priority_for_status(self.status)
                 self.priority = default_priority
 
-                # Creating a new job is tricky because of the circular reference.
-                # We first save the job to the DB without any associated pricings, then we
+                # Save the job first
                 super(Job, self).save(*args, **kwargs)
 
                 # Create initial CostSet instances (modern system)
@@ -387,9 +393,6 @@ class Job(models.Model):
                         "latest_estimate",
                         "latest_quote",
                         "latest_actual",
-                        "latest_estimate_pricing",
-                        "latest_quote_pricing",
-                        "latest_reality_pricing",
                     ]
                 )
 

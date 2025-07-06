@@ -1,12 +1,23 @@
+import logging
 import uuid
+import warnings
 from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
 
+logger = logging.getLogger(__name__)
+
 
 class MaterialEntry(models.Model):
-    """Materials, e.g., sheets"""
+    """
+    DEPRECATED: Materials, e.g., sheets
+
+    This model is deprecated and should not be used for new functionality.
+    Use CostLine with CostSet instead for all new material tracking.
+
+    Legacy model for backward compatibility only.
+    """
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job_pricing = models.ForeignKey(
@@ -69,6 +80,21 @@ class MaterialEntry(models.Model):
     @property
     def revenue(self) -> Decimal:
         return self.unit_revenue * self.quantity
+
+    def save(self, *args, **kwargs):
+        """
+        Save method with deprecation warning.
+        """
+        warnings.warn(
+            "MaterialEntry is deprecated. Use CostLine with CostSet instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        logger.warning(
+            f"Creating deprecated MaterialEntry for job_pricing {self.job_pricing_id}. "
+            "Consider using CostLine with CostSet instead."
+        )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Material for {self.job_pricing.job.name} - {self.description}"

@@ -15,9 +15,17 @@ def create_purchase_order_email(purchase_order: PurchaseOrder) -> dict:
 
     Returns:
         dict: a Dictionary containing the mailto URL and other email related data
+
+    Raises:
+        ValueError: If supplier or supplier email is missing
     """
-    if not purchase_order.supplier or not purchase_order.supplier.email:
-        raise ValueError("Purchase order supplier has no email")
+    if not purchase_order.supplier:
+        raise ValueError("Purchase order must have a supplier assigned")
+
+    if not purchase_order.supplier.email:
+        raise ValueError(
+            f"Supplier '{purchase_order.supplier.name}' has no email address configured"
+        )
 
     email = purchase_order.supplier.email
 

@@ -21,9 +21,6 @@ class QuotingConfig(AppConfig):
         # Register scraper jobs with the shared scheduler
         self._register_scraper_jobs()
 
-        # Attempt to start the shared scheduler (only one app will succeed)
-        start_scheduler()
-
     def _register_scraper_jobs(self) -> None:
         """Register scraper-related jobs with the shared scheduler."""
         # Import the standalone job functions

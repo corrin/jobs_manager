@@ -4,12 +4,15 @@ import logging
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import ListView, TemplateView
 
 from apps.job.models import Job
 from apps.job.utils import get_active_jobs
 from apps.purchasing.models import PurchaseOrder
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
+from apps.workflow.models.company_defaults import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,7 @@ class DeliveryReceiptListView(LoginRequiredMixin, ListView):
         return context
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class DeliveryReceiptCreateView(LoginRequiredMixin, TemplateView):
     """View to create a delivery receipt for a purchase order."""
 
@@ -89,7 +93,20 @@ class DeliveryReceiptCreateView(LoginRequiredMixin, TemplateView):
                 job_allocation = line_data.get("job_allocation", 0)
                 stock_allocation = line_data.get("stock_allocation", 0)
                 job_id = line_data.get("job_id")
-                retail_rate = line_data.get("retail_rate", 20)
+
+                # Get retail rate with proper error handling
+                try:
+                    company_defaults = CompanyDefaults.get_instance()
+                    default_retail_rate = (
+                        company_defaults.materials_markup * 100
+                    )  # Convert to percentage
+                    retail_rate = line_data.get("retail_rate", default_retail_rate)
+                except Exception as e:
+                    logger.error(f"Error getting default retail rate: {e}")
+                    return JsonResponse(
+                        {"error": f"Company materials markup not configured: {str(e)}"},
+                        status=400,
+                    )
 
                 allocations = []
 

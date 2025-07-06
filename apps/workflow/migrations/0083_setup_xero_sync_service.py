@@ -21,7 +21,9 @@ def create_systemd_service(apps, schema_editor):
 
     # Only proceed if we're in a production environment
     if not service_path.parent.exists():
-        logger.info("Not in production environment (no /etc/systemd), skipping service setup")
+        logger.info(
+            "Not in production environment (no /etc/systemd), skipping service setup"
+        )
         return
 
     service_content = """[Unit]

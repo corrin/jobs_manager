@@ -4,42 +4,41 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('job', '0028_add_job_quote_chat_model'),
+        ("job", "0028_add_job_quote_chat_model"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='historicaljob',
-            name='contact_email',
+            model_name="historicaljob",
+            name="contact_email",
         ),
         migrations.RemoveField(
-            model_name='historicaljob',
-            name='contact_person',
+            model_name="historicaljob",
+            name="contact_person",
         ),
         migrations.RemoveField(
-            model_name='historicaljob',
-            name='contact_phone',
+            model_name="historicaljob",
+            name="contact_phone",
         ),
         migrations.RemoveField(
-            model_name='historicaljob',
-            name='material_gauge_quantity',
+            model_name="historicaljob",
+            name="material_gauge_quantity",
         ),
         migrations.RemoveField(
-            model_name='job',
-            name='contact_email',
+            model_name="job",
+            name="contact_email",
         ),
         migrations.RemoveField(
-            model_name='job',
-            name='contact_person',
+            model_name="job",
+            name="contact_person",
         ),
         migrations.RemoveField(
-            model_name='job',
-            name='contact_phone',
+            model_name="job",
+            name="contact_phone",
         ),
         migrations.RemoveField(
-            model_name='job',
-            name='material_gauge_quantity',
+            model_name="job",
+            name="material_gauge_quantity",
         ),
     ]

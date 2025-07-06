@@ -1,9 +1,12 @@
 from django.urls import path
 
 from apps.purchasing.views.purchasing_rest_views import (
+    AllJobsAPIView,
     DeliveryReceiptRestView,
+    PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
     PurchaseOrderListCreateRestView,
+    PurchasingJobsAPIView,
     StockConsumeRestView,
     StockDeactivateRestView,
     StockListRestView,
@@ -11,6 +14,8 @@ from apps.purchasing.views.purchasing_rest_views import (
 )
 
 urlpatterns = [
+    path("all-jobs/", AllJobsAPIView.as_view(), name="purchasing_all_jobs_rest"),
+    path("jobs/", PurchasingJobsAPIView.as_view(), name="purchasing_jobs_rest"),
     path("xero-items/", XeroItemList.as_view(), name="xero_items_rest"),
     path(
         "purchase-orders/",
@@ -32,6 +37,11 @@ urlpatterns = [
         "purchase-orders/<uuid:pk>/",
         PurchaseOrderDetailRestView.as_view(),
         name="purchase_order_detail_rest",
+    ),
+    path(
+        "purchase-orders/<uuid:po_id>/allocations/",
+        PurchaseOrderAllocationsAPIView.as_view(),
+        name="purchase_order_allocations_rest",
     ),
     path(
         "stock/<uuid:stock_id>/",

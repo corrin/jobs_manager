@@ -37,40 +37,8 @@ def get_scheduler() -> BackgroundScheduler:
 def should_start_scheduler() -> bool:
     """
     Determine if the scheduler should be started in the current context.
-
-    Returns False if:
-    - Running under Django's autoreloader (development)
-    - Running a management command other than runserver
-    - Already running
-
-    Returns True if:
-    - Running in production
-    - Running the runserver command
     """
-    # Skip if running under Django's autoreloader in development
-    # Check for RUN_MAIN environment variable which Django sets in the main process
-    if settings.DEBUG and os.environ.get("RUN_MAIN") != "true":
-        logger.info(
-            "Skipping scheduler startup - running in Django autoreloader child process"
-        )
-        return False
-
-    # Skip if running management commands other than runserver
-    if sys.argv[0].endswith("manage.py"):
-        cmd = sys.argv[1] if len(sys.argv) > 1 else ""
-        if cmd not in {"runserver", "runserver_with_ngrok"}:
-            logger.info(
-                f"Skipping scheduler startup - running management command: {cmd}"
-            )
-            return False
-
-    # Skip if scheduler is already running
-    scheduler_instance = get_scheduler()
-    if scheduler_instance.running:
-        logger.info("Scheduler already running")
-        return False
-
-    return True
+    return os.getenv("DJANGO_RUN_SCHEDULER") == "1"
 
 
 def start_scheduler() -> bool:

@@ -43,6 +43,7 @@ class PurchasingRestService:
                 "status": po.status,
                 "order_date": po.order_date.isoformat(),
                 "supplier": po.supplier.name if po.supplier else "",
+                "supplier_id": str(po.supplier.id) if po.supplier else None,
             }
             for po in pos
         ]
@@ -87,6 +88,10 @@ class PurchasingRestService:
                 unit_cost=unit_cost,
                 price_tbc=price_tbc,
                 item_code=line.get("item_code"),
+                metal_type=line.get("metal_type", ""),
+                alloy=line.get("alloy", ""),
+                specifics=line.get("specifics", ""),
+                location=line.get("location", ""),
             )
         return po
 
@@ -101,6 +106,17 @@ class PurchasingRestService:
                     line.delete()
                 except PurchaseOrderLine.DoesNotExist:
                     continue
+
+        # Handle supplier updates
+        supplier_id = data.get("supplier_id")
+        if supplier_id:
+            try:
+                supplier = Supplier.objects.get(id=supplier_id)
+                po.supplier = supplier
+                logger.info(f"Updated supplier for PO {po.id} to {supplier.name}")
+            except Supplier.DoesNotExist:
+                logger.warning(f"Invalid supplier_id {supplier_id} for PO {po.id}")
+                # Don't fail the entire update, just log and continue
 
         for field in ["reference", "expected_delivery", "status"]:
             if field in data:
@@ -121,6 +137,8 @@ class PurchasingRestService:
                         line.description = line_data["description"]
                     if "item_code" in line_data:
                         line.item_code = line_data["item_code"]
+                    if "job_id" in line_data:
+                        line.job_id = line_data.get("job_id")
                     if "quantity" in line_data:
                         line.quantity = Decimal(str(line_data["quantity"]))
                     if "unit_cost" in line_data:
@@ -130,6 +148,17 @@ class PurchasingRestService:
                         )
                     if "price_tbc" in line_data:
                         line.price_tbc = bool(line_data["price_tbc"])
+                    # Update additional fields
+                    if "metal_type" in line_data:
+                        line.metal_type = line_data.get("metal_type", "")
+                    if "alloy" in line_data:
+                        line.alloy = line_data.get("alloy", "")
+                    if "specifics" in line_data:
+                        line.specifics = line_data.get("specifics", "")
+                    if "location" in line_data:
+                        line.location = line_data.get("location", "")
+                    if "dimensions" in line_data:
+                        line.dimensions = line_data.get("dimensions", "")
                     line.save()
                     updated_line_ids.add(str(line_id))
                 case False:
@@ -150,6 +179,11 @@ class PurchasingRestService:
                         ),
                         price_tbc=bool(line_data.get("price_tbc", False)),
                         item_code=line_data.get("item_code"),
+                        metal_type=line_data.get("metal_type", ""),
+                        alloy=line_data.get("alloy", ""),
+                        specifics=line_data.get("specifics", ""),
+                        location=line_data.get("location", ""),
+                        dimensions=line_data.get("dimensions", ""),
                     )
 
         return po
@@ -163,6 +197,14 @@ class PurchasingRestService:
                 "description": s.description,
                 "quantity": float(s.quantity),
                 "unit_cost": float(s.unit_cost),
+                "metal_type": s.metal_type,
+                "alloy": s.alloy,
+                "specifics": s.specifics,
+                "location": s.location,
+                "source": s.source,
+                "date": s.date.isoformat() if s.date else None,
+                "job_id": str(s.job.id) if s.job else None,
+                "notes": s.notes,
             }
             for s in items
         ]

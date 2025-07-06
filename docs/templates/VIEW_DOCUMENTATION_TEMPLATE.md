@@ -23,7 +23,7 @@ What this view does for Morris Sheetmetal's workflow (quote → job → invoice)
 - For APIs: JSON response format
 
 #### Integration
-- Xero sync (if applicable)  
+- Xero sync (if applicable)
 - File operations (if applicable)
 - Other apps it connects to
 

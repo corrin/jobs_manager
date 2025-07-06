@@ -4,7 +4,7 @@ from typing import Any
 
 from django.db import transaction
 
-from apps.job.models import CostLine, Job
+from apps.job.models import CostLine, CostSet, Job
 from apps.purchasing.models import Stock
 from apps.workflow.models import CompanyDefaults
 
@@ -31,6 +31,14 @@ def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
 
         materials_markup = CompanyDefaults.get_instance().materials_markup
         unit_rev = item.unit_cost * (1 + materials_markup)
+
+        # Ensure job has an actual cost set
+        if not job.latest_actual:
+            actual_cost_set = CostSet.objects.create(job=job, kind="actual", rev=1)
+            job.latest_actual = actual_cost_set
+            job.save(update_fields=["latest_actual"])
+            logger.info(f"Created missing actual CostSet for job {job.id}")
+
         cost_set = job.latest_actual
         cost_line = CostLine.objects.create(
             cost_set=cost_set,
@@ -40,7 +48,11 @@ def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
             unit_cost=item.unit_cost,
             unit_rev=unit_rev,
             ext_refs={"stock_id": str(item.id)},
-            meta={"consumed_by": getattr(user, "id", None)},
+            meta={
+                "consumed_by": str(getattr(user, "id", None))
+                if getattr(user, "id", None)
+                else None
+            },
         )
 
     logger.info("Consumed %s of stock %s for job %s", qty, item.id, job.id)

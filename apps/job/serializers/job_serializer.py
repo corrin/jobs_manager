@@ -9,7 +9,6 @@ from apps.job.models import Job, JobFile
 
 from .costing_serializer import CostSetSerializer
 from .job_file_serializer import JobFileSerializer
-from .job_pricing_serializer import JobPricingSerializer
 from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
 
 logger = logging.getLogger(__name__)
@@ -142,10 +141,6 @@ class JobSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "description",
-            # Legacy JobPricing fields (deprecated but kept for backward compatibility)
-            "latest_estimate_pricing",
-            "latest_quote_pricing",
-            "latest_reality_pricing",
             # New CostSet fields (current system)
             "latest_estimate",
             "latest_quote",
@@ -168,29 +163,9 @@ class JobSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if DEBUG_SERIALIZER:
             logger.debug(f"JobSerializer validate called with attrs: {attrs}")
-        # Validate nested pricing serializers
-        nested_pricings = [
-            "latest_estimate_pricing",
-            "latest_quote_pricing",
-            "latest_reality_pricing",
-        ]
-        for pricing_key in nested_pricings:
-            pricing_data = attrs.get(pricing_key)
-            if pricing_data:
-                pricing_serializer = JobPricingSerializer(
-                    data=pricing_data, partial=True
-                )
-                if not pricing_serializer.is_valid():
-                    logger.error(
-                        "Validation errors in %(key)s: %(errors)s",
-                        {
-                            "key": pricing_key,
-                            "errors": pricing_serializer.errors,
-                        },
-                    )
-                    raise serializers.ValidationError(
-                        {pricing_key: pricing_serializer.errors}
-                    )
+
+        # LEGACY PRICING VALIDATION REMOVED
+        # No longer validating pricing data - use CostSet/CostLine instead
 
         validated = super().validate(attrs)
         if DEBUG_SERIALIZER:
@@ -237,8 +212,9 @@ class JobSerializer(serializers.ModelSerializer):
                     logger.error(f"Error updating JobFile: {str(e)}")
                     raise serializers.ValidationError(f"Error updating file: {str(e)}")
 
-        # Handle basic job fields next
+        # Handle basic job fields
         for attr, value in validated_data.items():
+            # Skip legacy pricing fields - they are deprecated
             if attr not in [
                 "latest_estimate_pricing",
                 "latest_quote_pricing",
@@ -246,44 +222,8 @@ class JobSerializer(serializers.ModelSerializer):
             ]:
                 setattr(instance, attr, value)
 
-        pricing_methodologys = {
-            "latest_estimate_pricing": instance.latest_estimate_pricing,
-            "latest_quote_pricing": instance.latest_quote_pricing,
-            "latest_reality_pricing": instance.latest_reality_pricing,
-        }
-
-        for pricing_methodology, pricing_instance in pricing_methodologys.items():
-            pricing_data = validated_data.get(pricing_methodology)
-            if pricing_data:
-                if DEBUG_SERIALIZER:
-                    logger.debug(
-                        "Creating %(type)s serializer with data: %(data)s",
-                        {
-                            "type": pricing_methodology,
-                            "data": pricing_data,
-                        },
-                    )
-                pricing_serializer = JobPricingSerializer(
-                    instance=pricing_instance,
-                    data=pricing_data,
-                    partial=True,
-                    context=self.context,
-                )
-
-                if pricing_serializer.is_valid():
-                    logger.debug(f"{pricing_methodology} serializer is valid")
-                    pricing_serializer.save()
-                else:
-                    logger.error(
-                        "%(type)s serializer validation failed: %(errors)s",
-                        {
-                            "type": pricing_methodology,
-                            "errors": pricing_serializer.errors,
-                        },
-                    )
-                    raise serializers.ValidationError(
-                        {pricing_methodology: pricing_serializer.errors}
-                    )
+        # LEGACY PRICING UPDATE LOGIC REMOVED
+        # No longer processing pricing data - use CostSet/CostLine endpoints instead
 
         staff = self.context["request"].user if "request" in self.context else None
         instance.save(staff=staff)

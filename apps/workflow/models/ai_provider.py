@@ -23,6 +23,11 @@ class AIProvider(models.Model):
         max_length=20, choices=AIProviderTypes, help_text="Type of AI provider"
     )
 
+    @classmethod
+    def get_default_for_company(cls, company):
+        """Get the default AI provider for a company."""
+        return cls.objects.filter(company=company, default=True).first()
+
     def __str__(self):
         return f"{self.name} ({self.provider_type})"
 

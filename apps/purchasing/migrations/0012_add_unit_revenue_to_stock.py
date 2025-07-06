@@ -4,15 +4,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('purchasing', '0011_stock_xero_inventory_tracked'),
+        ("purchasing", "0011_stock_xero_inventory_tracked"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='stock',
-            name='unit_revenue',
-            field=models.DecimalField(blank=True, decimal_places=2, help_text='Revenue per unit (what customer pays)', max_digits=10, null=True),
+            model_name="stock",
+            name="unit_revenue",
+            field=models.DecimalField(
+                blank=True,
+                decimal_places=2,
+                help_text="Revenue per unit (what customer pays)",
+                max_digits=10,
+                null=True,
+            ),
         ),
     ]

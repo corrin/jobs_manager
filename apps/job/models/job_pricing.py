@@ -1,6 +1,7 @@
 # workflow/models/job_pricing.py
 import logging
 import uuid
+import warnings
 from decimal import Decimal
 
 from django.db import models, transaction
@@ -12,6 +13,17 @@ logger = logging.getLogger(__name__)
 
 
 class JobPricing(models.Model):
+    """
+    DEPRECATED MODEL - DO NOT USE FOR NEW DEVELOPMENT
+
+    This model is maintained for backward compatibility only.
+    Use CostSet/CostLine models instead for all new costing functionality.
+
+    Migration path:
+    - JobPricing → CostSet (with kind='estimate'|'quote'|'actual')
+    - TimeEntry/MaterialEntry/AdjustmentEntry → CostLine
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(
         "Job",
@@ -116,7 +128,18 @@ class JobPricing(models.Model):
         )
 
     def save(self, *args, **kwargs):
+        # Issue deprecation warning
+        warnings.warn(
+            "JobPricing model is deprecated. Use CostSet/CostLine models instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         if self._state.adding:
+            logger.warning(
+                f"DEPRECATED: Creating new JobPricing instance. "
+                f"Use CostSet with kind='{self.pricing_stage}' instead."
+            )
             self.revision_number = 1
 
             # Save first so we have a primary key

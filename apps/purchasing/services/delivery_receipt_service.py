@@ -4,8 +4,9 @@ from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from django.utils import timezone
 
-from apps.job.models import Job, MaterialEntry
+from apps.job.models import CostLine, CostSet, Job
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.workflow.models.company_defaults import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,9 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
     1. Validates the submitted allocation data for each PO line.
     2. Updates the received quantity on each PurchaseOrderLine.
     3. Deletes any previous Stock entries originating from these PO lines for this PO.
-    4. Creates new Stock entries based on the provided allocations
-    4. Creates new Stock entries based on the provided allocations
-       (linking to target jobs or stock holding job).
-    5. Updates the overall PurchaseOrder status.
+    4. Creates new Stock entries for stock holding job allocations.
+    5. Creates new CostLine entries for direct job allocations using the modern CostSet system.
+    6. Updates the overall PurchaseOrder status.
 
     Args:
         purchase_order_id: The ID of the purchase order being received.
@@ -157,12 +157,28 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                                     f"for line {line.id}."
                                 )
                             calculated_allocation_sum += alloc_qty
+
+                            # Get retail rate with proper error handling
+                            try:
+                                company_defaults = CompanyDefaults.get_instance()
+                                # materials_markup is already in decimal format (e.g., 0.20 for 20%)
+                                # Convert to percentage for consistency with frontend
+                                default_retail_rate = (
+                                    company_defaults.materials_markup * 100
+                                )
+                            except Exception as e:
+                                raise DeliveryReceiptValidationError(
+                                    f"Cannot process delivery receipt - company defaults not configured: {str(e)}"
+                                )
+
                             valid_allocations.append(
                                 {
                                     "jobId": job_id,
                                     "quantity": alloc_qty,
                                     "metadata": alloc.get("metadata", {}),
-                                    "retailRate": alloc.get("retailRate", 20),
+                                    "retailRate": alloc.get(
+                                        "retailRate", default_retail_rate
+                                    ),
                                 }
                             )
                     except (InvalidOperation, TypeError):
@@ -193,11 +209,12 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                         f"for line {line.id}."
                     )
 
-                # Update PO Line received quantity
-                line.received_quantity = total_received
+                # Update PO Line received quantity (accumulate, don't overwrite)
+                line.received_quantity += total_received
                 line.save(update_fields=["received_quantity"])  # Be specific
                 logger.debug(
-                    f"Updated line {line.id} received_quantity to {total_received}."
+                    f"Added {total_received} to line {line.id} received_quantity. "
+                    f"New total: {line.received_quantity}."
                 )
 
                 # Create new Stock entries
@@ -205,11 +222,24 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                     job_id = alloc_data["jobId"]
                     target_job = Job.objects.get(id=job_id)
                     alloc_qty = alloc_data["quantity"]
-                    retail_rate = alloc_data.get("retailRate", 20) / 100.0
+
+                    # Get retail rate with proper error handling
+                    try:
+                        company_defaults = CompanyDefaults.get_instance()
+                        # materials_markup is already in decimal format (e.g., 0.20 for 20%)
+                        # Convert to percentage for consistency, then back to decimal for calculations
+                        default_retail_rate = company_defaults.materials_markup * 100
+                        retail_rate = Decimal(
+                            str(alloc_data.get("retailRate", default_retail_rate))
+                        ) / Decimal("100")
+                    except Exception as e:
+                        raise DeliveryReceiptValidationError(
+                            f"Cannot process delivery receipt - company defaults not configured: {str(e)}"
+                        )
                     logger.info(f"Metadata: {alloc_data['metadata']}")
 
                     try:
-                        unit_revenue = line.unit_cost * Decimal(1.0 + retail_rate)
+                        unit_revenue = line.unit_cost * (Decimal("1") + retail_rate)
                     except TypeError:
                         raise DeliveryReceiptValidationError(
                             "Price not confirmed for line, "
@@ -218,6 +248,9 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
 
                     if str(job_id) == str(STOCK_HOLDING_JOB_ID):
                         metadata = alloc_data.get("metadata", {})
+                        logger.debug(
+                            f"Creating stock item with retail_rate: {retail_rate}, type: {type(retail_rate)}"
+                        )
                         stock_item = Stock.objects.create(
                             job=target_job,
                             description=line.description,
@@ -242,17 +275,37 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                             """.strip()
                         )
                     else:
-                        material_entry = MaterialEntry.objects.create(
-                            job_pricing=target_job.latest_reality_pricing,
-                            description=line.description,
+                        # Ensure job has an actual cost set
+                        if not target_job.latest_actual:
+                            actual_cost_set = CostSet.objects.create(
+                                job=target_job, kind="actual", rev=1
+                            )
+                            target_job.latest_actual = actual_cost_set
+                            target_job.save(update_fields=["latest_actual"])
+                            logger.debug(
+                                f"Created missing actual CostSet for job {target_job.id}"
+                            )
+
+                        cost_line = CostLine.objects.create(
+                            cost_set=target_job.latest_actual,
+                            kind="material",
+                            desc=line.description,
                             quantity=alloc_qty,
                             unit_cost=line.unit_cost,
-                            unit_revenue=unit_revenue,
-                            purchase_order_line=line,
+                            unit_rev=unit_revenue,
+                            ext_refs={
+                                "purchase_order_line_id": str(line.id),
+                                "purchase_order_id": str(purchase_order.id),
+                            },
+                            meta={
+                                "source": "delivery_receipt",
+                                "retail_rate": float(retail_rate),
+                                "po_number": purchase_order.po_number,
+                            },
                         )
                         logger.info(
                             f"""
-                            Created Material entry {material_entry.id} for line {line.id},
+                            Created CostLine {cost_line.id} for line {line.id},
                             allocated to Job {target_job.id}, qty {alloc_qty},
                             retail rate {retail_rate:.2%}.
                             """.strip()
