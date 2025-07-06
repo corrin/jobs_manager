@@ -1,9 +1,3 @@
-"""
-URLs REST para o módulo Job
-
-Novas rotas REST seguindo padrões modernos para integração com frontend Vue.js
-"""
-
 from django.http import HttpResponse
 from django.urls import path
 from rest_framework import status
