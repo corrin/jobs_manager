@@ -88,7 +88,10 @@ Create a new Job Aging report API endpoint that provides comprehensive job aging
    - Includes include_archived query parameter support
    - Follows existing API patterns from KPICalendarAPIView
    - Uses proper error handling with persist_app_error
-3. **Modify**: `apps/accounting/urls.py` - Add URL pattern
+3. **✅ COMPLETED**: `apps/accounting/urls.py` - Add URL pattern
+   - Added JobAgingAPIView import
+   - Added api/reports/job-aging/ endpoint with name api_job_aging
+   - Follows existing URL pattern conventions
 4. **Modify**: `apps/accounting/views/__init__.py` - Import new view
 
 ## Testing Approach

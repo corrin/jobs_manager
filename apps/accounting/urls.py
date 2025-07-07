@@ -2,6 +2,7 @@ from django.urls import path
 
 from apps.accounting.views import generate_quote_pdf, send_quote_email
 from apps.accounting.views.kpi_view import KPICalendarAPIView, KPICalendarTemplateView
+from apps.accounting.views.job_aging_view import JobAgingAPIView
 
 app_name = "accounting"
 
@@ -21,6 +22,11 @@ urlpatterns = [
         "api/reports/calendar/",
         KPICalendarAPIView.as_view(),
         name="api_kpi_calendar",
+    ),
+    path(
+        "api/reports/job-aging/",
+        JobAgingAPIView.as_view(),
+        name="api_job_aging",
     ),
     path(
         "reports/calendar/",
