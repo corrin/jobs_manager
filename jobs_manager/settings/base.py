@@ -68,7 +68,7 @@ ENABLE_DUAL_AUTHENTICATION = False
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+        "apps.workflow.permissions.DevelopmentOrAuthenticatedPermission",
     ],
 }
 

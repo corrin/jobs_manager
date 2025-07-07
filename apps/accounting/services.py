@@ -14,7 +14,6 @@ from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
 from apps.job.enums import JobPricingStage
 from apps.job.models import AdjustmentEntry, MaterialEntry, Job, JobEvent
-from apps.job.enums import JobStatus
 from apps.timesheet.models import TimeEntry
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
@@ -757,7 +756,7 @@ class JobAgingService:
             )
             
             if not include_archived:
-                jobs_query = jobs_query.exclude(status=JobStatus.ARCHIVED)
+                jobs_query = jobs_query.exclude(status="archived")
             
             jobs = jobs_query.order_by("-created_at")
         except Exception as exc:
@@ -959,7 +958,7 @@ class JobAgingService:
                     activities.append({
                         "date": latest_time_entry.created_at,
                         "type": "time_entry",
-                        "description": f"Time added by {latest_time_entry.staff.get_full_name()}"
+                        "description": f"Time added by {latest_time_entry.staff.get_display_full_name() if latest_time_entry.staff else 'Unknown'}"
                     })
                 
                 # Check material entries
