@@ -16,14 +16,10 @@ from apps.job.views.job_quote_chat_views import (
     JobQuoteChatMessageView,
 )
 from apps.job.views.job_rest_views import (
-    JobAdjustmentEntryRestView,
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
-    JobMaterialEntryRestView,
-    JobTimeEntryRestView,
     JobToggleComplexRestView,
-    JobTogglePricingMethodologyRestView,
 )
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
@@ -49,33 +45,14 @@ rest_urlpatterns = [
         JobToggleComplexRestView.as_view(),
         name="job_toggle_complex_rest",
     ),
-    path(
-        "rest/jobs/toggle-pricing-methodology/",
-        JobTogglePricingMethodologyRestView.as_view(),
-        name="job_toggle_pricing_methodology_rest",
-    ),
     # Job events
     path(
         "rest/jobs/<uuid:job_id>/events/",
         JobEventRestView.as_view(),
         name="job_events_rest",
     ),
-    # Job entries
-    path(
-        "rest/jobs/<uuid:job_id>/time-entries/",
-        JobTimeEntryRestView.as_view(),
-        name="job_time_entries_rest",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/material-entries/",
-        JobMaterialEntryRestView.as_view(),
-        name="job_material_entries_rest",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/adjustment-entries/",
-        JobAdjustmentEntryRestView.as_view(),
-        name="job_adjustment_entries_rest",
-    ),
+    # Job entries - REMOVED: Legacy endpoints deprecated
+    # Use CostLine endpoints instead of JobTimeEntryRestView, JobMaterialEntryRestView, JobAdjustmentEntryRestView
     # Job costing
     path(
         "rest/jobs/<uuid:pk>/cost_sets/<str:kind>/",

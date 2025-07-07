@@ -8,14 +8,11 @@ from django.db.models import Index, Max
 from simple_history.models import HistoricalRecords  # type: ignore
 
 from apps.accounts.models import Staff
-from apps.job.enums import JobPricingMethodology
 from apps.job.helpers import get_company_defaults
 
 # We say . rather than job.models to avoid going through init,
 # otherwise it would have a circular import
 from .job_event import JobEvent
-
-# NOTE: JobPricing import removed - it's deprecated
 
 if TYPE_CHECKING:
     from .costing import CostSet
@@ -91,6 +88,18 @@ class Job(models.Model):
         max_length=30, choices=JOB_STATUS_CHOICES, default="quoting"
     )  # type: ignore
 
+    PRICING_METHODOLOGY_CHOICES = [
+        ("time_materials", "Time & Materials"),
+        ("fixed_price", "Fixed Price"),
+    ]
+
+    pricing_methodology = models.CharField(
+        max_length=20,
+        choices=PRICING_METHODOLOGY_CHOICES,
+        default="time_materials",
+        help_text="Determines whether job uses quotes or time and materials pricing type.",
+    )
+
     # Decided not to bother with parent for now since we don't have a hierarchy of jobs.
     # Can be restored.
     # Parent would provide an alternative to historical records for tracking changes.
@@ -115,49 +124,6 @@ class Job(models.Model):
         )
     )
 
-    pricing_methodology = models.CharField(
-        max_length=20,
-        choices=JobPricingMethodology.choices,
-        default=JobPricingMethodology.TIME_AND_MATERIALS,
-        help_text="Type of pricing for the job (fixed price or time and materials).",
-    )
-
-    # LEGACY RELATIONSHIPS - DEPRECATED
-    # These fields are maintained for backward compatibility only
-    # Use latest_estimate, latest_quote, latest_actual (CostSet) instead
-    latest_estimate_pricing = models.OneToOneField(
-        "JobPricing",
-        on_delete=models.SET_NULL,  # Changed from CASCADE to avoid data loss
-        null=True,
-        blank=True,
-        related_name="latest_estimate_for_job",
-        help_text="DEPRECATED: Use latest_estimate (CostSet) instead",
-    )
-
-    latest_quote_pricing = models.OneToOneField(
-        "JobPricing",
-        on_delete=models.SET_NULL,  # Changed from CASCADE to avoid data loss
-        null=True,
-        blank=True,
-        related_name="latest_quote_for_job",
-        help_text="DEPRECATED: Use latest_quote (CostSet) instead",
-    )
-
-    latest_reality_pricing = models.OneToOneField(
-        "JobPricing",
-        on_delete=models.SET_NULL,  # Changed from CASCADE to avoid data loss
-        null=True,
-        blank=True,
-        related_name="latest_reality_for_job",
-        help_text="DEPRECATED: Use latest_actual (CostSet) instead",
-    )
-
-    archived_pricings = models.ManyToManyField(
-        "JobPricing",
-        related_name="archived_pricings_for_job",
-        blank=True,
-        help_text="DEPRECATED: Historical pricing data",
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

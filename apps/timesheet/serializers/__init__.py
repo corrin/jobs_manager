@@ -7,13 +7,11 @@ from .daily_timesheet_serializers import (
     StaffDailyDataSerializer,
     SummaryStatsSerializer,
 )
-from .legacy_timesheet_serializers import (
-    JobPricingAPISerializer,
-    StaffAPISerializer,
-    TimeEntryAPISerializer,
-    TimeEntryForJobPricingSerializer,
-    TimeEntryForTimeEntryViewSerializer,
-    TimesheetJobAPISerializer,
+from .modern_timesheet_serializers import (
+    ModernStaffSerializer,
+    ModernTimesheetJobSerializer,
+    PaidAbsenceRequestSerializer,
+    WeeklyTimesheetDataSerializer,
 )
 
 __all__ = [
@@ -22,10 +20,8 @@ __all__ = [
     "DailyTotalsSerializer",
     "SummaryStatsSerializer",
     "DailyTimesheetSummarySerializer",
-    "TimeEntryForJobPricingSerializer",
-    "TimeEntryForTimeEntryViewSerializer",
-    "TimeEntryAPISerializer",
-    "StaffAPISerializer",
-    "JobPricingAPISerializer",
-    "TimesheetJobAPISerializer",
+    "ModernTimesheetJobSerializer",
+    "ModernStaffSerializer",
+    "WeeklyTimesheetDataSerializer",
+    "PaidAbsenceRequestSerializer",
 ]

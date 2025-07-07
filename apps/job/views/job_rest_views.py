@@ -19,6 +19,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.helpers import get_company_defaults
 from apps.job.services.job_rest_service import JobRestService
 
 logger = logging.getLogger(__name__)
@@ -199,33 +200,8 @@ class JobToggleComplexRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class JobTogglePricingMethodologyRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated as pricing methodologies are not toggled.
-    The system now uses CostSet/CostLine for all pricing operations.
-    JobPricings are legacy and should not be used for new functionality.
-    """
-
-    def post(self, request):
-        """
-        This endpoint is deprecated and should not be used.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobTogglePricingMethodologyRestView is deprecated. Use CostSet/CostLine system instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Pricing methodologies are not toggled - use CostSet/CostLine system for all pricing operations.",
-            },
-            status=410,  # Gone
-        )
+# LEGACY PRICING METHODOLOGIES REMOVED
+# The system now uses CostSet/CostLine for all pricing operations.
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -260,91 +236,18 @@ class JobEventRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class JobTimeEntryRestView(BaseJobRestView):
+def get_company_defaults_api(request):
     """
-    DEPRECATED: This view is deprecated. Use CostLine endpoints instead.
-    Time entries should be created using the modern CostSet/CostLine system.
+    API endpoint to fetch company default settings.
+    Uses the get_company_defaults() helper function to ensure
+    a single instance is retrieved or created if it doesn't exist.
     """
-
-    def post(self, request, job_id):
-        """
-        This endpoint is deprecated and should not be used.
-        Use the CostLine creation endpoints instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobTimeEntryRestView is deprecated. Use CostLine endpoints instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Use CostLine endpoints for creating time entries.",
-                "alternative_endpoint": "/rest/jobs/{job_id}/cost_sets/actual/cost_lines/",
-            },
-            status=410,  # Gone
-        )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobMaterialEntryRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated. Use CostLine endpoints instead.
-    Material entries should be created using the modern CostSet/CostLine system.
-    """
-
-    def post(self, request, job_id):
-        """
-        This endpoint is deprecated and should not be used.
-        Use the CostLine creation endpoints instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobMaterialEntryRestView is deprecated. Use CostLine endpoints instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Use CostLine endpoints for creating material entries.",
-                "alternative_endpoint": "/rest/jobs/{job_id}/cost_sets/actual/cost_lines/",
-            },
-            status=410,  # Gone
-        )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobAdjustmentEntryRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated. Use CostLine endpoints instead.
-    Adjustment entries should be created using the modern CostSet/CostLine system.
-    """
-
-    def post(self, request, job_id):
-        """
-        This endpoint is deprecated and should not be used.
-        Use the CostLine creation endpoints instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobAdjustmentEntryRestView is deprecated. Use CostLine endpoints instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Use CostLine endpoints for creating adjustment entries.",
-                "alternative_endpoint": "/rest/jobs/{job_id}/cost_sets/actual/cost_lines/",
-            },
-            status=410,  # Gone
-        )
+    defaults = get_company_defaults()
+    return JsonResponse(
+        {
+            "materials_markup": float(defaults.materials_markup),
+            "time_markup": float(defaults.time_markup),
+            "charge_out_rate": float(defaults.charge_out_rate),
+            "wage_rate": float(defaults.wage_rate),
+        }
+    )

@@ -16,10 +16,8 @@ from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
-from apps.job.enums import JobPricingStage
 from apps.job.models import Job, JobEvent
-from apps.job.serializers import JobPricingSerializer, JobSerializer
-from apps.job.services.job_service import get_job_with_pricings
+from apps.job.serializers import JobSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -100,24 +98,16 @@ class JobRestService:
             job_id: Job UUID
 
         Returns:
-            Dict with job and pricing data
+            Dict with job data (pricing data removed - use CostSet endpoints)
         """
-        job = get_job_with_pricings(job_id)
+        job = Job.objects.select_related("client").get(id=job_id)
+
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
-        # Fetch latest pricings
-        latest_pricings = {
-            "estimate": job.latest_estimate_pricing,
-            "quote": job.latest_quote_pricing,
-            "reality": job.latest_reality_pricing,
-        }
-        # Serialise pricings
-        latest_pricings_data = {}
-        for stage, pricing in latest_pricings.items():
-            if pricing:
-                latest_pricings_data[stage] = JobPricingSerializer(pricing).data
-            else:
-                latest_pricings_data[stage] = None
+
+        # Legacy pricing data removed - frontend should use CostSet endpoints
+        # instead of embedding pricing data here
+
         # Fetch job events
         events = JobEvent.objects.filter(job=job).order_by("-timestamp")[:10]
         events_data = [
@@ -135,9 +125,9 @@ class JobRestService:
         company_defaults = JobRestService._get_company_defaults()
         return {
             "job": job_data,
-            "latest_pricings": latest_pricings_data,
             "events": events_data,
             "company_defaults": company_defaults,
+            # Legacy pricing data removed - use CostSet endpoints instead
         }
 
     @staticmethod
@@ -160,7 +150,6 @@ class JobRestService:
             "description": job.description,
             "status": job.status,
             "priority": job.priority,
-            "pricing_methodology": job.pricing_methodology,
             "client_id": job.client_id,
             "charge_out_rate": job.charge_out_rate,
             "order_number": job.order_number,
@@ -296,13 +285,16 @@ class JobRestService:
         """
         job = get_object_or_404(Job, id=job_id)
 
-        # Guard clause - check if can delete
-        reality_pricing = job.pricings.filter(
-            pricing_stage=JobPricingStage.REALITY, is_historical=False
+        # Guard clause - check if can delete using CostSet system
+        # Check if job has any actual costs via CostSet
+        from apps.workflow.models import CostSet
+
+        actual_cost_set = CostSet.objects.filter(
+            job=job, kind="actual", is_current=True
         ).first()
 
-        if reality_pricing and (
-            reality_pricing.total_revenue > 0 or reality_pricing.total_cost > 0
+        if actual_cost_set and (
+            actual_cost_set.total_cost > 0 or actual_cost_set.total_price > 0
         ):
             raise ValueError(
                 "Cannot delete this job because it has real costs or revenue."
@@ -390,7 +382,6 @@ class JobRestService:
             "description": "Description",
             "status": "Status",
             "priority": "Priority",
-            "pricing_methodology": "Pricing method",
             "client_id": "Client",
             "charge_out_rate": "Charge out rate",
             "order_number": "Order number",
@@ -425,12 +416,6 @@ class JobRestService:
             if field == "status":
                 changes.append(
                     JobRestService._format_status_change(
-                        label, original_value, new_value
-                    )
-                )
-            elif field == "pricing_methodology":
-                changes.append(
-                    JobRestService._format_pricing_method_change(
                         label, original_value, new_value
                     )
                 )
@@ -481,21 +466,6 @@ class JobRestService:
         return f"{label} changed from {old_label} to {new_label}"
 
     @staticmethod
-    def _format_pricing_method_change(
-        label: str, old_value: str, new_value: str
-    ) -> str:
-        """Formats pricing methodology change."""
-        method_labels = {
-            "time_materials": "Time & Materials",
-            "fixed_price": "Fixed Price",
-        }
-
-        old_label = method_labels.get(old_value, old_value.replace("_", " ").title())
-        new_label = method_labels.get(new_value, new_value.replace("_", " ").title())
-
-        return f"{label} changed from {old_label} to {new_label}"
-
-    @staticmethod
     def _format_currency_change(label: str, old_value: Any, new_value: Any) -> str:
         """Formats currency field changes."""
         if old_value and new_value:
@@ -523,92 +493,8 @@ class JobRestService:
         else:
             return f"{label} removed"
 
-    @staticmethod
-    def create_time_entry(
-        job_id: UUID, entry_data: Dict[str, Any], user: Staff
-    ) -> Dict[str, Any]:
-        """
-        DEPRECATED: Creates a new time entry for a Job using legacy JobPricing system.
 
-        This method is deprecated and should not be used for new functionality.
-        Use CostLine creation with CostSet instead.
-
-        Args:
-            job_id: Job UUID
-            entry_data: Time entry data
-            user: User creating the entry
-
-        Returns:
-            Dict with operation result and updated job data
-        """
-        import warnings
-
-        warnings.warn(
-            "create_time_entry is deprecated. Use CostLine creation with CostSet instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        raise DeprecationWarning(
-            "This method is deprecated. Use CostLine creation endpoints with CostSet instead of legacy time entries."
-        )
-
-    @staticmethod
-    def create_material_entry(
-        job_id: UUID, entry_data: Dict[str, Any], user: Staff
-    ) -> Dict[str, Any]:
-        """
-        DEPRECATED: Creates a new material entry for a Job using legacy JobPricing system.
-
-        This method is deprecated and should not be used for new functionality.
-        Use CostLine creation with CostSet instead.
-
-        Args:
-            job_id: Job UUID
-            entry_data: Material entry data
-            user: User creating the entry
-
-        Returns:
-            Dict with operation result and updated job data
-        """
-        import warnings
-
-        warnings.warn(
-            "create_material_entry is deprecated. Use CostLine creation with CostSet instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        raise DeprecationWarning(
-            "This method is deprecated. Use CostLine creation endpoints with CostSet instead of legacy material entries."
-        )
-
-    @staticmethod
-    def create_adjustment_entry(
-        job_id: UUID, entry_data: Dict[str, Any], user: Staff
-    ) -> Dict[str, Any]:
-        """
-        DEPRECATED: Creates a new adjustment entry for a Job using legacy JobPricing system.
-
-        This method is deprecated and should not be used for new functionality.
-        Use CostLine creation with CostSet instead.
-
-        Args:
-            job_id: Job UUID
-            entry_data: Adjustment entry data
-            user: User creating the entry
-
-        Returns:
-            Dict with operation result and updated job data
-        """
-        import warnings
-
-        warnings.warn(
-            "create_adjustment_entry is deprecated. Use CostLine creation with CostSet instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        raise DeprecationWarning(
-            "This method is deprecated. Use CostLine creation endpoints with CostSet instead of legacy adjustment entries."
-        )
+# DEPRECATED METHODS REMOVED:
+# - create_time_entry() - Use CostLine creation with CostSet instead
+# - create_material_entry() - Use CostLine creation with CostSet instead
+# - create_adjustment_entry() - Use CostLine creation with CostSet instead
