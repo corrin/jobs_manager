@@ -79,7 +79,10 @@ Create a new Job Aging report API endpoint that provides comprehensive job aging
 - **Activity type mapping**: Determine activity source and create descriptive text
 
 ## Files to Create/Modify
-1. **Create**: `apps/accounting/services.py` - Add JobAgingService class
+1. **✅ COMPLETED**: `apps/accounting/services.py` - Add JobAgingService class
+   - Added JobAgingService with proper error handling using persist_app_error
+   - Includes all required methods: get_job_aging_data, _get_financial_totals, _get_timing_data, _calculate_time_in_status, _get_last_activity
+   - Follows defensive programming principles with comprehensive error logging and persistence
 2. **Create**: `apps/accounting/views/job_aging_view.py` - New API view
 3. **Modify**: `apps/accounting/urls.py` - Add URL pattern
 4. **Modify**: `apps/accounting/views/__init__.py` - Import new view

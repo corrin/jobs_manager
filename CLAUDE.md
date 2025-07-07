@@ -168,6 +168,38 @@ PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 - If foreign key references are missing, the backup/restore process or data model has a bug that must be fixed
 - FOCUS ON THE UNHAPPY CASE.  If it is appropriate to do error handling then do if <bad_case>: <handle_bad_case>.  NEVER write if <good case> to silently hide bad cases.
 
+### Error Handling Patterns
+- **Use AppError for persistence**: All exceptions should be logged and persisted to the database using `persist_app_error(exc)`
+- **Smart logging levels**:
+  - `logger.error()` for critical failures that affect core functionality
+  - `logger.warning()` for non-critical errors where processing can continue
+  - Always include context like job numbers, user IDs in error messages
+- **Graceful degradation**: For non-critical errors, log and persist the error but continue processing with sensible defaults
+- **Critical vs Non-Critical**:
+  - Critical: Database connection failures, missing core data models
+  - Non-Critical: Individual record processing failures, missing optional data
+
+### Error Handling Code Pattern
+```python
+from apps.workflow.services.error_persistence import persist_app_error
+
+# For critical errors that should stop execution
+try:
+    critical_operation()
+except Exception as exc:
+    logger.error(f"Critical error in operation: {str(exc)}")
+    persist_app_error(exc)
+    raise  # or return empty/default response
+
+# For non-critical errors where processing can continue
+try:
+    optional_data = get_optional_data(record)
+except Exception as exc:
+    logger.warning(f"Error getting optional data for {record.id}: {str(exc)}")
+    persist_app_error(exc)
+    optional_data = default_value  # Continue with sensible default
+```
+
 ### Testing Approach
 Limited test coverage currently - focus on manual testing and data validation commands like `validate_jobs`.
 
