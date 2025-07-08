@@ -785,8 +785,7 @@ class JobAgingService:
         try:
             # Get active jobs (exclude archived unless requested)
             jobs_query = Job.objects.select_related("client").prefetch_related(
-                "events", "cost_sets", "pricings__time_entries", 
-                "pricings__material_entries", "pricings__adjustment_entries"
+                "events", "cost_sets__cost_lines"
             )
             
             if not include_archived:
@@ -936,7 +935,7 @@ class JobAgingService:
         """
         # Find the most recent status change event
         latest_status_change = job.events.filter(
-            event_type="status_changed"
+            event_type="status_change"
         ).first()
         
         if latest_status_change:
@@ -985,35 +984,45 @@ class JobAgingService:
             persist_app_error(exc)
         
         try:
-            # Check time entries across all job pricings
-            for pricing in job.pricings.all():
-                latest_time_entry = pricing.time_entries.order_by("-created_at").first()
-                if latest_time_entry:
+            # Check cost lines across all job cost sets
+            for cost_set in job.cost_sets.all():
+                for cost_line in cost_set.cost_lines.all():
+                    # Get the creation date - use the meta date if available, otherwise fall back to cost_set creation
+                    line_date = cost_line.meta.get('date')
+                    if line_date:
+                        try:
+                            # Convert from ISO string to datetime
+                            import datetime
+                            line_datetime = datetime.datetime.fromisoformat(line_date)
+                            # Convert to timezone-aware datetime
+                            from django.utils import timezone
+                            if timezone.is_naive(line_datetime):
+                                line_datetime = timezone.make_aware(line_datetime)
+                        except (ValueError, TypeError):
+                            # Fall back to cost_set creation date if date parsing fails
+                            line_datetime = cost_set.created
+                    else:
+                        # Fall back to cost_set creation date if no date in meta
+                        line_datetime = cost_set.created
+                    
+                    description = f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
+                    if cost_line.kind == "time":
+                        staff_id = cost_line.meta.get('staff_id')
+                        if staff_id:
+                            try:
+                                from apps.accounts.models import Staff
+                                staff = Staff.objects.get(id=staff_id)
+                                description = f"Time added by {staff.get_display_full_name()}"
+                            except Staff.DoesNotExist:
+                                description = f"Time added by unknown staff"
+                    
                     activities.append({
-                        "date": latest_time_entry.created_at,
-                        "type": "time_entry",
-                        "description": f"Time added by {latest_time_entry.staff.get_display_full_name() if latest_time_entry.staff else 'Unknown'}"
-                    })
-                
-                # Check material entries
-                latest_material_entry = pricing.material_entries.order_by("-created_at").first()
-                if latest_material_entry:
-                    activities.append({
-                        "date": latest_material_entry.created_at,
-                        "type": "material_entry",
-                        "description": f"Material added: {latest_material_entry.description}"
-                    })
-                
-                # Check adjustment entries
-                latest_adjustment_entry = pricing.adjustment_entries.order_by("-created_at").first()
-                if latest_adjustment_entry:
-                    activities.append({
-                        "date": latest_adjustment_entry.created_at,
-                        "type": "adjustment_entry",
-                        "description": f"Adjustment made: {latest_adjustment_entry.description}"
+                        "date": line_datetime,
+                        "type": f"cost_line_{cost_line.kind}",
+                        "description": description
                     })
         except Exception as exc:
-            logger.warning(f"Error checking pricing activities for job {job.job_number}: {str(exc)}")
+            logger.warning(f"Error checking cost line activities for job {job.job_number}: {str(exc)}")
             persist_app_error(exc)
         
         # Find the most recent activity
