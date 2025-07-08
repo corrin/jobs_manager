@@ -200,7 +200,6 @@ class JobToggleComplexRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
-# LEGACY PRICING METHODOLOGIES REMOVED
 # The system now uses CostSet/CostLine for all pricing operations.
 
 

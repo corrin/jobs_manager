@@ -51,7 +51,7 @@ rest_urlpatterns = [
         JobEventRestView.as_view(),
         name="job_events_rest",
     ),
-    # Job entries - REMOVED: Legacy endpoints deprecated
+    # Job entries
     # Use CostLine endpoints instead of JobTimeEntryRestView, JobMaterialEntryRestView, JobAdjustmentEntryRestView
     # Job costing
     path(
@@ -130,7 +130,7 @@ rest_urlpatterns = [
     path("rest/jobs/<uuid:pk>/quote/link/", link_quote_sheet, name="quote_link_sheet"),
     path("rest/jobs/<uuid:pk>/quote/preview/", preview_quote, name="quote_preview"),
     path("rest/jobs/<uuid:pk>/quote/apply/", apply_quote, name="quote_apply"),
-    # Quote Import (DEPRECATED - file upload based)
+    # Quote Import
     path(
         "rest/jobs/<uuid:job_id>/quote/import/preview/",
         lambda request, *args, **kwargs: HttpResponse(

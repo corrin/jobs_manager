@@ -105,7 +105,6 @@ class JobRestService:
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
 
-        # Legacy pricing data removed - frontend should use CostSet endpoints
         # instead of embedding pricing data here
 
         # Fetch job events
@@ -127,7 +126,6 @@ class JobRestService:
             "job": job_data,
             "events": events_data,
             "company_defaults": company_defaults,
-            # Legacy pricing data removed - use CostSet endpoints instead
         }
 
     @staticmethod
@@ -494,7 +492,6 @@ class JobRestService:
             return f"{label} removed"
 
 
-# DEPRECATED METHODS REMOVED:
 # - create_time_entry() - Use CostLine creation with CostSet instead
 # - create_material_entry() - Use CostLine creation with CostSet instead
 # - create_adjustment_entry() - Use CostLine creation with CostSet instead
