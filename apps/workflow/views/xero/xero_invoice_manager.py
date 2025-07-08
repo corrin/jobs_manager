@@ -19,7 +19,6 @@ from apps.accounting.enums import InvoiceStatus
 # Import models
 from apps.accounting.models import Invoice
 from apps.client.models import Client
-from apps.job.enums import JobPricingMethodology
 from apps.job.models import Job
 from apps.job.models.costing import CostSet
 

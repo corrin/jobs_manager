@@ -222,7 +222,7 @@ class DailyTimesheetService:
         job_data = {}
 
         for line in cost_lines:
-            # Use the actual relationship instead of deprecated meta.job_id
+            # Use the actual relationship instead of meta.job_id
             job = line.cost_set.job if line.cost_set else None
 
             if job:
@@ -273,7 +273,7 @@ class DailyTimesheetService:
 
         if actual_hours > scheduled_hours * Decimal("1.2"):  # More than 120%
             alerts.append("Overtime recorded")
-        # Check for missing job information - use actual relationship instead of deprecated meta.job_id
+        # Check for missing job information - use actual relationship instead of meta.job_id
         missing_job_entries = [
             line for line in cost_lines if not (line.cost_set and line.cost_set.job)
         ]

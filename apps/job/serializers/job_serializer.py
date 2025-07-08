@@ -164,7 +164,6 @@ class JobSerializer(serializers.ModelSerializer):
         if DEBUG_SERIALIZER:
             logger.debug(f"JobSerializer validate called with attrs: {attrs}")
 
-        # LEGACY PRICING VALIDATION REMOVED
         # No longer validating pricing data - use CostSet/CostLine instead
 
         validated = super().validate(attrs)
@@ -214,7 +213,7 @@ class JobSerializer(serializers.ModelSerializer):
 
         # Handle basic job fields
         for attr, value in validated_data.items():
-            # Skip legacy pricing fields - they are deprecated
+            # Skip legacy pricing fields
             if attr not in [
                 "latest_estimate_pricing",
                 "latest_quote_pricing",
@@ -222,7 +221,6 @@ class JobSerializer(serializers.ModelSerializer):
             ]:
                 setattr(instance, attr, value)
 
-        # LEGACY PRICING UPDATE LOGIC REMOVED
         # No longer processing pricing data - use CostSet/CostLine endpoints instead
 
         staff = self.context["request"].user if "request" in self.context else None
