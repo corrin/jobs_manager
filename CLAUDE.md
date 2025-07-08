@@ -84,12 +84,13 @@ Django-based job/project management system for custom metal fabrication business
 - Authentication middleware and base templates
 - URL routing coordination
 
-**`job`** - Core job lifecycle management
+**`job`** - Core job lifecycle management with **modern costing architecture**
 - Job model with Kanban-style status tracking (Quoting → In Progress → Completed → Archived)
-- JobPricing for estimates/quotes with revision tracking
+- **NEW**: CostSet/CostLine for flexible cost tracking (estimate/quote/actual) - **USE FOR ALL NEW DEVELOPMENT**
+- **FULLY DEPRECATED**: JobPricing, MaterialEntry, AdjustmentEntry, TimeEntry - **DO NOT USE IN ANY NEW CODE**
 - JobFile for document attachments
 - JobEvent for comprehensive audit trails
-- MaterialEntry/AdjustmentEntry for job costing
+- Service layer for business logic orchestration
 
 **`accounts`** - User management with custom Staff model
 - Extends AbstractBaseUser for business-specific requirements
@@ -101,15 +102,17 @@ Django-based job/project management system for custom metal fabrication business
 - Contact person and communication tracking
 
 **`timesheet`** - Time tracking and billing
-- TimeEntry linked to JobPricing for accurate job costing
+- **MIGRATION TO**: CostLine with kind='time' for time tracking - **ALL NEW TIME ENTRIES**
+- **DEPRECATED**: TimeEntry model - **DO NOT CREATE NEW TimeEntry RECORDS**
 - Billable vs non-billable classification
 - Daily/weekly timesheet interfaces
 - Wage rate and charge-out rate management
 
 **`purchasing`** - Purchase order and inventory management
-- PurchaseOrder with Xero integration for accounting sync
-- Stock management with source tracking
+- PurchaseOrder with comprehensive Xero integration via XeroPurchaseOrderManager
+- Stock management with source tracking and inventory control
 - Supplier quote processing and delivery receipts
+- **Integration**: Links to CostLine via external references for material costing
 
 **`accounting`** - Financial reporting and KPI tracking
 - KPI calendar views and financial analytics
@@ -138,11 +141,19 @@ Django-based job/project management system for custom metal fabrication business
 
 ### Database Design Patterns
 
-**Key Relationships:**
+**Modern Relationships (USE THESE):**
 ```
-Job → JobPricing (1:many) → TimeEntry/MaterialEntry (1:many)
-Staff → TimeEntry (1:many)
+Job → CostSet (1:many) → CostLine (1:many)
+CostLine → external references via ext_refs JSON field
+PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
+Staff → CostLine (time entries via ext_refs)
 Client → Job (1:many)
+```
+
+**Legacy Relationships (DEPRECATED - DO NOT USE):**
+```
+Job → JobPricing (1:many) → TimeEntry/MaterialEntry/AdjustmentEntry (1:many)
+Staff → TimeEntry (1:many)
 PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 ```
 
@@ -150,6 +161,8 @@ PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 - UUID primary keys throughout for security
 - SimpleHistory for audit trails on critical models
 - Soft deletes where appropriate
+- **NEW**: JSON ext_refs for flexible external references
+- **NEW**: CostSet/CostLine architecture for all cost tracking
 - Bidirectional Xero synchronization with conflict resolution
 
 ## Development Workflow
@@ -211,19 +224,21 @@ Limited test coverage currently - focus on manual testing and data validation co
 
 ## Business Context
 
-### Job Lifecycle Workflow
-1. **Quoting**: Fast quote generation with material/labor estimates
-2. **Job Creation**: Convert accepted quotes to jobs with status tracking
+### Job Lifecycle Workflow (Updated for New Architecture)
+1. **Quoting**: Create CostSet with kind='quote' containing CostLine entries for estimates
+2. **Job Creation**: Convert accepted quotes to jobs, copy quote CostSet to estimate CostSet
 3. **Production**: Kanban board for visual workflow management
-4. **Time Tracking**: Daily time entry with billable classification
-5. **Material Management**: Track usage and costs from purchase orders
-6. **Completion**: Generate invoices via Xero integration
+4. **Cost Tracking**: Use CostLine with kind='time'/'material'/'adjust' for all cost entries
+5. **Material Management**: Track usage via Stock linked to CostLine through ext_refs
+6. **Completion**: Generate invoices via Xero integration using actual CostSet data
 
-### Key Business Rules
+### Key Business Rules (Updated for New Architecture)
 - Jobs progress through defined states with audit trails
 - All financial data synchronizes with Xero for accounting
-- Time entries must be classified as billable/non-billable
-- Material costs track back to source purchase orders
+- **ALL cost tracking uses CostSet/CostLine architecture - NO exceptions**
+- **Time tracking**: CostLine with kind='time' (replaces TimeEntry)
+- **Material costs**: CostLine with kind='material' linked to Stock via ext_refs
+- **Adjustments**: CostLine with kind='adjust' for manual cost modifications
 - File attachments support workshop job sheets
 
 ### Performance Considerations
@@ -231,6 +246,8 @@ Limited test coverage currently - focus on manual testing and data validation co
 - AJAX patterns minimize full page reloads
 - Background scheduling for Xero synchronization
 - Database indexes on frequently queried UUID fields
+- **NEW**: JSON ext_refs for efficient external reference lookups
+- **NEW**: CostSet grouping reduces query complexity vs. individual entries
 
 ## Security and Authentication
 
@@ -303,3 +320,44 @@ This frontend communicates with the Django backend via API endpoints and represe
 - Numbered migrations with descriptive names
 - Migration data validation in separate commands
 - Careful handling of UUID foreign key relationships
+- **CRITICAL**: All new migrations must use CostSet/CostLine architecture
+- **IMPORTANT**: Legacy model migrations should be for data migration only
+
+## Critical Architecture Guidelines
+
+### For ALL New Development
+1. **NEVER create new JobPricing, MaterialEntry, AdjustmentEntry, or TimeEntry records**
+2. **ALWAYS use CostSet/CostLine for any cost-related functionality**
+3. **Job Creation**: Create initial CostSet with kind='estimate'
+4. **Quoting**: Create CostSet with kind='quote' and appropriate CostLine entries
+5. **Time Tracking**: Create CostLine with kind='time' and staff reference in ext_refs
+6. **Material Usage**: Create CostLine with kind='material' and Stock reference in ext_refs
+7. **Adjustments**: Create CostLine with kind='adjust' for manual cost modifications
+
+### Legacy Model Handling
+- **Reading**: Legacy models can be read for migration and reporting purposes
+- **Writing**: **ABSOLUTELY NO new records in legacy models**
+- **Migration**: Gradually migrate existing data to CostSet/CostLine
+- **Service Layer**: Abstract legacy/new model differences in service classes
+
+### Service Layer Patterns
+- **CostingService**: Handles all CostSet/CostLine operations
+- **JobService**: Updated to work with CostSet/CostLine architecture
+- **Legacy Support**: Service methods should handle both old and new data during transition
+
+### Complete Migration Strategy
+
+#### Phase 1: Stop Writing to Legacy Models (CURRENT)
+- **STATUS**: All new development uses CostSet/CostLine
+- **RULE**: No new JobPricing, MaterialEntry, AdjustmentEntry, TimeEntry records
+- **IMPLEMENTATION**: Update all forms, APIs, and services
+
+#### Phase 2: Data Migration
+- **GOAL**: Migrate all existing legacy data to CostSet/CostLine
+- **PROCESS**: Create migration commands for bulk data transfer
+- **VALIDATION**: Ensure data integrity and business logic consistency
+
+#### Phase 3: Legacy Model Removal
+- **FINAL STEP**: Remove legacy model references and drop tables
+- **CLEANUP**: Update all documentation and remove deprecated code
+- **VERIFICATION**: Ensure all functionality works with new architecture

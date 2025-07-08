@@ -16,46 +16,15 @@ from apps.job.views import (
     ArchiveCompleteJobsViews,
     AssignJobView,
     JobFileView,
-    edit_job_view_ajax,
-    job_management_view,
     kanban_view_api,
     workshop_view,
 )
+from apps.job.views.job_rest_views import get_company_defaults_api
 
 app_name = "jobs"
 
-# Create URL pattern with functional grouping
-autosave_job_pattern = path(
-    "api/autosave-job/",
-    edit_job_view_ajax.autosave_job_view,
-    name="autosave_job_api",
-)
-autosave_job_pattern.functional_group = "Job Management"
 
 urlpatterns = [
-    # Job API endpoints
-    autosave_job_pattern,
-    path("api/create-job/", edit_job_view_ajax.create_job_api, name="create_job_api"),
-    path(
-        "api/fetch_job_pricing/",
-        edit_job_view_ajax.fetch_job_pricing_api,
-        name="fetch_job_pricing_api",
-    ),
-    path(
-        "api/fetch_status_values/",
-        edit_job_view_ajax.api_fetch_status_values,
-        name="fetch_status_values",
-    ),
-    path(
-        "api/job/<uuid:job_id>/delete/",
-        edit_job_view_ajax.delete_job,
-        name="delete_job",
-    ),
-    path(
-        "api/job/toggle-complex-job/",
-        edit_job_view_ajax.toggle_complex_job,
-        name="toggle_complex_job",
-    ),
     path(
         "api/job/completed/",
         ArchiveCompleteJobsViews.ArchiveCompleteJobsListAPIView.as_view(),
@@ -72,9 +41,9 @@ urlpatterns = [
         name="api_job_assigment",
     ),
     path(
-        "api/job-event/<uuid:job_id>/add-event/",
-        edit_job_view_ajax.add_job_event,
-        name="add-event",
+        "api/company_defaults/",
+        get_company_defaults_api,
+        name="company_defaults_api",
     ),
     path("api/job-files/", JobFileView.as_view(), name="job-files"),  # For POST/PUT
     path(
@@ -83,14 +52,6 @@ urlpatterns = [
     path(
         "api/job-files/<path:file_path>", JobFileView.as_view(), name="serve-job-file"
     ),  # For GET/download
-    path(
-        "api/company_defaults/",
-        edit_job_view_ajax.get_company_defaults_api,
-        name="company_defaults_api",
-    ),
-    # Job view endpoints
-    path("job/", edit_job_view_ajax.create_job_view, name="create_job"),
-    path("job/<uuid:job_id>/", edit_job_view_ajax.edit_job_view_ajax, name="edit_job"),
     path(
         "job/<uuid:job_id>/workshop-pdf/",
         workshop_view.WorkshopPDFView.as_view(),
@@ -101,7 +62,6 @@ urlpatterns = [
         ArchiveCompleteJobsViews.ArchiveCompleteJobsTemplateView.as_view(),
         name="archive_complete_jobs",
     ),
-    path("month-end/", job_management_view.month_end_view, name="month_end"),
     # New Kanban API endpoints
     path(
         "api/jobs/fetch-all/",
@@ -140,5 +100,4 @@ urlpatterns = [
     ),
 ]
 
-# Incluir URLs REST
 urlpatterns += rest_urlpatterns

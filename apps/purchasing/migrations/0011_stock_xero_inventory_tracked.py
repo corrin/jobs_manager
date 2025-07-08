@@ -4,15 +4,17 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('purchasing', '0010_add_raw_json_to_purchaseorder'),
+        ("purchasing", "0010_add_raw_json_to_purchaseorder"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='stock',
-            name='xero_inventory_tracked',
-            field=models.BooleanField(default=False, help_text='Whether this item is inventory-tracked in Xero'),
+            model_name="stock",
+            name="xero_inventory_tracked",
+            field=models.BooleanField(
+                default=False,
+                help_text="Whether this item is inventory-tracked in Xero",
+            ),
         ),
     ]

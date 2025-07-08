@@ -27,9 +27,6 @@ class WorkflowConfig(AppConfig):
         # Register Xero jobs with the shared scheduler
         self._register_xero_jobs()
 
-        # Attempt to start the shared scheduler (only one app will succeed)
-        start_scheduler()
-
     def _register_xero_jobs(self) -> None:
         """Register Xero-related jobs with the shared scheduler."""
         scheduler = get_scheduler()

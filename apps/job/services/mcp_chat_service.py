@@ -338,7 +338,6 @@ Always be helpful, professional, and specific in your responses. When providing 
                         and content_blocks[-1]["type"] == "tool_use"
                         and "input" in content_blocks[-1]
                     ):
-
                         tool_block = content_blocks[-1]
                         try:
                             tool_input = json.loads(tool_block["input"])

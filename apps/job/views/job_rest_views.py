@@ -19,6 +19,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.helpers import get_company_defaults
 from apps.job.services.job_rest_service import JobRestService
 
 logger = logging.getLogger(__name__)
@@ -199,25 +200,7 @@ class JobToggleComplexRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class JobTogglePricingMethodologyRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated as pricing methodologies are not toggled.
-    JobPricings are automatically created for all three stages (estimate, quote, reality)
-    when a Job is created. Users interact with the existing JobPricings directly.
-    """
-
-    def post(self, request):
-        """
-        This endpoint is deprecated and should not be used.
-        """
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Pricing methodologies are not toggled - all pricing stages are created automatically.",
-            },
-            status=400,
-        )
+# The system now uses CostSet/CostLine for all pricing operations.
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -252,104 +235,18 @@ class JobEventRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class JobTimeEntryRestView(BaseJobRestView):
+def get_company_defaults_api(request):
     """
-    REST view for Job time entries.
+    API endpoint to fetch company default settings.
+    Uses the get_company_defaults() helper function to ensure
+    a single instance is retrieved or created if it doesn't exist.
     """
-
-    def post(self, request, job_id):
-        """
-        Add a time entry to the Job.
-
-        Expected JSON:
+    defaults = get_company_defaults()
+    return JsonResponse(
         {
-            "description": "Task description",
-            "hours": 4.5,
-            "charge_out_rate": 105.0,
-            "wage_rate": 32.0
+            "materials_markup": float(defaults.materials_markup),
+            "time_markup": float(defaults.time_markup),
+            "charge_out_rate": float(defaults.charge_out_rate),
+            "wage_rate": float(defaults.wage_rate),
         }
-        """
-        try:
-            data = self.parse_json_body(request)
-
-            # Create the time entry
-            JobRestService.create_time_entry(job_id, data, request.user)
-
-            # Get updated job data for frontend
-            job_data = JobRestService.get_job_for_edit(job_id, request)
-
-            return Response(
-                {"success": True, "data": job_data}, status=status.HTTP_201_CREATED
-            )
-
-        except Exception as e:
-            return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobMaterialEntryRestView(BaseJobRestView):
-    """
-    REST view for Job material entries.
-    """
-
-    def post(self, request, job_id):
-        """
-        Add a material entry to the Job.
-
-        Expected JSON:
-        {
-            "description": "Material description",
-            "quantity": 5,
-            "unit_cost": 25.0,
-            "unit_revenue": 35.0
-        }
-        """
-        try:
-            data = self.parse_json_body(request)
-
-            # Create the material entry
-            JobRestService.create_material_entry(job_id, data, request.user)
-
-            # Get updated job data for frontend
-            job_data = JobRestService.get_job_for_edit(job_id, request)
-
-            return Response(
-                {"success": True, "data": job_data}, status=status.HTTP_201_CREATED
-            )
-
-        except Exception as e:
-            return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobAdjustmentEntryRestView(BaseJobRestView):
-    """
-    REST view for Job adjustment entries.
-    """
-
-    def post(self, request, job_id):
-        """
-        Add an adjustment entry to the Job.
-
-        Expected JSON:
-        {
-            "description": "Adjustment description",
-            "amount": 100.0
-        }
-        """
-        try:
-            data = self.parse_json_body(request)
-
-            # Create the adjustment entry
-            JobRestService.create_adjustment_entry(job_id, data, request.user)
-
-            # Get updated job data for frontend
-            job_data = JobRestService.get_job_for_edit(job_id, request)
-
-            return Response(
-                {"success": True, "data": job_data}, status=status.HTTP_201_CREATED
-            )
-
-        except Exception as e:
-            return self.handle_service_error(e)
+    )

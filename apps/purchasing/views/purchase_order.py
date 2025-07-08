@@ -10,6 +10,7 @@ from django.http import FileResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.views.generic import ListView, TemplateView
 from rest_framework import status
@@ -34,7 +35,7 @@ from apps.purchasing.services.quote_to_po_service import (
     create_po_from_quote,
     save_quote_file,
 )
-from apps.workflow.models import AIProvider
+from apps.workflow.models import AIProvider, CompanyDefaults
 
 # Apps Utils and Managers
 from apps.workflow.utils import extract_messages
@@ -434,6 +435,7 @@ def delete_purchase_order_view(request, pk):
 
 
 @require_http_methods(["POST"])
+@csrf_exempt
 def extract_supplier_quote_data_view(request):
     """
     Extract data from a supplier quote to pre-fill a PO form.
@@ -447,7 +449,25 @@ def extract_supplier_quote_data_view(request):
 
         quote_file = request.FILES["quote_file"]
 
-        ai_provider = AIProvider.objects.filter(default=True).first()
+        # Get the company defaults and find default AI provider
+        try:
+            company_defaults = CompanyDefaults.get_instance()
+            ai_provider = AIProvider.get_default_for_company(company_defaults)
+        except Exception as e:
+            logger.error(f"Failed to get company defaults or AI provider: {e}")
+            ai_provider = None
+
+        if not ai_provider:
+            logger.error(
+                "No default AI provider found. Please configure an AI provider."
+            )
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "No AI provider configured. Please set up an AI provider in Company Defaults.",
+                },
+                status=400,
+            )
 
         logger.info(f"Processing quote with {ai_provider} AI provider")
 
@@ -471,11 +491,20 @@ def extract_supplier_quote_data_view(request):
                 status=400,
             )
 
-        # Redirect to the PO form with the PO ID
-        redirect_url = reverse(
-            "purchasing:purchase_orders_detail", kwargs={"pk": purchase_order.id}
+        # Return success response with PO ID for SPA handling
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Quote processed successfully",
+                "purchase_order_id": str(purchase_order.id),
+                "po_number": purchase_order.po_number,
+                "redirect_url": reverse(
+                    "purchasing:purchase_orders_detail",
+                    kwargs={"pk": purchase_order.id},
+                ),
+            },
+            status=200,
         )
-        return redirect(redirect_url)
 
     except Exception as e:
         logger.exception(f"Error extracting data from quote: {e}")
@@ -527,12 +556,13 @@ class PurchaseOrderEmailView(APIView):
             )
         except ValueError as e:
             logger.warning(
-                f"Value error for purchase order {purchase_order_id}: {str(e)}"
+                f"Validation error for purchase order {purchase_order_id}: {str(e)}"
             )
             return JsonResponse(
                 {
                     "success": False,
                     "error": str(e),
+                    "error_type": "validation_error",
                 },
                 status=400,
             )
@@ -543,7 +573,8 @@ class PurchaseOrderEmailView(APIView):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": "Could not generate email",
+                    "error": "Failed to generate email. Please check the purchase order details.",
+                    "error_type": "server_error",
                     "details": str(e),
                 },
                 status=500,
@@ -606,8 +637,9 @@ class PurchaseOrderPDFView(APIView):
             )
             return Response(
                 {
-                    "status": "error",
-                    "message": "Could not generate PDF",
+                    "success": False,
+                    "error": "Failed to generate PDF. Please check the purchase order details.",
+                    "error_type": "server_error",
                     "details": str(e),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

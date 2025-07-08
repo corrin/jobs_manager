@@ -6,15 +6,16 @@ from logging import getLogger
 from typing import Any, Dict, List, Tuple
 
 import holidays
+from django.db import models
 from django.db.models import Case, DecimalField, F, Sum, Value, When
+from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
 from apps.accounting.utils import get_nz_tz
 from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
-from apps.job.enums import JobPricingStage
-from apps.job.models import AdjustmentEntry, MaterialEntry, Job, JobEvent
-from apps.timesheet.models import TimeEntry
+from apps.job.models.costing import CostLine, CostSet
+from apps.job.models import Job, JobEvent
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -136,7 +137,7 @@ class KPIService:
     @classmethod
     def get_job_breakdown_for_date(cls, target_date: date) -> List[Dict[str, Any]]:
         """
-        Get job-level profit breakdown for a specific date
+        Get job-level profit breakdown for a specific date using CostLine data
 
         Args:
             target_date: The date to get job breakdown for
@@ -144,42 +145,52 @@ class KPIService:
         Returns:
             List of job breakdowns with profit details
         """
-
         cls._ensure_shop_client_id()
         excluded_staff_ids = get_excluded_staff()
-        # Get time entries for the date
-        time_entries = (
-            TimeEntry.objects.filter(
-                date=target_date, job_pricing__pricing_stage=JobPricingStage.REALITY
+
+        # Get cost lines for the target date from 'actual' cost sets
+        cost_lines = (
+            CostLine.objects.annotate(
+                # Extract staff_id and date from meta JSONField
+                staff_id=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                line_date=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                # Extract is_billable flag
+                is_billable=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
+                    (),
+                    output_field=models.BooleanField(),
+                ),
             )
-            .exclude(staff_id__in=excluded_staff_ids)
-            .select_related("job_pricing__job")
+            .filter(
+                cost_set__kind="actual",
+                line_date=target_date.isoformat(),
+            )
+            .select_related("cost_set__job")
         )
 
-        # Get material entries for the date
-        timezone.make_aware(
-            datetime.datetime.combine(target_date, datetime.time.min), cls.nz_timezone
-        )
-        timezone.make_aware(
-            datetime.datetime.combine(target_date, datetime.time.max), cls.nz_timezone
+        # For time entries, exclude staff that shouldn't be included
+        time_lines = cost_lines.filter(kind="time").exclude(
+            staff_id__in=[str(sid) for sid in excluded_staff_ids]
         )
 
-        material_entries = MaterialEntry.objects.filter(
-            accounting_date=target_date,
-            job_pricing__pricing_stage=JobPricingStage.REALITY,
-        ).select_related("job_pricing__job")
-
-        adjustment_entries = AdjustmentEntry.objects.filter(
-            accounting_date=target_date,
-            job_pricing__pricing_stage=JobPricingStage.REALITY,
-        ).select_related("job_pricing__job")
+        # Material and adjustment lines don't need staff filtering
+        material_lines = cost_lines.filter(kind="material")
+        adjustment_lines = cost_lines.filter(kind="adjust")
 
         # Group by job
         job_data = {}
 
         # Process time entries
-        for entry in time_entries:
-            job = entry.job_pricing.job
+        for line in time_lines:
+            job = line.cost_set.job
             job_number = job.job_number
 
             if job_number not in job_data:
@@ -195,15 +206,15 @@ class KPIService:
                     "adjustment_cost": 0,
                 }
 
-            if entry.is_billable and str(job.client_id) != cls.shop_client_id:
-                job_data[job_number]["labour_revenue"] += float(
-                    entry.hours * entry.charge_out_rate
-                )
-            job_data[job_number]["labour_cost"] += float(entry.hours * entry.wage_rate)
+            # Only count billable time revenue if not shop client
+            if line.is_billable and str(job.client_id) != cls.shop_client_id:
+                job_data[job_number]["labour_revenue"] += float(line.total_rev)
+
+            job_data[job_number]["labour_cost"] += float(line.total_cost)
 
         # Process material entries
-        for entry in material_entries:
-            job = entry.job_pricing.job
+        for line in material_lines:
+            job = line.cost_set.job
             job_number = job.job_number
 
             if job_number not in job_data:
@@ -219,16 +230,12 @@ class KPIService:
                     "adjustment_cost": 0,
                 }
 
-            job_data[job_number]["material_revenue"] += float(
-                entry.unit_revenue * entry.quantity
-            )
-            job_data[job_number]["material_cost"] += float(
-                entry.unit_cost * entry.quantity
-            )
+            job_data[job_number]["material_revenue"] += float(line.total_rev)
+            job_data[job_number]["material_cost"] += float(line.total_cost)
 
         # Process adjustment entries
-        for entry in adjustment_entries:
-            job = entry.job_pricing.job
+        for line in adjustment_lines:
+            job = line.cost_set.job
             job_number = job.job_number
 
             if job_number not in job_data:
@@ -244,10 +251,8 @@ class KPIService:
                     "adjustment_cost": 0,
                 }
 
-            job_data[job_number]["adjustment_revenue"] += float(
-                entry.price_adjustment or 0
-            )
-            job_data[job_number]["adjustment_cost"] += float(entry.cost_adjustment or 0)
+            job_data[job_number]["adjustment_revenue"] += float(line.total_rev)
+            job_data[job_number]["adjustment_cost"] += float(line.total_cost)
 
         # Calculate profits and return sorted list
         result = []
@@ -328,99 +333,130 @@ class KPIService:
         }
 
         decimal_field = DecimalField(max_digits=10, decimal_places=2)
-        # Process data of the day - ONLY reality entries
-        time_entries_by_date = {
-            entry["date"]: entry
-            for entry in TimeEntry.objects.filter(
-                date__range=[start_date, end_date],
-                job_pricing__pricing_stage=JobPricingStage.REALITY,
+
+        # Process data using CostLine from 'actual' cost sets
+        # Get time entries aggregated by date
+        time_entries_by_date = {}
+
+        # Use RawSQL to extract date and staff_id from meta JSONField
+        cost_lines_time = (
+            CostLine.objects.annotate(
+                line_date=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                staff_id=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                is_billable=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
+                    (),
+                    output_field=models.BooleanField(),
+                ),
             )
-            .exclude(staff_id__in=excluded_staff_ids)
-            .values("date")
-            .annotate(
-                total_hours=Sum("hours", output_field=decimal_field),
-                billable_hours=Sum(
-                    Case(
-                        When(
-                            is_billable=True,
-                            then=Case(
-                                When(
-                                    job_pricing__job__client_id=cls.shop_client_id,
-                                    then=Value(0, output_field=decimal_field),
-                                ),
-                                default="hours",
-                            ),
-                        ),
-                        default=Value(0, output_field=decimal_field),
-                    ),
-                    output_field=decimal_field,
-                ),
-                time_revenue=Sum(
-                    Case(
-                        When(
-                            is_billable=True,
-                            then=Case(
-                                When(
-                                    job_pricing__job__client_id=cls.shop_client_id,
-                                    then=Value(0, output_field=decimal_field),
-                                ),
-                                default=F("hours") * F("charge_out_rate"),
-                            ),
-                        ),
-                        default=Value(0, output_field=decimal_field),
-                    ),
-                    output_field=decimal_field,
-                ),
-                shop_hours=Sum(
-                    Case(
-                        When(
-                            job_pricing__job__client_id=cls.shop_client_id, then="hours"
-                        ),
-                        default=Value(0, output_field=decimal_field),
-                    ),
-                    output_field=decimal_field,
-                ),
-                staff_cost=Sum(F("hours") * F("wage_rate"), output_field=decimal_field),
+            .filter(
+                cost_set__kind="actual",
+                kind="time",
+                line_date__gte=start_date.isoformat(),
+                line_date__lte=end_date.isoformat(),
             )
+            .exclude(staff_id__in=[str(sid) for sid in excluded_staff_ids])
+            .select_related("cost_set__job")
+        )
+
+        # Group time entries by date for aggregation
+        for line in cost_lines_time:
+            line_date = datetime.datetime.fromisoformat(line.line_date).date()
+
+            if line_date not in time_entries_by_date:
+                time_entries_by_date[line_date] = {
+                    "total_hours": Decimal("0"),
+                    "billable_hours": Decimal("0"),
+                    "shop_hours": Decimal("0"),
+                    "time_revenue": Decimal("0"),
+                    "staff_cost": Decimal("0"),
+                }
+
+            hours = line.quantity
+            time_entries_by_date[line_date]["total_hours"] += hours
+
+            # Check if billable and not shop client
+            if (
+                line.is_billable
+                and str(line.cost_set.job.client_id) != cls.shop_client_id
+            ):
+                time_entries_by_date[line_date]["billable_hours"] += hours
+                time_entries_by_date[line_date]["time_revenue"] += line.total_rev
+
+            # Check if shop hours
+            if str(line.cost_set.job.client_id) == cls.shop_client_id:
+                time_entries_by_date[line_date]["shop_hours"] += hours
+
+            time_entries_by_date[line_date]["staff_cost"] += line.total_cost
+
+        # Get material entries aggregated by date
+        material_entries = {}
+        cost_lines_material = CostLine.objects.annotate(
+            line_date=RawSQL(
+                "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                (),
+                output_field=models.CharField(),
+            ),
+        ).filter(
+            cost_set__kind="actual",
+            kind="material",
+            line_date__gte=start_date.isoformat(),
+            line_date__lte=end_date.isoformat(),
+        )
+
+        for line in cost_lines_material:
+            line_date = datetime.datetime.fromisoformat(line.line_date).date()
+            if line_date not in material_entries:
+                material_entries[line_date] = {
+                    "revenue": Decimal("0"),
+                    "cost": Decimal("0"),
+                }
+
+            material_entries[line_date]["revenue"] += line.total_rev
+            material_entries[line_date]["cost"] += line.total_cost
+
+        # Get adjustment entries aggregated by date
+        adjustment_entries = {}
+        cost_lines_adjustment = CostLine.objects.annotate(
+            line_date=RawSQL(
+                "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                (),
+                output_field=models.CharField(),
+            ),
+        ).filter(
+            cost_set__kind="actual",
+            kind="adjust",
+            line_date__gte=start_date.isoformat(),
+            line_date__lte=end_date.isoformat(),
+        )
+
+        for line in cost_lines_adjustment:
+            line_date = datetime.datetime.fromisoformat(line.line_date).date()
+            if line_date not in adjustment_entries:
+                adjustment_entries[line_date] = {
+                    "revenue": Decimal("0"),
+                    "cost": Decimal("0"),
+                }
+
+            adjustment_entries[line_date]["revenue"] += line.total_rev
+            adjustment_entries[line_date]["cost"] += line.total_cost
+
+        material_by_date = {
+            date: {"revenue": data["revenue"], "cost": data["cost"]}
+            for date, data in material_entries.items()
         }
-
-        timezone.make_aware(
-            datetime.datetime.combine(start_date, datetime.time.min), cls.nz_timezone
-        )
-        timezone.make_aware(
-            datetime.datetime.combine(end_date, datetime.time.max), cls.nz_timezone
-        )
-
-        material_entries = (
-            MaterialEntry.objects.filter(
-                accounting_date__range=[start_date, end_date],
-                job_pricing__pricing_stage=JobPricingStage.REALITY,
-            )
-            .annotate(local_date=F("accounting_date"))
-            .values("local_date")
-            .annotate(
-                revenue=Sum(
-                    F("unit_revenue") * F("quantity"), output_field=decimal_field
-                ),
-                cost=Sum(F("unit_cost") * F("quantity"), output_field=decimal_field),
-            )
-        )
-
-        adjustment_entries = (
-            AdjustmentEntry.objects.filter(
-                accounting_date__range=[start_date, end_date],
-                job_pricing__pricing_stage=JobPricingStage.REALITY,
-            )
-            .annotate(local_date=F("accounting_date"))
-            .values("local_date")
-            .annotate(
-                revenue=Sum(F("price_adjustment")), cost=Sum(F("cost_adjustment"))
-            )
-        )
-
-        material_by_date = cls._process_entries(material_entries)
-
-        adjustment_by_date = cls._process_entries(adjustment_entries)
+        adjustment_by_date = {
+            date: {"revenue": data["revenue"], "cost": data["cost"]}
+            for date, data in adjustment_entries.items()
+        }
 
         logger.debug(f"Retrieved data for {len(time_entries_by_date)} days")
 
@@ -458,22 +494,20 @@ class KPIService:
             time_entry = time_entries_by_date.get(
                 current_date,
                 {
-                    "total_hours": 0,
-                    "billable_hours": 0,
-                    "shop_hours": 0,
-                    "time_revenue": 0,
-                    "staff_cost": 0,
-                    "material_revenue": 0,
-                    "material_cost": 0,
+                    "total_hours": Decimal("0"),
+                    "billable_hours": Decimal("0"),
+                    "shop_hours": Decimal("0"),
+                    "time_revenue": Decimal("0"),
+                    "staff_cost": Decimal("0"),
                 },
             )
 
             material_entry = material_by_date.get(
-                current_date, {"revenue": 0, "cost": 0}
+                current_date, {"revenue": Decimal("0"), "cost": Decimal("0")}
             )
 
             adjustment_entry = adjustment_by_date.get(
-                current_date, {"revenue": 0, "cost": 0}
+                current_date, {"revenue": Decimal("0"), "cost": Decimal("0")}
             )
 
             billable_hours = time_entry.get("billable_hours") or 0

@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('purchasing', '0009_purchaseorderline_item_code'),
+        ("purchasing", "0009_purchaseorderline_item_code"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='purchaseorder',
-            name='raw_json',
-            field=models.JSONField(blank=True, help_text='Raw JSON data from Xero for this purchase order', null=True),
+            model_name="purchaseorder",
+            name="raw_json",
+            field=models.JSONField(
+                blank=True,
+                help_text="Raw JSON data from Xero for this purchase order",
+                null=True,
+            ),
         ),
     ]

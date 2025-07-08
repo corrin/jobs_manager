@@ -659,6 +659,12 @@ def create_po_from_quote(
         quote: The supplier quote to extract data from
         ai_provider: Optional, defines the AI provider to be used in the function
     """
+    # Guard clause for AI provider
+    if not ai_provider:
+        error_msg = "No AI provider provided for quote processing"
+        logger.error(error_msg)
+        return None, error_msg
+
     quote_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, quote.file_path)
 
     match ai_provider.provider_type:

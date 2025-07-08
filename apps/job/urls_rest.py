@@ -1,9 +1,3 @@
-"""
-URLs REST para o módulo Job
-
-Novas rotas REST seguindo padrões modernos para integração com frontend Vue.js
-"""
-
 from django.http import HttpResponse
 from django.urls import path
 from rest_framework import status
@@ -22,14 +16,10 @@ from apps.job.views.job_quote_chat_views import (
     JobQuoteChatMessageView,
 )
 from apps.job.views.job_rest_views import (
-    JobAdjustmentEntryRestView,
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
-    JobMaterialEntryRestView,
-    JobTimeEntryRestView,
     JobToggleComplexRestView,
-    JobTogglePricingMethodologyRestView,
 )
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
@@ -55,11 +45,6 @@ rest_urlpatterns = [
         JobToggleComplexRestView.as_view(),
         name="job_toggle_complex_rest",
     ),
-    path(
-        "rest/jobs/toggle-pricing-methodology/",
-        JobTogglePricingMethodologyRestView.as_view(),
-        name="job_toggle_pricing_methodology_rest",
-    ),
     # Job events
     path(
         "rest/jobs/<uuid:job_id>/events/",
@@ -67,21 +52,7 @@ rest_urlpatterns = [
         name="job_events_rest",
     ),
     # Job entries
-    path(
-        "rest/jobs/<uuid:job_id>/time-entries/",
-        JobTimeEntryRestView.as_view(),
-        name="job_time_entries_rest",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/material-entries/",
-        JobMaterialEntryRestView.as_view(),
-        name="job_material_entries_rest",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/adjustment-entries/",
-        JobAdjustmentEntryRestView.as_view(),
-        name="job_adjustment_entries_rest",
-    ),
+    # Use CostLine endpoints instead of JobTimeEntryRestView, JobMaterialEntryRestView, JobAdjustmentEntryRestView
     # Job costing
     path(
         "rest/jobs/<uuid:pk>/cost_sets/<str:kind>/",
@@ -159,7 +130,7 @@ rest_urlpatterns = [
     path("rest/jobs/<uuid:pk>/quote/link/", link_quote_sheet, name="quote_link_sheet"),
     path("rest/jobs/<uuid:pk>/quote/preview/", preview_quote, name="quote_preview"),
     path("rest/jobs/<uuid:pk>/quote/apply/", apply_quote, name="quote_apply"),
-    # Quote Import (DEPRECATED - file upload based)
+    # Quote Import
     path(
         "rest/jobs/<uuid:job_id>/quote/import/preview/",
         lambda request, *args, **kwargs: HttpResponse(

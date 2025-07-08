@@ -21,8 +21,6 @@ from apps.job.importers.google_sheets import (
     populate_sheet_from_costset,
 )
 from apps.job.importers.quote_spreadsheet import parse_xlsx_with_validation
-
-# Excel import functionality removed - no longer supported
 from apps.job.models import Job
 from apps.job.models.spreadsheet import QuoteSpreadsheet
 from apps.job.services.import_quote_service import (
@@ -236,9 +234,7 @@ def _fetch_drafts(job: Job):
                 logger.warning(f"⚠️ Skipping invalid row {idx}: {e}")
                 continue
 
-        logger.info(
-            f"✅ Created {len(draft_lines)} draft lines from Google Sheets data"
-        )
+        logger.info(f"✅ Created {len(draft_lines)} draft lines from Google Sheets data")
 
         # Log sample of parsed lines
         for i, line in enumerate(draft_lines[:3]):
