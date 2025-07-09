@@ -12,6 +12,7 @@ from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
 from apps.accounting.utils import get_nz_tz
+from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
 from apps.job.models.costing import CostLine, CostSet
@@ -1007,15 +1008,15 @@ class JobAgingService:
                     
                     description = f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
                     if cost_line.kind == "time":
-                        staff_id = cost_line.meta.get('staff_id')
-                        if staff_id:
-                            try:
-                                from apps.accounts.models import Staff
-                                staff = Staff.objects.get(id=staff_id)
-                                description = f"Time added by {staff.get_display_full_name()}"
-                            except Staff.DoesNotExist:
-                                description = f"Time added by unknown staff"
-                    
+                        try:
+                            staff_id = cost_line.meta.get('staff_id')
+                            staff = Staff.objects.get(id=staff_id)
+                            description = f"Time added by {staff.get_display_full_name()}"
+                        except (Staff.DoesNotExist, ValueError, TypeError) as exc:
+                            logger.error("Corrupted data.  staff_id is missing in cost line meta.")
+                            persist_app_error(exc)
+                            description = f"Time added by unknown staff"
+
                     activities.append({
                         "date": line_datetime,
                         "type": f"cost_line_{cost_line.kind}",
