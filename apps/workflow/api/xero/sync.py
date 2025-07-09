@@ -492,19 +492,28 @@ def transform_purchase_order(xero_po, xero_id):
             description = getattr(line, "description", None)
             quantity = getattr(line, "quantity", None)
             if not description or quantity is None:
-                logger.error(
-                    f"Missing required field for PurchaseOrderLine in PO {xero_id}"
-                )
+                error_msg = f"Missing required field for PurchaseOrderLine in PO {xero_id}"
+                logger.error(error_msg)
+                persist_app_error(error_msg)
                 continue
-            PurchaseOrderLine.objects.update_or_create(
-                purchase_order=po,
-                supplier_item_code=line.item_code or "",
-                description=description,
-                defaults={
-                    "quantity": quantity,
-                    "unit_cost": getattr(line, "unit_amount", None),
-                },
-            )
+            try:
+                PurchaseOrderLine.objects.update_or_create(
+                    purchase_order=po,
+                    supplier_item_code=line.item_code or "",
+                    description=description,
+                    defaults={
+                        "quantity": quantity,
+                        "unit_cost": getattr(line, "unit_amount", None),
+                    },
+                )
+            except PurchaseOrderLine.MultipleObjectsReturned as exc:
+                logger.error(
+                    f"Multiple PurchaseOrderLine records found for document '{po_number}' "
+                    f"(Xero ID: {xero_id}), line item: '{description}', "
+                    f"supplier_item_code: '{line.item_code or ''}'"
+                )
+                persist_app_error(exc)
+                continue
     return po
 
 
@@ -878,6 +887,7 @@ def sync_all_xero_data(use_latest_timestamps=True, days_back=30, entities=None):
     for entity in entities:
         if entity not in ENTITY_CONFIGS:
             logger.error(f"Unknown entity type: {entity}")
+            persist_app_error(f"sync_all_xero_data: Unknown entity type: {entity}")
             continue
 
         (

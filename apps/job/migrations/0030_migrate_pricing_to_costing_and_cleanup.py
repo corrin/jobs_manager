@@ -26,20 +26,25 @@ def migrate_pricing_to_costing(apps, schema_editor):
     # ------------------------------------------------------------------
     # 1. Column rename (pricing_stage → pricing_methodology) – idempotent
     # ------------------------------------------------------------------
+    # Hacky change. I don't care abs we're about to delete the entire table.
     with connection.cursor() as cur:
-        cur.execute(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='workflow_jobpricing' AND column_name='pricing_stage'"
-        )
-        has_stage = cur.fetchone()[0] > 0
-        cur.execute(
-            "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='workflow_jobpricing' AND column_name='pricing_methodology'"
-        )
-        has_method = cur.fetchone()[0] > 0
+        # Use SHOW COLUMNS instead of INFORMATION_SCHEMA for accurate results
+        cur.execute("SHOW COLUMNS FROM workflow_jobpricing")
+        columns = [row[0] for row in cur.fetchall()]
+        
+        has_stage = 'pricing_stage' in columns
+        has_method = 'pricing_methodology' in columns
+        
         if has_stage and not has_method:
             print("Renaming pricing_stage → pricing_methodology …")
             cur.execute(
                 "ALTER TABLE workflow_jobpricing CHANGE COLUMN pricing_stage pricing_methodology VARCHAR(50)"
             )
+        elif has_stage and has_method:
+            # Both exist - consolidate to pricing_methodology
+            print("Both columns exist, consolidating to pricing_methodology...")
+            cur.execute("UPDATE workflow_jobpricing SET pricing_methodology = pricing_stage WHERE pricing_methodology IS NULL OR pricing_methodology = ''")
+            cur.execute("ALTER TABLE workflow_jobpricing DROP COLUMN pricing_stage")
         else:
             print(
                 f"Column status – pricing_stage:{has_stage} | pricing_methodology:{has_method}"
@@ -88,15 +93,27 @@ def migrate_pricing_to_costing(apps, schema_editor):
                     f"JobPricing {jp.id}: unknown methodology '{jp.pricing_methodology}'"
                 )
             rev = jp.revision_number or 1
-            if CostSet.objects.filter(job=jp.job, kind=kind, rev=rev).exists():
+            # Check for existing CostSet and combine duplicates
+            existing_costset = CostSet.objects.filter(job=jp.job, kind=kind, rev=rev).first()
+            if existing_costset:
+                print(f"DUPLICATE DETECTED - COMBINING:")
+                print(f"  Current JobPricing: ID={jp.id}, Job={jp.job.job_number}, Kind={kind}, Rev={rev}")
+                print(f"  Combining with existing CostSet: ID={existing_costset.id}, Created={existing_costset.created}")
+                cost_set = existing_costset
                 cs_skipped += 1
-                continue
-
-            cost_set = CostSet.objects.create(
-                job=jp.job, kind=kind, rev=rev, summary={}, created=jp.created_at
-            )
-            cs_created += 1
-            tot_cost = tot_rev = tot_hrs = Decimal("0.00")
+            else:
+                cost_set = CostSet.objects.create(
+                    job=jp.job, kind=kind, rev=rev, summary={}, created=jp.created_at
+                )
+                cs_created += 1
+            # Start with existing totals if combining with existing CostSet
+            if existing_costset:
+                existing_summary = existing_costset.summary or {}
+                tot_cost = Decimal(str(existing_summary.get("cost", 0)))
+                tot_rev = Decimal(str(existing_summary.get("rev", 0)))
+                tot_hrs = Decimal(str(existing_summary.get("hours", 0)))
+            else:
+                tot_cost = tot_rev = tot_hrs = Decimal("0.00")
 
             # ---- TimeEntry → CostLine (time) -------------------------
             for te in TimeEntry.objects.filter(job_pricing_id=jp.id):
@@ -201,7 +218,7 @@ def migrate_pricing_to_costing(apps, schema_editor):
         print("=== Migration summary ===")
         print(f"CostSets   created : {cs_created}")
         print(f"CostLines  created : {cl_created}")
-        print(f"JobPricings skipped : {cs_skipped}")
+        print(f"JobPricings combined : {cs_skipped}")
         print(f"JobPricings invalid : {cs_invalid}")
         print("================================")
 
