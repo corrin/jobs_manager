@@ -11,7 +11,21 @@ from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.purchasing.models import PurchaseOrder, Stock
-from apps.purchasing.serializers import PurchaseOrderDetailSerializer
+from apps.purchasing.serializers import (
+    AllJobsResponseSerializer,
+    DeliveryReceiptRequestSerializer,
+    DeliveryReceiptResponseSerializer,
+    PurchaseOrderAllocationsResponseSerializer,
+    PurchaseOrderCreateResponseSerializer,
+    PurchaseOrderCreateSerializer,
+    PurchaseOrderDetailSerializer,
+    PurchaseOrderListSerializer,
+    PurchaseOrderUpdateResponseSerializer,
+    PurchaseOrderUpdateSerializer,
+    StockCreateResponseSerializer,
+    StockCreateSerializer,
+    StockListSerializer,
+)
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
 from apps.purchasing.services.purchasing_rest_service import PurchasingRestService
 from apps.purchasing.services.stock_service import consume_stock
@@ -29,6 +43,8 @@ class AllJobsAPIView(APIView):
     is the stock holding job.
     """
 
+    serializer_class = AllJobsResponseSerializer
+
     def get(self, request):
         """Get all jobs with stock holding job flag."""
         try:
@@ -38,28 +54,19 @@ class AllJobsAPIView(APIView):
             # Get all jobs (both active and archived to be comprehensive)
             jobs = Job.objects.select_related("client").order_by("job_number")
 
-            # Serialize jobs with stock holding flag
-            jobs_data = []
+            # Add stock holding flag to each job
             for job in jobs:
-                jobs_data.append(
-                    {
-                        "id": str(job.id),
-                        "job_number": job.job_number,
-                        "name": job.name,
-                        "client_name": job.client.name if job.client else "No Client",
-                        "status": job.status,
-                        "is_stock_holding": job.id == stock_holding_job.id,
-                        "job_display_name": f"{job.job_number} - {job.name}",
-                    }
-                )
+                job._is_stock_holding = job.id == stock_holding_job.id
 
-            return Response(
-                {
-                    "success": True,
-                    "jobs": jobs_data,
-                    "stock_holding_job_id": str(stock_holding_job.id),
-                }
-            )
+            # Serialize the response
+            response_data = {
+                "success": True,
+                "jobs": jobs,
+                "stock_holding_job_id": str(stock_holding_job.id),
+            }
+
+            serializer = self.serializer_class(response_data)
+            return Response(serializer.data)
 
         except Exception as e:
             logger.error(f"Error fetching all jobs: {e}")
@@ -172,27 +179,69 @@ class PurchaseOrderListCreateRestView(APIView):
     POST: Creates new purchase order from provided data
     """
 
+    def get_serializer_class(self):
+        """Return appropriate serializer class based on request method."""
+        if self.request.method == "POST":
+            return PurchaseOrderCreateSerializer
+        return PurchaseOrderListSerializer
+
     def get(self, request):
+        """Get list of purchase orders with optional status filtering."""
         status_filter = request.query_params.get("status", None)
+
+        # Get data from service (returns list of dictionaries)
         data = PurchasingRestService.list_purchase_orders()
+
         if status_filter:
             # Support multiple status values separated by comma
             allowed_statuses = [s.strip() for s in status_filter.split(",")]
             data = [po for po in data if po["status"] in allowed_statuses]
-        return Response(data)
+
+        # Serialize the data from service using the serializer
+        serializer = PurchaseOrderListSerializer(data, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
-        po = PurchasingRestService.create_purchase_order(request.data)
-        return Response(
-            {"id": str(po.id), "po_number": po.po_number},
-            status=status.HTTP_201_CREATED,
-        )
+        """Create new purchase order."""
+        serializer = PurchaseOrderCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {"error": "Invalid input data", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Create PO using service
+            po = PurchasingRestService.create_purchase_order(serializer.validated_data)
+
+            # Return response
+            response_data = {
+                "id": str(po.id),
+                "po_number": po.po_number,
+            }
+            response_serializer = PurchaseOrderCreateResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"Error creating purchase order: {str(e)}")
+            return Response(
+                {"error": "Failed to create purchase order", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class PurchaseOrderDetailRestView(APIView):
     """Returns a full PO (including lines)"""
 
+    def get_serializer_class(self):
+        """Return appropriate serializer class based on request method."""
+        if self.request.method == "PATCH":
+            return PurchaseOrderUpdateSerializer
+        return PurchaseOrderDetailSerializer
+
     def get(self, request, pk):
+        """Get purchase order details including lines."""
         # Allow fetching PO details regardless of status (including deleted)
         # to match the list endpoint behavior and allow viewing deleted POs
         queryset = (
@@ -205,8 +254,35 @@ class PurchaseOrderDetailRestView(APIView):
         return Response(serializer.data)
 
     def patch(self, request, pk):
-        po = PurchasingRestService.update_purchase_order(pk, request.data)
-        return Response({"id": str(po.id), "status": po.status})
+        """Update purchase order."""
+        serializer = PurchaseOrderUpdateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {"error": "Invalid input data", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Update PO using service
+            po = PurchasingRestService.update_purchase_order(
+                pk, serializer.validated_data
+            )
+
+            # Return response
+            response_data = {
+                "id": str(po.id),
+                "status": po.status,
+            }
+            response_serializer = PurchaseOrderUpdateResponseSerializer(response_data)
+            return Response(response_serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error updating purchase order {pk}: {str(e)}")
+            return Response(
+                {"error": "Failed to update purchase order", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class DeliveryReceiptRestView(APIView):
@@ -216,23 +292,37 @@ class DeliveryReceiptRestView(APIView):
     POST: Processes delivery receipt for a purchase order with stock allocations
     """
 
+    serializer_class = DeliveryReceiptRequestSerializer
+
     def post(self, request):
         try:
-            purchase_order_id = request.data.get("purchase_order_id")
-            allocations = request.data.get("allocations", {})
-
-            if not purchase_order_id:
+            # Validate input data
+            serializer = self.serializer_class(data=request.data)
+            if not serializer.is_valid():
                 return Response(
-                    {"error": "purchase_order_id is required"},
+                    {"error": "Invalid input data", "details": serializer.errors},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            validated_data = serializer.validated_data
+            purchase_order_id = validated_data["purchase_order_id"]
+            allocations = validated_data["allocations"]
+
+            # Process the delivery receipt
             process_delivery_receipt(purchase_order_id, allocations)
-            return Response({"success": True})
+
+            # Return success response
+            response_data = {"success": True}
+            response_serializer = DeliveryReceiptResponseSerializer(response_data)
+            return Response(response_serializer.data)
 
         except Exception as e:
             logger.error(f"Error processing delivery receipt: {str(e)}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            response_data = {"success": False, "error": str(e)}
+            response_serializer = DeliveryReceiptResponseSerializer(response_data)
+            return Response(
+                response_serializer.data, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class StockListRestView(APIView):
@@ -243,15 +333,51 @@ class StockListRestView(APIView):
     POST: Creates new stock item from provided data
     """
 
+    def get_serializer_class(self):
+        """Return appropriate serializer class based on request method."""
+        if self.request.method == "POST":
+            return StockCreateSerializer
+        return StockListSerializer
+
     def get(self, request):
-        return Response(PurchasingRestService.list_stock())
+        """Get list of all active stock items."""
+        # Get data from service (returns list of dictionaries)
+        data = PurchasingRestService.list_stock()
+
+        # Serialize the data from service using the serializer
+        serializer = StockListSerializer(data, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
+        """Create new stock item."""
+        serializer = StockCreateSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(
+                {"error": "Invalid input data", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
-            item = PurchasingRestService.create_stock(request.data)
-            return Response({"id": str(item.id)}, status=status.HTTP_201_CREATED)
+            # Create stock item using service
+            item = PurchasingRestService.create_stock(serializer.validated_data)
+
+            # Return response
+            response_data = {"id": str(item.id)}
+            response_serializer = StockCreateResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
         except ValueError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Validation error", "details": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            logger.error(f"Error creating stock item: {str(e)}")
+            return Response(
+                {"error": "Failed to create stock item", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class StockDeactivateRestView(APIView):
@@ -311,6 +437,8 @@ class PurchaseOrderAllocationsAPIView(APIView):
     This helps show previous delivery receipt allocations when creating
     new delivery receipts for partially received orders.
     """
+
+    serializer_class = PurchaseOrderAllocationsResponseSerializer
 
     def get(self, request, po_id):
         """Get existing allocations for a purchase order."""
@@ -428,7 +556,11 @@ class PurchaseOrderAllocationsAPIView(APIView):
                 f"Total allocations found: {sum(len(allocs) for allocs in allocations_by_line.values())} across {len(allocations_by_line)} lines"
             )
 
-            return Response({"po_id": str(po_id), "allocations": allocations_by_line})
+            # Serialize the response
+            response_data = {"po_id": str(po_id), "allocations": allocations_by_line}
+
+            serializer = self.serializer_class(response_data)
+            return Response(serializer.data)
 
         except Exception as e:
             logger.error(f"Error fetching allocations for PO {po_id}: {e}")

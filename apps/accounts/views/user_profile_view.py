@@ -3,6 +3,7 @@ User profile views for JWT authentication
 """
 
 from django.conf import settings
+from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -11,6 +12,10 @@ from rest_framework.response import Response
 from apps.accounts.serializers import UserProfileSerializer
 
 
+@extend_schema(
+    summary="Returns the current authenticated user profile",
+    responses={200: UserProfileSerializer},
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_current_user(request):
@@ -28,6 +33,11 @@ def get_current_user(request):
         )
 
 
+@extend_schema(
+    summary="Logs out the current user by clearing JWT cookies",
+    request=None,
+    responses={200: OpenApiTypes.OBJECT, 500: OpenApiTypes.OBJECT},
+)
 @api_view(["POST"])
 def logout_user(request):
     """
