@@ -3,19 +3,59 @@
 from .costing_serializer import CostLineSerializer, CostSetSerializer
 from .job_file_serializer import JobFileSerializer
 from .job_quote_chat_serializer import (
+    JobQuoteChatCreateResponseSerializer,
+    JobQuoteChatDeleteResponseSerializer,
+    JobQuoteChatHistoryResponseSerializer,
+    JobQuoteChatInteractionErrorResponseSerializer,
+    JobQuoteChatInteractionRequestSerializer,
+    JobQuoteChatInteractionSuccessResponseSerializer,
+    JobQuoteChatMessageResponseSerializer,
     JobQuoteChatSerializer,
+    JobQuoteChatUpdateResponseSerializer,
     JobQuoteChatUpdateSerializer,
 )
 from .job_serializer import CompleteJobSerializer, JobSerializer
+from .kanban_serializer import (
+    AdvancedSearchResponseSerializer,
+    FetchAllJobsResponseSerializer,
+    FetchJobsByColumnResponseSerializer,
+    FetchJobsResponseSerializer,
+    FetchStatusValuesResponseSerializer,
+    JobReorderRequestSerializer,
+    JobSearchFiltersSerializer,
+    JobStatusUpdateRequestSerializer,
+    KanbanErrorResponseSerializer,
+    KanbanJobSerializer,
+    KanbanSuccessResponseSerializer,
+)
 from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
 
 __all__ = [
+    "AdvancedSearchResponseSerializer",
     "CostLineSerializer",
     "CostSetSerializer",
+    "FetchAllJobsResponseSerializer",
+    "FetchJobsByColumnResponseSerializer",
+    "FetchJobsResponseSerializer",
+    "FetchStatusValuesResponseSerializer",
     "JobFileSerializer",
+    "JobQuoteChatCreateResponseSerializer",
+    "JobQuoteChatDeleteResponseSerializer",
+    "JobQuoteChatHistoryResponseSerializer",
+    "JobQuoteChatInteractionErrorResponseSerializer",
+    "JobQuoteChatInteractionRequestSerializer",
+    "JobQuoteChatInteractionSuccessResponseSerializer",
+    "JobQuoteChatMessageResponseSerializer",
     "JobQuoteChatSerializer",
+    "JobQuoteChatUpdateResponseSerializer",
     "JobQuoteChatUpdateSerializer",
+    "JobReorderRequestSerializer",
+    "JobSearchFiltersSerializer",
     "JobSerializer",
+    "JobStatusUpdateRequestSerializer",
+    "KanbanErrorResponseSerializer",
+    "KanbanJobSerializer",
+    "KanbanSuccessResponseSerializer",
     "CompleteJobSerializer",
     "QuoteSpreadsheetSerializer",
 ]
