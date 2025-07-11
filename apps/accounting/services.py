@@ -882,7 +882,17 @@ class JobAgingService:
                 )
         except Exception as exc:
             logger.warning(f"Error calculating estimate total for job {job.job_number}: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                job_id=job.id,
+                additional_context={
+                    'operation': 'calculate_job_estimate_total',
+                    'job_number': job.job_number,
+                    'has_latest_estimate': job.latest_estimate is not None,
+                    'business_process': 'job_aging_financial_data'
+                }
+            )
         
         try:
             # Get latest quote
@@ -892,7 +902,17 @@ class JobAgingService:
                 )
         except Exception as exc:
             logger.warning(f"Error calculating quote total for job {job.job_number}: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                job_id=job.id,
+                additional_context={
+                    'operation': 'calculate_job_quote_total',
+                    'job_number': job.job_number,
+                    'has_latest_quote': job.latest_quote is not None,
+                    'business_process': 'job_aging_financial_data'
+                }
+            )
         
         try:
             # Get latest actual
