@@ -5,16 +5,91 @@ from .archive_completed_jobs_view import (
     StandardResultsSetPagination,
 )
 from .assign_job_view import AssignJobView
+from .job_costing_views import JobCostSetView
+from .job_costline_views import (
+    CostLineCreateView,
+    CostLineDeleteView,
+    CostLineUpdateView,
+)
 from .job_file_upload import JobFileUploadView
-from .job_file_view import BinaryFileRenderer, JobFileView
+from .job_file_view import BinaryFileRenderer, JobFileThumbnailView, JobFileView
+from .job_quote_chat_api import JobQuoteChatInteractionView
+from .job_quote_chat_views import (
+    BaseJobQuoteChatView,
+    JobQuoteChatHistoryView,
+    JobQuoteChatMessageView,
+)
+from .job_rest_views import (
+    BaseJobRestView,
+    JobCreateRestView,
+    JobDetailRestView,
+    JobEventRestView,
+    get_company_defaults_api,
+)
+from .kanban_view_api import (
+    AdvancedSearchAPIView,
+    FetchAllJobsAPIView,
+    FetchJobsAPIView,
+    FetchJobsByColumnAPIView,
+    FetchStatusValuesAPIView,
+    ReorderJobAPIView,
+    UpdateJobStatusAPIView,
+)
+from .modern_timesheet_views import (
+    ModernTimesheetDayView,
+    ModernTimesheetEntryView,
+    ModernTimesheetJobView,
+)
+from .month_end_rest_view import MonthEndRestView
+from .quote_import_views import (
+    QuoteImportPreviewView,
+    QuoteImportStatusView,
+    QuoteImportView,
+)
+from .quote_sync_views import (
+    ApplyQuoteAPIView,
+    LinkQuoteSheetAPIView,
+    PreviewQuoteAPIView,
+)
 from .workshop_view import WorkshopPDFView
 
 __all__ = [
     "StandardResultsSetPagination",
     "ArchiveCompleteJobsViews",
     "AssignJobView",
+    "JobCostSetView",
+    "CostLineCreateView",
+    "CostLineUpdateView",
+    "CostLineDeleteView",
     "JobFileUploadView",
     "BinaryFileRenderer",
     "JobFileView",
+    "JobFileThumbnailView",
+    "JobQuoteChatInteractionView",
+    "BaseJobQuoteChatView",
+    "JobQuoteChatHistoryView",
+    "JobQuoteChatMessageView",
+    "BaseJobRestView",
+    "JobCreateRestView",
+    "JobDetailRestView",
+    "JobEventRestView",
+    "get_company_defaults_api",
+    "FetchAllJobsAPIView",
+    "UpdateJobStatusAPIView",
+    "ReorderJobAPIView",
+    "FetchJobsAPIView",
+    "FetchStatusValuesAPIView",
+    "AdvancedSearchAPIView",
+    "FetchJobsByColumnAPIView",
+    "ModernTimesheetEntryView",
+    "ModernTimesheetDayView",
+    "ModernTimesheetJobView",
+    "MonthEndRestView",
+    "QuoteImportPreviewView",
+    "QuoteImportView",
+    "QuoteImportStatusView",
+    "LinkQuoteSheetAPIView",
+    "PreviewQuoteAPIView",
+    "ApplyQuoteAPIView",
     "WorkshopPDFView",
 ]

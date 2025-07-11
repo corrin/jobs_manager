@@ -8,9 +8,11 @@ from .daily_timesheet_serializers import (
     SummaryStatsSerializer,
 )
 from .modern_timesheet_serializers import (
+    JobsListResponseSerializer,
     ModernStaffSerializer,
     ModernTimesheetJobSerializer,
     PaidAbsenceRequestSerializer,
+    StaffListResponseSerializer,
     WeeklyTimesheetDataSerializer,
 )
 
@@ -24,4 +26,6 @@ __all__ = [
     "ModernStaffSerializer",
     "WeeklyTimesheetDataSerializer",
     "PaidAbsenceRequestSerializer",
+    "StaffListResponseSerializer",
+    "JobsListResponseSerializer",
 ]

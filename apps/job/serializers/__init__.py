@@ -27,13 +27,19 @@ from .job_quote_chat_serializer import (
     JobQuoteChatUpdateSerializer,
 )
 from .job_serializer import (
+    ArchiveJobsRequestSerializer,
+    ArchiveJobsResponseSerializer,
+    AssignJobRequestSerializer,
+    AssignJobResponseSerializer,
     CompleteJobSerializer,
+    InvoiceSerializer,
     JobCreateRequestSerializer,
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
     JobDetailResponseSerializer,
     JobRestErrorResponseSerializer,
     JobSerializer,
+    QuoteSerializer,
 )
 from .kanban_serializer import (
     AdvancedSearchResponseSerializer,

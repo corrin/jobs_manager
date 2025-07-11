@@ -11,14 +11,14 @@ class JobForPurchasingSerializer(serializers.ModelSerializer):
     is_stock_holding = serializers.SerializerMethodField()
     job_display_name = serializers.SerializerMethodField()
 
-    def get_client_name(self, obj):
+    def get_client_name(self, obj) -> str:
         return obj.client.name if obj.client else "No Client"
 
-    def get_is_stock_holding(self, obj):
+    def get_is_stock_holding(self, obj) -> bool:
         # This will be set dynamically in the view
         return getattr(obj, "_is_stock_holding", False)
 
-    def get_job_display_name(self, obj):
+    def get_job_display_name(self, obj) -> str:
         return f"{obj.job_number} - {obj.name}"
 
     class Meta:
@@ -83,13 +83,13 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
             "xero_id",
         ]
 
-    def get_supplier(self, obj):
+    def get_supplier(self, obj) -> str:
         return obj.supplier.name if obj.supplier else ""
 
-    def get_supplier_id(self, obj):
+    def get_supplier_id(self, obj) -> str | None:
         return str(obj.supplier.id) if obj.supplier else None
 
-    def get_supplier_has_xero_id(self, obj):
+    def get_supplier_has_xero_id(self, obj) -> bool:
         return obj.supplier.xero_contact_id is not None if obj.supplier else False
 
 
@@ -262,3 +262,89 @@ class StockCreateResponseSerializer(serializers.Serializer):
     """Serializer for stock creation response."""
 
     id = serializers.UUIDField()
+
+
+# Additional serializers for purchasing rest views
+
+
+class PurchasingJobsResponseSerializer(serializers.Serializer):
+    """Serializer for PurchasingJobsAPIView response"""
+
+    jobs = JobForPurchasingSerializer(many=True)
+    total_count = serializers.IntegerField()
+
+
+class XeroItemSerializer(serializers.Serializer):
+    """Serializer for Xero item data"""
+
+    code = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(required=False, allow_blank=True)
+    sales_details = serializers.DictField(required=False)
+    purchase_details = serializers.DictField(required=False)
+
+
+class XeroItemListResponseSerializer(serializers.Serializer):
+    """Serializer for XeroItemList response"""
+
+    items = XeroItemSerializer(many=True)
+    total_count = serializers.IntegerField(required=False)
+
+
+class StockDeactivateResponseSerializer(serializers.Serializer):
+    """Serializer for stock deactivation response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField(required=False)
+
+
+class StockConsumeRequestSerializer(serializers.Serializer):
+    """Serializer for stock consumption request"""
+
+    job_id = serializers.UUIDField()
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+
+
+class StockConsumeResponseSerializer(serializers.Serializer):
+    """Serializer for stock consumption response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField(required=False)
+    remaining_quantity = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False
+    )
+
+
+class PurchasingErrorResponseSerializer(serializers.Serializer):
+    """Serializer for purchasing error responses"""
+
+    error = serializers.CharField(help_text="Error message")
+
+
+# Purchase Order Email and PDF serializers
+class PurchaseOrderEmailRequestSerializer(serializers.Serializer):
+    """Serializer for purchase order email generation request"""
+
+    recipient_email = serializers.EmailField(required=False)
+    message = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+
+
+class PurchaseOrderEmailResponseSerializer(serializers.Serializer):
+    """Serializer for purchase order email generation response"""
+
+    success = serializers.BooleanField()
+    email_subject = serializers.CharField(required=False)
+    email_body = serializers.CharField(required=False)
+    pdf_url = serializers.CharField(required=False)
+    message = serializers.CharField(required=False)
+
+
+class PurchaseOrderPDFResponseSerializer(serializers.Serializer):
+    """Serializer for purchase order PDF generation response"""
+
+    # This endpoint returns a PDF file (FileResponse), so this is primarily for documentation
+    success = serializers.BooleanField(required=False)
+    message = serializers.CharField(required=False)
+
+    class Meta:
+        help_text = "Generates and returns a PDF file for the specified purchase order"

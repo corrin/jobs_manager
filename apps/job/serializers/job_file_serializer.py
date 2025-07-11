@@ -7,6 +7,7 @@ from apps.job.models import JobFile
 class JobFileSerializer(serializers.ModelSerializer):
     download_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    size = serializers.SerializerMethodField()
 
     class Meta:
         model = JobFile
@@ -22,12 +23,16 @@ class JobFileSerializer(serializers.ModelSerializer):
             "status",
         ]
 
-    def get_download_url(self, obj: JobFile):
+    def get_size(self, obj: JobFile) -> int | None:
+        """Get file size in bytes"""
+        return obj.size
+
+    def get_download_url(self, obj: JobFile) -> str:
         request = self.context["request"]
         path = reverse("jobs:job_file_download", args=[obj.file_path])
         return request.build_absolute_uri(path)
 
-    def get_thumbnail_url(self, obj: JobFile):
+    def get_thumbnail_url(self, obj: JobFile) -> str | None:
         if not obj.thumbnail_path:
             return None
         request = self.context["request"]

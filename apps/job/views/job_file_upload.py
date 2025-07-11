@@ -4,6 +4,7 @@ import os
 # Use django.conf.settings to access the fully configured Django settings
 # This ensures we get settings after all imports and env vars are processed
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -29,7 +30,9 @@ class JobFileUploadView(JobNumberLookupMixin, APIView):
     """
 
     parser_classes = [MultiPartParser, FormParser]
+    serializer_class = JobFileUploadViewResponseSerializer
 
+    @extend_schema(operation_id="uploadJobFilesRest")
     def post(self, request):
         job_number = request.data.get("job_number")
         if not job_number:

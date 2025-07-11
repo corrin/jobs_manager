@@ -36,6 +36,13 @@ class CostLineCreateView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CostLineSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return CostLineCreateUpdateSerializer
+        return CostLineSerializer
 
     def post(self, request, job_id, kind="actual"):
         """Create a new cost line"""
@@ -133,6 +140,13 @@ class CostLineUpdateView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CostLineSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "PATCH":
+            return CostLineCreateUpdateSerializer
+        return CostLineSerializer
 
     def patch(self, request, cost_line_id):
         """Update a cost line"""
@@ -195,6 +209,7 @@ class CostLineDeleteView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CostLineErrorResponseSerializer
 
     def delete(self, request, cost_line_id):
         """Delete a cost line"""

@@ -14,67 +14,72 @@ from typing import Any, Dict
 
 from django.db import transaction
 from django.db.models import Q
-from django.http import JsonResponse
 from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from xero_python.accounting import AccountingApi
 
 from apps.client.forms import ClientForm
 from apps.client.models import Client, ClientContact
-from apps.client.serializers import ClientNameOnlySerializer
+from apps.client.serializers import (
+    ClientContactCreateRequestSerializer,
+    ClientContactCreateResponseSerializer,
+    ClientContactsResponseSerializer,
+    ClientCreateRequestSerializer,
+    ClientCreateResponseSerializer,
+    ClientDuplicateErrorResponseSerializer,
+    ClientErrorResponseSerializer,
+    ClientListResponseSerializer,
+    ClientNameOnlySerializer,
+    ClientSearchResponseSerializer,
+)
 from apps.workflow.api.xero.sync import sync_clients
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
 
 logger = logging.getLogger(__name__)
 
 
-class BaseClientRestView(View):
-    """
-    Base view for Client REST operations.
-    Implements common functionality like JSON parsing and error handling.
-    """
-
-    @method_decorator(csrf_exempt)
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
-
-    def handle_error(
-        self, error: Exception, message: str = "Internal server error"
-    ) -> JsonResponse:
-        """
-        Centralises error handling following clean code principles.
-        """
-        logger.error(f"{message}: {str(error)}")
-        return JsonResponse({"error": message, "details": str(error)}, status=500)
-
-
-class ClientListAllRestView(BaseClientRestView):
+class ClientListAllRestView(APIView):
     """
     REST view for listing all clients.
     Used by dropdowns and advanced search.
     """
 
-    def get(self, request) -> JsonResponse:
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientListResponseSerializer
+
+    def get(self, request: Request) -> Response:
         """
         Lists all clients (only id and name) for fast dropdowns.
         """
         try:
             clients = Client.objects.all().order_by("name")
             serializer = ClientNameOnlySerializer(clients, many=True)
-            return JsonResponse(serializer.data, safe=False)
+            return Response(serializer.data)
         except Exception as e:
-            return self.handle_error(e, "Error fetching all clients")
+            logger.error(f"Error fetching all clients: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error fetching all clients", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
-class ClientSearchRestView(BaseClientRestView):
+class ClientSearchRestView(APIView):
     """
     REST view for client search.
     Implements name-based search functionality with pagination.
     """
 
-    def get(self, request) -> JsonResponse:
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientSearchResponseSerializer
+
+    def get(self, request: Request) -> Response:
         """
         Searches clients by name following early return pattern.
         """
@@ -82,20 +87,36 @@ class ClientSearchRestView(BaseClientRestView):
             # Guard clause: validate query parameter
             query = request.GET.get("q", "").strip()
             if not query:
-                return JsonResponse({"results": []})
+                response_data = {"results": []}
+                serializer = ClientSearchResponseSerializer(data=response_data)
+                serializer.is_valid(raise_exception=True)
+                return Response(serializer.data)
 
             # Guard clause: query too short
             if len(query) < 3:
-                return JsonResponse({"results": []})
+                response_data = {"results": []}
+                serializer = ClientSearchResponseSerializer(data=response_data)
+                serializer.is_valid(raise_exception=True)
+                return Response(serializer.data)
 
             # Search clients following clean code principles
             clients = self._search_clients(query)
             results = self._format_client_results(clients)
 
-            return JsonResponse({"results": results})
+            response_data = {"results": results}
+            serializer = ClientSearchResponseSerializer(data=response_data)
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data)
 
         except Exception as e:
-            return self.handle_error(e, "Error searching clients")
+            logger.error(f"Error searching clients: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error searching clients", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def _search_clients(self, query: str):
         """
@@ -129,34 +150,57 @@ class ClientSearchRestView(BaseClientRestView):
         ]
 
 
-class ClientContactsRestView(BaseClientRestView):
+class ClientContactsRestView(APIView):
     """
     REST view for fetching contacts of a client.
     """
 
-    def get(self, request, client_id: str) -> JsonResponse:
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientContactsResponseSerializer
+
+    def get(self, request: Request, client_id: str) -> Response:
         """
         Fetches contacts for a specific client.
         """
         try:
             # Guard clause: validate client_id
             if not client_id:
-                return JsonResponse({"error": "Client ID is required"}, status=400)
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": "Client ID is required"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
             # Fetch client with early return
             try:
                 client = Client.objects.get(id=client_id)
             except Client.DoesNotExist:
-                return JsonResponse({"error": "Client not found"}, status=404)
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": "Client not found"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
             # Fetch client contacts
             contacts = self._get_client_contacts(client)
             results = self._format_contact_results(contacts)
 
-            return JsonResponse({"results": results})
+            response_data = {"results": results}
+            serializer = ClientContactsResponseSerializer(data=response_data)
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data)
 
         except Exception as e:
-            return self.handle_error(e, "Error fetching client contacts")
+            logger.error(f"Error fetching client contacts: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error fetching client contacts", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def _get_client_contacts(self, client):
         """
@@ -181,13 +225,22 @@ class ClientContactsRestView(BaseClientRestView):
         ]
 
 
-class ClientContactCreateRestView(BaseClientRestView):
+class ClientContactCreateRestView(APIView):
     """
     REST view for creating client contacts.
     Follows SRP - single responsibility of orchestrating contact creation.
     """
 
-    def post(self, request) -> JsonResponse:
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientContactCreateResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return ClientContactCreateRequestSerializer
+        return ClientContactCreateResponseSerializer
+
+    def post(self, request: Request) -> Response:
         """
         Create a new client contact.
 
@@ -203,31 +256,52 @@ class ClientContactCreateRestView(BaseClientRestView):
         }
         """
         try:
-            data = self._parse_json_body(request)
-            logger.info(f"Received contact creation data: {data}")
-            contact = self._create_contact(data)
+            # Validate input data
+            input_serializer = ClientContactCreateRequestSerializer(data=request.data)
+            if not input_serializer.is_valid():
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": f"Invalid input data: {input_serializer.errors}"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
-            return JsonResponse(
-                {
-                    "success": True,
-                    "contact": {
-                        "id": str(contact.id),
-                        "name": contact.name,
-                        "email": contact.email or "",
-                        "phone": contact.phone or "",
-                        "position": contact.position or "",
-                        "is_primary": contact.is_primary,
-                        "notes": contact.notes or "",
-                    },
-                    "message": "Contact created successfully",
+            validated_data = input_serializer.validated_data
+            logger.info(f"Received contact creation data: {validated_data}")
+            contact = self._create_contact(validated_data)
+
+            response_data = {
+                "success": True,
+                "contact": {
+                    "id": str(contact.id),
+                    "name": contact.name,
+                    "email": contact.email or "",
+                    "phone": contact.phone or "",
+                    "position": contact.position or "",
+                    "is_primary": contact.is_primary,
+                    "notes": contact.notes or "",
                 },
-                status=201,
+                "message": "Contact created successfully",
+            }
+
+            response_serializer = ClientContactCreateResponseSerializer(
+                data=response_data
             )
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return self.handle_error(e, "Error creating contact")
+            logger.error(f"Error creating contact: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error creating contact", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    def _parse_json_body(self, request) -> Dict[str, Any]:
+    def _parse_json_body(self, request: Request) -> Dict[str, Any]:
         """
         Parse JSON body with early return pattern.
         """
@@ -271,34 +345,61 @@ class ClientContactCreateRestView(BaseClientRestView):
         return contact
 
 
-class ClientCreateRestView(BaseClientRestView):
+class ClientCreateRestView(APIView):
     """
     REST view for creating new clients.
     Follows clean code principles and delegates to Django forms for validation.
     Now creates client in Xero first, then syncs locally.
     """
 
-    def post(self, request) -> JsonResponse:
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientCreateResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return ClientCreateRequestSerializer
+        return ClientCreateResponseSerializer
+
+    def post(self, request: Request) -> Response:
         """
         Create a new client, first in Xero, then sync locally.
         """
         try:
-            data = self._parse_json_data(request)
-            form = ClientForm(data)
+            # Validate input data
+            input_serializer = ClientCreateRequestSerializer(data=request.data)
+            if not input_serializer.is_valid():
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": f"Invalid input data: {input_serializer.errors}"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            validated_data = input_serializer.validated_data
+            form = ClientForm(validated_data)
             if not form.is_valid():
                 error_messages = []
                 for field, errors in form.errors.items():
                     error_messages.extend([f"{field}: {error}" for error in errors])
-                return JsonResponse(
-                    {"success": False, "error": "; ".join(error_messages)}, status=400
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": "; ".join(error_messages)}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
             # Xero token check
             token = get_valid_token()
             if not token:
-                return JsonResponse(
-                    {"success": False, "error": "Xero authentication required"},
-                    status=401,
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": "Xero authentication required"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_401_UNAUTHORIZED
                 )
 
             accounting_api = AccountingApi(api_client)
@@ -312,17 +413,18 @@ class ClientCreateRestView(BaseClientRestView):
             if existing_contacts and existing_contacts.contacts:
                 xero_client = existing_contacts.contacts[0]
                 xero_contact_id = getattr(xero_client, "contact_id", "")
-                return JsonResponse(
-                    {
-                        "success": False,
-                        "error": f"Client '{name}' already exists in Xero",
-                        "existing_client": {
-                            "name": name,
-                            "xero_contact_id": xero_contact_id,
-                        },
+                duplicate_error_data = {
+                    "error": f"Client '{name}' already exists in Xero",
+                    "existing_client": {
+                        "name": name,
+                        "xero_contact_id": xero_contact_id,
                     },
-                    status=409,
+                }
+                error_serializer = ClientDuplicateErrorResponseSerializer(
+                    data=duplicate_error_data
                 )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_409_CONFLICT)
 
             # Create new contact in Xero
             contact_data = {
@@ -362,19 +464,27 @@ class ClientCreateRestView(BaseClientRestView):
                 raise ValueError("Failed to sync client from Xero")
             created_client = client_instances[0]
 
-            return JsonResponse(
-                {
-                    "success": True,
-                    "client": self._format_client_data(created_client),
-                    "message": f'Client "{created_client.name}" created successfully',
-                },
-                status=201,
-            )
+            response_data = {
+                "success": True,
+                "client": self._format_client_data(created_client),
+                "message": f'Client "{created_client.name}" created successfully',
+            }
+
+            response_serializer = ClientCreateResponseSerializer(data=response_data)
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return self.handle_error(e, "Error creating client (Xero sync)")
+            logger.error(f"Error creating client (Xero sync): {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error creating client (Xero sync)", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-    def _parse_json_data(self, request) -> Dict[str, Any]:
+    def _parse_json_data(self, request: Request) -> Dict[str, Any]:
         """
         Parse JSON data from request following SRP.
         """

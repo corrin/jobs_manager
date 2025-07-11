@@ -4,6 +4,7 @@ import os
 from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
@@ -47,6 +48,15 @@ class JobFileView(JobNumberLookupMixin, APIView):
     """
 
     renderer_classes = [JSONRenderer, BinaryFileRenderer]
+    serializer_class = JobFileSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return JobFileUploadSuccessResponseSerializer
+        elif self.request.method == "PUT":
+            return JobFileUpdateSuccessResponseSerializer
+        return JobFileSerializer
 
     def save_file(self, job, file_obj, print_on_jobsheet):
         """
@@ -124,6 +134,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
             logger.exception("Error processing file %s: %s", file_obj.name, str(e))
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
 
+    @extend_schema(operation_id="uploadJobFilesApi")
     def post(self, request):
         """
         Handle file uploads. Creates new files or updates existing ones with POST.
@@ -231,6 +242,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(operation_id="retrieveJobFilesApi")
     def get(self, request, file_path=None, job_number=None):
         """
         Based on the request, serve a file for download or return the file list of the job.
@@ -247,6 +259,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
             error_serializer = JobFileErrorResponseSerializer(error_response)
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(operation_id="updateJobFilesApi")
     def put(self, request):
         """
         Update an existing job file:
@@ -401,6 +414,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(operation_id="deleteJobFilesApi")
     def delete(self, request, file_path=None):
         """Delete a job file by its ID. (file_path param is actually the job_file.id)"""
         try:
@@ -444,7 +458,9 @@ class JobFileThumbnailView(JobLookupMixin, APIView):
     """
 
     lookup_url_kwarg = "file_id"  # Note: this view uses file_id, not job_id
+    serializer_class = JobFileThumbnailErrorResponseSerializer
 
+    @extend_schema(operation_id="getJobFileThumbnail")
     def get(self, request, file_id):
         job_file = get_object_or_404(JobFile, id=file_id, status="active")
         thumb = job_file.thumbnail_path

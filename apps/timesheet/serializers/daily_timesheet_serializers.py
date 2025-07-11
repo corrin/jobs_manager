@@ -74,3 +74,9 @@ class DailyTimesheetSummarySerializer(serializers.Serializer):
     staff_data = StaffDailyDataSerializer(many=True)
     daily_totals = DailyTotalsSerializer()
     summary_stats = SummaryStatsSerializer()
+
+
+class TimesheetErrorResponseSerializer(serializers.Serializer):
+    """Serializer for timesheet error responses"""
+
+    error = serializers.CharField(help_text="Error message")

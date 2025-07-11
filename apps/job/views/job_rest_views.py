@@ -95,6 +95,14 @@ class JobCreateRestView(BaseJobRestView):
     Single responsibility: orchestrate job creation.
     """
 
+    serializer_class = JobCreateResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return JobCreateRequestSerializer
+        return JobCreateResponseSerializer
+
     def post(self, request):
         """
         Create a new Job.
@@ -146,6 +154,14 @@ class JobDetailRestView(BaseJobRestView):
     """
     REST view for CRUD operations on a specific Job.
     """
+
+    serializer_class = JobDetailResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "DELETE":
+            return JobDeleteResponseSerializer
+        return JobDetailResponseSerializer
 
     def get(self, request, job_id):
         """
@@ -201,6 +217,8 @@ class JobEventRestView(BaseJobRestView):
     """
     REST view for Job events.
     """
+
+    serializer_class = JobRestErrorResponseSerializer
 
     def post(self, request, job_id):
         """

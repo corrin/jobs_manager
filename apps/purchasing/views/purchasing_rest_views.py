@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -22,9 +23,15 @@ from apps.purchasing.serializers import (
     PurchaseOrderListSerializer,
     PurchaseOrderUpdateResponseSerializer,
     PurchaseOrderUpdateSerializer,
+    PurchasingErrorResponseSerializer,
+    PurchasingJobsResponseSerializer,
+    StockConsumeRequestSerializer,
+    StockConsumeResponseSerializer,
     StockCreateResponseSerializer,
     StockCreateSerializer,
+    StockDeactivateResponseSerializer,
     StockListSerializer,
+    XeroItemListResponseSerializer,
 )
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
 from apps.purchasing.services.purchasing_rest_service import PurchasingRestService
@@ -78,6 +85,8 @@ class AllJobsAPIView(APIView):
 
 class PurchasingJobsAPIView(APIView):
     """API endpoint to get jobs for purchasing contexts (PO lines, stock allocation, etc.)."""
+
+    serializer_class = PurchasingJobsResponseSerializer
 
     def get(self, request):
         """Get list of jobs suitable for purchasing operations."""
@@ -159,6 +168,8 @@ class PurchasingJobsAPIView(APIView):
 class XeroItemList(APIView):
     """Return list of items from Xero."""
 
+    serializer_class = XeroItemListResponseSerializer
+
     def get(self, request):
         try:
             items = PurchasingRestService.list_xero_items()
@@ -185,6 +196,7 @@ class PurchaseOrderListCreateRestView(APIView):
             return PurchaseOrderCreateSerializer
         return PurchaseOrderListSerializer
 
+    @extend_schema(operation_id="listPurchaseOrders")
     def get(self, request):
         """Get list of purchase orders with optional status filtering."""
         status_filter = request.query_params.get("status", None)
@@ -240,6 +252,7 @@ class PurchaseOrderDetailRestView(APIView):
             return PurchaseOrderUpdateSerializer
         return PurchaseOrderDetailSerializer
 
+    @extend_schema(operation_id="retrievePurchaseOrder")
     def get(self, request, pk):
         """Get purchase order details including lines."""
         # Allow fetching PO details regardless of status (including deleted)
@@ -387,6 +400,8 @@ class StockDeactivateRestView(APIView):
     DELETE: Marks a stock item as inactive instead of deleting it
     """
 
+    serializer_class = StockDeactivateResponseSerializer
+
     def delete(self, request, stock_id):
         item = get_object_or_404(Stock, id=stock_id)
         if item.is_active:
@@ -404,6 +419,14 @@ class StockConsumeRestView(APIView):
 
     POST: Records stock consumption for a specific job, reducing available quantity
     """
+
+    serializer_class = StockConsumeResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return StockConsumeRequestSerializer
+        return StockConsumeResponseSerializer
 
     def post(self, request, stock_id):
         job_id = request.data.get("job_id")

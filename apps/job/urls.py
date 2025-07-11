@@ -65,37 +65,37 @@ urlpatterns = [
     # New Kanban API endpoints
     path(
         "api/jobs/fetch-all/",
-        kanban_view_api.fetch_all_jobs,
+        kanban_view_api.FetchAllJobsAPIView.as_view(),
         name="api_fetch_all_jobs",
     ),
     path(
         "api/jobs/<str:job_id>/update-status/",
-        kanban_view_api.update_job_status,
+        kanban_view_api.UpdateJobStatusAPIView.as_view(),
         name="api_update_job_status",
     ),
     path(
         "api/jobs/<uuid:job_id>/reorder/",
-        kanban_view_api.reorder_job,
+        kanban_view_api.ReorderJobAPIView.as_view(),
         name="api_reorder_job",
     ),
     path(
         "api/jobs/fetch/<str:status>/",
-        kanban_view_api.fetch_jobs,
+        kanban_view_api.FetchJobsAPIView.as_view(),
         name="api_fetch_jobs",
     ),
     path(
         "api/jobs/fetch-by-column/<str:column_id>/",
-        kanban_view_api.fetch_jobs_by_column,
+        kanban_view_api.FetchJobsByColumnAPIView.as_view(),
         name="api_fetch_jobs_by_column",
     ),
     path(
         "api/jobs/status-values/",
-        kanban_view_api.fetch_status_values,
+        kanban_view_api.FetchStatusValuesAPIView.as_view(),
         name="api_fetch_status_values",
     ),
     path(
         "api/jobs/advanced-search/",
-        kanban_view_api.advanced_search,
+        kanban_view_api.AdvancedSearchAPIView.as_view(),
         name="api_advanced_search",
     ),
 ]

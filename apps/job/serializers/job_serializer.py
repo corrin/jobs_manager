@@ -7,7 +7,7 @@ from apps.accounting.models.quote import Quote
 from apps.client.models import Client, ClientContact
 from apps.job.models import Job, JobFile
 
-from .costing_serializer import CostSetSerializer
+from .costing_serializer import CostSetSerializer, TimesheetCostLineSerializer
 from .job_file_serializer import JobFileSerializer
 from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
 
@@ -89,22 +89,22 @@ class JobSerializer(serializers.ModelSerializer):
     # Quote spreadsheet relationship
     quote_sheet = QuoteSpreadsheetSerializer(read_only=True, required=False)
 
-    def get_latest_estimate(self, obj):
+    def get_latest_estimate(self, obj) -> dict | None:
         """Get the latest estimate CostSet"""
         cost_set = obj.get_latest("estimate")
         return CostSetSerializer(cost_set).data if cost_set else None
 
-    def get_latest_quote(self, obj):
+    def get_latest_quote(self, obj) -> dict | None:
         """Get the latest quote CostSet"""
         cost_set = obj.get_latest("quote")
         return CostSetSerializer(cost_set).data if cost_set else None
 
-    def get_latest_actual(self, obj):
+    def get_latest_actual(self, obj) -> dict | None:
         """Get the latest actual CostSet"""
         cost_set = obj.get_latest("actual")
         return CostSetSerializer(cost_set).data if cost_set else None
 
-    def get_quote(self, obj):
+    def get_quote(self, obj) -> dict | None:
         raw_quote = getattr(obj, "quote", None)
         logger.debug(f"Getting quote for job {obj.id}: {raw_quote} | {type(raw_quote)}")
 
@@ -114,7 +114,7 @@ class JobSerializer(serializers.ModelSerializer):
             return serialized
         return None
 
-    def get_invoice(self, obj):
+    def get_invoice(self, obj) -> dict | None:
         raw_invoice = getattr(obj, "invoice", None)
         logger.debug(
             f"Getting invoice for job {obj.id}: {raw_invoice} | {type(raw_invoice)}"
@@ -275,3 +275,196 @@ class JobDeleteResponseSerializer(serializers.Serializer):
 
     success = serializers.BooleanField(default=True)
     message = serializers.CharField()
+
+
+class AssignJobRequestSerializer(serializers.Serializer):
+    """Serialiser for job assignment request"""
+
+    job_id = serializers.CharField(help_text="Job ID")
+    staff_id = serializers.CharField(help_text="Staff ID")
+
+
+class AssignJobResponseSerializer(serializers.Serializer):
+    """Serialiser for job assignment response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField(required=False)
+    error = serializers.CharField(required=False)
+
+
+class ArchiveJobsRequestSerializer(serializers.Serializer):
+    """Serialiser for job archiving request"""
+
+    ids = serializers.ListField(
+        child=serializers.CharField(), help_text="List of job IDs to archive"
+    )
+
+
+class ArchiveJobsResponseSerializer(serializers.Serializer):
+    """Serialiser for job archiving response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField(required=False)
+    error = serializers.CharField(required=False)
+    errors = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="List of specific errors",
+    )
+
+
+class WorkshopPDFResponseSerializer(serializers.Serializer):
+    """Serializer for workshop PDF generation response"""
+
+    # This endpoint returns a PDF file, so we use a simple error response serializer
+    status = serializers.CharField(required=False, help_text="Response status")
+    message = serializers.CharField(
+        required=False, help_text="Error message if applicable"
+    )
+
+    class Meta:
+        # This is primarily for documentation - the actual response is a FileResponse (PDF)
+        help_text = "Generates and returns a workshop PDF for the specified job"
+
+
+class MonthEndJobHistorySerializer(serializers.Serializer):
+    """Serializer for job history in month-end data"""
+
+    date = serializers.DateField()
+    total_hours = serializers.FloatField()
+    total_dollars = serializers.FloatField()
+
+
+class MonthEndJobSerializer(serializers.Serializer):
+    """Serializer for special jobs in month-end processing"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.CharField()
+    job_name = serializers.CharField()
+    client_name = serializers.CharField()
+    history = MonthEndJobHistorySerializer(many=True)
+    total_hours = serializers.FloatField()
+    total_dollars = serializers.FloatField()
+
+
+class MonthEndStockHistorySerializer(serializers.Serializer):
+    """Serializer for stock job history in month-end data"""
+
+    date = serializers.DateField()
+    material_line_count = serializers.IntegerField()
+    material_cost = serializers.FloatField()
+
+
+class MonthEndStockJobSerializer(serializers.Serializer):
+    """Serializer for stock job in month-end processing"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.CharField()
+    job_name = serializers.CharField()
+    history = MonthEndStockHistorySerializer(many=True)
+
+
+class MonthEndGetResponseSerializer(serializers.Serializer):
+    """Serializer for month-end GET response"""
+
+    jobs = MonthEndJobSerializer(many=True)
+    stock_job = MonthEndStockJobSerializer()
+
+
+class MonthEndPostRequestSerializer(serializers.Serializer):
+    """Serializer for month-end POST request"""
+
+    job_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        help_text="List of job IDs to process for month-end",
+    )
+
+
+class MonthEndPostResponseSerializer(serializers.Serializer):
+    """Serializer for month-end POST response"""
+
+    processed = serializers.ListField(
+        child=serializers.UUIDField(),
+        help_text="List of successfully processed job IDs",
+    )
+    errors = serializers.ListField(
+        child=serializers.CharField(),
+        help_text="List of error messages for failed processing",
+    )
+
+
+class MonthEndErrorResponseSerializer(serializers.Serializer):
+    """Serializer for month-end error responses"""
+
+    error = serializers.CharField(help_text="Error message")
+
+
+# Modern Timesheet Serializers
+class ModernTimesheetStaffSerializer(serializers.Serializer):
+    """Serializer for staff information in timesheet responses"""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    firstName = serializers.CharField()
+    lastName = serializers.CharField()
+
+
+class ModernTimesheetSummarySerializer(serializers.Serializer):
+    """Serializer for timesheet entry summary"""
+
+    total_hours = serializers.FloatField()
+    billable_hours = serializers.FloatField()
+    non_billable_hours = serializers.FloatField()
+    total_cost = serializers.FloatField()
+    total_revenue = serializers.FloatField()
+    entry_count = serializers.IntegerField()
+
+
+class ModernTimesheetEntryGetResponseSerializer(serializers.Serializer):
+    """Serializer for timesheet entry GET response"""
+
+    cost_lines = TimesheetCostLineSerializer(many=True)
+    staff = ModernTimesheetStaffSerializer()
+    date = serializers.DateField()
+    summary = ModernTimesheetSummarySerializer()
+
+
+class ModernTimesheetEntryPostRequestSerializer(serializers.Serializer):
+    """Serializer for timesheet entry POST request"""
+
+    job_id = serializers.UUIDField()
+    staff_id = serializers.UUIDField()
+    date = serializers.DateField()
+    hours = serializers.FloatField(min_value=0)
+    description = serializers.CharField(max_length=500)
+    is_billable = serializers.BooleanField(default=True)
+    hourly_rate = serializers.FloatField(min_value=0, required=False)
+
+
+class ModernTimesheetEntryPostResponseSerializer(serializers.Serializer):
+    """Serializer for timesheet entry POST response"""
+
+    success = serializers.BooleanField()
+    cost_line_id = serializers.UUIDField(required=False)
+    message = serializers.CharField(required=False)
+
+
+class ModernTimesheetJobGetResponseSerializer(serializers.Serializer):
+    """Serializer for timesheet job GET response"""
+
+    jobs = JobSerializer(many=True)
+    total_count = serializers.IntegerField()
+
+
+class ModernTimesheetDayGetResponseSerializer(serializers.Serializer):
+    """Serializer for timesheet day GET response"""
+
+    entries = TimesheetCostLineSerializer(many=True)
+    summary = ModernTimesheetSummarySerializer()
+    date = serializers.DateField()
+
+
+class ModernTimesheetErrorResponseSerializer(serializers.Serializer):
+    """Serializer for timesheet error responses"""
+
+    error = serializers.CharField(help_text="Error message")
