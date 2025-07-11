@@ -10,7 +10,6 @@ from datetime import date, datetime, timedelta
 from django.db.models import Q
 from django.utils.dateparse import parse_date
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,9 +19,11 @@ from apps.accounts.utils import get_excluded_staff
 from apps.job.models import Job
 from apps.timesheet.serializers import (
     DailyTimesheetSummarySerializer,
+    JobsListResponseSerializer,
     ModernStaffSerializer,
     ModernTimesheetJobSerializer,
     PaidAbsenceRequestSerializer,
+    StaffListResponseSerializer,
     WeeklyTimesheetDataSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
@@ -40,6 +41,7 @@ class StaffListAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = StaffListResponseSerializer
 
     def get(self, request):
         """Get filtered list of staff members."""
@@ -76,6 +78,7 @@ class JobsAPIView(APIView):
     """API endpoint to get available jobs for timesheet entries."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = JobsListResponseSerializer
 
     def get(self, request):
         """Get list of active jobs for timesheet entries using CostSet system."""
@@ -142,6 +145,7 @@ class DailyTimesheetAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = DailyTimesheetSummarySerializer
 
     def get(self, request, date=None, staff_id=None):
         """
@@ -269,6 +273,7 @@ class WeeklyTimesheetAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = WeeklyTimesheetDataSerializer
 
     def get(self, request):
         """

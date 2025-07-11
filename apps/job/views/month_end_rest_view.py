@@ -8,6 +8,12 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.serializers.job_serializer import (
+    MonthEndErrorResponseSerializer,
+    MonthEndGetResponseSerializer,
+    MonthEndPostRequestSerializer,
+    MonthEndPostResponseSerializer,
+)
 from apps.job.services.month_end_service import MonthEndService
 
 logger = logging.getLogger(__name__)
@@ -21,6 +27,16 @@ class MonthEndRestView(APIView):
     GET: Returns special jobs data and stock job information for month-end review
     POST: Processes selected jobs for month-end archiving and status updates
     """
+
+    serializer_class = MonthEndGetResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "GET":
+            return MonthEndGetResponseSerializer
+        elif self.request.method == "POST":
+            return MonthEndPostResponseSerializer
+        return MonthEndGetResponseSerializer
 
     def get(self, request):
         jobs = MonthEndService.get_special_jobs_data()
@@ -57,28 +73,37 @@ class MonthEndRestView(APIView):
                 for h in stock["history"]
             ],
         }
-        return Response(
-            {"jobs": serialized_jobs, "stock_job": stock_serialized},
-            status=status.HTTP_200_OK,
-        )
+
+        response_data = {"jobs": serialized_jobs, "stock_job": stock_serialized}
+        response_serializer = MonthEndGetResponseSerializer(data=response_data)
+        response_serializer.is_valid(raise_exception=True)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
         try:
-            payload: Dict[str, Any] = json.loads(request.body or "{}")
-        except json.JSONDecodeError:
-            return Response(
-                {"error": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        job_ids = payload.get("job_ids", [])
-        if not isinstance(job_ids, list):
-            return Response(
-                {"error": "job_ids must be a list"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        processed, errors = MonthEndService.process_jobs(job_ids)
-        return Response(
-            {
+            # Validate input data
+            input_serializer = MonthEndPostRequestSerializer(data=request.data)
+            if not input_serializer.is_valid():
+                error_response = {"error": f"Invalid input: {input_serializer.errors}"}
+                error_serializer = MonthEndErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            job_ids = input_serializer.validated_data["job_ids"]
+            processed, errors = MonthEndService.process_jobs(job_ids)
+
+            response_data = {
                 "processed": [str(job.id) for job in processed],
                 "errors": errors,
-            },
-            status=status.HTTP_200_OK,
-        )
+            }
+            response_serializer = MonthEndPostResponseSerializer(data=response_data)
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except json.JSONDecodeError:
+            error_response = {"error": "Invalid JSON"}
+            error_serializer = MonthEndErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)

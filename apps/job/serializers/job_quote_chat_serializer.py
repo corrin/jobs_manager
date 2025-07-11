@@ -58,3 +58,81 @@ class JobQuoteChatUpdateSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class JobQuoteChatMessageResponseSerializer(serializers.Serializer):
+    """Serializer for individual chat message in responses."""
+
+    message_id = serializers.CharField()
+    role = serializers.ChoiceField(
+        choices=[("user", "User"), ("assistant", "Assistant")]
+    )
+    content = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+    metadata = serializers.JSONField()
+
+
+class JobQuoteChatHistoryResponseSerializer(serializers.Serializer):
+    """Serializer for chat history response."""
+
+    success = serializers.BooleanField()
+    data = serializers.DictField()
+
+    def to_representation(self, instance):
+        """Custom representation to handle nested messages."""
+        data = super().to_representation(instance)
+        if "data" in data and "messages" in data["data"]:
+            # Serialize messages using the message serializer
+            messages_data = data["data"]["messages"]
+            serialized_messages = JobQuoteChatMessageResponseSerializer(
+                messages_data, many=True
+            ).data
+            data["data"]["messages"] = serialized_messages
+        return data
+
+
+class JobQuoteChatCreateResponseSerializer(serializers.Serializer):
+    """Serializer for chat message creation response."""
+
+    success = serializers.BooleanField()
+    data = serializers.DictField()
+
+
+class JobQuoteChatDeleteResponseSerializer(serializers.Serializer):
+    """Serializer for chat deletion response."""
+
+    success = serializers.BooleanField()
+    data = serializers.DictField()
+
+
+class JobQuoteChatUpdateResponseSerializer(serializers.Serializer):
+    """Serializer for chat message update response."""
+
+    success = serializers.BooleanField()
+    data = serializers.DictField()
+
+
+class JobQuoteChatInteractionRequestSerializer(serializers.Serializer):
+    """Serializer for chat interaction request data."""
+
+    message = serializers.CharField(
+        max_length=5000,
+        help_text="User message content to send to the AI assistant",
+    )
+
+
+class JobQuoteChatInteractionSuccessResponseSerializer(serializers.Serializer):
+    """Serializer for successful chat interaction response."""
+
+    success = serializers.BooleanField(default=True)
+    data = JobQuoteChatSerializer()
+
+
+class JobQuoteChatInteractionErrorResponseSerializer(serializers.Serializer):
+    """Serializer for error chat interaction response."""
+
+    success = serializers.BooleanField(default=False)
+    error = serializers.CharField()
+    code = serializers.CharField(
+        required=False, help_text="Error code for specific error types"
+    )

@@ -4,6 +4,7 @@ import os
 # Use django.conf.settings to access the fully configured Django settings
 # This ensures we get settings after all imports and env vars are processed
 from django.conf import settings
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -11,7 +12,11 @@ from rest_framework.views import APIView
 
 from apps.job.mixins import JobNumberLookupMixin
 from apps.job.models import Job, JobFile
-from apps.job.serializers.job_file_serializer import JobFileSerializer
+from apps.job.serializers.job_file_serializer import (
+    JobFileErrorResponseSerializer,
+    JobFileSerializer,
+    JobFileUploadViewResponseSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -25,21 +30,21 @@ class JobFileUploadView(JobNumberLookupMixin, APIView):
     """
 
     parser_classes = [MultiPartParser, FormParser]
+    serializer_class = JobFileUploadViewResponseSerializer
 
+    @extend_schema(operation_id="uploadJobFilesRest")
     def post(self, request):
         job_number = request.data.get("job_number")
         if not job_number:
-            return Response(
-                {"status": "error", "message": "Job number is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {"status": "error", "message": "Job number is required"}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         files = request.FILES.getlist("files")
         if not files:
-            return Response(
-                {"status": "error", "message": "No files uploaded"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {"status": "error", "message": "No files uploaded"}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate job exists first
         job_obj, error_response = self.get_job_or_404_response(
@@ -80,10 +85,11 @@ class JobFileUploadView(JobNumberLookupMixin, APIView):
             uploaded_instances, many=True, context={"request": request}
         )
 
-        return Response(
-            {
-                "status": "success",
-                "uploaded": serializer.data,
-                "message": "Files uploaded successfully",
-            }
-        )
+        response_data = {
+            "status": "success",
+            "uploaded": serializer.data,
+            "message": "Files uploaded successfully",
+        }
+
+        response_serializer = JobFileUploadViewResponseSerializer(response_data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)

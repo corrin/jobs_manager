@@ -66,7 +66,7 @@ urlpatterns = [
     # Delivery Receipts - API endpoints
     path(
         "api/delivery-receipts/process/",
-        views.process_delivery_receipt,
+        views.DeliveryReceiptRestView.as_view(),
         name="delivery_receipts_process",
     ),
     # Stock Management - REST endpoints

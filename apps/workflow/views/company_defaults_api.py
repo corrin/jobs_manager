@@ -27,6 +27,7 @@ class CompanyDefaultsAPIView(APIView):
     """
 
     permission_classes = [IsAdminUser]
+    serializer_class = CompanyDefaultsSerializer
 
     def get(self, request):
         instance = get_company_defaults()
