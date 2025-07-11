@@ -9,7 +9,10 @@ Consolidated URL configuration for all timesheet functionality:
 
 from django.urls import path
 
-from .api.daily_timesheet_views import daily_timesheet_summary, staff_daily_detail
+from .api.daily_timesheet_views import (
+    DailyTimesheetSummaryAPIView,
+    StaffDailyDetailAPIView,
+)
 from .views.api import JobsAPIView, StaffListAPIView, WeeklyTimesheetAPIView
 
 app_name = "timesheet"
@@ -19,20 +22,22 @@ urlpatterns = [
     # Staff endpoints
     path("api/staff/", StaffListAPIView.as_view(), name="api_staff_list"),
     # Daily timesheet endpoints - using DailyTimesheetService (CostLine-based)
-    path("api/daily/", daily_timesheet_summary, name="api_daily_summary"),
+    path(
+        "api/daily/", DailyTimesheetSummaryAPIView.as_view(), name="api_daily_summary"
+    ),
     path(
         "api/daily/<str:target_date>/",
-        daily_timesheet_summary,
+        DailyTimesheetSummaryAPIView.as_view(),
         name="api_daily_summary_with_date",
     ),
     path(
         "api/staff/<str:staff_id>/daily/",
-        staff_daily_detail,
+        StaffDailyDetailAPIView.as_view(),
         name="api_staff_daily_detail",
     ),
     path(
         "api/staff/<str:staff_id>/daily/<str:target_date>/",
-        staff_daily_detail,
+        StaffDailyDetailAPIView.as_view(),
         name="api_staff_daily_detail_with_date",
     ),
     # Weekly timesheet endpoints - using WeeklyTimesheetService (CostLine-based)

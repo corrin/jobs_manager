@@ -28,6 +28,7 @@ class JobCostSetView(JobLookupMixin, APIView):
     """
 
     lookup_url_kwarg = "pk"  # Match the URL parameter name
+    serializer_class = CostSetSerializer
 
     def get(self, request, pk, kind):
         """

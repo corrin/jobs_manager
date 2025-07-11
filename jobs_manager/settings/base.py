@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.purchasing.apps.PurchasingConfig",
     "channels",
     "mcp_server",
+    "drf_spectacular",
 ]
 
 CRISPY_TEMPLATE_PACK = "bootstrap5"
@@ -55,9 +56,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
-    # Not needed anymore, since we're already using Simple JWT
-    # "apps.workflow.middleware.LoginRequiredMiddleware",
-    # "apps.workflow.middleware.PasswordStrengthMiddleware",
 ]
 
 # JWT/general authentication settings
@@ -70,6 +68,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "apps.workflow.permissions.DevelopmentOrAuthenticatedPermission",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SIMPLE_JWT = {
@@ -106,6 +105,13 @@ LOGIN_EXEMPT_URLS = [
     "accounts:token_refresh",
     "accounts:token_verify",
 ]
+
+# For OpenAPI schema generator
+SPECTACULAR_SETTINGS = {
+    "TITLE": "MSM Jobs Manager API",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
 
 LOGGING = {
     "version": 1,

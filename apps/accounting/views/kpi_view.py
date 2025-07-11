@@ -7,6 +7,11 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounting.serializers import (
+    KPICalendarDataSerializer,
+    KPICalendarErrorResponseSerializer,
+    StandardErrorSerializer,
+)
 from apps.accounting.services import KPIService
 
 logger = getLogger(__name__)
@@ -26,40 +31,56 @@ class KPICalendarTemplateView(TemplateView):
 class KPICalendarAPIView(APIView):
     """API Endpoint to provide KPI data for calendar display"""
 
+    serializer_class = KPICalendarDataSerializer
+
     def get(self, request, *args, **kwargs):
         try:
             year = str(request.query_params.get("year", date.today().year))
             month = str(request.query_params.get("month", date.today().month))
 
             if not year.isdigit() or not month.isdigit():
-                return Response(
-                    {
+                error_serializer = StandardErrorSerializer(
+                    data={
                         "error": "The provided query param 'year' or 'month' is "
                         "not in the correct format (not a digit). Please try again."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    }
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
             year = int(year)
             month = int(month)
 
             if not 1 <= month <= 12 or not 2000 <= year <= 2100:
-                return Response(
-                    {
+                error_serializer = StandardErrorSerializer(
+                    data={
                         "error": "Year or month out of valid range. "
                         "Please check the query params."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                    }
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
             calendar_data = KPIService.get_calendar_data(year, month)
 
-            return Response(calendar_data, status=status.HTTP_200_OK)
+            # Validate and serialize the response
+            response_serializer = KPICalendarDataSerializer(data=calendar_data)
+            response_serializer.is_valid(raise_exception=True)
+
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(
                 "KPI Calendar API Error: %s\n%s", str(e), traceback.format_exc()
             )
+            error_serializer = StandardErrorSerializer(
+                data={"error": f"Error obtaining calendar data: {str(e)}"}
+            )
+            error_serializer.is_valid(raise_exception=True)
             return Response(
-                {"error": f"Error obtaining calendar data: {str(e)}"},
+                error_serializer.data,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

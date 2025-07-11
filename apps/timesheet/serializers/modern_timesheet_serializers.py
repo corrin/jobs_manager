@@ -27,7 +27,7 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
             "has_actual_costset",
         ]
 
-    def get_has_actual_costset(self, obj):
+    def get_has_actual_costset(self, obj) -> bool:
         """Check if job has an actual cost set"""
         return obj.get_latest("actual") is not None
 
@@ -81,3 +81,17 @@ class PaidAbsenceRequestSerializer(serializers.Serializer):
         if data["end_date"] < data["start_date"]:
             raise serializers.ValidationError("End date cannot be before start date")
         return data
+
+
+class StaffListResponseSerializer(serializers.Serializer):
+    """Serializer for staff list API response"""
+
+    staff = ModernStaffSerializer(many=True)
+    total_count = serializers.IntegerField()
+
+
+class JobsListResponseSerializer(serializers.Serializer):
+    """Serializer for jobs list API response"""
+
+    jobs = ModernTimesheetJobSerializer(many=True)
+    total_count = serializers.IntegerField()

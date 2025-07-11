@@ -3,64 +3,83 @@ User profile views for JWT authentication
 """
 
 from django.conf import settings
+from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.accounts.serializers import UserProfileSerializer
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_current_user(request):
+class GetCurrentUserAPIView(APIView):
     """
     Get current authenticated user information via JWT from httpOnly cookie
     """
-    try:
-        user = request.user
-        serializer = UserProfileSerializer(user, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except Exception as e:
-        return Response(
-            {"error": f"Error retrieving user profile: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserProfileSerializer
+
+    @extend_schema(
+        summary="Returns the current authenticated user profile",
+        responses={200: UserProfileSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        try:
+            user = request.user
+            serializer = UserProfileSerializer(user, context={"request": request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"error": f"Error retrieving user profile: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
-@api_view(["POST"])
-def logout_user(request):
+class LogoutUserAPIView(APIView):
     """
     Custom logout view that clears JWT httpOnly cookies
     """
-    try:
-        simple_jwt_settings = getattr(settings, "SIMPLE_JWT", {})
 
-        response = Response(
-            {"success": True, "message": "Successfully logged out"},
-            status=status.HTTP_200_OK,
-        )
+    permission_classes = []  # No authentication required for logout
 
-        # Clear access token cookie
-        access_cookie_name = simple_jwt_settings.get("AUTH_COOKIE", "access_token")
-        response.delete_cookie(
-            access_cookie_name,
-            domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
-            samesite=simple_jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax"),
-        )
+    @extend_schema(
+        summary="Logs out the current user by clearing JWT cookies",
+        request=None,
+        responses={200: OpenApiTypes.OBJECT, 500: OpenApiTypes.OBJECT},
+    )
+    def post(self, request: Request) -> Response:
+        try:
+            simple_jwt_settings = getattr(settings, "SIMPLE_JWT", {})
 
-        # Clear refresh token cookie
-        refresh_cookie_name = simple_jwt_settings.get("REFRESH_COOKIE", "refresh_token")
-        response.delete_cookie(
-            refresh_cookie_name,
-            domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
-            samesite=simple_jwt_settings.get("REFRESH_COOKIE_SAMESITE", "Lax"),
-        )
+            response = Response(
+                {"success": True, "message": "Successfully logged out"},
+                status=status.HTTP_200_OK,
+            )
 
-        return response
+            # Clear access token cookie
+            access_cookie_name = simple_jwt_settings.get("AUTH_COOKIE", "access_token")
+            response.delete_cookie(
+                access_cookie_name,
+                domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
+                samesite=simple_jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax"),
+            )
 
-    except Exception as e:
-        return Response(
-            {"error": f"Error during logout: {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+            # Clear refresh token cookie
+            refresh_cookie_name = simple_jwt_settings.get(
+                "REFRESH_COOKIE", "refresh_token"
+            )
+            response.delete_cookie(
+                refresh_cookie_name,
+                domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
+                samesite=simple_jwt_settings.get("REFRESH_COOKIE_SAMESITE", "Lax"),
+            )
+
+            return response
+
+        except Exception as e:
+            return Response(
+                {"error": f"Error during logout: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

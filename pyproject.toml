@@ -20,7 +20,7 @@ django-tables2 = "^2.7.0"
 django-sortable = "^0.3.1"
 django-crispy-forms = "^2.3"
 crispy-bootstrap5 = "^2024.2"
-djangorestframework = "^3.15.2"
+djangorestframework = "^3.16.0"
 mysqlclient = "^2.2.4"
 concurrent-log-handler = "^0.9.25"
 django-debug-toolbar = "^4.4.6"
@@ -62,6 +62,7 @@ httpx = "^0.28.1"
 pre-commit = "^4.2.0"
 mypy = "^1.16.1"
 django-stubs = "^5.2.1"
+drf-spectacular = "^0.28.0"
 
 [tool.poetry.scripts]
 post-install = "scripts.post_install:install_system_deps"  # Script to install system dependencies like poppler-utils

@@ -160,3 +160,76 @@ class XeroErrorSerializer(serializers.ModelSerializer):
     class Meta:
         model = XeroError
         fields = "__all__"
+
+
+class XeroErrorListResponseSerializer(serializers.Serializer):
+    """Serializer for paginated Xero error list response."""
+
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = XeroErrorSerializer(many=True)
+
+
+class XeroErrorDetailResponseSerializer(serializers.Serializer):
+    """Serializer for single Xero error detail response."""
+
+    # Uses all the fields from XeroErrorSerializer
+    id = serializers.IntegerField()
+    timestamp = serializers.DateTimeField()
+    entity = serializers.CharField()
+    operation = serializers.CharField()
+    error_type = serializers.CharField()
+    error_message = serializers.CharField()
+    xero_id = serializers.CharField(allow_null=True)
+    context = serializers.JSONField()
+
+
+class XeroAuthenticationErrorResponseSerializer(serializers.Serializer):
+    """Serializer for Xero authentication error responses."""
+
+    success = serializers.BooleanField(default=False)
+    redirect_to_auth = serializers.BooleanField(default=True)
+    message = serializers.CharField()
+
+
+class XeroOperationResponseSerializer(serializers.Serializer):
+    """Serializer for Xero operation responses (create/delete)."""
+
+    success = serializers.BooleanField()
+    error = serializers.CharField(required=False)
+    messages = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class XeroSyncInfoResponseSerializer(serializers.Serializer):
+    """Serializer for Xero sync info response."""
+
+    last_syncs = serializers.DictField()
+    sync_range = serializers.CharField()
+    sync_in_progress = serializers.BooleanField()
+    error = serializers.CharField(required=False)
+    redirect_to_auth = serializers.BooleanField(required=False)
+
+
+class XeroSyncStartResponseSerializer(serializers.Serializer):
+    """Serializer for start Xero sync response."""
+
+    status = serializers.CharField()
+    message = serializers.CharField()
+    task_id = serializers.CharField(required=False)
+    error = serializers.CharField(required=False)
+
+
+class XeroTriggerSyncResponseSerializer(serializers.Serializer):
+    """Serializer for trigger Xero sync response."""
+
+    success = serializers.BooleanField()
+    task_id = serializers.CharField(required=False)
+    started = serializers.BooleanField(required=False)
+    message = serializers.CharField(required=False)
+
+
+class XeroPingResponseSerializer(serializers.Serializer):
+    """Serializer for Xero ping response."""
+
+    connected = serializers.BooleanField()

@@ -2,7 +2,6 @@ from django.contrib.auth import views as auth_views
 from django.urls import path
 from rest_framework_simplejwt.views import TokenVerifyView
 
-from apps.accounts.views import get_current_user, logout_user
 from apps.accounts.views.password_views import SecurityPasswordChangeView
 from apps.accounts.views.staff_api import (
     StaffListCreateAPIView,
@@ -18,6 +17,10 @@ from apps.accounts.views.staff_views import (
 from apps.accounts.views.token_view import (
     CustomTokenObtainPairView,
     CustomTokenRefreshView,
+)
+from apps.accounts.views.user_profile_view import (
+    GetCurrentUserAPIView,
+    LogoutUserAPIView,
 )
 
 app_name = "accounts"
@@ -36,8 +39,8 @@ urlpatterns = [
     path("api/token/refresh/", CustomTokenRefreshView.as_view(), name="token_refresh"),
     path("api/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     # User profile API endpoints
-    path("me/", get_current_user, name="get_current_user"),
-    path("logout/", logout_user, name="api_logout"),  # Authentication
+    path("me/", GetCurrentUserAPIView.as_view(), name="get_current_user"),
+    path("logout/", LogoutUserAPIView.as_view(), name="api_logout"),  # Authentication
     path(
         "login/",
         auth_views.LoginView.as_view(template_name="accounts/registration/login.html"),
