@@ -201,11 +201,20 @@ class Migration(migrations.Migration):
     ]
 ```
 
-### Commit 2: Core Service Enhancement (Tasks 3-5)
-- Context extraction utilities (extract_request_context, extract_job_context)
-- Enhanced persist_app_error function with new parameters
-- Severity/app constants
-- This establishes the enhanced API while maintaining backward compatibility
+### Commit 2: Core Service Enhancement (Tasks 3-5) ✅ COMPLETED
+- ✅ Context extraction utilities (extract_request_context, extract_job_context)
+- ✅ Enhanced persist_app_error function with new parameters
+- ✅ Severity/app constants (using logging module constants)
+- ✅ This establishes the enhanced API while maintaining backward compatibility
+
+**Implementation Notes:**
+- Added extract_request_context() for Django request context (user_id, path, method)
+- Added extract_job_context() for Job model context (follows defensive programming - no null checks)
+- Enhanced persist_app_error() with parameters: app, file, function, severity, job_id, user_id, additional_context
+- Maintains backward compatibility - existing persist_app_error(exc) calls still work
+- Uses logging constants directly (logging.ERROR, logging.WARNING, etc.)
+- Tested: Successfully created AppError with enhanced contextual information
+- Committed: 2a5766f4
 
 ### Commit 3: High-Priority Error Handling (Tasks 6-8)
 - Update Xero sync operations with enhanced error context
