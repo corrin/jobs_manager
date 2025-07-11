@@ -795,7 +795,14 @@ class JobAgingService:
             jobs = jobs_query.order_by("-created_at")
         except Exception as exc:
             logger.error(f"Database error fetching jobs: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                additional_context={
+                    'operation': 'fetch_jobs_for_aging_report',
+                    'include_archived': include_archived,
+                    'query_filters': 'active_jobs_with_client_and_cost_data'
+                }
+            )
             return {"jobs": []}
         
         job_data = []
@@ -820,7 +827,16 @@ class JobAgingService:
                 job_data.append(job_info)
             except Exception as exc:
                 logger.error(f"Error processing job {job.job_number}: {str(exc)}")
-                persist_app_error(exc)
+                persist_app_error(
+                    exc,
+                    job_id=job.id,
+                    additional_context={
+                        'operation': 'process_individual_job_for_aging',
+                        'job_number': job.job_number,
+                        'job_status': job.status,
+                        'client_name': job.client.name if job.client else None
+                    }
+                )
                 # Continue processing other jobs
         
         # Sort by last activity (most recent first)
@@ -828,7 +844,15 @@ class JobAgingService:
             job_data.sort(key=lambda x: x["timing_data"]["last_activity_days_ago"])
         except Exception as exc:
             logger.warning(f"Error sorting job data: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                additional_context={
+                    'operation': 'sort_job_aging_data',
+                    'jobs_count': len(job_data),
+                    'sort_key': 'timing_data.last_activity_days_ago'
+                }
+            )
             # Return unsorted data
         
         return {"jobs": job_data}
@@ -858,7 +882,17 @@ class JobAgingService:
                 )
         except Exception as exc:
             logger.warning(f"Error calculating estimate total for job {job.job_number}: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                job_id=job.id,
+                additional_context={
+                    'operation': 'calculate_job_estimate_total',
+                    'job_number': job.job_number,
+                    'has_latest_estimate': job.latest_estimate is not None,
+                    'business_process': 'job_aging_financial_data'
+                }
+            )
         
         try:
             # Get latest quote
@@ -868,7 +902,17 @@ class JobAgingService:
                 )
         except Exception as exc:
             logger.warning(f"Error calculating quote total for job {job.job_number}: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                job_id=job.id,
+                additional_context={
+                    'operation': 'calculate_job_quote_total',
+                    'job_number': job.job_number,
+                    'has_latest_quote': job.latest_quote is not None,
+                    'business_process': 'job_aging_financial_data'
+                }
+            )
         
         try:
             # Get latest actual

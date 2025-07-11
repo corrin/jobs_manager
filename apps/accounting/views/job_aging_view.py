@@ -10,7 +10,7 @@ from apps.accounting.serializers import (
     StandardErrorSerializer,
 )
 from apps.accounting.services import JobAgingService
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_app_error, extract_request_context
 
 logger = getLogger(__name__)
 
@@ -65,7 +65,21 @@ class JobAgingAPIView(APIView):
 
         except Exception as exc:
             logger.error(f"Job Aging API Error: {str(exc)}")
-            persist_app_error(exc)
+            
+            # Extract request context
+            request_context = extract_request_context(request)
+            
+            persist_app_error(
+                exc,
+                user_id=request_context['user_id'],
+                additional_context={
+                    'operation': 'job_aging_api_endpoint',
+                    'request_path': request_context['request_path'],
+                    'request_method': request_context['request_method'],
+                    'include_archived': request.query_params.get('include_archived', 'false'),
+                    'query_params': dict(request.query_params)
+                }
+            )
 
             error_serializer = StandardErrorSerializer(
                 data={"error": f"Error obtaining job aging data: {str(exc)}"}

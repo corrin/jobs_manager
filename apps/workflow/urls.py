@@ -43,15 +43,17 @@ from rest_framework.routers import DefaultRouter
 
 from apps.workflow.api.enums import get_enum_choices
 from apps.workflow.views.ai_provider_viewset import AIProviderViewSet
+from apps.workflow.views.app_error_view import AppErrorListAPIView, AppErrorDetailAPIView, AppErrorViewSet
 from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
 
 # ---------------------------------------------------------------------------
-# DRF Router setup for AI Provider endpoints
+# DRF Router setup for AI Provider and AppError endpoints
 # ---------------------------------------------------------------------------
 router = DefaultRouter()
 router.register("ai-providers", AIProviderViewSet, basename="ai-provider")
+router.register("app-errors", AppErrorViewSet, basename="app-error")
 
 # Create home redirect pattern with metadata
 home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")
@@ -130,6 +132,16 @@ urlpatterns = [
         "api/xero/ping/",
         xero_view.xero_ping,
         name="xero_ping",
+    ),
+    path(
+        "app-errors/",
+        AppErrorListAPIView.as_view(),
+        name="app-error-list",
+    ),
+    path(
+        "app-errors/<uuid:pk>/",
+        AppErrorDetailAPIView.as_view(),
+        name="app-error-detail",
     ),
     path(
         "xero-errors/",

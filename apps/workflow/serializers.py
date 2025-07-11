@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 # Existing models used in this serializer module
-from .models import XeroError  # Added to support XeroErrorSerializer
+from .models import AppError, XeroError
 from .models import AIProvider, CompanyDefaults, XeroAccount, XeroToken
 
 
@@ -233,3 +233,43 @@ class XeroPingResponseSerializer(serializers.Serializer):
     """Serializer for Xero ping response."""
 
     connected = serializers.BooleanField()
+
+
+# ---------------------------------------------------------------------------
+# App Error Serializers
+# ---------------------------------------------------------------------------
+
+
+class AppErrorSerializer(serializers.ModelSerializer):
+    """Basic serializer for AppError instances."""
+
+    class Meta:
+        model = AppError
+        fields = "__all__"
+
+
+class AppErrorListResponseSerializer(serializers.Serializer):
+    """Serializer for paginated AppError list response."""
+
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = AppErrorSerializer(many=True)
+
+
+class AppErrorDetailResponseSerializer(serializers.Serializer):
+    """Serializer for single AppError detail response."""
+
+    id = serializers.UUIDField()
+    timestamp = serializers.DateTimeField()
+    message = serializers.CharField()
+    data = serializers.JSONField()
+    app = serializers.CharField(allow_null=True)
+    file = serializers.CharField(allow_null=True)
+    function = serializers.CharField(allow_null=True)
+    severity = serializers.IntegerField()
+    job_id = serializers.UUIDField(allow_null=True)
+    user_id = serializers.UUIDField(allow_null=True)
+    resolved = serializers.BooleanField()
+    resolved_by = serializers.UUIDField(allow_null=True)
+    resolved_timestamp = serializers.DateTimeField(allow_null=True)
