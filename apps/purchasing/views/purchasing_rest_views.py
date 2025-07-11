@@ -148,9 +148,9 @@ class PurchasingJobsAPIView(APIView):
                         "client_name": job.client.name if job.client else "No Client",
                         "status": job.status,
                         "charge_out_rate": float(job.charge_out_rate or 0),
-                        "cost_set_id": str(actual_cost_set.id)
-                        if actual_cost_set
-                        else None,
+                        "cost_set_id": (
+                            str(actual_cost_set.id) if actual_cost_set else None
+                        ),
                         "job_display_name": f"{job.job_number} - {job.name}",
                     }
                 )
@@ -533,13 +533,16 @@ class PurchaseOrderAllocationsAPIView(APIView):
                             "job_id": str(cost_line.cost_set.job.id),
                             "job_name": cost_line.cost_set.job.name,
                             "quantity": float(cost_line.quantity),
-                            "retail_rate": float(cost_line.meta.get("retail_rate", 0))
-                            * 100
-                            if cost_line.meta.get("retail_rate")
-                            else 0,
-                            "allocation_date": cost_line.created_at.isoformat()
-                            if hasattr(cost_line, "created_at")
-                            else None,
+                            "retail_rate": (
+                                float(cost_line.meta.get("retail_rate", 0)) * 100
+                                if cost_line.meta.get("retail_rate")
+                                else 0
+                            ),
+                            "allocation_date": (
+                                cost_line.created_at.isoformat()
+                                if hasattr(cost_line, "created_at")
+                                else None
+                            ),
                             "description": cost_line.desc,
                         }
                     )
@@ -561,9 +564,11 @@ class PurchaseOrderAllocationsAPIView(APIView):
                     {
                         "type": "stock",
                         "job_id": str(stock_item.job.id),
-                        "job_name": "Stock"
-                        if stock_item.job.name == "Worker Admin"
-                        else stock_item.job.name,
+                        "job_name": (
+                            "Stock"
+                            if stock_item.job.name == "Worker Admin"
+                            else stock_item.job.name
+                        ),
                         "quantity": float(stock_item.quantity),
                         "retail_rate": 0,  # Stock items don't have retail rate
                         "allocation_date": stock_item.date.isoformat(),

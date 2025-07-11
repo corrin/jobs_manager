@@ -5,9 +5,9 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
+from apps.workflow.api.pagination import FiftyPerPagePagination
 from apps.workflow.models import AppError
 from apps.workflow.serializers import AppErrorSerializer
-from apps.workflow.api.pagination import FiftyPerPagePagination
 
 
 class AppErrorListAPIView(ListAPIView):
@@ -25,8 +25,8 @@ class AppErrorListAPIView(ListAPIView):
     serializer_class = AppErrorSerializer
     pagination_class = FiftyPerPagePagination
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['app', 'severity', 'resolved', 'job_id', 'user_id']
-    search_fields = ['message', 'function', 'file']
+    filterset_fields = ["app", "severity", "resolved", "job_id", "user_id"]
+    search_fields = ["message", "function", "file"]
 
 
 class AppErrorDetailAPIView(RetrieveAPIView):
@@ -61,56 +61,64 @@ class AppErrorViewSet(ReadOnlyModelViewSet):
     queryset = AppError.objects.all().order_by("-timestamp")
     serializer_class = AppErrorSerializer
     pagination_class = FiftyPerPagePagination
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_fields = {
-        'app': ['exact', 'icontains'],
-        'file': ['exact', 'icontains'],
-        'function': ['exact', 'icontains'],
-        'severity': ['exact', 'gte', 'lte'],
-        'job_id': ['exact'],
-        'user_id': ['exact'],
-        'resolved': ['exact'],
-        'timestamp': ['gte', 'lte'],
+        "app": ["exact", "icontains"],
+        "file": ["exact", "icontains"],
+        "function": ["exact", "icontains"],
+        "severity": ["exact", "gte", "lte"],
+        "job_id": ["exact"],
+        "user_id": ["exact"],
+        "resolved": ["exact"],
+        "timestamp": ["gte", "lte"],
     }
-    search_fields = ['message', 'function', 'file', 'app']
-    ordering_fields = ['timestamp', 'severity', 'app', 'resolved']
-    ordering = ['-timestamp']
+    search_fields = ["message", "function", "file", "app"]
+    ordering_fields = ["timestamp", "severity", "app", "resolved"]
+    ordering = ["-timestamp"]
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def mark_resolved(self, request, pk=None):
         """Mark an error as resolved."""
         error = self.get_object()
-        
+
         # Get the current user (staff member)
-        if hasattr(request.user, 'staff_profile'):
+        if hasattr(request.user, "staff_profile"):
             staff_member = request.user.staff_profile
         else:
             staff_member = None
-            
-        error.mark_resolved(staff_member)
-        
-        return Response({
-            'status': 'resolved',
-            'resolved_by': staff_member.id if staff_member else None,
-            'resolved_timestamp': error.resolved_timestamp
-        })
 
-    @action(detail=True, methods=['post'])
+        error.mark_resolved(staff_member)
+
+        return Response(
+            {
+                "status": "resolved",
+                "resolved_by": staff_member.id if staff_member else None,
+                "resolved_timestamp": error.resolved_timestamp,
+            }
+        )
+
+    @action(detail=True, methods=["post"])
     def mark_unresolved(self, request, pk=None):
         """Mark an error as unresolved."""
         error = self.get_object()
-        
+
         # Get the current user (staff member)
-        if hasattr(request.user, 'staff_profile'):
+        if hasattr(request.user, "staff_profile"):
             staff_member = request.user.staff_profile
         else:
             staff_member = None
-            
+
         error.mark_unresolved(staff_member)
-        
-        return Response({
-            'status': 'unresolved',
-            'resolved': False,
-            'resolved_by': None,
-            'resolved_timestamp': None
-        })
+
+        return Response(
+            {
+                "status": "unresolved",
+                "resolved": False,
+                "resolved_by": None,
+                "resolved_timestamp": None,
+            }
+        )

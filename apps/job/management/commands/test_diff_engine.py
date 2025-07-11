@@ -80,7 +80,9 @@ class Command(BaseCommand):
         # Apply diff to create new cost set
         if diff_result.has_changes:
             new_cost_set = apply_diff(old_cost_set, diff_result)
-            self.stdout.write(f"\n✅ Applied diff - created new CostSet: {new_cost_set}")
+            self.stdout.write(
+                f"\n✅ Applied diff - created new CostSet: {new_cost_set}"
+            )
 
             if verbose:
                 self._show_cost_set_details(new_cost_set, "New CostSet")

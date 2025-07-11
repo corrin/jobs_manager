@@ -1,8 +1,14 @@
 from rest_framework import serializers
 
 # Existing models used in this serializer module
-from .models import AppError, XeroError
-from .models import AIProvider, CompanyDefaults, XeroAccount, XeroToken
+from .models import (
+    AIProvider,
+    AppError,
+    CompanyDefaults,
+    XeroAccount,
+    XeroError,
+    XeroToken,
+)
 
 
 class XeroTokenSerializer(serializers.ModelSerializer):

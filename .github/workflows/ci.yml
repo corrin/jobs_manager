@@ -18,9 +18,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install Tox
+      - name: Verify Python version
+        run: python --version
+      - name: Install Poetry and Tox
         run: |
           python -m pip install --upgrade pip
-          pip install tox
+          pip install poetry tox
+      - name: Install dependencies
+        run: poetry install --with dev
       - name: Run linters
         run: tox
