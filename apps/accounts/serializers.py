@@ -1,3 +1,5 @@
+from typing import Optional
+
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -75,13 +77,13 @@ class KanbanStaffSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
     icon = serializers.SerializerMethodField()
 
-    def get_icon(self, obj):
+    def get_icon(self, obj: Staff) -> Optional[str]:
         if obj.icon:
             request = self.context.get("request")
             return request.build_absolute_uri(obj.icon.url) if request else obj.icon.url
         return None
 
-    def get_display_name(self, obj):
+    def get_display_name(self, obj: Staff) -> str:
         return obj.get_display_full_name()
 
     class Meta:
@@ -97,7 +99,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     fullName = serializers.SerializerMethodField()
     preferred_name = serializers.CharField(read_only=True)
 
-    def get_fullName(self, obj):
+    def get_fullName(self, obj: Staff) -> str:
         return f"{obj.first_name} {obj.last_name}".strip()
 
     class Meta:

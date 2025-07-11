@@ -235,3 +235,43 @@ class CompleteJobSerializer(serializers.ModelSerializer):
     class Meta:
         model = Job
         fields = ["id", "job_number", "name", "client_name", "updated_at", "job_status"]
+
+
+class JobCreateRequestSerializer(serializers.Serializer):
+    """Serializer for job creation request data."""
+
+    name = serializers.CharField(max_length=255)
+    client_id = serializers.UUIDField()
+    description = serializers.CharField(required=False, allow_blank=True)
+    order_number = serializers.CharField(required=False, allow_blank=True)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    contact_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class JobCreateResponseSerializer(serializers.Serializer):
+    """Serializer for job creation response."""
+
+    success = serializers.BooleanField(default=True)
+    job_id = serializers.CharField()
+    job_number = serializers.CharField()
+    message = serializers.CharField()
+
+
+class JobDetailResponseSerializer(serializers.Serializer):
+    """Serializer for job detail response."""
+
+    success = serializers.BooleanField(default=True)
+    data = JobSerializer()
+
+
+class JobRestErrorResponseSerializer(serializers.Serializer):
+    """Serializer for job REST error responses."""
+
+    error = serializers.CharField()
+
+
+class JobDeleteResponseSerializer(serializers.Serializer):
+    """Serializer for job deletion response."""
+
+    success = serializers.BooleanField(default=True)
+    message = serializers.CharField()

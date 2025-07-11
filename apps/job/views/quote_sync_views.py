@@ -18,6 +18,14 @@ from rest_framework.response import Response
 
 from apps.job.models import Job
 from apps.job.serializers.costing_serializer import CostSetSerializer
+from apps.job.serializers.quote_sync_serializer import (
+    ApplyQuoteErrorResponseSerializer,
+    ApplyQuoteResponseSerializer,
+    LinkQuoteSheetRequestSerializer,
+    LinkQuoteSheetResponseSerializer,
+    PreviewQuoteResponseSerializer,
+    QuoteSyncErrorResponseSerializer,
+)
 from apps.job.services import quote_sync_service
 
 logger = logging.getLogger(__name__)
@@ -48,33 +56,43 @@ def link_quote_sheet(request: Request, pk: str) -> Response:
         try:
             job = Job.objects.get(pk=pk)
         except Job.DoesNotExist:
-            return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            error_response = {"error": "Job not found"}
+            error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+
+        # Validate input data
+        input_serializer = LinkQuoteSheetRequestSerializer(data=request.data)
+        if not input_serializer.is_valid():
+            error_response = {"error": f"Invalid input: {input_serializer.errors}"}
+            error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract template URL from request if provided
-        template_url = request.data.get("template_url")
+        template_url = input_serializer.validated_data.get("template_url")
 
         # Link quote sheet
         quote_sheet = quote_sync_service.link_quote_sheet(job, template_url)
 
-        return Response(
-            {
-                "sheet_url": quote_sheet.sheet_url,
-                "sheet_id": quote_sheet.sheet_id,
-                "job_id": str(job.id),
-            },
-            status=status.HTTP_200_OK,
-        )
+        response_data = {
+            "sheet_url": quote_sheet.sheet_url,
+            "sheet_id": quote_sheet.sheet_id,
+            "job_id": str(job.id),
+        }
+
+        response_serializer = LinkQuoteSheetResponseSerializer(response_data)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     except RuntimeError as e:
         logger.error(f"Error linking quote sheet for job {pk}: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        error_response = {"error": str(e)}
+        error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+        return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Unexpected error linking quote sheet for job {pk}: {str(e)}")
+        error_response = {"error": "An unexpected error occurred"}
+        error_serializer = QuoteSyncErrorResponseSerializer(error_response)
         return Response(
-            {"error": "An unexpected error occurred"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -94,23 +112,28 @@ def preview_quote(request: Request, pk: str) -> Response:
         try:
             job = Job.objects.get(pk=pk)
         except Job.DoesNotExist:
-            return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            error_response = {"error": "Job not found"}
+            error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
         # Preview quote
         preview_data = quote_sync_service.preview_quote(job)
 
-        return Response(preview_data, status=status.HTTP_200_OK)
+        # Serialize the preview data
+        response_serializer = PreviewQuoteResponseSerializer(preview_data)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
     except RuntimeError as e:
         logger.error(f"Error previewing quote for job {pk}: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        error_response = {"error": str(e)}
+        error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+        return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Unexpected error previewing quote for job {pk}: {str(e)}")
+        error_response = {"error": "An unexpected error occurred"}
+        error_serializer = QuoteSyncErrorResponseSerializer(error_response)
         return Response(
-            {"error": "An unexpected error occurred"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
@@ -138,9 +161,9 @@ def apply_quote(request: Request, pk: str) -> Response:
         try:
             job = Job.objects.get(pk=pk)
         except Job.DoesNotExist:
-            return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            error_response = {"error": "Job not found"}
+            error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
         # Apply quote
         result = quote_sync_service.apply_quote(job)
@@ -163,62 +186,61 @@ def apply_quote(request: Request, pk: str) -> Response:
                     "total_rev": float(draft_line.quantity * draft_line.unit_rev),
                 }
 
-            return Response(
-                {
-                    "success": True,
-                    "cost_set": cost_set_data,
-                    "draft_lines": (
+            response_data = {
+                "success": True,
+                "cost_set": cost_set_data,
+                "draft_lines": (
+                    [draft_line_to_dict(line) for line in result.diff_result.to_add]
+                    if result.diff_result
+                    else []
+                ),
+                "changes": {
+                    "additions": (
                         [draft_line_to_dict(line) for line in result.diff_result.to_add]
                         if result.diff_result
                         else []
                     ),
-                    "changes": {
-                        "additions": (
-                            [
-                                draft_line_to_dict(line)
-                                for line in result.diff_result.to_add
-                            ]
-                            if result.diff_result
-                            else []
-                        ),
-                        "updates": (
-                            [
-                                draft_line_to_dict(draft_line)
-                                for _, draft_line in result.diff_result.to_update
-                            ]
-                            if result.diff_result
-                            else []
-                        ),
-                        "deletions": (
-                            [
-                                {
-                                    "kind": line.kind,
-                                    "desc": line.desc,
-                                    "quantity": float(line.quantity),
-                                    "unit_cost": float(line.unit_cost),
-                                    "unit_rev": float(line.unit_rev),
-                                }
-                                for line in result.diff_result.to_delete
-                            ]
-                            if result.diff_result
-                            else []
-                        ),
-                    },
+                    "updates": (
+                        [
+                            draft_line_to_dict(draft_line)
+                            for _, draft_line in result.diff_result.to_update
+                        ]
+                        if result.diff_result
+                        else []
+                    ),
+                    "deletions": (
+                        [
+                            {
+                                "kind": line.kind,
+                                "desc": line.desc,
+                                "quantity": float(line.quantity),
+                                "unit_cost": float(line.unit_cost),
+                                "unit_rev": float(line.unit_rev),
+                            }
+                            for line in result.diff_result.to_delete
+                        ]
+                        if result.diff_result
+                        else []
+                    ),
                 },
-                status=status.HTTP_200_OK,
-            )
+            }
+
+            response_serializer = ApplyQuoteResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
         else:
-            return Response(
-                {"success": False, "error": result.error_message},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {"success": False, "error": result.error_message}
+            error_serializer = ApplyQuoteErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     except RuntimeError as e:
         logger.error(f"Error applying quote for job {pk}: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        error_response = {"error": str(e)}
+        error_serializer = QuoteSyncErrorResponseSerializer(error_response)
+        return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         logger.error(f"Unexpected error applying quote for job {pk}: {str(e)}")
+        error_response = {"error": "An unexpected error occurred"}
+        error_serializer = QuoteSyncErrorResponseSerializer(error_response)
         return Response(
-            {"error": "An unexpected error occurred"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

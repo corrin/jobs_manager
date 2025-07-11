@@ -158,3 +158,25 @@ class CostSetSerializer(serializers.ModelSerializer):
         model = CostSet
         fields = ["id", "kind", "rev", "summary", "created", "cost_lines"]
         read_only_fields = fields
+
+
+class CostLineErrorResponseSerializer(serializers.Serializer):
+    """Serializer for cost line error responses."""
+
+    error = serializers.CharField()
+
+
+class CostLineCreateResponseSerializer(serializers.Serializer):
+    """Serializer for cost line creation success response."""
+
+    # Uses the full CostLineSerializer data structure
+    id = serializers.CharField()
+    kind = serializers.CharField()
+    desc = serializers.CharField()
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_rev = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = serializers.ReadOnlyField()
+    total_rev = serializers.ReadOnlyField()
+    ext_refs = serializers.JSONField(required=False)
+    meta = serializers.JSONField(required=False)

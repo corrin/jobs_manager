@@ -20,6 +20,7 @@ from rest_framework.views import APIView
 from apps.job.models import CostLine, CostSet, Job
 from apps.job.serializers.costing_serializer import (
     CostLineCreateUpdateSerializer,
+    CostLineErrorResponseSerializer,
     CostLineSerializer,
 )
 
@@ -44,10 +45,11 @@ class CostLineCreateView(APIView):
         # Validate kind parameter
         valid_kinds = ["estimate", "quote", "actual"]
         if kind not in valid_kinds:
-            return Response(
-                {"error": f"Invalid kind. Must be one of: {', '.join(valid_kinds)}"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {
+                "error": f"Invalid kind. Must be one of: {', '.join(valid_kinds)}"
+            }
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
@@ -80,9 +82,10 @@ class CostLineCreateView(APIView):
 
         except Exception as e:
             logger.error(f"Error creating cost line for job {job_id}: {e}")
+            error_response = {"error": "Failed to create cost line"}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
             return Response(
-                {"error": "Failed to create cost line"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def _get_or_create_cost_set(self, job: Job, kind: str) -> CostSet:
@@ -160,9 +163,10 @@ class CostLineUpdateView(APIView):
 
         except Exception as e:
             logger.error(f"Error updating cost line {cost_line_id}: {e}")
+            error_response = {"error": "Failed to update cost line"}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
             return Response(
-                {"error": "Failed to update cost line"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def _update_cost_set_summary(self, cost_set: CostSet) -> None:
@@ -212,9 +216,10 @@ class CostLineDeleteView(APIView):
 
         except Exception as e:
             logger.error(f"Error deleting cost line {cost_line_id}: {e}")
+            error_response = {"error": "Failed to delete cost line"}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
             return Response(
-                {"error": "Failed to delete cost line"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     def _update_cost_set_summary(self, cost_set: CostSet) -> None:

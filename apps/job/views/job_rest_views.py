@@ -20,6 +20,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.helpers import get_company_defaults
+from apps.job.serializers.job_serializer import (
+    JobCreateRequestSerializer,
+    JobCreateResponseSerializer,
+    JobDeleteResponseSerializer,
+    JobDetailResponseSerializer,
+    JobRestErrorResponseSerializer,
+    JobSerializer,
+)
 from apps.job.services.job_rest_service import JobRestService
 
 logger = logging.getLogger(__name__)
@@ -58,22 +66,25 @@ class BaseJobRestView(APIView):
 
         match type(error).__name__:
             case "ValueError":
+                error_response = {"error": error_message}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(
-                    {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
             case "PermissionError":
-                return Response(
-                    {"error": error_message}, status=status.HTTP_403_FORBIDDEN
-                )
+                error_response = {"error": error_message}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(error_serializer.data, status=status.HTTP_403_FORBIDDEN)
             case "NotFound" | "Http404":
-                return Response(
-                    {"error": "Resource not found"}, status=status.HTTP_404_NOT_FOUND
-                )
+                error_response = {"error": "Resource not found"}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
             case _:
                 logger.exception(f"Unhandled error: {error}")
+                error_response = {"error": "Internal server error"}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(
-                    {"error": "Internal server error"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
 
@@ -100,16 +111,31 @@ class JobCreateRestView(BaseJobRestView):
         """
         try:
             data = self.parse_json_body(request)
-            job = JobRestService.create_job(data, request.user)
-            return Response(
-                {
-                    "success": True,
-                    "job_id": str(job.id),
-                    "job_number": job.job_number,
-                    "message": "Job created successfully",
-                },
-                status=status.HTTP_201_CREATED,
+
+            # Validate input data
+            input_serializer = JobCreateRequestSerializer(data=data)
+            if not input_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {input_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            job = JobRestService.create_job(
+                input_serializer.validated_data, request.user
             )
+
+            response_data = {
+                "success": True,
+                "job_id": str(job.id),
+                "job_number": job.job_number,
+                "message": "Job created successfully",
+            }
+
+            response_serializer = JobCreateResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -128,9 +154,9 @@ class JobDetailRestView(BaseJobRestView):
         try:
             job_data = JobRestService.get_job_for_edit(job_id, request)
 
-            return Response(
-                {"success": True, "data": job_data}, status=status.HTTP_200_OK
-            )
+            response_data = {"success": True, "data": job_data}
+            response_serializer = JobDetailResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -147,7 +173,10 @@ class JobDetailRestView(BaseJobRestView):
 
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
-            return Response(job_data, status=status.HTTP_200_OK)
+
+            # Since this returns the job data directly, we'll serialize it properly
+            job_serializer = JobSerializer(job_data, context={"request": request})
+            return Response(job_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -158,49 +187,13 @@ class JobDetailRestView(BaseJobRestView):
         """
         try:
             result = JobRestService.delete_job(job_id, request.user)
-            return Response(result, status=status.HTTP_200_OK)
+
+            # Serialize the result properly
+            response_serializer = JobDeleteResponseSerializer(result)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobToggleComplexRestView(BaseJobRestView):
-    """
-    REST view for toggling Job complex mode.
-    """
-
-    def post(self, request):
-        """
-        Toggle the complex_job mode.
-
-        Expected JSON:
-        {
-            "job_id": "job-uuid",
-            "complex_job": true/false
-        }
-        """
-        try:
-            data = self.parse_json_body(request)
-
-            # Guard clauses - validate required data
-            if "job_id" not in data:
-                raise ValueError("job_id is required")
-
-            if "complex_job" not in data:
-                raise ValueError("complex_job is required")
-
-            result = JobRestService.toggle_complex_job(
-                data["job_id"], data["complex_job"], request.user
-            )
-
-            return JsonResponse(result)
-
-        except Exception as e:
-            return self.handle_service_error(e)
-
-
-# The system now uses CostSet/CostLine for all pricing operations.
 
 
 @method_decorator(csrf_exempt, name="dispatch")
