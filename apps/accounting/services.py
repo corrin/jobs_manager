@@ -15,8 +15,8 @@ from apps.accounting.utils import get_nz_tz
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
-from apps.job.models.costing import CostLine, CostSet
 from apps.job.models import Job, JobEvent
+from apps.job.models.costing import CostLine, CostSet
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -774,46 +774,46 @@ class JobAgingService:
     def get_job_aging_data(include_archived: bool = False) -> Dict[str, Any]:
         """
         Main method to fetch and process all job aging data.
-        
+
         Args:
             include_archived: Whether to include archived jobs in the results
-            
+
         Returns:
             Dict containing job aging data
         """
         logger.info("Generating job aging data")
-        
+
         try:
             # Get active jobs (exclude archived unless requested)
             jobs_query = Job.objects.select_related("client").prefetch_related(
                 "events", "cost_sets__cost_lines"
             )
-            
+
             if not include_archived:
                 jobs_query = jobs_query.exclude(status="archived")
-            
+
             jobs = jobs_query.order_by("-created_at")
         except Exception as exc:
             logger.error(f"Database error fetching jobs: {str(exc)}")
             persist_app_error(
                 exc,
                 additional_context={
-                    'operation': 'fetch_jobs_for_aging_report',
-                    'include_archived': include_archived,
-                    'query_filters': 'active_jobs_with_client_and_cost_data'
-                }
+                    "operation": "fetch_jobs_for_aging_report",
+                    "include_archived": include_archived,
+                    "query_filters": "active_jobs_with_client_and_cost_data",
+                },
             )
             return {"jobs": []}
-        
+
         job_data = []
         for job in jobs:
             try:
                 # Get financial data
                 financial_data = JobAgingService._get_financial_totals(job)
-                
+
                 # Get timing data
                 timing_data = JobAgingService._get_timing_data(job)
-                
+
                 job_info = {
                     "id": str(job.id),
                     "job_number": job.job_number,
@@ -822,7 +822,7 @@ class JobAgingService:
                     "status": job.status,
                     "status_display": job.get_status_display(),
                     "financial_data": financial_data,
-                    "timing_data": timing_data
+                    "timing_data": timing_data,
                 }
                 job_data.append(job_info)
             except Exception as exc:
@@ -831,14 +831,14 @@ class JobAgingService:
                     exc,
                     job_id=job.id,
                     additional_context={
-                        'operation': 'process_individual_job_for_aging',
-                        'job_number': job.job_number,
-                        'job_status': job.status,
-                        'client_name': job.client.name if job.client else None
-                    }
+                        "operation": "process_individual_job_for_aging",
+                        "job_number": job.job_number,
+                        "job_status": job.status,
+                        "client_name": job.client.name if job.client else None,
+                    },
                 )
                 # Continue processing other jobs
-        
+
         # Sort by last activity (most recent first)
         try:
             job_data.sort(key=lambda x: x["timing_data"]["last_activity_days_ago"])
@@ -848,32 +848,32 @@ class JobAgingService:
                 exc,
                 severity=logging.WARNING,
                 additional_context={
-                    'operation': 'sort_job_aging_data',
-                    'jobs_count': len(job_data),
-                    'sort_key': 'timing_data.last_activity_days_ago'
-                }
+                    "operation": "sort_job_aging_data",
+                    "jobs_count": len(job_data),
+                    "sort_key": "timing_data.last_activity_days_ago",
+                },
             )
             # Return unsorted data
-        
+
         return {"jobs": job_data}
 
     @staticmethod
     def _get_financial_totals(job: Job) -> Dict[str, float]:
         """
         Extract estimate/quote/actual totals from CostSets.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Dict containing financial totals
         """
         financial_data = {
             "estimate_total": 0.0,
             "quote_total": 0.0,
-            "actual_total": 0.0
+            "actual_total": 0.0,
         }
-        
+
         try:
             # Get latest estimate
             if job.latest_estimate:
@@ -881,19 +881,21 @@ class JobAgingService:
                     sum(line.total_rev for line in job.latest_estimate.cost_lines.all())
                 )
         except Exception as exc:
-            logger.warning(f"Error calculating estimate total for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error calculating estimate total for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(
                 exc,
                 severity=logging.WARNING,
                 job_id=job.id,
                 additional_context={
-                    'operation': 'calculate_job_estimate_total',
-                    'job_number': job.job_number,
-                    'has_latest_estimate': job.latest_estimate is not None,
-                    'business_process': 'job_aging_financial_data'
-                }
+                    "operation": "calculate_job_estimate_total",
+                    "job_number": job.job_number,
+                    "has_latest_estimate": job.latest_estimate is not None,
+                    "business_process": "job_aging_financial_data",
+                },
             )
-        
+
         try:
             # Get latest quote
             if job.latest_quote:
@@ -901,19 +903,21 @@ class JobAgingService:
                     sum(line.total_rev for line in job.latest_quote.cost_lines.all())
                 )
         except Exception as exc:
-            logger.warning(f"Error calculating quote total for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error calculating quote total for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(
                 exc,
                 severity=logging.WARNING,
                 job_id=job.id,
                 additional_context={
-                    'operation': 'calculate_job_quote_total',
-                    'job_number': job.job_number,
-                    'has_latest_quote': job.latest_quote is not None,
-                    'business_process': 'job_aging_financial_data'
-                }
+                    "operation": "calculate_job_quote_total",
+                    "job_number": job.job_number,
+                    "has_latest_quote": job.latest_quote is not None,
+                    "business_process": "job_aging_financial_data",
+                },
             )
-        
+
         try:
             # Get latest actual
             if job.latest_actual:
@@ -921,25 +925,27 @@ class JobAgingService:
                     sum(line.total_rev for line in job.latest_actual.cost_lines.all())
                 )
         except Exception as exc:
-            logger.warning(f"Error calculating actual total for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error calculating actual total for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         return financial_data
 
     @staticmethod
     def _get_timing_data(job: Job) -> Dict[str, Any]:
         """
         Calculate timing information for a job.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Dict containing timing data
         """
         now = timezone.now()
         created_date = job.created_at.date()
-        
+
         timing_data = {
             "created_date": created_date.isoformat(),
             "created_days_ago": (now.date() - created_date).days,
@@ -947,42 +953,46 @@ class JobAgingService:
             "last_activity_date": None,
             "last_activity_days_ago": None,
             "last_activity_type": None,
-            "last_activity_description": None
+            "last_activity_description": None,
         }
-        
+
         try:
-            timing_data["days_in_current_status"] = JobAgingService._calculate_time_in_status(job)
+            timing_data["days_in_current_status"] = (
+                JobAgingService._calculate_time_in_status(job)
+            )
         except Exception as exc:
-            logger.warning(f"Error calculating time in status for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error calculating time in status for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         try:
             # Get last activity
             last_activity = JobAgingService._get_last_activity(job)
             if last_activity:
                 timing_data.update(last_activity)
         except Exception as exc:
-            logger.warning(f"Error getting last activity for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error getting last activity for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         return timing_data
 
     @staticmethod
     def _calculate_time_in_status(job: Job) -> int:
         """
         Calculate days in current status using JobEvent model.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Number of days in current status
         """
         # Find the most recent status change event
-        latest_status_change = job.events.filter(
-            event_type="status_change"
-        ).first()
-        
+        latest_status_change = job.events.filter(event_type="status_change").first()
+
         if latest_status_change:
             days_in_status = (timezone.now() - latest_status_change.timestamp).days
             return days_in_status
@@ -994,53 +1004,63 @@ class JobAgingService:
     def _get_last_activity(job: Job) -> Dict[str, Any]:
         """
         Find most recent activity across ALL sources.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Dict containing last activity information or None if no activities found
         """
         activities = []
-        
+
         try:
             # Check job events
             latest_event = job.events.first()  # Already ordered by -timestamp
             if latest_event:
-                activities.append({
-                    "date": latest_event.timestamp,
-                    "type": "job_event",
-                    "description": f"{latest_event.event_type}: {latest_event.description}"
-                })
+                activities.append(
+                    {
+                        "date": latest_event.timestamp,
+                        "type": "job_event",
+                        "description": f"{latest_event.event_type}: {latest_event.description}",
+                    }
+                )
         except Exception as exc:
-            logger.warning(f"Error checking job events for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error checking job events for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         try:
             # Check job model updates
             if job.updated_at:
-                activities.append({
-                    "date": job.updated_at,
-                    "type": "job_update",
-                    "description": "Job record updated"
-                })
+                activities.append(
+                    {
+                        "date": job.updated_at,
+                        "type": "job_update",
+                        "description": "Job record updated",
+                    }
+                )
         except Exception as exc:
-            logger.warning(f"Error checking job updates for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error checking job updates for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         try:
             # Check cost lines across all job cost sets
             for cost_set in job.cost_sets.all():
                 for cost_line in cost_set.cost_lines.all():
                     # Get the creation date - use the meta date if available, otherwise fall back to cost_set creation
-                    line_date = cost_line.meta.get('date')
+                    line_date = cost_line.meta.get("date")
                     if line_date:
                         try:
                             # Convert from ISO string to datetime
                             import datetime
+
                             line_datetime = datetime.datetime.fromisoformat(line_date)
                             # Convert to timezone-aware datetime
                             from django.utils import timezone
+
                             if timezone.is_naive(line_datetime):
                                 line_datetime = timezone.make_aware(line_datetime)
                         except (ValueError, TypeError):
@@ -1049,49 +1069,61 @@ class JobAgingService:
                     else:
                         # Fall back to cost_set creation date if no date in meta
                         line_datetime = cost_set.created
-                    
-                    description = f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
+
+                    description = (
+                        f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
+                    )
                     if cost_line.kind == "time":
                         try:
-                            staff_id = cost_line.meta.get('staff_id')
+                            staff_id = cost_line.meta.get("staff_id")
                             staff = Staff.objects.get(id=staff_id)
-                            description = f"Time added by {staff.get_display_full_name()}"
+                            description = (
+                                f"Time added by {staff.get_display_full_name()}"
+                            )
                         except (Staff.DoesNotExist, ValueError, TypeError) as exc:
-                            logger.error("Corrupted data.  staff_id is missing in cost line meta.")
+                            logger.error(
+                                "Corrupted data.  staff_id is missing in cost line meta."
+                            )
                             persist_app_error(exc)
                             description = f"Time added by unknown staff"
 
-                    activities.append({
-                        "date": line_datetime,
-                        "type": f"cost_line_{cost_line.kind}",
-                        "description": description
-                    })
+                    activities.append(
+                        {
+                            "date": line_datetime,
+                            "type": f"cost_line_{cost_line.kind}",
+                            "description": description,
+                        }
+                    )
         except Exception as exc:
-            logger.warning(f"Error checking cost line activities for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error checking cost line activities for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         # Find the most recent activity
         if activities:
             try:
                 latest_activity = max(activities, key=lambda x: x["date"])
                 activity_date = latest_activity["date"]
-                
+
                 # Handle both date and datetime objects
-                if hasattr(activity_date, 'date'):
+                if hasattr(activity_date, "date"):
                     activity_date_obj = activity_date.date()
                 else:
                     activity_date_obj = activity_date
-                
+
                 days_ago = (timezone.now().date() - activity_date_obj).days
-                
+
                 return {
                     "last_activity_date": activity_date_obj.isoformat(),
                     "last_activity_days_ago": days_ago,
                     "last_activity_type": latest_activity["type"],
-                    "last_activity_description": latest_activity["description"]
+                    "last_activity_description": latest_activity["description"],
                 }
             except Exception as exc:
-                logger.warning(f"Error processing latest activity for job {job.job_number}: {str(exc)}")
+                logger.warning(
+                    f"Error processing latest activity for job {job.job_number}: {str(exc)}"
+                )
                 persist_app_error(exc)
-        
+
         return None

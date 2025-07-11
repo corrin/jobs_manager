@@ -13,35 +13,31 @@ def _extract_caller_context():
     try:
         # Go up the call stack: _extract_caller_context -> persist_app_error -> actual caller
         caller_frame = frame.f_back.f_back
-        
+
         # Get file path and extract relative path from project root
         file_path = Path(caller_frame.f_code.co_filename)
-        
+
         # Extract app name from path (e.g., apps/workflow/api/xero/sync.py -> workflow)
         parts = file_path.parts
-        if 'apps' in parts:
-            app_index = parts.index('apps')
+        if "apps" in parts:
+            app_index = parts.index("apps")
             if len(parts) > app_index + 1:
                 app_name = parts[app_index + 1]
             else:
                 app_name = None
         else:
             app_name = None
-            
+
         # Get relative file path from apps directory
-        if 'apps' in parts:
-            app_index = parts.index('apps')
-            relative_file = '/'.join(parts[app_index + 1:])
+        if "apps" in parts:
+            app_index = parts.index("apps")
+            relative_file = "/".join(parts[app_index + 1 :])
         else:
             relative_file = file_path.name
-            
+
         function_name = caller_frame.f_code.co_name
-        
-        return {
-            'app': app_name,
-            'file': relative_file,
-            'function': function_name
-        }
+
+        return {"app": app_name, "file": relative_file, "function": function_name}
     finally:
         del frame
 
@@ -49,19 +45,19 @@ def _extract_caller_context():
 def extract_request_context(request):
     """Extract context from Django request object."""
     return {
-        'user_id': request.user.id if request.user.is_authenticated else None,
-        'request_path': request.path,
-        'request_method': request.method,
+        "user_id": request.user.id if request.user.is_authenticated else None,
+        "request_path": request.path,
+        "request_method": request.method,
     }
 
 
 def extract_job_context(job):
     """Extract context from Job object."""
     return {
-        'job_id': job.id,
-        'entity_type': 'Job',
-        'entity_id': str(job.id),
-        'business_process': 'Job Management'
+        "job_id": job.id,
+        "entity_type": "Job",
+        "entity_id": str(job.id),
+        "business_process": "Job Management",
     }
 
 
@@ -84,13 +80,13 @@ def persist_app_error(
     severity: int = logging.ERROR,
     job_id: str = None,
     user_id: str = None,
-    additional_context: dict = None
+    additional_context: dict = None,
 ) -> AppError:
     """Create and save an AppError with enhanced context.
-    
+
     The app, file, and function parameters are automatically extracted from the calling code.
     If the auto-extraction doesn't work correctly, you can override by providing these parameters explicitly.
-    
+
     Args:
         exception: The exception to persist
         app: App name (auto-extracted from file path if not provided)
@@ -100,24 +96,24 @@ def persist_app_error(
         job_id: Job UUID for job-related errors
         user_id: User UUID for user-related errors
         additional_context: Additional context data to store in JSON field
-        
+
     Returns:
         Created AppError instance
     """
     # Auto-extract caller context if not provided
     caller_context = _extract_caller_context()
-    
+
     context_data = {"trace": traceback.format_exc()}
     if additional_context:
         context_data.update(additional_context)
-    
+
     return AppError.objects.create(
         message=str(exception),
         data=context_data,
-        app=app or caller_context['app'],
-        file=file or caller_context['file'],
-        function=function or caller_context['function'],
+        app=app or caller_context["app"],
+        file=file or caller_context["file"],
+        function=function or caller_context["function"],
         severity=severity,
         job_id=job_id,
-        user_id=user_id
+        user_id=user_id,
     )

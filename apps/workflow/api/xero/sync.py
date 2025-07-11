@@ -492,19 +492,21 @@ def transform_purchase_order(xero_po, xero_id):
             description = getattr(line, "description", None)
             quantity = getattr(line, "quantity", None)
             if not description or quantity is None:
-                error_msg = f"Missing required field for PurchaseOrderLine in PO {xero_id}"
+                error_msg = (
+                    f"Missing required field for PurchaseOrderLine in PO {xero_id}"
+                )
                 logger.error(error_msg)
                 persist_app_error(
                     ValueError(error_msg),
                     additional_context={
-                        'xero_entity_type': 'PurchaseOrder',
-                        'xero_id': xero_id,
-                        'po_number': po_number,
-                        'sync_operation': 'transform_line_items',
-                        'missing_description': not description,
-                        'missing_quantity': quantity is None,
-                        'supplier_item_code': getattr(line, 'item_code', None)
-                    }
+                        "xero_entity_type": "PurchaseOrder",
+                        "xero_id": xero_id,
+                        "po_number": po_number,
+                        "sync_operation": "transform_line_items",
+                        "missing_description": not description,
+                        "missing_quantity": quantity is None,
+                        "supplier_item_code": getattr(line, "item_code", None),
+                    },
                 )
                 continue
             try:
@@ -526,15 +528,15 @@ def transform_purchase_order(xero_po, xero_id):
                 persist_app_error(
                     exc,
                     additional_context={
-                        'xero_entity_type': 'PurchaseOrder',
-                        'xero_id': xero_id,
-                        'po_number': po_number,
-                        'sync_operation': 'create_line_items',
-                        'description': description,
-                        'supplier_item_code': line.item_code or '',
-                        'quantity': quantity,
-                        'unit_cost': getattr(line, 'unit_amount', None)
-                    }
+                        "xero_entity_type": "PurchaseOrder",
+                        "xero_id": xero_id,
+                        "po_number": po_number,
+                        "sync_operation": "create_line_items",
+                        "description": description,
+                        "supplier_item_code": line.item_code or "",
+                        "quantity": quantity,
+                        "unit_cost": getattr(line, "unit_amount", None),
+                    },
                 )
                 continue
     return po
@@ -632,11 +634,16 @@ def process_xero_item(item, sync_function, entity_type):
         persist_app_error(
             exc,
             additional_context={
-                'xero_entity_type': entity_type,
-                'xero_item_id': getattr(item, 'id', None) or getattr(item, 'xero_id', None),
-                'operation': 'sync_to_local_database',
-                'sync_function': sync_function.__name__ if hasattr(sync_function, '__name__') else str(sync_function)
-            }
+                "xero_entity_type": entity_type,
+                "xero_item_id": getattr(item, "id", None)
+                or getattr(item, "xero_id", None),
+                "operation": "sync_to_local_database",
+                "sync_function": (
+                    sync_function.__name__
+                    if hasattr(sync_function, "__name__")
+                    else str(sync_function)
+                ),
+            },
         )
         return False, {
             "datetime": timezone.now().isoformat(),
@@ -768,14 +775,18 @@ def sync_xero_data(
             persist_app_error(
                 exc,
                 additional_context={
-                    'xero_entity_type': xero_entity_type,
-                    'our_entity_type': our_entity_type,
-                    'operation': 'bulk_sync_from_xero_api',
-                    'items_count': len(items),
-                    'page': page,
-                    'total_processed': total_processed,
-                    'sync_function': sync_function.__name__ if hasattr(sync_function, '__name__') else str(sync_function)
-                }
+                    "xero_entity_type": xero_entity_type,
+                    "our_entity_type": our_entity_type,
+                    "operation": "bulk_sync_from_xero_api",
+                    "items_count": len(items),
+                    "page": page,
+                    "total_processed": total_processed,
+                    "sync_function": (
+                        sync_function.__name__
+                        if hasattr(sync_function, "__name__")
+                        else str(sync_function)
+                    ),
+                },
             )
             yield {
                 "datetime": timezone.now().isoformat(),
@@ -932,11 +943,11 @@ def sync_all_xero_data(use_latest_timestamps=True, days_back=30, entities=None):
             persist_app_error(
                 ValueError(f"Unknown entity type: {entity}"),
                 additional_context={
-                    'operation': 'sync_all_xero_data',
-                    'unknown_entity': entity,
-                    'available_entities': list(ENTITY_CONFIGS.keys()),
-                    'requested_entities': entities
-                }
+                    "operation": "sync_all_xero_data",
+                    "unknown_entity": entity,
+                    "available_entities": list(ENTITY_CONFIGS.keys()),
+                    "requested_entities": entities,
+                },
             )
             continue
 

@@ -1,6 +1,10 @@
 from django.urls import path
 
-from apps.accounting.views import KPICalendarAPIView, KPICalendarTemplateView, JobAgingAPIView
+from apps.accounting.views import (
+    JobAgingAPIView,
+    KPICalendarAPIView,
+    KPICalendarTemplateView,
+)
 
 app_name = "accounting"
 
