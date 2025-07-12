@@ -29,3 +29,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: generate-url-docs
+        name: Generate URL documentation
+        entry: python scripts/generate_url_docs.py
+        language: system
+        pass_filenames: false
+        always_run: true
