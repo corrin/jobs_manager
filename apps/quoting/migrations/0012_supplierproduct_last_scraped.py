@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('quoting', '0011_add_mapping_hash_to_supplierproduct'),
+        ("quoting", "0011_add_mapping_hash_to_supplierproduct"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='supplierproduct',
-            name='last_scraped',
+            model_name="supplierproduct",
+            name="last_scraped",
             field=models.DateTimeField(auto_now=True),
         ),
     ]

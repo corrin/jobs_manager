@@ -230,9 +230,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
             if content_type:
                 response["Content-Type"] = content_type
 
-            response["Content-Disposition"] = (
-                f'inline; filename="{os.path.basename(file_path)}"'
-            )
+            response[
+                "Content-Disposition"
+            ] = f'inline; filename="{os.path.basename(file_path)}"'
             return response
         except Exception as e:
             logger.exception(f"Error serving file {file_path}")

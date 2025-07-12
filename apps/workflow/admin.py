@@ -1,6 +1,10 @@
 # workflow/admin.py
 
+from typing import Any
+
 from django.contrib import admin
+from django.forms import ModelForm
+from django.http import HttpRequest
 
 from apps.workflow.models import AIProvider, CompanyDefaults
 
@@ -12,7 +16,9 @@ class AIProviderInline(admin.TabularInline):
     extra = 1
     fields = ("name", "provider_type", "model_name", "api_key", "default")
 
-    def save_model(self, request, obj, form, change):
+    def save_model(
+        self, request: HttpRequest, obj: AIProvider, form: ModelForm, change: bool
+    ) -> None:
         """Ensure only one provider is default by deactivating others when a new one is set as default."""
         if obj.default:
             AIProvider.objects.filter(company=obj.company, default=True).exclude(
@@ -23,7 +29,7 @@ class AIProviderInline(admin.TabularInline):
 
 @admin.register(CompanyDefaults)
 class CompanyDefaultsAdmin(admin.ModelAdmin):
-    def edit_link(self, obj):
+    def edit_link(self, obj: CompanyDefaults) -> str:
         """
         Generate an edit link for the CompanyDefaults object.
 
