@@ -43,6 +43,7 @@ class SupplierProduct(models.Model):
     # Standard audit fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    last_scraped = models.DateTimeField(auto_now=True)
 
     # # Inventory mapping fields (parsed from raw product data)
     # # These fields will be populated by the LLM parser to match Stock model structure

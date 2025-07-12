@@ -12,10 +12,15 @@ from apps.quoting.services.product_parser import create_mapping_record
 class BaseScraper(ABC):
     """Base class for all supplier scrapers"""
 
-    def __init__(self, supplier, limit=None, force=False):
+    DEFAULT_REFRESH_LIMIT = 100  # Clear default for refresh cycle
+
+    def __init__(
+        self, supplier, limit=None, force=False, refresh_old: bool = False
+    ):
         self.supplier = supplier
         self.limit = limit
         self.force = force
+        self.refresh_old = refresh_old
         self.driver = None
         self.logger = logging.getLogger(
             f"scraper.{supplier.name.lower().replace(' ', '_')}"
@@ -117,14 +122,44 @@ class BaseScraper(ABC):
                 job.save()
                 return
 
-            # Filter existing URLs if not forcing
+            # Filter URLs based on refresh_old flag
             if not self.force:
-                existing_urls = set(
-                    SupplierProduct.objects.filter(supplier=self.supplier).values_list(
-                        "url", flat=True
+                if self.refresh_old:
+                    # Get all URLs from sitemap
+                    sitemap_urls = set(product_urls)
+
+                    # Get existing URLs we have
+                    existing_urls = set(
+                        SupplierProduct.objects.filter(
+                            supplier=self.supplier
+                        ).values_list("url", flat=True)
                     )
-                )
-                product_urls = [url for url in product_urls if url not in existing_urls]
+
+                    # New products (in sitemap, not in our DB)
+                    new_urls = sitemap_urls - existing_urls
+
+                    # Changed products (in both sitemap and our DB)
+                    changed_urls = sitemap_urls & existing_urls
+
+                    # Oldest N products we have (whether in sitemap or not)
+                    refresh_limit = self.limit or self.DEFAULT_REFRESH_LIMIT
+                    oldest_products = SupplierProduct.objects.filter(
+                        supplier=self.supplier
+                    ).order_by("last_scraped")[:refresh_limit]
+                    oldest_urls = set(p.url for p in oldest_products)
+
+                    # Final URL list: new + changed + oldest
+                    product_urls = list(new_urls | changed_urls | oldest_urls)
+                else:
+                    # Original behavior: only scrape new products
+                    existing_urls = set(
+                        SupplierProduct.objects.filter(
+                            supplier=self.supplier
+                        ).values_list("url", flat=True)
+                    )
+                    product_urls = [
+                        url for url in product_urls if url not in existing_urls
+                    ]
 
             # Apply limit
             if self.limit:

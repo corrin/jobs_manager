@@ -34,12 +34,18 @@ class Command(BaseCommand):
         parser.add_argument(
             "--force", action="store_true", help="Force re-scrape of existing products"
         )
+        parser.add_argument(
+            "--refresh-old",
+            action="store_true",
+            help="Refresh oldest products in addition to new/changed products",
+        )
 
     def handle(self, *args, **options):
         scraper_name = options.get("scraper")
         supplier_name = options.get("supplier")
         limit = options.get("limit")
         force = options.get("force")
+        refresh_old = options.get("refresh_old")
 
         logger.info("Starting scraper runner...")
 
@@ -71,7 +77,7 @@ class Command(BaseCommand):
         # Run each scraper
         for scraper_info in scrapers_to_run:
             try:
-                self.run_scraper(scraper_info, supplier_name, limit, force)
+                self.run_scraper(scraper_info, supplier_name, limit, force, refresh_old)
             except Exception as e:
                 logger.error(f"Error running scraper {scraper_info['class_name']}: {e}")
                 continue
@@ -127,7 +133,9 @@ class Command(BaseCommand):
 
         return scrapers
 
-    def run_scraper(self, scraper_info, supplier_name, limit, force):
+    def run_scraper(
+        self, scraper_info, supplier_name, limit, force, refresh_old: bool
+    ):
         """Run a specific scraper"""
         scraper_class = scraper_info["class_obj"]
         class_name = scraper_info["class_name"]
@@ -144,7 +152,9 @@ class Command(BaseCommand):
 
         try:
             # Create and run the scraper
-            scraper = scraper_class(supplier, limit=limit, force=force)
+            scraper = scraper_class(
+                supplier, limit=limit, force=force, refresh_old=refresh_old
+            )
             scraper.run()
             logger.info(f"Completed scraper: {class_name}")
 
