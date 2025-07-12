@@ -38,9 +38,13 @@ class Command(BaseCommand):
         if verbose:
             for job in result.processed_jobs:
                 if dry_run:
-                    self.stdout.write(f"Would mark job {job.job_number} - {job.name} as paid")
+                    self.stdout.write(
+                        f"Would mark job {job.job_number} - {job.name} as paid"
+                    )
                 else:
-                    self.stdout.write(f"Marked job {job.job_number} - {job.name} as paid")
+                    self.stdout.write(
+                        f"Marked job {job.job_number} - {job.name} as paid"
+                    )
 
         self.stdout.write(
             self.style.SUCCESS(

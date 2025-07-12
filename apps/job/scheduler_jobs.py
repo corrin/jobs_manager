@@ -15,12 +15,12 @@ def set_paid_flag_jobs():
     logger.info(f"Running set_paid_flag_jobs at {datetime.now()}.")
     try:
         close_old_connections()
-        
+
         # Import here to avoid Django startup issues
         from apps.job.services.paid_flag_service import PaidFlagService
-        
+
         result = PaidFlagService.update_paid_flags(dry_run=False, verbose=True)
-        
+
         logger.info(
             f"Successfully updated {result.jobs_updated} jobs as paid. "
             f"Jobs with unpaid invoices: {result.unpaid_invoices}. "

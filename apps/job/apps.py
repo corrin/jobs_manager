@@ -16,7 +16,7 @@ class JobConfig(AppConfig):
 
     def _register_job_jobs(self) -> None:
         from apps.job.scheduler_jobs import set_paid_flag_jobs
-        
+
         scheduler = get_scheduler()
 
         # Set paid flag on completed jobs with paid invoices - nightly at 2 AM NZT
