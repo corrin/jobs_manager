@@ -6,12 +6,12 @@ apps/accounting/models/invoice.py  # DONE
 apps/accounting/models/quote.py  # DONE
 apps/accounting/serializers.py  # DONE
 apps/accounting/services.py
-apps/accounting/urls.py
-apps/accounting/utils.py
-apps/accounting/views/__init__.py
+apps/accounting/urls.py  # DONE
+apps/accounting/utils.py  # DONE
+apps/accounting/views/__init__.py  # DONE
 apps/accounting/views/job_aging_view.py
 apps/accounting/views/kpi_view.py
-apps/accounts/__init__.py
+apps/accounts/__init__.py  # DONE
 apps/accounts/admin.py
 apps/accounts/apps.py
 apps/accounts/forms.py

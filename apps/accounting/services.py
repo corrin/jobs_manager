@@ -4,7 +4,7 @@ import logging
 from datetime import date, timedelta
 from decimal import Decimal
 from logging import getLogger
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import holidays
 from django.db import models
@@ -30,10 +30,10 @@ class KPIService:
     """
 
     nz_timezone = get_nz_tz()
-    shop_client_id: str = None  # Will be set on first access
+    shop_client_id: Optional[str] = None  # Will be set on first access
 
     @classmethod
-    def _ensure_shop_client_id(cls):
+    def _ensure_shop_client_id(cls) -> None:
         """Ensure shop_client_id is set, initialize if needed"""
         if cls.shop_client_id is None:
             cls.shop_client_id = Client.get_shop_client_id()
@@ -48,7 +48,11 @@ class KPIService:
         """
         logger.info("Retrieving company thresholds for KPI calculations")
         try:
-            company_defaults: CompanyDefaults = CompanyDefaults.objects.first()
+            company_defaults: Optional[
+                CompanyDefaults
+            ] = CompanyDefaults.objects.first()
+            if not company_defaults:
+                raise ValueError("No company defaults found")
             thresholds = {
                 "billable_threshold_green": float(
                     company_defaults.billable_threshold_green
@@ -69,8 +73,10 @@ class KPIService:
 
     @staticmethod
     def _process_entries(
-        entries: Dict, revenue_key="revenue", cost_key="cost"
-    ) -> Dict[datetime.date, Dict]:
+        entries: List[Dict[str, Any]],
+        revenue_key: str = "revenue",
+        cost_key: str = "cost",
+    ) -> Dict[datetime.date, Dict[str, float]]:
         """
         Segregates entries by date based on the provided Dict
         """
@@ -84,7 +90,9 @@ class KPIService:
         return entries_by_date
 
     @classmethod
-    def _get_holidays(cls, year, month=None):
+    def _get_holidays(
+        cls, year: int, month: Optional[int] = None
+    ) -> List[datetime.date]:
         """
         Gets New Zealand holidays for a specific year and month.
 
