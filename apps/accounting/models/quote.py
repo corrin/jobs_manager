@@ -1,16 +1,9 @@
 import uuid
-from datetime import date, datetime
-from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
 
 from django.db import models
 from django.utils import timezone
 
 from apps.accounting.enums import QuoteStatus
-
-if TYPE_CHECKING:
-    from apps.client.models import Client
-    from apps.job.models import Job
 
 
 class Quote(models.Model):
