@@ -14,14 +14,14 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         "jobs_manager/settings/__init__.py",
         "jobs_manager/__init__.py",  # Main project init
     }
-    
+
     # Also exclude migration directories - they shouldn't have imports
     if "/migrations" in target_dir:
         logger.info(f"Skipping migration directory: {target_dir}")
         return 0  # Success, but skipped
 
     init_file = os.path.join(target_dir, "__init__.py")
-    
+
     # Check if this file should be excluded
     relative_init_path = os.path.relpath(init_file)
     if relative_init_path in EXCLUDED_PATHS:
@@ -47,6 +47,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         "",  # Add a blank line before the imports
     ]
     all_exports = []
+    import_data = []  # Store (module_name, exports) for sorting
 
     for py_file in py_files:
         module_name = py_file.replace(".py", "")
@@ -81,11 +82,26 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         if exports:
             logger.debug(f"Found classes: {classes}")
             logger.debug(f"Found functions: {functions}")
-            import_lines.append(f"from .{module_name} import {', '.join(exports)}")
+            import_data.append((module_name, exports))
             all_exports.extend(exports)
 
+    # Sort imports by module name and generate formatted import statements
+    import_data.sort(key=lambda x: x[0])
+    
+    for module_name, exports in import_data:
+        # Format imports for readability - use multi-line if many exports
+        if len(exports) > 3:
+            import_lines.append(f"from .{module_name} import (")
+            for export in exports:
+                import_lines.append(f"    {export},")
+            import_lines.append(")")
+        else:
+            import_lines.append(f"from .{module_name} import {', '.join(exports)}")
+
     # Add __all__ definition - remove duplicates, sort alphabetically, and use double quotes
-    unique_exports = sorted(set(all_exports))  # Remove duplicates and sort alphabetically
+    unique_exports = sorted(
+        set(all_exports)
+    )  # Remove duplicates and sort alphabetically
     import_lines.append("\n__all__ = [")
     for export_name in unique_exports:
         import_lines.append(f'    "{export_name}",')
@@ -111,13 +127,13 @@ def find_all_init_directories() -> list[str]:
 def update_all_init_files(verbose: bool = False) -> int:
     """Update all __init__.py files found in the project."""
     logger = logging.getLogger(__name__)
-    
+
     directories = find_all_init_directories()
     logger.info(f"Found {len(directories)} directories with __init__.py files")
-    
+
     total_errors = 0
     success_count = 0
-    
+
     for directory in directories:
         logger.info(f"Processing: {directory}")
         result = update_init_py(directory, verbose=verbose)
@@ -125,7 +141,7 @@ def update_all_init_files(verbose: bool = False) -> int:
             success_count += 1
         else:
             total_errors += 1
-    
+
     logger.info(f"Completed: {success_count} successful, {total_errors} errors")
     return total_errors
 
@@ -141,9 +157,7 @@ def main() -> None:
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument(
-        "--all", 
-        action="store_true", 
-        help="Update all __init__.py files in the project"
+        "--all", action="store_true", help="Update all __init__.py files in the project"
     )
 
     args = parser.parse_args()

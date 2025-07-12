@@ -133,9 +133,7 @@ class Command(BaseCommand):
 
         return scrapers
 
-    def run_scraper(
-        self, scraper_info, supplier_name, limit, force, refresh_old: bool
-    ):
+    def run_scraper(self, scraper_info, supplier_name, limit, force, refresh_old: bool):
         """Run a specific scraper"""
         scraper_class = scraper_info["class_obj"]
         class_name = scraper_info["class_name"]
