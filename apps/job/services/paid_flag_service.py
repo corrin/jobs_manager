@@ -72,12 +72,14 @@ class PaidFlagService:
                 unpaid_invoices += 1
                 if verbose:
                     logger.info(
-                        f"Job {job.job_number} - {job.name} has unpaid invoice {invoice.number}"
+                        f"Job {job.job_number} - {job.name} has unpaid invoice "
+                        f"{invoice.number}"
                     )
             else:
                 if verbose:
                     logger.info(
-                        f"Job {job.job_number} - {job.name} has paid invoice {invoice.number}"
+                        f"Job {job.job_number} - {job.name} has paid invoice "
+                        f"{invoice.number}"
                     )
                 if dry_run:
                     logger.info(f"Would mark job {job.job_number} - {job.name} as paid")
