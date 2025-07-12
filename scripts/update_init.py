@@ -250,9 +250,9 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         "jobs_manager/__init__.py",  # Main project init
     }
 
-    # Also exclude migration directories - they shouldn't have imports
-    if "/migrations" in target_dir:
-        logger.info(f"Skipping migration directory: {target_dir}")
+    # Also exclude migration directories and management/commands - they shouldn't have imports
+    if "/migrations" in target_dir or "/management/commands" in target_dir:
+        logger.info(f"Skipping excluded directory: {target_dir}")
         return 0  # Success, but skipped
 
     init_file = os.path.join(target_dir, "__init__.py")

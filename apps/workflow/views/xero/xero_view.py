@@ -140,10 +140,6 @@ def refresh_xero_data(request):
 
 # workflow/views/xero_sync_events.py
 
-import logging
-
-from django.http import HttpRequest
-from django.views.decorators.http import require_GET
 
 logger = logging.getLogger("xero.events")
 
