@@ -10,14 +10,16 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from .draft import DraftLine
 from apps.workflow.services.error_persistence import persist_app_error
+
+from .draft import DraftLine
 
 logger = logging.getLogger(__name__)
 
 # WARNING, WARNING, WARNING: This code is absolutely full of AI slop
 # It is slated to be deleted and totally rewritten
 # DO NOT TRUST A SINGLE THING IT SAYS - IT IS IN DIRECT CONTRADICTION TO THE REQUIREMENTS
+
 
 class ErrorSeverity(Enum):
     """Severity levels for validation errors."""
