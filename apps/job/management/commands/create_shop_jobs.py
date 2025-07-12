@@ -65,12 +65,12 @@ class Command(BaseCommand):
             )
         except Client.MultipleObjectsReturned:
             raise CommandError(
-                f"Multiple clients found with name '{company_defaults.shop_client_name}'. "
-                "Please resolve duplicates."
+                f"Multiple clients found with name "
+                f"'{company_defaults.shop_client_name}'. Please resolve duplicates."
             )
 
         # Iterate through the shop jobs and create them
-        for idx, job_details in enumerate(shop_jobs, start=1):
+        for job_details in shop_jobs:
             # Create the job instance
             job = Job(
                 name=job_details["name"],

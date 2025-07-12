@@ -553,9 +553,10 @@ def export_sheet_as_xlsx(sheet_id: str, file_path: str) -> None:
     """
     try:
         drive_service = _svc("drive", "v3")
+        mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         request = drive_service.files().export_media(
             fileId=sheet_id,
-            mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            mimeType=mime_type,
         )
         with open(file_path, "wb") as f:
             downloader = MediaIoBaseDownload(f, request)
