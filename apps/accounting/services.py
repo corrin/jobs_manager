@@ -1084,7 +1084,7 @@ class JobAgingService:
                             )
                         except (Staff.DoesNotExist, ValueError, TypeError) as exc:
                             logger.error(
-                                "Corrupted data.  staff_id is missing in cost line meta."
+                                "Corrupted data. staff_id is missing in cost line meta."
                             )
                             persist_app_error(exc)
                             description = "Time added by unknown staff"
@@ -1127,7 +1127,8 @@ class JobAgingService:
                 }
             except Exception as exc:
                 logger.warning(
-                    f"Error processing latest activity for job {job.job_number}: {str(exc)}"
+                    f"Error processing latest activity for job "
+                    f"{job.job_number}: {str(exc)}"
                 )
                 persist_app_error(exc)
 

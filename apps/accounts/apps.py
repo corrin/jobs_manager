@@ -7,4 +7,5 @@ class AccountsConfig(AppConfig):
     verbose_name = "User Accounts"
 
     def ready(self):
-        import jobs_manager.extensions
+        # Import to register DRF Spectacular authentication extensions
+        import jobs_manager.extensions  # noqa: F401

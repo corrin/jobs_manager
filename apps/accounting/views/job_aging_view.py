@@ -32,7 +32,8 @@ class JobAgingAPIView(APIView):
         Get job aging data.
 
         Query Parameters:
-            include_archived (bool): Whether to include archived jobs. Defaults to False.
+            include_archived (bool): Whether to include archived jobs.
+                Defaults to False.
 
         Returns:
             JSON response with job aging data structure
