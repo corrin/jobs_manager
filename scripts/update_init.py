@@ -1,10 +1,12 @@
 import argparse
 import ast
+import fcntl
 import glob
 import logging
 import os
 import re
 import sys
+import time
 
 
 def get_import_type(module_path: str, module_name: str) -> str:
@@ -311,13 +313,6 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
                 logger.debug(f"Successfully parsed AST for {module_path}")
         except Exception as e:
             logger.error(f"Error parsing {module_path}: {e}")
-            logger.error(f"File exists: {os.path.exists(module_path)}")
-            if os.path.exists(module_path):
-                try:
-                    with open(module_path, "r") as file:
-                        logger.error(f"File size: {len(file.read())} characters")
-                except Exception as read_error:
-                    logger.error(f"Cannot read file: {read_error}")
             continue
 
         # Only get top-level classes, not nested classes

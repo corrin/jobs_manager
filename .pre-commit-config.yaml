@@ -14,13 +14,13 @@ repos:
     hooks:
       - id: update-init-files
         name: Update __init__.py files
-        entry: python scripts/update_init.py --all
+        entry: poetry run python scripts/update_init.py --all
         language: system
         pass_filenames: false
         always_run: true
       - id: generate-url-docs
         name: Generate URL documentation
-        entry: python scripts/generate_url_docs.py
+        entry: poetry run python scripts/generate_url_docs.py
         language: system
         pass_filenames: false
         always_run: true
