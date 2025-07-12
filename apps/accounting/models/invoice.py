@@ -1,8 +1,7 @@
 import uuid
 from abc import abstractmethod
-from datetime import date, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING
 
 from django.db import models
 from django.db.models import QuerySet
@@ -10,8 +9,6 @@ from django.utils import timezone
 
 if TYPE_CHECKING:
     from apps.client.models import Client
-    from apps.job.models import Job
-    from apps.workflow.models import XeroAccount
 
 from apps.accounting.enums import InvoiceStatus
 
@@ -57,7 +54,10 @@ class BaseXeroInvoiceDocument(models.Model):
     @property
     def total_amount(self) -> Decimal:
         """Calculate the total amount by summing up the related line items."""
-        return sum(item.line_amount_excl_tax for item in self.get_line_items())
+        return sum(
+            (item.line_amount_excl_tax or Decimal("0.00"))
+            for item in self.get_line_items()
+        ) or Decimal("0.00")
 
 
 class BaseLineItem(models.Model):
@@ -187,9 +187,7 @@ class InvoiceLineItem(BaseLineItem):
 
 
 class BillLineItem(BaseLineItem):
-    bill: Bill = models.ForeignKey(
-        Bill, on_delete=models.CASCADE, related_name="line_items"
-    )
+    bill = models.ForeignKey(Bill, on_delete=models.CASCADE, related_name="line_items")
 
     class Meta:
         verbose_name = "Bill Line Item"
@@ -198,7 +196,7 @@ class BillLineItem(BaseLineItem):
 
 
 class CreditNoteLineItem(BaseLineItem):
-    credit_note: CreditNote = models.ForeignKey(
+    credit_note = models.ForeignKey(
         CreditNote, on_delete=models.CASCADE, related_name="line_items"
     )
 
