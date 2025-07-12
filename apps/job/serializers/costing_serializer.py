@@ -39,7 +39,6 @@ class CostLineSerializer(serializers.ModelSerializer):
         return float(obj.total_rev)
 
 
-
 class TimesheetCostLineSerializer(serializers.ModelSerializer):
     """
     Serializer for CostLine model specifically for timesheet entries

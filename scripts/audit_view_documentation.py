@@ -122,7 +122,7 @@ def main():
             undocumented_files.append(view_file)
             logger.info(f"  - {view_file} ({len(views)} views)")
 
-    logger.info(f"Summary:")
+    logger.info("Summary:")
     logger.info(f"  - View files: {len(view_files)}")
     logger.info(f"  - Documented view directories: {len(documented_views)}")
     logger.info(f"  - Undocumented view files: {len(undocumented_files)}")

@@ -43,7 +43,7 @@ class URLDocumentationGenerator:
         try:
             pattern = self._get_pattern_string(url_pattern)
             if not pattern:
-                logger.warning(f"Could not extract pattern from URL")
+                logger.warning("Could not extract pattern from URL")
                 return None
 
             view_info = self._resolve_view_info(url_pattern)
