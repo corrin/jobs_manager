@@ -60,19 +60,14 @@ class Command(BaseCommand):
         try:
             shop_client = Client.objects.get(name=company_defaults.shop_client_name)
         except Client.DoesNotExist:
-            self.stdout.write(
-                self.style.ERROR(
-                    f"Shop client '{company_defaults.shop_client_name}' not found."
-                )
+            raise CommandError(
+                f"Shop client '{company_defaults.shop_client_name}' not found."
             )
-            return
         except Client.MultipleObjectsReturned:
-            self.stdout.write(
-                self.style.ERROR(
-                    f"Multiple clients found with name '{company_defaults.shop_client_name}'. Please resolve duplicates."
-                )
+            raise CommandError(
+                f"Multiple clients found with name '{company_defaults.shop_client_name}'. "
+                "Please resolve duplicates."
             )
-            return
 
         # Iterate through the shop jobs and create them
         for idx, job_details in enumerate(shop_jobs, start=1):
