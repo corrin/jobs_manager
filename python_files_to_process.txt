@@ -4,7 +4,7 @@ apps/accounting/enums.py  # DONE
 apps/accounting/models/__init__.py  # DONE
 apps/accounting/models/invoice.py  # DONE
 apps/accounting/models/quote.py  # DONE
-apps/accounting/serializers.py
+apps/accounting/serializers.py  # DONE
 apps/accounting/services.py
 apps/accounting/urls.py
 apps/accounting/utils.py
