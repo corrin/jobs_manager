@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 scheduler_logger = logging.getLogger("django_apscheduler")
 
 
-def xero_heartbeat_job():
+def xero_heartbeat_job() -> None:
     """
     Refreshes the Xero API token.
     """
@@ -31,7 +31,7 @@ def xero_heartbeat_job():
         scheduler_logger.error(f"Error during Xero Heartbeat job: {e}", exc_info=True)
 
 
-def xero_regular_sync_job():
+def xero_regular_sync_job() -> None:
     """
     Performs a full Xero synchronization.
     """
@@ -47,7 +47,7 @@ def xero_regular_sync_job():
         logger.error(f"Error during Xero Regular Sync job: {e}", exc_info=True)
 
 
-def xero_30_day_sync_job():
+def xero_30_day_sync_job() -> None:
     """
     Performs a full Xero synchronization for the 30-day sync.
     """
