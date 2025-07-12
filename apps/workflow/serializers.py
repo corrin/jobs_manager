@@ -92,7 +92,7 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
                     raise ValueError("Provider name is required")
                 if not provider_data.get("provider_type"):
                     raise ValueError("Provider type is required")
-                
+
                 AIProvider.objects.create(
                     company=instance,
                     name=provider_data["name"],

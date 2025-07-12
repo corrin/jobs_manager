@@ -2,7 +2,6 @@
 Serializers for Kanban views.
 """
 
-
 from rest_framework import serializers
 
 
