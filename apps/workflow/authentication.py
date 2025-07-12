@@ -1,4 +1,3 @@
-from django.contrib.auth.backends import BaseBackend
 from django.http import JsonResponse
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed

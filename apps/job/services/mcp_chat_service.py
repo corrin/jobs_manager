@@ -14,11 +14,10 @@ This service integrates:
 import json
 import logging
 import uuid
-from datetime import datetime
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from anthropic import Anthropic
-from anthropic.types import MessageParam, TextBlock, ToolUseBlock
+from anthropic.types import MessageParam, TextBlock
 from django.db import transaction
 
 from apps.job.models import Job, JobQuoteChat

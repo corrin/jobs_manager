@@ -927,11 +927,9 @@ def _validate_pricing_consistency(path: str, df) -> List[ValidationError]:
 
             defaults = CompanyDefaults.objects.first()
             if defaults:
-                expected_wage = defaults.wage_rate
                 expected_charge = defaults.charge_out_rate
                 expected_markup = defaults.materials_markup
             else:
-                expected_wage = DEFAULT_WAGE_RATE
                 expected_charge = DEFAULT_CHARGE_OUT_RATE
                 expected_markup = DEFAULT_MATERIALS_MARKUP
         except (ImportError, Exception):

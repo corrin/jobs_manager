@@ -16,10 +16,8 @@ This module provides both file-based and draft-based import functions:
 """
 
 import logging
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 from apps.job.diff import DiffResult, apply_diff, diff_costset
@@ -29,7 +27,7 @@ from apps.job.importers.quote_spreadsheet import (
     parse_xlsx,
     parse_xlsx_with_validation,
 )
-from apps.job.models import CostLine, CostSet, Job
+from apps.job.models import CostSet, Job
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +80,6 @@ def serialize_draft_lines(draft_lines: List[DraftLine]) -> List[Dict[str, Any]]:
 class QuoteImportError(Exception):
     """Custom exception for quote import errors"""
 
-    pass
 
 
 class QuoteImportResult:

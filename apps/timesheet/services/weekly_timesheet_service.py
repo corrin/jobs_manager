@@ -16,7 +16,7 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.db import models
-from django.db.models import Q, Sum
+from django.db.models import Q
 from django.db.models.expressions import RawSQL
 
 from apps.accounts.models import Staff

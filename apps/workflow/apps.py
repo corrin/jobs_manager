@@ -2,7 +2,7 @@ import logging
 
 from django.apps import AppConfig
 
-from apps.workflow.scheduler import get_scheduler, start_scheduler
+from apps.workflow.scheduler import get_scheduler
 
 # Import standalone job functions
 from apps.workflow.scheduler_jobs import (

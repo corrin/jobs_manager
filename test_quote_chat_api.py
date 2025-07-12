@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 """Test script to verify the quote chat API endpoint is working properly."""
 
-import json
 import logging
-import sys
 
 import requests
 

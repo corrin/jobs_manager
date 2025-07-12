@@ -3,7 +3,6 @@
 import logging
 from decimal import Decimal
 
-from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -23,7 +22,6 @@ from apps.purchasing.serializers import (
     PurchaseOrderListSerializer,
     PurchaseOrderUpdateResponseSerializer,
     PurchaseOrderUpdateSerializer,
-    PurchasingErrorResponseSerializer,
     PurchasingJobsResponseSerializer,
     StockConsumeRequestSerializer,
     StockConsumeResponseSerializer,
@@ -36,7 +34,6 @@ from apps.purchasing.serializers import (
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
 from apps.purchasing.services.purchasing_rest_service import PurchasingRestService
 from apps.purchasing.services.stock_service import consume_stock
-from apps.workflow.api.xero.xero import get_xero_items
 
 logger = logging.getLogger(__name__)
 

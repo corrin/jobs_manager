@@ -21,7 +21,6 @@ from apps.accounts.models import Staff
 from apps.job.models.costing import CostLine, CostSet
 from apps.job.models.job import Job
 from apps.job.serializers.costing_serializer import (
-    CostLineSerializer,
     TimesheetCostLineSerializer,
 )
 from apps.job.serializers.job_serializer import (

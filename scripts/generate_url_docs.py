@@ -414,8 +414,8 @@ class URLDocumentationGenerator:
                 return "Other"
 
         # Path-based categorization logic
-        module = view_info.get("module", "").lower()
-        pattern_lower = pattern.lower()
+        view_info.get("module", "").lower()
+        pattern.lower()
 
         # Main redirect
         if pattern == "/":

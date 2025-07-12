@@ -5,7 +5,7 @@ Run with: python manage.py shell < test_mcp_shell.py
 
 import logging
 
-from apps.client.models import Client, Supplier
+from apps.client.models import Supplier
 from apps.job.models import Job
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
 from apps.quoting.models import ScrapeJob, SupplierPriceList, SupplierProduct

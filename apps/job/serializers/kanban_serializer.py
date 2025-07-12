@@ -2,7 +2,6 @@
 Serializers for Kanban views.
 """
 
-from uuid import UUID
 
 from rest_framework import serializers
 

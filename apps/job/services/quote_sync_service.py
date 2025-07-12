@@ -20,7 +20,6 @@ from apps.job.importers.google_sheets import (
     fetch_sheet_df,
     populate_sheet_from_costset,
 )
-from apps.job.importers.quote_spreadsheet import parse_xlsx_with_validation
 from apps.job.models import Job
 from apps.job.models.spreadsheet import QuoteSpreadsheet
 from apps.job.services.import_quote_service import (

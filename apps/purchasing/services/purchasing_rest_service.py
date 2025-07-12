@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.core.cache import cache
-from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -253,6 +252,6 @@ class PurchasingRestService:
                     }
                 )
             return items
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to fetch Xero items")
             return []

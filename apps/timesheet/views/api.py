@@ -5,10 +5,9 @@ Provides endpoints for the Vue.js frontend to interact with timesheet data.
 
 import logging
 import traceback
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from django.db.models import Q
-from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -20,9 +19,7 @@ from apps.job.models import Job
 from apps.timesheet.serializers import (
     DailyTimesheetSummarySerializer,
     JobsListResponseSerializer,
-    ModernStaffSerializer,
     ModernTimesheetJobSerializer,
-    PaidAbsenceRequestSerializer,
     StaffListResponseSerializer,
     WeeklyTimesheetDataSerializer,
 )
