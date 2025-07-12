@@ -2,7 +2,15 @@
 
 from .apps import TimesheetConfig
 from .enums import RateType
-from .forms import PaidAbsenceForm
+
+# Conditional imports (only when Django is ready)
+try:
+    from django.apps import apps
+    if apps.ready:
+        from .forms import PaidAbsenceForm
+except (ImportError, RuntimeError):
+    # Django not ready or circular import, skip conditional imports
+    pass
 
 __all__ = [
     "PaidAbsenceForm",
