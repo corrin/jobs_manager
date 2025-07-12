@@ -53,4 +53,4 @@ class DevelopmentOrAuthenticatedPermission(BasePermission):
             return True
 
         # Production mode: Require authentication
-        return request.user.is_authenticated
+        return bool(request.user.is_authenticated)

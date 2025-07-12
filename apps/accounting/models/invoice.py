@@ -1,8 +1,11 @@
 import uuid
 from abc import abstractmethod
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Any, Optional
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.accounting.enums import InvoiceStatus
@@ -14,40 +17,44 @@ class BaseXeroInvoiceDocument(models.Model):
     This represents financial documents that have line items and tax calculations.
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    xero_id = models.UUIDField(unique=True)
-    xero_tenant_id = models.CharField(
+    id: uuid.UUID = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    xero_id: uuid.UUID = models.UUIDField(unique=True)
+    xero_tenant_id: Optional[str] = models.CharField(
         max_length=255, null=True, blank=True
     )  # For reference only - we are not fully multi-tenant yet
-    number = models.CharField(max_length=255)
+    number: str = models.CharField(max_length=255)
     client = models.ForeignKey("client.Client", on_delete=models.CASCADE)
-    date = models.DateField()
-    due_date = models.DateField(null=True, blank=True)
-    status = models.CharField(
+    date: date = models.DateField()
+    due_date: Optional[date] = models.DateField(null=True, blank=True)
+    status: str = models.CharField(
         max_length=50, choices=InvoiceStatus.choices, default=InvoiceStatus.DRAFT
     )
-    total_excl_tax = models.DecimalField(max_digits=10, decimal_places=2)
-    tax = models.DecimalField(max_digits=10, decimal_places=2)
-    total_incl_tax = models.DecimalField(max_digits=10, decimal_places=2)
-    amount_due = models.DecimalField(max_digits=10, decimal_places=2)
-    xero_last_modified = models.DateTimeField()
-    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
-    raw_json = models.JSONField()
-    django_created_at = models.DateTimeField(auto_now_add=True)
-    django_updated_at = models.DateTimeField(auto_now=True)
+    total_excl_tax: Decimal = models.DecimalField(max_digits=10, decimal_places=2)
+    tax: Decimal = models.DecimalField(max_digits=10, decimal_places=2)
+    total_incl_tax: Decimal = models.DecimalField(max_digits=10, decimal_places=2)
+    amount_due: Decimal = models.DecimalField(max_digits=10, decimal_places=2)
+    xero_last_modified: datetime = models.DateTimeField()
+    xero_last_synced: Optional[datetime] = models.DateTimeField(
+        null=True, blank=True, default=timezone.now
+    )
+    raw_json: Any = models.JSONField()
+    django_created_at: datetime = models.DateTimeField(auto_now_add=True)
+    django_updated_at: datetime = models.DateTimeField(auto_now=True)
 
     class Meta:
         abstract = True
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.number} - {self.client.name}"
 
     @abstractmethod
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["BaseLineItem"]:
         """Return the queryset of line items related to this document."""
 
     @property
-    def total_amount(self):
+    def total_amount(self) -> Decimal:
         """Calculate the total amount by summing up the related line items."""
         return sum(item.line_amount_excl_tax for item in self.get_line_items())
 
@@ -57,25 +64,27 @@ class BaseLineItem(models.Model):
     Abstract base class for all line items (Invoice, Bill, Credit Note items).
     """
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    xero_line_id = models.UUIDField(unique=True, default=uuid.uuid4)
-    description = models.TextField()
-    quantity = models.DecimalField(
+    id: uuid.UUID = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False
+    )
+    xero_line_id: uuid.UUID = models.UUIDField(unique=True, default=uuid.uuid4)
+    description: str = models.TextField()
+    quantity: Optional[Decimal] = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True, default=Decimal("1.00")
     )
-    unit_price = models.DecimalField(
+    unit_price: Optional[Decimal] = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
-    line_amount_excl_tax = models.DecimalField(
+    line_amount_excl_tax: Optional[Decimal] = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
-    line_amount_incl_tax = models.DecimalField(
+    line_amount_incl_tax: Optional[Decimal] = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
     account = models.ForeignKey(
         "workflow.XeroAccount", on_delete=models.SET_NULL, null=True, blank=True
     )
-    tax_amount = models.DecimalField(
+    tax_amount: Optional[Decimal] = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
 
