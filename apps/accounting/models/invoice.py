@@ -2,11 +2,16 @@ import uuid
 from abc import abstractmethod
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.db import models
 from django.db.models import QuerySet
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from apps.client.models import Client
+    from apps.job.models import Job
+    from apps.workflow.models import XeroAccount
 
 from apps.accounting.enums import InvoiceStatus
 
@@ -25,7 +30,7 @@ class BaseXeroInvoiceDocument(models.Model):
         max_length=255, null=True, blank=True
     )  # For reference only - we are not fully multi-tenant yet
     number: str = models.CharField(max_length=255)
-    client = models.ForeignKey("client.Client", on_delete=models.CASCADE)
+    client: "Client" = models.ForeignKey("client.Client", on_delete=models.CASCADE)
     date: date = models.DateField()
     due_date: Optional[date] = models.DateField(null=True, blank=True)
     status: str = models.CharField(
@@ -81,7 +86,7 @@ class BaseLineItem(models.Model):
     line_amount_incl_tax: Optional[Decimal] = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )
-    account = models.ForeignKey(
+    account: Optional["XeroAccount"] = models.ForeignKey(
         "workflow.XeroAccount", on_delete=models.SET_NULL, null=True, blank=True
     )
     tax_amount: Optional[Decimal] = models.DecimalField(
@@ -91,11 +96,11 @@ class BaseLineItem(models.Model):
     class Meta:
         abstract = True
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.description} - {self.line_amount_excl_tax}"
 
     @property
-    def total_price(self):
+    def total_price(self) -> Decimal:
         """Compute the total price of the line item including tax."""
         return (self.unit_price or Decimal("0.00")) * (self.quantity or Decimal("1.00"))
 
@@ -104,7 +109,7 @@ class BaseLineItem(models.Model):
 
 
 class Invoice(BaseXeroInvoiceDocument):
-    job = models.OneToOneField(
+    job: Optional["Job"] = models.OneToOneField(
         "job.Job",
         on_delete=models.CASCADE,
         related_name="invoice",
@@ -119,11 +124,11 @@ class Invoice(BaseXeroInvoiceDocument):
         ordering = ["-date", "number"]
         db_table = "workflow_invoice"
 
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["InvoiceLineItem"]:
         return self.line_items.all()
 
     @property
-    def paid(self):
+    def paid(self) -> bool:
         """
         Computes whether this invoice was already paid based on the amount due value.
         """
@@ -142,15 +147,15 @@ class Bill(BaseXeroInvoiceDocument):
         db_table = "workflow_bill"
 
     @property
-    def supplier(self):
+    def supplier(self) -> "Client":
         """Return the client as 'supplier' for bills."""
         return self.client
 
     @supplier.setter
-    def supplier(self, value):
+    def supplier(self, value: "Client") -> None:
         self.client = value
 
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["BillLineItem"]:
         return self.line_items.all()
 
 
