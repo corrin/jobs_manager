@@ -1,9 +1,16 @@
 import uuid
+from datetime import date, datetime
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.db import models
 from django.utils import timezone
 
 from apps.accounting.enums import QuoteStatus
+
+if TYPE_CHECKING:
+    from apps.client.models import Client
+    from apps.job.models import Job
 
 
 class Quote(models.Model):
@@ -27,8 +34,9 @@ class Quote(models.Model):
     online_url = models.URLField(null=True, blank=True)
     raw_json = models.JSONField(null=True, blank=True)
 
-    def __str__(self):
-        return f"Quote ({self.status}) for Job {self.job.job_number}"
+    def __str__(self) -> str:
+        job_info = f"{self.job.job_number}" if self.job else "No Job"
+        return f"Quote ({self.status}) for Job {job_info}"
 
     class Meta:
         db_table = "workflow_quote"
