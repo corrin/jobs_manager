@@ -1,10 +1,12 @@
 import argparse
 import ast
+import fcntl
 import glob
 import logging
 import os
 import re
 import sys
+import time
 
 
 def get_import_type(module_path: str, module_name: str) -> str:
@@ -244,15 +246,27 @@ def generate_django_safe_imports(import_data):
 def update_init_py(target_dir: str, verbose: bool = False) -> int:
     logger = logging.getLogger(__name__)
 
+    # Add file logging for debugging
+    log_file = "logs/update_init_debug.log"
+    file_handler = logging.FileHandler(log_file, mode="a")
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    logger.info(f"=== Starting update_init_py for {target_dir} ===")
+
     # Files/directories to exclude from auto-generation
     EXCLUDED_PATHS = {
         "jobs_manager/settings/__init__.py",
         "jobs_manager/__init__.py",  # Main project init
     }
 
-    # Also exclude migration directories - they shouldn't have imports
-    if "/migrations" in target_dir:
-        logger.info(f"Skipping migration directory: {target_dir}")
+    # Also exclude migration directories and management/commands - they shouldn't have imports
+    if "/migrations" in target_dir or "/management/commands" in target_dir:
+        logger.info(f"Skipping excluded directory: {target_dir}")
         return 0  # Success, but skipped
 
     init_file = os.path.join(target_dir, "__init__.py")
@@ -292,7 +306,11 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         # Parse the file to find class and function definitions
         try:
             with open(module_path, "r") as file:
-                tree = ast.parse(file.read())
+                content = file.read()
+                logger.debug(f"Successfully read {module_path}, length: {len(content)}")
+                # Parse with explicit feature version to ensure match statement support
+                tree = ast.parse(content, filename=module_path, mode="exec")
+                logger.debug(f"Successfully parsed AST for {module_path}")
         except Exception as e:
             logger.error(f"Error parsing {module_path}: {e}")
             continue
@@ -314,6 +332,9 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         ]
 
         exports = classes + functions
+        logger.debug(
+            f"Module {module_name}: classes={classes}, functions={functions}, import_type={import_type}"
+        )
         if exports:
             logger.debug(f"Found classes: {classes}")
             logger.debug(f"Found functions: {functions}")
@@ -321,6 +342,8 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
             # Only add to __all__ if not excluded
             if import_type != "excluded":
                 all_exports.extend(exports)
+        else:
+            logger.debug(f"No exports found in {module_name}")
 
     # Generate Django-safe import statements
     import_lines = generate_django_safe_imports(import_data)

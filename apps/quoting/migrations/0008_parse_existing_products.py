@@ -25,7 +25,7 @@ def parse_existing_products(apps, schema_editor):
 
         # Process in batches of 100
         for i in range(0, len(supplier_products), parser.BATCH_SIZE):
-            batch = supplier_products[i:i + parser.BATCH_SIZE]
+            batch = supplier_products[i : i + parser.BATCH_SIZE]
             product_data_list = []
 
             for product in batch:
@@ -60,7 +60,7 @@ def parse_existing_products(apps, schema_editor):
 
         # Process in batches of 100
         for i in range(0, len(stock_items), parser.BATCH_SIZE):
-            batch = stock_items[i:i + parser.BATCH_SIZE]
+            batch = stock_items[i : i + parser.BATCH_SIZE]
             stock_data_list = []
 
             for stock in batch:

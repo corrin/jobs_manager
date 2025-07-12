@@ -83,10 +83,10 @@ class LoginRequiredMiddleware:
 
 
 class PasswordStrengthMiddleware:
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request):
+    def __call__(self, request: HttpRequest) -> HttpResponse:
         if getattr(settings, "ENABLE_JWT_AUTH", False) and not hasattr(
             request, "session"
         ):

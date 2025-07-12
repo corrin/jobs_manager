@@ -21,7 +21,7 @@ grep "CREATE TABLE \`workflow_job\`" prod_backup_*_schema.sql
 # Should show the table creation statement
 ```
 
-#### Step 2: Create Data Backup (Production)  
+#### Step 2: Create Data Backup (Production)
 **Run as:** Production system user with Django access
 **Command:**
 ```bash
@@ -104,7 +104,7 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SELECT COUNT(*) FROM workfl
 ```
 
 #### Step 7: Extract and Convert JSON to SQL
-**Run as:** Development system user  
+**Run as:** Development system user
 **Commands:**
 ```bash
 # Extract the compressed backup
@@ -136,7 +136,7 @@ MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source r
 ```bash
 MYSQL_PWD=your_dev_password mysql -u django_user -e "
 SELECT 'workflow_job' as table_name, COUNT(*) as count FROM workflow_job
-UNION SELECT 'workflow_staff', COUNT(*) FROM workflow_staff  
+UNION SELECT 'workflow_staff', COUNT(*) FROM workflow_staff
 UNION SELECT 'workflow_client', COUNT(*) FROM workflow_client
 UNION SELECT 'workflow_timeentry', COUNT(*) FROM workflow_timeentry
 UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
@@ -194,7 +194,7 @@ Company defaults loaded: Demo Company
 ```bash
 MYSQL_PWD=your_dev_password mysql -u django_user -e "
 SELECT id, name, job_number, status, contact_person
-FROM workflow_job 
+FROM workflow_job
 WHERE name LIKE '%test%' OR name LIKE '%sample%'
 LIMIT 5;
 " msm_workflow
@@ -207,7 +207,7 @@ LIMIT 5;
 ```bash
 python manage.py shell -c "
 from apps.job.models import Job
-from apps.accounts.models import Staff  
+from apps.accounts.models import Staff
 from apps.client.models import Client
 print(f'Jobs: {Job.objects.count()}')
 print(f'Staff: {Staff.objects.count()}')
@@ -325,7 +325,7 @@ Missing files: 0
    Tenant ID: [tenant-id-uuid]
    Name: [Tenant Name]
    -----------------------------
-   
+
    Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaults
    ```
    **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
@@ -362,7 +362,7 @@ python manage.py runserver 0.0.0.0:8000
 
 ## Troubleshooting
 
-Here are some errors we tripped over in the creation of this markdown.  You shouldn't have these happen since we've now 
+Here are some errors we tripped over in the creation of this markdown.  You shouldn't have these happen since we've now
 coded around them, but they're included to give you a sense of the sort of errors that happen in real ife.
 
 ### Reset Script Fails
@@ -389,7 +389,7 @@ coded around them, but they're included to give you a sense of the sort of error
 
 ## File Locations
 - **Production schema:** `prod_backup_YYYYMMDD_HHMMSS_schema.sql`
-- **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz`  
+- **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz`
 - **Development restore:** `restore/` directory
 - **Reset script:** `scripts/reset_database.sql`
 - **Converter script:** `scripts/json_to_mysql.py` (enhanced with foreign key mappings)
@@ -403,21 +403,21 @@ The `scripts/json_to_mysql.py` script has been enhanced to:
 - **Foreign key field mappings:** Correctly maps Django foreign key fields (e.g., `supplier` → `supplier_id`)
 - **Content types support:** Handles `django_content_type` table for Django internals
 
-<!-- FUTURE ENHANCEMENT: Consider adding data filtering to json_to_mysql.py to remove 
+<!-- FUTURE ENHANCEMENT: Consider adding data filtering to json_to_mysql.py to remove
      problematic MaterialEntry records with purchase_order_line or source_stock references.
      This would prevent foreign key constraint errors when Xero purchase order data isn't available.
      See apps/job/management/commands/backport_data_restore.py lines 51-66 for reference implementation. -->
 
 
-### Enhanced Backup Script  
+### Enhanced Backup Script
 The `backport_data_backup.py` script now:
 - **Captures migration state:** Includes `django_migrations` table in backup using raw SQL extraction
 - **Preserves exact production state:** No more guessing which migrations were applied in production
 
 ### Verified Working Process
-✅ **620 jobs** successfully restored from production  
-✅ **246 migrations** correctly captured and restored  
-✅ **Schema matches data** - no foreign key constraint errors  
+✅ **620 jobs** successfully restored from production
+✅ **246 migrations** correctly captured and restored
+✅ **Schema matches data** - no foreign key constraint errors
 ✅ **Migration state preserved** - development knows exactly which migrations to apply
 
 ## Required Passwords

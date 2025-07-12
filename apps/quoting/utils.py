@@ -1,5 +1,8 @@
 import hashlib
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
+
+if TYPE_CHECKING:
+    from apps.quoting.models import SupplierProduct
 
 
 def calculate_product_mapping_hash(product_data: Dict[str, Any]) -> str:
@@ -21,7 +24,7 @@ def calculate_product_mapping_hash(product_data: Dict[str, Any]) -> str:
     return hashlib.sha256(description.encode()).hexdigest()
 
 
-def calculate_supplier_product_hash(supplier_product) -> str:
+def calculate_supplier_product_hash(supplier_product: "SupplierProduct") -> str:
     """
     Calculate SHA-256 hash for a SupplierProduct instance.
 

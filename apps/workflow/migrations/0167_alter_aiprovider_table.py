@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('workflow', '0166_alter_apperror_options_alter_xeroerror_options_and_more'),
+        ("workflow", "0166_alter_apperror_options_alter_xeroerror_options_and_more"),
     ]
 
     operations = [
         migrations.AlterModelTable(
-            name='aiprovider',
-            table='workflow_aiprovider',
+            name="aiprovider",
+            table="workflow_aiprovider",
         ),
     ]

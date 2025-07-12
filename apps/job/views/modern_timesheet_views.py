@@ -20,9 +20,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import Staff
 from apps.job.models.costing import CostLine, CostSet
 from apps.job.models.job import Job
-from apps.job.serializers.costing_serializer import (
-    TimesheetCostLineSerializer,
-)
+from apps.job.serializers.costing_serializer import TimesheetCostLineSerializer
 from apps.job.serializers.job_serializer import (
     ModernTimesheetDayGetResponseSerializer,
     ModernTimesheetEntryGetResponseSerializer,

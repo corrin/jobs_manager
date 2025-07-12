@@ -6,8 +6,14 @@ that bypass authentication when DEBUG=True. These should NEVER be used in
 production environments.
 """
 
+from typing import TYPE_CHECKING
+
 from django.conf import settings
+from django.http import HttpRequest
 from rest_framework.permissions import BasePermission
+
+if TYPE_CHECKING:
+    from rest_framework.views import APIView
 
 
 class DevelopmentOrAuthenticatedPermission(BasePermission):
@@ -41,10 +47,10 @@ class DevelopmentOrAuthenticatedPermission(BasePermission):
     - Include clear comments about development-only usage in views
     """
 
-    def has_permission(self, request, view):
+    def has_permission(self, request: HttpRequest, view: "APIView") -> bool:
         # Development mode: Allow all requests when DEBUG=True
         if settings.DEBUG:
             return True
 
         # Production mode: Require authentication
-        return request.user.is_authenticated
+        return bool(request.user.is_authenticated)

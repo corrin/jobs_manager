@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from django.contrib.auth import authenticate
 from rest_framework import serializers
@@ -14,13 +14,13 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     username_field = "username"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         # Add username field instead of email
         if "username" not in self.fields:
             self.fields["username"] = serializers.CharField()
 
-    def validate(self, attrs):
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         # Get username and password from request
         username = attrs.get("username")
         password = attrs.get("password")
@@ -47,7 +47,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class StaffSerializer(serializers.ModelSerializer):
-    def to_internal_value(self, data):
+    def to_internal_value(self, data: Any) -> Dict[str, Any]:
         data = data.copy()  # QueryDict can be immutable, so we copy it
         for field in ["groups", "user_permissions"]:
             # Usually it comes as a QueryDict so we can use getlist directly
@@ -56,10 +56,10 @@ class StaffSerializer(serializers.ModelSerializer):
                 data.setlist(field, [])
         return super().to_internal_value(data)
 
-    def validate(self, attrs):
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         return super().validate(attrs)
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Staff, validated_data: Dict[str, Any]) -> Staff:
         password = validated_data.pop("password", None)
         if password:
             instance.set_password(password)

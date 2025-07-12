@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 # Test configuration
 BASE_URL = "http://localhost:8000"
-JOB_ID = "523540fd-9c40-463d-a762-594b07012f11"  # Using the job ID from the original error log
+# Using the job ID from the original error log
+JOB_ID = "523540fd-9c40-463d-a762-594b07012f11"
 ENDPOINT = f"{BASE_URL}/job/api/jobs/{JOB_ID}/quote-chat/ai-response/"
 
 

@@ -1,3 +1,6 @@
+from typing import List, Optional
+
+
 class XeroValidationError(Exception):
     """Exception raised when a Xero object is missing required fields.
 
@@ -7,7 +10,9 @@ class XeroValidationError(Exception):
         xero_id: Identifier for the record in Xero.
     """
 
-    def __init__(self, missing_fields, entity, xero_id):
+    def __init__(
+        self, missing_fields: List[str], entity: str, xero_id: Optional[str]
+    ) -> None:
         self.missing_fields = missing_fields
         self.entity = entity
         self.xero_id = xero_id

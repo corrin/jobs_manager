@@ -6,68 +6,78 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('workflow', '0167_alter_aiprovider_table'),
+        ("workflow", "0167_alter_aiprovider_table"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='apperror',
-            name='app',
+            model_name="apperror",
+            name="app",
             field=models.CharField(blank=True, max_length=50, null=True),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='file',
+            model_name="apperror",
+            name="file",
             field=models.CharField(blank=True, max_length=200, null=True),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='function',
+            model_name="apperror",
+            name="function",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='job_id',
+            model_name="apperror",
+            name="job_id",
             field=models.UUIDField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='resolved',
+            model_name="apperror",
+            name="resolved",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='resolved_by',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL),
+            model_name="apperror",
+            name="resolved_by",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                to=settings.AUTH_USER_MODEL,
+            ),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='resolved_timestamp',
+            model_name="apperror",
+            name="resolved_timestamp",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='severity',
+            model_name="apperror",
+            name="severity",
             field=models.IntegerField(default=40),
         ),
         migrations.AddField(
-            model_name='apperror',
-            name='user_id',
+            model_name="apperror",
+            name="user_id",
             field=models.UUIDField(blank=True, null=True),
         ),
         migrations.AddIndex(
-            model_name='apperror',
-            index=models.Index(fields=['timestamp', 'severity'], name='workflow_ap_timesta_ae5a69_idx'),
+            model_name="apperror",
+            index=models.Index(
+                fields=["timestamp", "severity"], name="workflow_ap_timesta_ae5a69_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='apperror',
-            index=models.Index(fields=['resolved', 'timestamp'], name='workflow_ap_resolve_b7bee8_idx'),
+            model_name="apperror",
+            index=models.Index(
+                fields=["resolved", "timestamp"], name="workflow_ap_resolve_b7bee8_idx"
+            ),
         ),
         migrations.AddIndex(
-            model_name='apperror',
-            index=models.Index(fields=['app', 'severity'], name='workflow_ap_app_083df1_idx'),
+            model_name="apperror",
+            index=models.Index(
+                fields=["app", "severity"], name="workflow_ap_app_083df1_idx"
+            ),
         ),
     ]

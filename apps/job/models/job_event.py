@@ -15,7 +15,7 @@ class JobEvent(models.Model):
     )  # e.g., "status_change", "manual_note"
     description = models.TextField()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.timestamp}: {self.event_type} for {self.job.name}"
 
     class Meta:
