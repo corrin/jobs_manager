@@ -36,8 +36,7 @@ class CostLineSerializer(serializers.ModelSerializer):
 
     def get_total_rev(self, obj) -> float:
         """Get total revenue (quantity * unit_rev)"""
-        return float(obj.total_rev)        
-        read_only_fields = fields
+        return float(obj.total_rev)
 
 
 
