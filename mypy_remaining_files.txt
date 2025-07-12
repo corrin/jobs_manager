@@ -1,5 +1,4 @@
 apps/accounting/services.py
-apps/accounts/managers.py
 apps/accounts/models.py
 apps/accounts/permissions.py
 apps/accounts/serializers.py

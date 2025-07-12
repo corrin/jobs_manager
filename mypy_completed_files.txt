@@ -68,3 +68,4 @@ jobs_manager/urls.py
 apps/accounts/admin.py
 apps/accounts/forms.py
 apps/accounts/management/commands/flag_weak_passwords.py
+apps/accounts/managers.py
