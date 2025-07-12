@@ -2,14 +2,14 @@ import importlib
 import inspect
 import logging
 
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_http_methods
 
 logger = logging.getLogger(__name__)
 
 
 @require_http_methods(["GET"])
-def get_enum_choices(request, enum_name):
+def get_enum_choices(request: HttpRequest, enum_name: str) -> JsonResponse:
     """
     API endpoint to get enum choices.
     Returns the choices for the specified enum as a JSON object.
