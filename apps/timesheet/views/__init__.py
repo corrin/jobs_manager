@@ -3,11 +3,12 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .api import (
-            StaffListAPIView,
-            JobsAPIView,
             DailyTimesheetAPIView,
+            JobsAPIView,
+            StaffListAPIView,
             WeeklyTimesheetAPIView,
         )
 except (ImportError, RuntimeError):

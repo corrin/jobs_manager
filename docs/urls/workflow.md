@@ -28,6 +28,12 @@
 | `/api/xero/sync/` | `xero_view.start_xero_sync` | `synchronise_xero_data` | View function to start a Xero sync as a background task. |
 | `/api/xero/webhook/` | `XeroWebhookView` | `xero_webhook` | Handle incoming Xero webhook notifications. |
 
+### App-Errors Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/app-errors/` | `app_error_view.AppErrorListAPIView` | `app-error-list` | API view for listing application errors. |
+| `/app-errors/<uuid:pk>/` | `app_error_view.AppErrorDetailAPIView` | `app-error-detail` | API view for retrieving a single application error. |
+
 ### System
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|

@@ -5,26 +5,27 @@ from .apps import ClientConfig
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .forms import ClientForm
         from .models import Client, ClientContact, Supplier
         from .serializers import (
-            ClientContactSerializer,
-            ClientSerializer,
-            ClientNameOnlySerializer,
-            ClientContactListResponseSerializer,
-            StandardErrorSerializer,
-            ClientListResponseSerializer,
-            ClientSearchResultSerializer,
-            ClientSearchResponseSerializer,
-            ClientContactResultSerializer,
-            ClientContactsResponseSerializer,
             ClientContactCreateRequestSerializer,
             ClientContactCreateResponseSerializer,
+            ClientContactListResponseSerializer,
+            ClientContactResultSerializer,
+            ClientContactSerializer,
+            ClientContactsResponseSerializer,
             ClientCreateRequestSerializer,
             ClientCreateResponseSerializer,
-            ClientErrorResponseSerializer,
             ClientDuplicateErrorResponseSerializer,
+            ClientErrorResponseSerializer,
+            ClientListResponseSerializer,
+            ClientNameOnlySerializer,
+            ClientSearchResponseSerializer,
+            ClientSearchResultSerializer,
+            ClientSerializer,
+            StandardErrorSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports

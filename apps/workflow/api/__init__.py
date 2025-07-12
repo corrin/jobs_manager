@@ -5,6 +5,7 @@ from .enums import get_enum_choices
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .pagination import FiftyPerPagePagination
 except (ImportError, RuntimeError):

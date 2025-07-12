@@ -3,6 +3,7 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .base import BaseScraper
         from .steel_and_tube import SteelAndTubeScraper

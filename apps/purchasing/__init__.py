@@ -5,6 +5,7 @@ from .apps import PurchasingConfig
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .admin import PurchaseOrderAdmin, PurchaseOrderLineAdmin
         from .forms import PurchaseOrderForm, PurchaseOrderLineForm
@@ -15,35 +16,35 @@ try:
             Stock,
         )
         from .serializers import (
-            JobForPurchasingSerializer,
-            PurchaseOrderLineSerializer,
-            PurchaseOrderDetailSerializer,
             AllJobsResponseSerializer,
+            AllocationItemSerializer,
             DeliveryReceiptAllocationSerializer,
             DeliveryReceiptLineSerializer,
             DeliveryReceiptRequestSerializer,
             DeliveryReceiptResponseSerializer,
-            PurchaseOrderListSerializer,
-            PurchaseOrderLineCreateSerializer,
-            PurchaseOrderCreateSerializer,
-            PurchaseOrderCreateResponseSerializer,
-            PurchaseOrderUpdateSerializer,
-            PurchaseOrderUpdateResponseSerializer,
-            AllocationItemSerializer,
+            JobForPurchasingSerializer,
             PurchaseOrderAllocationsResponseSerializer,
-            StockListSerializer,
-            StockCreateSerializer,
-            StockCreateResponseSerializer,
-            PurchasingJobsResponseSerializer,
-            XeroItemSerializer,
-            XeroItemListResponseSerializer,
-            StockDeactivateResponseSerializer,
-            StockConsumeRequestSerializer,
-            StockConsumeResponseSerializer,
-            PurchasingErrorResponseSerializer,
+            PurchaseOrderCreateResponseSerializer,
+            PurchaseOrderCreateSerializer,
+            PurchaseOrderDetailSerializer,
             PurchaseOrderEmailRequestSerializer,
             PurchaseOrderEmailResponseSerializer,
+            PurchaseOrderLineCreateSerializer,
+            PurchaseOrderLineSerializer,
+            PurchaseOrderListSerializer,
             PurchaseOrderPDFResponseSerializer,
+            PurchaseOrderUpdateResponseSerializer,
+            PurchaseOrderUpdateSerializer,
+            PurchasingErrorResponseSerializer,
+            PurchasingJobsResponseSerializer,
+            StockConsumeRequestSerializer,
+            StockConsumeResponseSerializer,
+            StockCreateResponseSerializer,
+            StockCreateSerializer,
+            StockDeactivateResponseSerializer,
+            StockListSerializer,
+            XeroItemListResponseSerializer,
+            XeroItemSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports

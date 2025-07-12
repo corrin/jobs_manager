@@ -3,6 +3,7 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .create_service_api_key import Command
         from .get_xero_tenant_id import Command

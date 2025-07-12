@@ -3,16 +3,20 @@
 from .apps import WorkflowConfig
 from .enums import AIProviderTypes
 from .exceptions import XeroValidationError
-from .utils import extract_messages, is_valid_uuid, get_machine_id
+from .utils import extract_messages, get_machine_id, is_valid_uuid
 
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .admin import AIProviderInline, CompanyDefaultsAdmin
-        from .authentication import ServiceAPIKeyAuthentication, service_api_key_required
+        from .authentication import (
+            ServiceAPIKeyAuthentication,
+            service_api_key_required,
+        )
         from .context_processors import debug_mode
-        from .helpers import DecimalEncoder, get_company_defaults, decimal_to_float
+        from .helpers import DecimalEncoder, decimal_to_float, get_company_defaults
         from .middleware import LoginRequiredMiddleware, PasswordStrengthMiddleware
         from .permissions import DevelopmentOrAuthenticatedPermission
         from .scheduler import (
@@ -21,31 +25,35 @@ try:
             start_scheduler,
             stop_scheduler,
         )
-        from .scheduler_jobs import xero_heartbeat_job, xero_regular_sync_job, xero_30_day_sync_job
+        from .scheduler_jobs import (
+            xero_30_day_sync_job,
+            xero_heartbeat_job,
+            xero_regular_sync_job,
+        )
         from .serializers import (
-            XeroTokenSerializer,
+            AIProviderCreateUpdateSerializer,
             AIProviderSerializer,
+            AppErrorDetailResponseSerializer,
+            AppErrorListResponseSerializer,
+            AppErrorSerializer,
             CompanyDefaultsSerializer,
             XeroAccountSerializer,
-            AIProviderCreateUpdateSerializer,
-            XeroErrorSerializer,
-            XeroErrorListResponseSerializer,
-            XeroErrorDetailResponseSerializer,
             XeroAuthenticationErrorResponseSerializer,
+            XeroErrorDetailResponseSerializer,
+            XeroErrorListResponseSerializer,
+            XeroErrorSerializer,
             XeroOperationResponseSerializer,
+            XeroPingResponseSerializer,
             XeroSyncInfoResponseSerializer,
             XeroSyncStartResponseSerializer,
+            XeroTokenSerializer,
             XeroTriggerSyncResponseSerializer,
-            XeroPingResponseSerializer,
-            AppErrorSerializer,
-            AppErrorListResponseSerializer,
-            AppErrorDetailResponseSerializer,
         )
         from .xero_webhooks import (
             XeroWebhookView,
-            validate_webhook_signature,
             process_webhook_event,
             process_webhook_queue,
+            validate_webhook_signature,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports

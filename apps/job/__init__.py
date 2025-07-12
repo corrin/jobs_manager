@@ -6,18 +6,19 @@ from .enums import MetalType
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
-        from .admin import CostLineInline, CostSetAdmin, CostLineAdmin
-        from .diff import DiffResult, diff_costset, apply_diff
+        from .admin import CostLineAdmin, CostLineInline, CostSetAdmin
+        from .diff import DiffResult, apply_diff, diff_costset
         from .helpers import (
             DecimalEncoder,
-            get_job_folder_path,
-            get_company_defaults,
             decimal_to_float,
+            get_company_defaults,
+            get_job_folder_path,
         )
         from .mixins import JobLookupMixin, JobNumberLookupMixin
         from .scheduler_jobs import set_paid_flag_jobs
-        from .utils import get_jobs_data, get_active_jobs
+        from .utils import get_active_jobs, get_jobs_data
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass

@@ -5,6 +5,7 @@ from .utils import format_period_label
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .pnl import CompanyProfitAndLossReport
 except (ImportError, RuntimeError):

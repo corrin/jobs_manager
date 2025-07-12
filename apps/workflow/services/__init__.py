@@ -3,13 +3,14 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .company_defaults_service import get_company_defaults
         from .error_persistence import (
-            extract_request_context,
             extract_job_context,
-            persist_xero_error,
+            extract_request_context,
             persist_app_error,
+            persist_xero_error,
         )
         from .validation import validate_required_fields
         from .xero_sync_service import XeroSyncService

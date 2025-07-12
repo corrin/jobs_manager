@@ -6,6 +6,7 @@ from .enums import RateType
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .forms import PaidAbsenceForm
 except (ImportError, RuntimeError):

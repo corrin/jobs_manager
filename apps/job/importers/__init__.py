@@ -3,16 +3,17 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .draft import DraftLine
         from .google_sheets import (
-            extract_file_id,
-            create_folder,
             copy_file,
-            fetch_sheet_df,
             copy_template_for_job,
-            populate_sheet_from_costset,
+            create_folder,
             export_sheet_as_xlsx,
+            extract_file_id,
+            fetch_sheet_df,
+            populate_sheet_from_costset,
         )
         from .quote_spreadsheet import (
             ErrorSeverity,
@@ -21,13 +22,13 @@ try:
             ValidationReport,
             detect_labour_column,
             detect_material_columns,
-            parse_xlsx,
             find_validation_cells,
-            validate_totals,
+            parse_xlsx,
             parse_xlsx_old,
             parse_xlsx_with_summary,
             parse_xlsx_with_validation,
             validate_spreadsheet_format,
+            validate_totals,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports

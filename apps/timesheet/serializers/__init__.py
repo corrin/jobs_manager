@@ -3,22 +3,23 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .daily_timesheet_serializers import (
+            DailyTimesheetSummarySerializer,
+            DailyTotalsSerializer,
             JobBreakdownSerializer,
             StaffDailyDataSerializer,
-            DailyTotalsSerializer,
             SummaryStatsSerializer,
-            DailyTimesheetSummarySerializer,
             TimesheetErrorResponseSerializer,
         )
         from .modern_timesheet_serializers import (
-            ModernTimesheetJobSerializer,
+            JobsListResponseSerializer,
             ModernStaffSerializer,
-            WeeklyTimesheetDataSerializer,
+            ModernTimesheetJobSerializer,
             PaidAbsenceRequestSerializer,
             StaffListResponseSerializer,
-            JobsListResponseSerializer,
+            WeeklyTimesheetDataSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports

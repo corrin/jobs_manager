@@ -3,8 +3,12 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
-        from .daily_timesheet_service import DailyTimesheetService, ensure_json_serializable
+        from .daily_timesheet_service import (
+            DailyTimesheetService,
+            ensure_json_serializable,
+        )
         from .weekly_timesheet_service import WeeklyTimesheetService
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports

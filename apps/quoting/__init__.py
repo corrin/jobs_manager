@@ -6,31 +6,37 @@ from .utils import calculate_product_mapping_hash, calculate_supplier_product_ha
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
-        from .mcp import SupplierProductQueryTool, QuotingTool
+        from .mcp import QuotingTool, SupplierProductQueryTool
         from .models import (
-            SupplierProduct,
-            SupplierPriceList,
-            ScrapeJob,
             ProductParsingMapping,
+            ScrapeJob,
+            SupplierPriceList,
+            SupplierProduct,
         )
-        from .scheduler_jobs import run_all_scrapers_job, delete_old_job_executions
-        from .serializers_django_jobs import DjangoJobSerializer, DjangoJobExecutionSerializer
+        from .scheduler_jobs import delete_old_job_executions, run_all_scrapers_job
+        from .serializers_django_jobs import (
+            DjangoJobExecutionSerializer,
+            DjangoJobSerializer,
+        )
         from .signals import auto_parse_stock_item
         from .tests_mcp import QuotingToolTests, SupplierProductQueryToolTests
-        from .views import (
-            UploadSupplierPricingView,
-            UploadPriceListView,
-            index,
-            extract_supplier_price_list_data_view,
-            search_stock_api,
-            search_supplier_prices_api,
-            job_context_api,
-        )
-        from .views_django_jobs import DjangoJobViewSet, DjangoJobExecutionViewSet
+        from .views_django_jobs import DjangoJobExecutionViewSet, DjangoJobViewSet
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
+
+# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
+# Import these directly where needed using:
+# from .views import UploadPriceListView
+# from .views import UploadSupplierPricingView
+# from .views import extract_supplier_price_list_data_view
+# from .views import index
+# from .views import job_context_api
+# from .views import search_stock_api
+# from .views import search_supplier_prices_api
+#
 
 __all__ = [
     "DjangoJobExecutionSerializer",
@@ -46,16 +52,9 @@ __all__ = [
     "SupplierProduct",
     "SupplierProductQueryTool",
     "SupplierProductQueryToolTests",
-    "UploadPriceListView",
-    "UploadSupplierPricingView",
     "auto_parse_stock_item",
     "calculate_product_mapping_hash",
     "calculate_supplier_product_hash",
     "delete_old_job_executions",
-    "extract_supplier_price_list_data_view",
-    "index",
-    "job_context_api",
     "run_all_scrapers_job",
-    "search_stock_api",
-    "search_supplier_prices_api",
 ]

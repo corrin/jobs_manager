@@ -5,16 +5,17 @@ from .apps import AccountsConfig
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .admin import StaffAdmin
-        from .forms import StaffCreationForm, StaffChangeForm
+        from .forms import StaffChangeForm, StaffCreationForm
         from .managers import StaffManager
         from .models import Staff
         from .permissions import IsStaff
         from .serializers import (
             CustomTokenObtainPairSerializer,
-            StaffSerializer,
             KanbanStaffSerializer,
+            StaffSerializer,
             UserProfileSerializer,
         )
         from .utils import get_excluded_staff, is_valid_uuid

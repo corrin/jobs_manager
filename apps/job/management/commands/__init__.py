@@ -3,6 +3,7 @@
 # Conditional imports (only when Django is ready)
 try:
     from django.apps import apps
+
     if apps.ready:
         from .backport_data_backup import Command
         from .backport_data_restore import Command

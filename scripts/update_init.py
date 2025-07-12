@@ -3,110 +3,154 @@ import ast
 import glob
 import logging
 import os
-import sys
 import re
+import sys
 
 
-def should_be_conditional(module_path: str, module_name: str) -> bool:
+def get_import_type(module_path: str, module_name: str) -> str:
     """
-    Determine if a module should be conditionally imported based on Django startup rules.
-    
+    Determine how a module should be imported based on Django startup rules.
+
+    Returns:
+    - 'safe': Import directly (safe during Django startup)
+    - 'conditional': Import only when Django is ready
+    - 'excluded': Don't import in __init__.py, require explicit imports
+
     Rules:
-    - NEVER conditional: apps, views, urls, pure enums/constants, pure exceptions, pure utils
-    - ALWAYS conditional: models, admin, serializers, forms, managers, services, 
-                         anything that imports models or Django components that trigger model loading
+    - Safe: apps, urls, enums, exceptions, constants, safe views
+    - Conditional: admin, serializers, forms, managers, services, models (in main app init)
+    - Excluded: views/modules with problematic Django auth imports
     """
     # NEVER conditional - these are required during Django startup
-    # NOTE: views are NOT always safe - they may import Django auth components
-    always_safe_modules = {
-        'apps', 'urls', 'enums', 'exceptions', 'constants'
-    }
-    
+    # NOTE: 'views' is NOT in this list because it needs special analysis
+    always_safe_modules = {"apps", "urls", "enums", "exceptions", "constants"}
+
     # ALWAYS conditional - these definitely import models or problematic Django components
     # NOTE: models must be non-conditional as Django needs them during startup
     always_conditional_modules = {
-        'admin', 'serializers', 'forms', 'managers', 'services',
-        'authentication', 'permissions'
+        "admin",
+        "serializers",
+        "forms",
+        "managers",
+        "services",
+        "authentication",
+        "permissions",
     }
-    
+
     # Models need special handling:
-    # - Individual model files in models/ directories can be non-conditional
-    # - But model imports in main app __init__.py should be conditional  
+    # - Individual model files in models/ directories are safe
+    # - But model imports in main app __init__.py should be conditional
     # - Django discovers models automatically by scanning directories
-    if '/models/' in module_path:
-        # This is a file inside a models directory - can be non-conditional
-        return False
-    elif module_name == 'models':
-        # This is importing models.py in a main app __init__.py - should be conditional
-        return True
-    
+    if "/models/" in module_path:
+        # This is a file inside a models directory - safe
+        return "safe"
+    elif module_name == "models":
+        # This is importing models.py in a main app __init__.py - conditional
+        return "conditional"
+
     # Check module name patterns first
     if module_name in always_safe_modules:
-        return False
-    
+        return "safe"
+
+    # Views need special analysis for problematic imports
+    if (
+        module_name.endswith("_view")
+        or module_name.endswith("_views")
+        or module_name == "views"
+    ):
+        # Check if this view file imports problematic auth components
+        try:
+            with open(module_path, "r") as file:
+                content = file.read()
+
+            # Check for problematic auth imports that cause circular imports
+            problematic_imports = [
+                "from django.contrib.auth.mixins import",
+                "from django.contrib.auth.decorators import",
+                "from django.contrib.auth.forms import",
+            ]
+
+            for problematic in problematic_imports:
+                if problematic in content:
+                    return "excluded"  # Exclude from __init__.py entirely
+
+        except Exception:
+            logging.warning(
+                f"Could not read {module_path} to check for problematic imports"
+            )
+            pass
+
+        # Safe views go in __init__.py as non-conditional
+        return "safe"
+
     if module_name in always_conditional_modules:
-        return True
-    
+        return "conditional"
+
     # For other modules, analyze their imports
     try:
-        with open(module_path, 'r') as file:
+        with open(module_path, "r") as file:
             content = file.read()
-        
+
         # Parse imports to detect problematic patterns
         tree = ast.parse(content)
-        
+
         for node in ast.walk(tree):
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 if isinstance(node, ast.ImportFrom):
                     module = node.module
                     if module:
                         # Check for model imports from Django apps
-                        if re.match(r'^apps\.\w+\.models', module):
-                            return True
-                        
+                        if re.match(r"^apps\.\w+\.models", module):
+                            return "conditional"
+
                         # Check for Django model imports
-                        if 'django.contrib.auth.models' in module:
-                            return True
-                        if 'django.db.models' in module:
-                            return True
-                        
+                        if "django.contrib.auth.models" in module:
+                            return "conditional"
+                        if "django.db.models" in module:
+                            return "conditional"
+
                         # Check for DRF imports that trigger settings loading
-                        if module.startswith('rest_framework'):
-                            return True
-                        
+                        if module.startswith("rest_framework"):
+                            return "conditional"
+
                         # Check for Django imports that require apps to be loaded
                         django_problematic_imports = [
-                            'django.contrib.admin',
-                            'django.contrib.auth',  # This includes mixins, decorators, forms
-                            'django.forms'
+                            "django.contrib.admin",
+                            "django.contrib.auth",  # This includes mixins, decorators, forms
+                            "django.forms",
                         ]
-                        if any(module.startswith(imp) for imp in django_problematic_imports):
-                            return True
-                
+                        if any(
+                            module.startswith(imp) for imp in django_problematic_imports
+                        ):
+                            return "conditional"
+
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         # Check for problematic Django imports
                         django_problematic_direct = [
-                            'django.contrib.admin',
-                            'django.contrib.auth',
-                            'django.forms'
+                            "django.contrib.admin",
+                            "django.contrib.auth",
+                            "django.forms",
                         ]
-                        if any(alias.name.startswith(imp) for imp in django_problematic_direct):
-                            return True
-        
+                        if any(
+                            alias.name.startswith(imp)
+                            for imp in django_problematic_direct
+                        ):
+                            return "conditional"
+
         # If we can't determine, default to safe for utils/helpers
         # but conditional for anything else
-        safe_patterns = ['util', 'helper', 'constant', 'enum', 'exception']
+        safe_patterns = ["util", "helper", "constant", "enum", "exception"]
         if any(pattern in module_name.lower() for pattern in safe_patterns):
             # But only if they don't actually import models (checked above)
-            return False
-        
+            return "safe"
+
         # Default to conditional for unknown modules to be safe
-        return True
-        
+        return "conditional"
+
     except Exception:
         # If we can't parse the file, default to conditional to be safe
-        return True
+        return "conditional"
 
 
 def generate_django_safe_imports(import_data):
@@ -116,26 +160,33 @@ def generate_django_safe_imports(import_data):
         "",
     ]
 
-    # Sort imports and separate safe vs conditional
+    # Sort imports and separate into three categories
     import_data.sort(key=lambda x: x[0])
     safe_imports = []
     conditional_imports = []
+    excluded_imports = []
 
-    for module_name, exports, is_conditional in import_data:
-        if is_conditional:
-            conditional_imports.append((module_name, exports))
-        else:
-            safe_imports.append((module_name, exports))
+    for module_name, exports, import_type in import_data:
+        # Sort exports within each module
+        sorted_exports = sorted(exports)
+        if import_type == "safe":
+            safe_imports.append((module_name, sorted_exports))
+        elif import_type == "conditional":
+            conditional_imports.append((module_name, sorted_exports))
+        elif import_type == "excluded":
+            excluded_imports.append((module_name, sorted_exports))
 
     # Generate safe imports first (always imported)
     for module_name, exports in safe_imports:
-        if len(exports) > 3:
+        # Use multi-line imports only if the line would be too long
+        single_line = f"from .{module_name} import {', '.join(exports)}"
+        if len(single_line) > 88:  # Black's default line length
             import_lines.append(f"from .{module_name} import (")
             for export in exports:
                 import_lines.append(f"    {export},")
             import_lines.append(")")
         else:
-            import_lines.append(f"from .{module_name} import {', '.join(exports)}")
+            import_lines.append(single_line)
 
     # Generate conditional imports if any
     if conditional_imports:
@@ -146,20 +197,21 @@ def generate_django_safe_imports(import_data):
                 "# Conditional imports (only when Django is ready)",
                 "try:",
                 "    from django.apps import apps",
+                "",
                 "    if apps.ready:",
             ]
         )
 
         for module_name, exports in conditional_imports:
-            if len(exports) > 3:
+            # Use multi-line imports only if the line would be too long
+            single_line = f"        from .{module_name} import {', '.join(exports)}"
+            if len(single_line) > 88:  # Black's default line length
                 import_lines.append(f"        from .{module_name} import (")
                 for export in exports:
                     import_lines.append(f"            {export},")
                 import_lines.append("        )")
             else:
-                import_lines.append(
-                    f"        from .{module_name} import {', '.join(exports)}"
-                )
+                import_lines.append(single_line)
 
         import_lines.extend(
             [
@@ -168,6 +220,23 @@ def generate_django_safe_imports(import_data):
                 "    pass",
             ]
         )
+
+    # Add excluded imports section with documentation
+    if excluded_imports:
+        if safe_imports or conditional_imports:
+            import_lines.append("")
+        import_lines.extend(
+            [
+                "# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports",
+                "# Import these directly where needed using:",
+            ]
+        )
+
+        for module_name, exports in excluded_imports:
+            for export in exports:
+                import_lines.append(f"# from .{module_name} import {export}")
+
+        import_lines.append("#")
 
     return import_lines
 
@@ -206,7 +275,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         logger.warning(
             f"No Python files found in {target_dir}. Skipping __init__.py generation."
         )
-        return 3  # Error Code 3: No Python files found
+        return 0  # Success - no files to process is not an error
 
     all_exports = []
     import_data = []  # Store (module_name, exports, is_conditional)
@@ -217,8 +286,8 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
 
         logger.debug(f"Processing file: {module_path}")
 
-        # Determine if module should be conditional based on what it imports
-        is_conditional = should_be_conditional(module_path, module_name)
+        # Determine how module should be imported based on what it imports
+        import_type = get_import_type(module_path, module_name)
 
         # Parse the file to find class and function definitions
         try:
@@ -228,9 +297,10 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
             logger.error(f"Error parsing {module_path}: {e}")
             continue
 
+        # Only get top-level classes, not nested classes
         classes = [
             node.name
-            for node in ast.walk(tree)
+            for node in tree.body  # Only top-level nodes
             if isinstance(node, ast.ClassDef)
             and node.name != "Meta"  # Exclude Meta class
         ]
@@ -247,8 +317,10 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         if exports:
             logger.debug(f"Found classes: {classes}")
             logger.debug(f"Found functions: {functions}")
-            import_data.append((module_name, exports, is_conditional))
-            all_exports.extend(exports)
+            import_data.append((module_name, exports, import_type))
+            # Only add to __all__ if not excluded
+            if import_type != "excluded":
+                all_exports.extend(exports)
 
     # Generate Django-safe import statements
     import_lines = generate_django_safe_imports(import_data)
@@ -256,10 +328,13 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
     # Add __all__ definition - remove duplicates, sort alphabetically, and use double quotes
     unique_exports = sorted(set(all_exports))
     import_lines.append("")
-    import_lines.append("__all__ = [")
-    for export_name in unique_exports:
-        import_lines.append(f'    "{export_name}",')
-    import_lines.append("]")
+    if unique_exports:
+        import_lines.append("__all__ = [")
+        for export_name in unique_exports:
+            import_lines.append(f'    "{export_name}",')
+        import_lines.append("]")
+    else:
+        import_lines.append("__all__ = []")
 
     # Write to __init__.py
     try:
