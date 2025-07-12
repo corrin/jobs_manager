@@ -1,7 +1,10 @@
 from logging import getLogger
+from typing import Any, Type
 
 from rest_framework import status
+from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 
 from apps.accounting.serializers import (
@@ -21,13 +24,13 @@ logger = getLogger(__name__)
 class JobAgingAPIView(APIView):
     """API Endpoint to provide job aging data with financial and timing information"""
 
-    def get_serializer_class(self):
+    def get_serializer_class(self) -> Type[Serializer[Any]]:
         """Return the serializer class for documentation"""
         if self.request.method == "GET":
             return JobAgingResponseSerializer
         return JobAgingQuerySerializer
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """
         Get job aging data.
 

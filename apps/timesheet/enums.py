@@ -15,10 +15,10 @@ class RateType(models.TextChoices):
 
     @property
     def multiplier(self) -> Decimal:
-        multipliers = {
-            self.ORDINARY: Decimal("1.0"),
-            self.TIME_AND_HALF: Decimal("1.5"),
-            self.DOUBLE_TIME: Decimal("2.0"),
-            self.UNPAID: Decimal("0.0"),
+        multipliers: dict[str, Decimal] = {
+            RateType.ORDINARY.value: Decimal("1.0"),
+            RateType.TIME_AND_HALF.value: Decimal("1.5"),
+            RateType.DOUBLE_TIME.value: Decimal("2.0"),
+            RateType.UNPAID.value: Decimal("0.0"),
         }
-        return multipliers[self]
+        return multipliers[self.value]

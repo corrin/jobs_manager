@@ -2,6 +2,9 @@ import inspect
 import logging
 import traceback
 from pathlib import Path
+from typing import Any, Dict, Optional
+
+from django.http import HttpRequest
 
 from apps.workflow.exceptions import XeroValidationError
 from apps.workflow.models import AppError, XeroError
@@ -42,7 +45,7 @@ def _extract_caller_context():
         del frame
 
 
-def extract_request_context(request):
+def extract_request_context(request: HttpRequest) -> Dict[str, Any]:
     """Extract context from Django request object."""
     return {
         "user_id": request.user.id if request.user.is_authenticated else None,

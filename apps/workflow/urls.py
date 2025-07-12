@@ -36,7 +36,7 @@ URL Structure Patterns:
 Follow these patterns when adding new URLs to maintain consistency.
 """
 
-import debug_toolbar
+import debug_toolbar  # type: ignore[import-untyped]
 from django.urls import include, path
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
@@ -61,7 +61,7 @@ router.register("app-errors", AppErrorViewSet, basename="app-error")
 
 # Create home redirect pattern with metadata
 home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")
-home_pattern.functional_group = "Main Redirect"
+home_pattern.functional_group = "Main Redirect"  # type: ignore[attr-defined]
 
 urlpatterns = [
     # Redirect to Kanban board
