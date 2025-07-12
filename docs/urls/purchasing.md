@@ -7,7 +7,7 @@
 #### Delivery-Receipts Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/delivery-receipts/process/` | `process_delivery_receipt` | `purchasing:delivery_receipts_process` | Process a delivery receipt for a purchase order based on detailed line allocations. |
+| `/api/delivery-receipts/process/` | `purchasing_rest_views.DeliveryReceiptRestView` | `purchasing:delivery_receipts_process` | REST API view for processing delivery receipts. |
 
 #### Product-Mapping Management
 | URL Pattern | View | Name | Description |
@@ -34,12 +34,22 @@
 |-------------|------|------|-------------|
 | `/api/supplier-quotes/extract/` | `purchase_order.extract_supplier_quote_data_view` | `purchasing:supplier_quotes_extract` | Extract data from a supplier quote to pre-fill a PO form. |
 
+### All-Jobs Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/all-jobs/` | `purchasing_rest_views.AllJobsAPIView` | `purchasing:purchasing_all_jobs_rest` | API endpoint to get all jobs with stock holding job flag. |
+
 ### Delivery-Receipts Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/delivery-receipts/` | `delivery_receipt.DeliveryReceiptListView` | `purchasing:delivery_receipts_list` | View to list all purchase orders that can be received. |
 | `/delivery-receipts/` | `purchasing_rest_views.DeliveryReceiptRestView` | `purchasing:delivery_receipts_rest` | REST API view for processing delivery receipts. |
 | `/delivery-receipts/<uuid:pk>/` | `delivery_receipt.DeliveryReceiptCreateView` | `purchasing:delivery_receipts_create` | View to create a delivery receipt for a purchase order. |
+
+### Jobs Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/jobs/` | `purchasing_rest_views.PurchasingJobsAPIView` | `purchasing:purchasing_jobs_rest` | API endpoint to get jobs for purchasing contexts (PO lines, stock allocation, etc.). |
 
 ### Product-Mapping Management
 | URL Pattern | View | Name | Description |
@@ -54,6 +64,7 @@
 | `/purchase-orders/<uuid:pk>/` | `purchase_order.PurchaseOrderCreateView` | `purchasing:purchase_orders_detail` | View to create or edit a purchase order, following the timesheet pattern. |
 | `/purchase-orders/<uuid:pk>/` | `purchasing_rest_views.PurchaseOrderDetailRestView` | `purchasing:purchase_order_detail_rest` | Returns a full PO (including lines) |
 | `/purchase-orders/<uuid:pk>/delete/` | `purchase_order.delete_purchase_order_view` | `purchasing:purchase_orders_delete` | Delete a purchase order if it's in draft status. |
+| `/purchase-orders/<uuid:po_id>/allocations/` | `purchasing_rest_views.PurchaseOrderAllocationsAPIView` | `purchasing:purchase_order_allocations_rest` | API endpoint to get existing allocations for a purchase order. |
 | `/purchase-orders/new/` | `purchase_order.PurchaseOrderCreateView` | `purchasing:purchase_orders_create` | View to create or edit a purchase order, following the timesheet pattern. |
 
 ### Stock Management

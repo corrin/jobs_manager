@@ -21,7 +21,7 @@
 ### Authentication
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/logout/` | `user_profile_view.logout_user` | `accounts:api_logout` | Custom logout view that clears JWT httpOnly cookies |
+| `/logout/` | `user_profile_view.LogoutUserAPIView` | `accounts:api_logout` | Custom logout view that clears JWT httpOnly cookies |
 
 ### Django Admin
 | URL Pattern | View | Name | Description |
@@ -32,7 +32,7 @@
 ### Me Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/me/` | `user_profile_view.get_current_user` | `accounts:get_current_user` | Get current authenticated user information via JWT from httpOnly cookie |
+| `/me/` | `user_profile_view.GetCurrentUserAPIView` | `accounts:get_current_user` | Get current authenticated user information via JWT from httpOnly cookie |
 
 ### Password_Change Management
 | URL Pattern | View | Name | Description |

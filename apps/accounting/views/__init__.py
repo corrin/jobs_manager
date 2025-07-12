@@ -4,7 +4,7 @@ from .job_aging_view import JobAgingAPIView
 from .kpi_view import KPICalendarAPIView, KPICalendarTemplateView
 
 __all__ = [
-    "KPICalendarTemplateView",
-    "KPICalendarAPIView",
     "JobAgingAPIView",
+    "KPICalendarAPIView",
+    "KPICalendarTemplateView",
 ]

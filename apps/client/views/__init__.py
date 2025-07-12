@@ -9,9 +9,9 @@ from .client_rest_views import (
 )
 
 __all__ = [
+    "ClientContactCreateRestView",
+    "ClientContactsRestView",
+    "ClientCreateRestView",
     "ClientListAllRestView",
     "ClientSearchRestView",
-    "ClientContactsRestView",
-    "ClientContactCreateRestView",
-    "ClientCreateRestView",
 ]

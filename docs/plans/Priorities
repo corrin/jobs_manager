@@ -8,4 +8,4 @@ Priorities:
     7. Get a mistral API key
     8. Quote Report: quoting: quote accuracy, quote acceptance rate, etc.,
     9. Xero Reconciliation report: sales in app vs xero, and costs in app vs xero
-    10. Update init script.  Recall we autogenerate.  We should know all possible init file locations to generate the right ones
+    11. Rewrite the Google Sheets importer
