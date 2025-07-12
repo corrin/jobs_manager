@@ -26,7 +26,8 @@ def use_stock_view(request, job_id=None):
 
     Args:
         request: The HTTP request
-        job_id: Optional job ID to pre-select in the dropdown (can be provided in URL path or query string)
+        job_id: Optional job ID to pre-select in the dropdown
+            (can be provided in URL path or query string)
     """
     # Check if job_id is provided in query string
     if not job_id and request.GET.get("job_id"):
