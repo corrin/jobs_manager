@@ -108,8 +108,10 @@ def main():
     logger.info("Undocumented view files (high priority for Phase 2):")
     undocumented_files = []
     for view_file, views in file_to_views.items():
-        os.path.basename(view_file).replace(".py", "")
-        app_name = view_file.split("/")[1]  # Extract app name
+        os.path.basename(view_file).replace(".py", "")        
+        # app_name = view_file.split("/")[1]  # Extract app name
+        # Commented out as we don't need app name currently
+
 
         # Check if any view from this file is documented
         documented = False

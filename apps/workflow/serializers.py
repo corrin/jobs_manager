@@ -87,11 +87,16 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
                 provider.save()
                 updated_provider_ids.add(provider_id)
             else:
-                # Create new provider
-                new_provider = AIProvider.objects.create(
+                # Create new provider - validate required fields first
+                if not provider_data.get("name"):
+                    raise ValueError("Provider name is required")
+                if not provider_data.get("provider_type"):
+                    raise ValueError("Provider type is required")
+                
+                AIProvider.objects.create(
                     company=instance,
-                    name=provider_data.get("name", ""),
-                    provider_type=provider_data.get("provider_type", "openai"),
+                    name=provider_data["name"],
+                    provider_type=provider_data["provider_type"],
                     model_name=provider_data.get("model_name", ""),
                     api_key=provider_data.get("api_key", ""),
                     default=provider_data.get("default", False),

@@ -443,5 +443,6 @@ def merge_pdfs(pdf_sources):
         for buffer in buffers_to_close:
             try:
                 buffer.close()
-            except:
+                # ENSURE all errors are always logged correctly
+                # NEVER, EVER EAT EXCEPTIONS
                 pass
