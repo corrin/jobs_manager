@@ -55,10 +55,16 @@ class BaseScraper(ABC):
 
         # Use unique temp directory with timestamp to avoid conflicts
         import time
+        import os
 
         unique_id = f"{int(time.time())}_{str(uuid.uuid4())[:8]}"
         temp_dir = tempfile.mkdtemp(prefix=f"scraper_chrome_{unique_id}_")
         chrome_options.add_argument(f"--user-data-dir={temp_dir}")
+
+        # Additional flags for snap Chromium compatibility (WSL)
+        if os.path.exists('/snap/bin/chromium'):
+            chrome_options.add_argument("--remote-debugging-port=9222")
+            chrome_options.binary_location = '/snap/bin/chromium'
 
         user_agent = (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
