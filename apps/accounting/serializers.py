@@ -7,13 +7,13 @@ from typing import Any
 from rest_framework import serializers
 
 
-class KPICalendarErrorResponseSerializer(serializers.Serializer):
+class KPICalendarErrorResponseSerializer(serializers.Serializer[Any]):
     """Serializer for KPI Calendar error responses."""
 
     error = serializers.CharField()
 
 
-class KPIJobBreakdownSerializer(serializers.Serializer):
+class KPIJobBreakdownSerializer(serializers.Serializer[Any]):
     """Serializer for job breakdown data in KPI calendar"""
 
     job_id = serializers.CharField()
@@ -26,7 +26,7 @@ class KPIJobBreakdownSerializer(serializers.Serializer):
     profit = serializers.FloatField()
 
 
-class KPIProfitBreakdownSerializer(serializers.Serializer):
+class KPIProfitBreakdownSerializer(serializers.Serializer[Any]):
     """Serializer for profit breakdown in KPI calendar details"""
 
     labor_profit = serializers.FloatField()
@@ -34,7 +34,7 @@ class KPIProfitBreakdownSerializer(serializers.Serializer):
     adjustment_profit = serializers.FloatField()
 
 
-class KPIDetailsSerializer(serializers.Serializer):
+class KPIDetailsSerializer(serializers.Serializer[Any]):
     """Serializer for detailed KPI data per day"""
 
     time_revenue = serializers.FloatField()
@@ -49,7 +49,7 @@ class KPIDetailsSerializer(serializers.Serializer):
     job_breakdown = KPIJobBreakdownSerializer(many=True)
 
 
-class KPIDayDataSerializer(serializers.Serializer):
+class KPIDayDataSerializer(serializers.Serializer[Any]):
     """Serializer for individual day data in KPI calendar"""
 
     date = serializers.DateField()
@@ -66,7 +66,7 @@ class KPIDayDataSerializer(serializers.Serializer):
     details = KPIDetailsSerializer()
 
 
-class KPIMonthlyTotalsSerializer(serializers.Serializer):
+class KPIMonthlyTotalsSerializer(serializers.Serializer[Any]):
     """Serializer for monthly totals in KPI calendar"""
 
     billable_hours = serializers.FloatField()
@@ -107,7 +107,7 @@ class KPIMonthlyTotalsSerializer(serializers.Serializer):
     color_shop = serializers.CharField()
 
 
-class KPIThresholdsSerializer(serializers.Serializer):
+class KPIThresholdsSerializer(serializers.Serializer[Any]):
     """Serializer for KPI thresholds"""
 
     billable_threshold_green = serializers.FloatField()
@@ -116,7 +116,7 @@ class KPIThresholdsSerializer(serializers.Serializer):
     shop_hours_target = serializers.FloatField()
 
 
-class KPICalendarDataSerializer(serializers.Serializer):
+class KPICalendarDataSerializer(serializers.Serializer[Any]):
     """Serializer for KPI Calendar data response."""
 
     calendar_data = serializers.DictField(child=KPIDayDataSerializer())
@@ -126,7 +126,7 @@ class KPICalendarDataSerializer(serializers.Serializer):
     month = serializers.IntegerField()
 
 
-class JobAgingFinancialDataSerializer(serializers.Serializer):
+class JobAgingFinancialDataSerializer(serializers.Serializer[Any]):
     """Serialiser for job aging financial data"""
 
     estimate_total = serializers.FloatField()
@@ -134,7 +134,7 @@ class JobAgingFinancialDataSerializer(serializers.Serializer):
     actual_total = serializers.FloatField()
 
 
-class JobAgingTimingDataSerializer(serializers.Serializer):
+class JobAgingTimingDataSerializer(serializers.Serializer[Any]):
     """Serialiser for job aging timing data"""
 
     created_date = serializers.DateField()
@@ -146,7 +146,7 @@ class JobAgingTimingDataSerializer(serializers.Serializer):
     last_activity_description = serializers.CharField(allow_null=True, required=False)
 
 
-class JobAgingJobDataSerializer(serializers.Serializer):
+class JobAgingJobDataSerializer(serializers.Serializer[Any]):
     """Serialiser for individual job aging data"""
 
     id = serializers.CharField()
@@ -159,13 +159,13 @@ class JobAgingJobDataSerializer(serializers.Serializer):
     timing_data = JobAgingTimingDataSerializer()
 
 
-class JobAgingResponseSerializer(serializers.Serializer):
+class JobAgingResponseSerializer(serializers.Serializer[Any]):
     """Serialiser for job aging API response"""
 
     jobs = JobAgingJobDataSerializer(many=True)
 
 
-class JobAgingQuerySerializer(serializers.Serializer):
+class JobAgingQuerySerializer(serializers.Serializer[Any]):
     """Serialiser for job aging API query parameters"""
 
     include_archived = serializers.BooleanField(default=False, required=False)
@@ -187,7 +187,7 @@ class JobAgingQuerySerializer(serializers.Serializer):
         return bool(value)
 
 
-class StandardErrorSerializer(serializers.Serializer):
+class StandardErrorSerializer(serializers.Serializer[Any]):
     """Standard serialiser for error responses"""
 
     error = serializers.CharField()
