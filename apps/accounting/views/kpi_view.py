@@ -9,7 +9,6 @@ from rest_framework.views import APIView
 
 from apps.accounting.serializers import (
     KPICalendarDataSerializer,
-    KPICalendarErrorResponseSerializer,
     StandardErrorSerializer,
 )
 from apps.accounting.services import KPIService

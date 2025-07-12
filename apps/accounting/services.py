@@ -1,5 +1,6 @@
 import calendar
 import datetime
+import logging
 from datetime import date, timedelta
 from decimal import Decimal
 from logging import getLogger
@@ -7,7 +8,6 @@ from typing import Any, Dict, List, Tuple
 
 import holidays
 from django.db import models
-from django.db.models import Case, DecimalField, F, Sum, Value, When
 from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
@@ -15,8 +15,8 @@ from apps.accounting.utils import get_nz_tz
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
-from apps.job.models import Job, JobEvent
-from apps.job.models.costing import CostLine, CostSet
+from apps.job.models import Job
+from apps.job.models.costing import CostLine
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -332,8 +332,6 @@ class KPIService:
             "material_profit": 0,
             "adjustment_profit": 0,
         }
-
-        decimal_field = DecimalField(max_digits=10, decimal_places=2)
 
         # Process data using CostLine from 'actual' cost sets
         # Get time entries aggregated by date
@@ -1021,7 +1019,9 @@ class JobAgingService:
                     {
                         "date": latest_event.timestamp,
                         "type": "job_event",
-                        "description": f"{latest_event.event_type}: {latest_event.description}",
+                        "description": (
+                            f"{latest_event.event_type}: {latest_event.description}"
+                        ),
                     }
                 )
         except Exception as exc:
@@ -1050,7 +1050,8 @@ class JobAgingService:
             # Check cost lines across all job cost sets
             for cost_set in job.cost_sets.all():
                 for cost_line in cost_set.cost_lines.all():
-                    # Get the creation date - use the meta date if available, otherwise fall back to cost_set creation
+                    # Get the creation date - use the meta date if available,
+                    # otherwise fall back to cost_set creation
                     line_date = cost_line.meta.get("date")
                     if line_date:
                         try:
@@ -1067,6 +1068,7 @@ class JobAgingService:
                             # Fall back to cost_set creation date if date parsing fails
                             line_datetime = cost_set.created
                     else:
+                        logger.warning("Fallback called - cost_set created date used")
                         # Fall back to cost_set creation date if no date in meta
                         line_datetime = cost_set.created
 
@@ -1085,7 +1087,7 @@ class JobAgingService:
                                 "Corrupted data.  staff_id is missing in cost line meta."
                             )
                             persist_app_error(exc)
-                            description = f"Time added by unknown staff"
+                            description = "Time added by unknown staff"
 
                     activities.append(
                         {
@@ -1096,7 +1098,10 @@ class JobAgingService:
                     )
         except Exception as exc:
             logger.warning(
-                f"Error checking cost line activities for job {job.job_number}: {str(exc)}"
+                (
+                    f"Error checking cost line activities for job "
+                    f"{job.job_number}: {str(exc)}"
+                )
             )
             persist_app_error(exc)
 

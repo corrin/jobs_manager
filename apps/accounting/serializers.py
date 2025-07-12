@@ -2,7 +2,7 @@
 Serializers for Accounting views.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from rest_framework import serializers
 
