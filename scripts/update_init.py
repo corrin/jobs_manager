@@ -1,5 +1,6 @@
 import argparse
 import ast
+import glob
 import logging
 import os
 import sys
@@ -8,7 +9,24 @@ import sys
 def update_init_py(target_dir: str, verbose: bool = False) -> int:
     logger = logging.getLogger(__name__)
 
+    # Files/directories to exclude from auto-generation
+    EXCLUDED_PATHS = {
+        "jobs_manager/settings/__init__.py",
+        "jobs_manager/__init__.py",  # Main project init
+    }
+    
+    # Also exclude migration directories - they shouldn't have imports
+    if "/migrations" in target_dir:
+        logger.info(f"Skipping migration directory: {target_dir}")
+        return 0  # Success, but skipped
+
     init_file = os.path.join(target_dir, "__init__.py")
+    
+    # Check if this file should be excluded
+    relative_init_path = os.path.relpath(init_file)
+    if relative_init_path in EXCLUDED_PATHS:
+        logger.info(f"Skipping excluded file: {relative_init_path}")
+        return 0  # Success, but skipped
 
     if not os.path.exists(target_dir):
         logger.error(f"Skipping non-existent folder: {target_dir}")
@@ -66,10 +84,11 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
             import_lines.append(f"from .{module_name} import {', '.join(exports)}")
             all_exports.extend(exports)
 
-    # Add __all__ definition
+    # Add __all__ definition - remove duplicates, sort alphabetically, and use double quotes
+    unique_exports = sorted(set(all_exports))  # Remove duplicates and sort alphabetically
     import_lines.append("\n__all__ = [")
-    for export_name in all_exports:
-        import_lines.append(f"    '{export_name}',")
+    for export_name in unique_exports:
+        import_lines.append(f'    "{export_name}",')
     import_lines.append("]")
 
     # Write to __init__.py
@@ -83,15 +102,49 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         return 4  # Error Code 4: IOError during file writing
 
 
+def find_all_init_directories() -> list[str]:
+    """Find all directories containing __init__.py files."""
+    init_files = glob.glob("**/__init__.py", recursive=True)
+    return [os.path.dirname(init_file) for init_file in init_files]
+
+
+def update_all_init_files(verbose: bool = False) -> int:
+    """Update all __init__.py files found in the project."""
+    logger = logging.getLogger(__name__)
+    
+    directories = find_all_init_directories()
+    logger.info(f"Found {len(directories)} directories with __init__.py files")
+    
+    total_errors = 0
+    success_count = 0
+    
+    for directory in directories:
+        logger.info(f"Processing: {directory}")
+        result = update_init_py(directory, verbose=verbose)
+        if result == 0:
+            success_count += 1
+        else:
+            total_errors += 1
+    
+    logger.info(f"Completed: {success_count} successful, {total_errors} errors")
+    return total_errors
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Automatically update __init__.py with class imports"
     )
     parser.add_argument(
         "target_directory",
-        help="Directory to process for generating imports in __init__.py",
+        nargs="?",
+        help="Directory to process for generating imports in __init__.py (optional - defaults to all)",
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
+    parser.add_argument(
+        "--all", 
+        action="store_true", 
+        help="Update all __init__.py files in the project"
+    )
 
     args = parser.parse_args()
 
@@ -101,8 +154,13 @@ def main() -> None:
         format="%(levelname)s: %(message)s",
     )
 
-    result = update_init_py(args.target_directory, verbose=args.verbose)
-    sys.exit(result)
+    # If no target directory is provided, or --all is specified, update all
+    if args.target_directory is None or args.all:
+        result = update_all_init_files(verbose=args.verbose)
+        sys.exit(result)
+    else:
+        result = update_init_py(args.target_directory, verbose=args.verbose)
+        sys.exit(result)
 
 
 if __name__ == "__main__":

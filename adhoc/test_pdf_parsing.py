@@ -4,14 +4,14 @@ import sys
 
 import django
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
+django.setup()
+
 from apps.quoting.services.gemini_price_list_extraction import (
     extract_data_from_supplier_price_list_gemini,
 )
 from apps.workflow.models import AIProvider
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
-django.setup()
 
 
 def test_pdf_parsing():

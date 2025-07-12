@@ -34,6 +34,9 @@ tox -e typecheck
 
 # Run all quality checks
 tox
+
+# Update __init__.py files with auto-generated imports
+python scripts/update_init.py
 ```
 
 ### Database Operations
