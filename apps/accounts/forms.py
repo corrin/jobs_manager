@@ -1,11 +1,16 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from apps.accounts.models import Staff
 
+if TYPE_CHECKING:
+    _UserCreationFormBase = UserCreationForm[Staff]
+else:
+    _UserCreationFormBase = UserCreationForm
 
-class StaffCreationForm(UserCreationForm):
+
+class StaffCreationForm(_UserCreationFormBase):
     """
     A form for creating new staff users with all required fields.
     Extends Django's UserCreationForm with custom validation and help text.
@@ -42,7 +47,13 @@ class StaffCreationForm(UserCreationForm):
         )
 
 
-class StaffChangeForm(UserChangeForm):
+if TYPE_CHECKING:
+    _UserChangeFormBase = UserChangeForm[Staff]
+else:
+    _UserChangeFormBase = UserChangeForm
+
+
+class StaffChangeForm(_UserChangeFormBase):
     """
     A form for updating staff users. Extends Django's UserChangeForm.
     Includes all editable fields from the Staff model.

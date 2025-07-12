@@ -90,9 +90,7 @@ class KPIService:
         return entries_by_date
 
     @classmethod
-    def _get_holidays(
-        cls, year: int, month: Optional[int] = None
-    ) -> List[datetime.date]:
+    def _get_holidays(cls, year: int, month: Optional[int] = None) -> Dict[date, str]:
         """
         Gets New Zealand holidays for a specific year and month.
 

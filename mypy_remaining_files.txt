@@ -1,55 +1,26 @@
-apps/accounting/__init__.py  # DONE
-apps/accounting/apps.py  # DONE
-apps/accounting/enums.py  # DONE
-apps/accounting/models/__init__.py  # DONE
-apps/accounting/models/invoice.py  # DONE
-apps/accounting/models/quote.py  # DONE
-apps/accounting/serializers.py  # DONE
 apps/accounting/services.py
-apps/accounting/urls.py  # DONE
-apps/accounting/utils.py  # DONE
-apps/accounting/views/__init__.py  # DONE
-apps/accounting/views/job_aging_view.py
-apps/accounting/views/kpi_view.py
-apps/accounts/__init__.py  # DONE
-apps/accounts/admin.py
-apps/accounts/apps.py  # DONE
-apps/accounts/forms.py
-apps/accounts/management/commands/flag_weak_passwords.py
 apps/accounts/managers.py
 apps/accounts/models.py
 apps/accounts/permissions.py
 apps/accounts/serializers.py
-apps/accounts/urls.py  # DONE
 apps/accounts/utils.py
-apps/accounts/views/__init__.py  # DONE
 apps/accounts/views/password_views.py
 apps/accounts/views/staff_api.py
 apps/accounts/views/staff_views.py
 apps/accounts/views/token_view.py
 apps/accounts/views/user_profile_view.py
-apps/client/__init__.py  # DONE
 apps/client/admin.py
-apps/client/apps.py  # DONE
 apps/client/forms.py
 apps/client/management/commands/merge_clients.py
 apps/client/models.py
 apps/client/serializers.py
-apps/client/urls_rest.py  # DONE
-apps/client/views/__init__.py  # DONE
 apps/client/views/client_rest_views.py
-apps/job/__init__.py  # DONE
 apps/job/admin.py
-apps/job/apps.py  # DONE
 apps/job/diff.py
-apps/job/enums.py
 apps/job/helpers.py
-apps/job/importers/__init__.py  # DONE
 apps/job/importers/draft.py
 apps/job/importers/google_sheets.py
 apps/job/importers/quote_spreadsheet.py
-apps/job/management/__init__.py  # DONE
-apps/job/management/commands/__init__.py  # DONE
 apps/job/management/commands/backport_data_backup.py
 apps/job/management/commands/backport_data_restore.py
 apps/job/management/commands/create_shop_jobs.py
@@ -60,7 +31,6 @@ apps/job/management/commands/test_diff_engine.py
 apps/job/management/commands/test_gemini_chat.py
 apps/job/management/commands/test_quote_import.py
 apps/job/mixins.py
-apps/job/models/__init__.py  # DONE
 apps/job/models/costing.py
 apps/job/models/job.py
 apps/job/models/job_event.py
@@ -68,7 +38,6 @@ apps/job/models/job_file.py
 apps/job/models/job_quote_chat.py
 apps/job/models/spreadsheet.py
 apps/job/scheduler_jobs.py
-apps/job/serializers/__init__.py  # DONE
 apps/job/serializers/costing_serializer.py
 apps/job/serializers/job_file_serializer.py
 apps/job/serializers/job_quote_chat_serializer.py
@@ -76,7 +45,6 @@ apps/job/serializers/job_serializer.py
 apps/job/serializers/kanban_serializer.py
 apps/job/serializers/quote_spreadsheet_serializer.py
 apps/job/serializers/quote_sync_serializer.py
-apps/job/services/__init__.py  # DONE
 apps/job/services/file_service.py
 apps/job/services/gemini_chat_service.py
 apps/job/services/import_quote_service.py
@@ -90,10 +58,7 @@ apps/job/services/month_end_service.py
 apps/job/services/paid_flag_service.py
 apps/job/services/quote_sync_service.py
 apps/job/services/workshop_pdf_service.py
-apps/job/urls.py  # DONE
-apps/job/urls_rest.py  # DONE
 apps/job/utils.py
-apps/job/views/__init__.py  # DONE
 apps/job/views/archive_completed_jobs_view.py
 apps/job/views/assign_job_view.py
 apps/job/views/job_costing_views.py
@@ -109,35 +74,26 @@ apps/job/views/month_end_rest_view.py
 apps/job/views/quote_import_views.py
 apps/job/views/quote_sync_views.py
 apps/job/views/workshop_view.py
-apps/purchasing/__init__.py  # DONE
 apps/purchasing/admin.py
-apps/purchasing/apps.py  # DONE
 apps/purchasing/forms.py
 apps/purchasing/models.py
 apps/purchasing/serializers.py
-apps/purchasing/services/__init__.py  # DONE
 apps/purchasing/services/delivery_receipt_service.py
 apps/purchasing/services/purchase_order_email_service.py
 apps/purchasing/services/purchase_order_pdf_service.py
 apps/purchasing/services/purchasing_rest_service.py
 apps/purchasing/services/quote_to_po_service.py
 apps/purchasing/services/stock_service.py
-apps/purchasing/urls.py  # DONE
-apps/purchasing/urls_rest.py  # DONE
-apps/purchasing/views/__init__.py  # DONE
 apps/purchasing/views/delivery_receipt.py
 apps/purchasing/views/product_mapping.py
 apps/purchasing/views/purchase_order.py
 apps/purchasing/views/purchasing_rest_views.py
 apps/purchasing/views/stock.py
-apps/quoting/__init__.py  # DONE
-apps/quoting/apps.py  # DONE
 apps/quoting/management/commands/populate_product_mappings.py
 apps/quoting/management/commands/run_scrapers.py
 apps/quoting/mcp.py
 apps/quoting/models.py
 apps/quoting/scheduler_jobs.py
-apps/quoting/scrapers/__init__.py  # DONE
 apps/quoting/scrapers/base.py
 apps/quoting/scrapers/steel_and_tube.py
 apps/quoting/serializers_django_jobs.py
@@ -150,47 +106,28 @@ apps/quoting/services/providers/mistral_provider.py
 apps/quoting/signals.py
 apps/quoting/tests/test_ocr_fixtures.py
 apps/quoting/tests_mcp.py
-apps/quoting/urls.py  # DONE
 apps/quoting/utils.py
 apps/quoting/views.py
 apps/quoting/views_django_jobs.py
-apps/timesheet/__init__.py  # DONE
-apps/timesheet/api/__init__.py  # DONE
 apps/timesheet/api/daily_timesheet_views.py
-apps/timesheet/api_urls.py  # DONE
-apps/timesheet/apps.py  # DONE
-apps/timesheet/enums.py
 apps/timesheet/forms.py
-apps/timesheet/serializers/__init__.py  # DONE
 apps/timesheet/serializers/daily_timesheet_serializers.py
 apps/timesheet/serializers/modern_timesheet_serializers.py
-apps/timesheet/services/__init__.py  # DONE
 apps/timesheet/services/daily_timesheet_service.py
 apps/timesheet/services/weekly_timesheet_service.py
-apps/timesheet/urls.py  # DONE
-apps/timesheet/views/__init__.py  # DONE
 apps/timesheet/views/api.py
-apps/workflow/__init__.py  # DONE
 apps/workflow/admin.py
-apps/workflow/api/__init__.py  # DONE
-apps/workflow/api/enums.py
 apps/workflow/api/pagination.py
-apps/workflow/api/reports/__init__.py  # DONE
 apps/workflow/api/reports/pnl.py
 apps/workflow/api/reports/utils.py
-apps/workflow/api/xero/__init__.py  # DONE
 apps/workflow/api/xero/constants.py
 apps/workflow/api/xero/reprocess_xero.py
 apps/workflow/api/xero/sync.py
 apps/workflow/api/xero/xero.py
-apps/workflow/apps.py  # DONE
 apps/workflow/authentication.py
 apps/workflow/context_processors.py
-apps/workflow/enums.py
 apps/workflow/exceptions.py
 apps/workflow/helpers.py
-apps/workflow/management/__init__.py  # DONE
-apps/workflow/management/commands/__init__.py  # DONE
 apps/workflow/management/commands/create_service_api_key.py
 apps/workflow/management/commands/get_xero_tenant_id.py
 apps/workflow/management/commands/invoice_line.py
@@ -201,7 +138,6 @@ apps/workflow/management/commands/runserver_with_localtunnel.py
 apps/workflow/management/commands/setup_dev_xero.py
 apps/workflow/management/commands/start_xero_sync.py
 apps/workflow/middleware.py
-apps/workflow/models/__init__.py  # DONE
 apps/workflow/models/ai_provider.py
 apps/workflow/models/app_error.py
 apps/workflow/models/company_defaults.py
@@ -213,17 +149,14 @@ apps/workflow/permissions.py
 apps/workflow/scheduler.py
 apps/workflow/scheduler_jobs.py
 apps/workflow/serializers.py
-apps/workflow/services/__init__.py  # DONE
 apps/workflow/services/company_defaults_service.py
 apps/workflow/services/error_persistence.py
 apps/workflow/services/validation.py
 apps/workflow/services/xero_sync_service.py
-apps/workflow/urls.py  # DONE
 apps/workflow/utils.py
 apps/workflow/views/ai_provider_viewset.py
 apps/workflow/views/app_error_view.py
 apps/workflow/views/company_defaults_api.py
-apps/workflow/views/xero/__init__.py  # DONE
 apps/workflow/views/xero/xero_base_manager.py
 apps/workflow/views/xero/xero_helpers.py
 apps/workflow/views/xero/xero_invoice_manager.py
@@ -231,13 +164,10 @@ apps/workflow/views/xero/xero_po_manager.py
 apps/workflow/views/xero/xero_quote_manager.py
 apps/workflow/views/xero/xero_view.py
 apps/workflow/xero_webhooks.py
-jobs_manager/__init__.py  # DONE
 jobs_manager/asgi.py
 jobs_manager/authentication.py
 jobs_manager/extensions.py
-jobs_manager/settings/__init__.py  # DONE
 jobs_manager/settings/base.py
 jobs_manager/settings/local.py
 jobs_manager/settings/production_like.py
-jobs_manager/urls.py  # DONE
 jobs_manager/wsgi.py
