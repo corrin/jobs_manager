@@ -14,7 +14,7 @@ repos:
     hooks:
       - id: update-init-files
         name: Update __init__.py files
-        entry: python scripts/update_init.py
+        entry: python scripts/update_init.py --all
         language: system
         pass_filenames: false
         always_run: true
