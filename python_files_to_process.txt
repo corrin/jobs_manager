@@ -20,7 +20,7 @@ apps/accounts/managers.py
 apps/accounts/models.py
 apps/accounts/permissions.py
 apps/accounts/serializers.py
-apps/accounts/urls.py
+apps/accounts/urls.py  # DONE
 apps/accounts/utils.py
 apps/accounts/views/__init__.py  # DONE
 apps/accounts/views/password_views.py
@@ -35,7 +35,7 @@ apps/client/forms.py
 apps/client/management/commands/merge_clients.py
 apps/client/models.py
 apps/client/serializers.py
-apps/client/urls_rest.py
+apps/client/urls_rest.py  # DONE
 apps/client/views/__init__.py  # DONE
 apps/client/views/client_rest_views.py
 apps/job/__init__.py  # DONE
@@ -90,8 +90,8 @@ apps/job/services/month_end_service.py
 apps/job/services/paid_flag_service.py
 apps/job/services/quote_sync_service.py
 apps/job/services/workshop_pdf_service.py
-apps/job/urls.py
-apps/job/urls_rest.py
+apps/job/urls.py  # DONE
+apps/job/urls_rest.py  # DONE
 apps/job/utils.py
 apps/job/views/__init__.py  # DONE
 apps/job/views/archive_completed_jobs_view.py
@@ -122,8 +122,8 @@ apps/purchasing/services/purchase_order_pdf_service.py
 apps/purchasing/services/purchasing_rest_service.py
 apps/purchasing/services/quote_to_po_service.py
 apps/purchasing/services/stock_service.py
-apps/purchasing/urls.py
-apps/purchasing/urls_rest.py
+apps/purchasing/urls.py  # DONE
+apps/purchasing/urls_rest.py  # DONE
 apps/purchasing/views/__init__.py  # DONE
 apps/purchasing/views/delivery_receipt.py
 apps/purchasing/views/product_mapping.py
@@ -150,14 +150,14 @@ apps/quoting/services/providers/mistral_provider.py
 apps/quoting/signals.py
 apps/quoting/tests/test_ocr_fixtures.py
 apps/quoting/tests_mcp.py
-apps/quoting/urls.py
+apps/quoting/urls.py  # DONE
 apps/quoting/utils.py
 apps/quoting/views.py
 apps/quoting/views_django_jobs.py
 apps/timesheet/__init__.py  # DONE
 apps/timesheet/api/__init__.py  # DONE
 apps/timesheet/api/daily_timesheet_views.py
-apps/timesheet/api_urls.py
+apps/timesheet/api_urls.py  # DONE
 apps/timesheet/apps.py  # DONE
 apps/timesheet/enums.py
 apps/timesheet/forms.py
@@ -167,7 +167,7 @@ apps/timesheet/serializers/modern_timesheet_serializers.py
 apps/timesheet/services/__init__.py  # DONE
 apps/timesheet/services/daily_timesheet_service.py
 apps/timesheet/services/weekly_timesheet_service.py
-apps/timesheet/urls.py
+apps/timesheet/urls.py  # DONE
 apps/timesheet/views/__init__.py  # DONE
 apps/timesheet/views/api.py
 apps/workflow/__init__.py  # DONE
@@ -218,7 +218,7 @@ apps/workflow/services/company_defaults_service.py
 apps/workflow/services/error_persistence.py
 apps/workflow/services/validation.py
 apps/workflow/services/xero_sync_service.py
-apps/workflow/urls.py
+apps/workflow/urls.py  # DONE
 apps/workflow/utils.py
 apps/workflow/views/ai_provider_viewset.py
 apps/workflow/views/app_error_view.py
@@ -239,5 +239,5 @@ jobs_manager/settings/__init__.py  # DONE
 jobs_manager/settings/base.py
 jobs_manager/settings/local.py
 jobs_manager/settings/production_like.py
-jobs_manager/urls.py
+jobs_manager/urls.py  # DONE
 jobs_manager/wsgi.py
