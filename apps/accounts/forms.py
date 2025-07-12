@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.contrib.auth.forms import UserChangeForm, UserCreationForm
 
 from apps.accounts.models import Staff
@@ -30,7 +32,7 @@ class StaffCreationForm(UserCreationForm):
         "password_entirely_numeric": "Password can't be entirely numeric.",
     }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["password1"].help_text = (
             "Your password must be at least 10 characters long, "

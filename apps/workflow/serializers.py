@@ -1,3 +1,5 @@
+from typing import Any, Dict, List
+
 from rest_framework import serializers
 
 # Existing models used in this serializer module
@@ -41,7 +43,9 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
         model = CompanyDefaults
         fields = "__all__"
 
-    def update(self, instance, validated_data):
+    def update(
+        self, instance: CompanyDefaults, validated_data: Dict[str, Any]
+    ) -> CompanyDefaults:
         # Handle ai_providers from request data since it's read_only in the serializer
         request = self.context.get("request") if self.context else None
 
@@ -53,7 +57,9 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
         # Update the rest of the fields
         return super().update(instance, validated_data)
 
-    def _update_ai_providers(self, instance, ai_providers_data):
+    def _update_ai_providers(
+        self, instance: CompanyDefaults, ai_providers_data: List[Dict[str, Any]]
+    ) -> None:
         """
         Update the AI providers for this company.
         This will update existing providers and create new ones as needed.

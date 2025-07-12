@@ -1,12 +1,13 @@
 import logging
 import uuid
+from typing import Any, List, Optional
 
 from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
 
-def get_excluded_staff(apps_registry=None) -> list[str]:
+def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
     """
     Returns a list of staff IDs that should be excluded from the UI.
 
@@ -37,7 +38,7 @@ def get_excluded_staff(apps_registry=None) -> list[str]:
     return excluded
 
 
-def is_valid_uuid(val):
+def is_valid_uuid(val: Any) -> bool:
     """Check if string is a valid UUID."""
     try:
         uuid.UUID(str(val))
