@@ -2,9 +2,17 @@
 
 from .job_aging_view import JobAgingAPIView
 from .kpi_view import KPICalendarAPIView, KPICalendarTemplateView
+from .staff_performance_views import (
+    StaffPerformanceDetailAPIView,
+    StaffPerformanceSummaryAPIView,
+    StaffPerformanceTemplateView,
+)
 
 __all__ = [
     "JobAgingAPIView",
     "KPICalendarAPIView",
     "KPICalendarTemplateView",
+    "StaffPerformanceDetailAPIView",
+    "StaffPerformanceSummaryAPIView",
+    "StaffPerformanceTemplateView",
 ]
