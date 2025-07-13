@@ -119,11 +119,18 @@ MEDIA_URL = "/media/"
 
 MEDIA_ROOT = BASE_DIR / "mediafiles"
 
-# Enable JWT Authentication for API - For pure API, disable dual authentication
-ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
-ENABLE_DUAL_AUTHENTICATION = (
-    os.getenv("ENABLE_DUAL_AUTHENTICATION", "False").lower() == "true"
-)
+# Enable JWT Authentication for API
+if not os.getenv("ENABLE_JWT_AUTH"):
+    raise ImproperlyConfigured("ENABLE_JWT_AUTH environment variable is required")
+ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH").lower() == "true"
+
+# Disable DRF authentication entirely when DEBUG=True for local development
+if DEBUG:
+    # Monkey patch IsAuthenticated to always return True in debug mode
+    from rest_framework.permissions import IsAuthenticated
+
+    IsAuthenticated.has_permission = lambda self, request, view: True
+    IsAuthenticated.has_object_permission = lambda self, request, view, obj: True
 
 # JWT Cookie settings for local development
 # Override base.py settings to allow non-HTTPS cookies in development

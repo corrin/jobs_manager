@@ -170,10 +170,9 @@ else:
     ]
 
 # Enable JWT Authentication for API - Load from environment
-ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
-ENABLE_DUAL_AUTHENTICATION = (
-    os.getenv("ENABLE_DUAL_AUTHENTICATION", "False").lower() == "true"
-)
+if not os.getenv("ENABLE_JWT_AUTH"):
+    raise ImproperlyConfigured("ENABLE_JWT_AUTH environment variable is required")
+ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH").lower() == "true"
 
 # JWT Configuration for production - override base settings for secure cookies
 if ENABLE_JWT_AUTH:

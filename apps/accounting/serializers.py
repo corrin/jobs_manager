@@ -192,3 +192,59 @@ class StandardErrorSerializer(serializers.Serializer[Any]):
 
     error = serializers.CharField()
     details = serializers.JSONField(required=False)
+
+
+class StaffPerformanceJobBreakdownSerializer(serializers.Serializer[Any]):
+    """Serializer for job breakdown data in staff performance"""
+
+    job_id = serializers.CharField()
+    job_number = serializers.CharField()
+    job_name = serializers.CharField()
+    client_name = serializers.CharField()
+    billable_hours = serializers.FloatField()
+    non_billable_hours = serializers.FloatField()
+    total_hours = serializers.FloatField()
+    revenue = serializers.FloatField()
+    cost = serializers.FloatField()
+    profit = serializers.FloatField()
+    revenue_per_hour = serializers.FloatField()
+
+
+class StaffPerformanceTeamAveragesSerializer(serializers.Serializer[Any]):
+    """Serializer for team average metrics"""
+
+    billable_percentage = serializers.FloatField()
+    revenue_per_hour = serializers.FloatField()
+    profit_per_hour = serializers.FloatField()
+    jobs_per_person = serializers.FloatField()
+
+
+class StaffPerformanceStaffDataSerializer(serializers.Serializer[Any]):
+    """Serializer for individual staff performance data"""
+
+    staff_id = serializers.CharField()
+    name = serializers.CharField()
+    total_hours = serializers.FloatField()
+    billable_hours = serializers.FloatField()
+    billable_percentage = serializers.FloatField()
+    total_revenue = serializers.FloatField()
+    total_cost = serializers.FloatField()
+    profit = serializers.FloatField()
+    revenue_per_hour = serializers.FloatField()
+    profit_per_hour = serializers.FloatField()
+    jobs_worked = serializers.IntegerField()
+    job_breakdown = StaffPerformanceJobBreakdownSerializer(many=True, required=False)
+
+
+class StaffPerformanceResponseSerializer(serializers.Serializer[Any]):
+    """Unified serializer for staff performance report responses"""
+
+    team_averages = StaffPerformanceTeamAveragesSerializer()
+    staff = StaffPerformanceStaffDataSerializer(many=True)
+
+
+class StaffPerformanceErrorResponseSerializer(serializers.Serializer[Any]):
+    """Serializer for staff performance error responses"""
+
+    error = serializers.CharField()
+    details = serializers.JSONField(required=False)

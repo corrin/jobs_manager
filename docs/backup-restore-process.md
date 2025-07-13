@@ -52,19 +52,19 @@ ls -la restore/
 
 ### DEVELOPMENT STEPS
 
-#### Step 4: Verify Environment Configuration
+#### Step 3: Verify Environment Configuration
 **Run as:** Development system user
 **Check:**
 ```bash
-grep -E "^(MYSQL_DATABASE|MSM_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
+grep -E "^(MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
 export DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2)
 export MYSQL_DATABASE=$(grep MYSQL_DATABASE .env | cut -d= -f2)
-export MSM_DB_USER=$(grep MSM_DB_USER .env | cut -d= -f2)
+export MYSQL_DB_USER=$(grep MYSQL_DB_USER .env | cut -d= -f2)
 ```
 **Must show:**
 ```
 MYSQL_DATABASE=msm_workflow
-MSM_DB_USER=django_user
+MYSQL_DB_USER=django_user
 DB_PASSWORD=your_dev_password
 DB_HOST=localhost
 DB_PORT=3306
@@ -73,7 +73,7 @@ DB_PORT=3306
 
 Note.  If you're using Claude or similar, you need to specify these explicitly on all subsequent command lines rather than use environment variables
 
-#### Step 5: Reset Database
+#### Step 4: Reset Database
 **Run as:** System root (for MySQL admin operations)
 **Command:**
 ```bash
@@ -87,11 +87,11 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW DATABASES;" | grep msm
 # Should show: msm_workflow
 ```
 
-#### Step 6: Apply Production Schema
+#### Step 5: Apply Production Schema
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
+MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
 ```
 **Check:**
 ```bash
@@ -103,7 +103,7 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SELECT COUNT(*) FROM workfl
 # Should show: 0 (empty table)
 ```
 
-#### Step 7: Extract and Convert JSON to SQL
+#### Step 6: Extract and Convert JSON to SQL
 **Run as:** Development system user
 **Commands:**
 ```bash
@@ -126,11 +126,11 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 # Should show thousands of INSERT statements
 ```
 
-#### Step 8: Load Production Data
+#### Step 7: Load Production Data
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
+MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
 ```
 **Check:**
 ```bash
@@ -155,7 +155,7 @@ UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
 +-------------------+-------+
 ```
 
-#### Step 8a: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
+#### Step 8: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -169,7 +169,7 @@ python manage.py showmigrations
 ```
 **Expected:** All migrations should show [X] (applied)
 
-#### Step 8b: Load Company Defaults Fixture
+#### Step 9: Load Company Defaults Fixture
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -188,12 +188,12 @@ print(f'Company defaults loaded: {company.company_name}')
 Company defaults loaded: Demo Company
 ```
 
-#### Step 9: Verify Specific Data
+#### Step 10: Verify Specific Data
 **Run as:** Development system user
 **Command:**
 ```bash
 MYSQL_PWD=your_dev_password mysql -u django_user -e "
-SELECT id, name, job_number, status, contact_person
+SELECT id, name, job_number, status
 FROM workflow_job
 WHERE name LIKE '%test%' OR name LIKE '%sample%'
 LIMIT 5;
@@ -201,7 +201,7 @@ LIMIT 5;
 ```
 **Check:** Should show actual job records with realistic data
 
-#### Step 10: Test Django ORM
+#### Step 11: Test Django ORM
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -215,7 +215,7 @@ print(f'Clients: {Client.objects.count()}')
 job = Job.objects.first()
 if job:
     print(f'Sample job: {job.name} (#{job.job_number})')
-    print(f'Contact: {job.contact_person}')
+    print(f'Contact: {job.contact.name if job.contact else "None"}')
 else:
     print('ERROR: No jobs found')
 "
@@ -229,7 +229,7 @@ Sample job: [Real Job Name] (#12345)
 Contact: [Real Contact Name]
 ```
 
-#### Step 11: Create Admin User
+#### Step 12: Create Admin User
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -248,7 +248,7 @@ Is staff: True
 Is superuser: True
 ```
 
-#### Step 11a: Create Dummy Files for JobFile Instances
+#### Step 13: Create Dummy Files for JobFile Instances
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -300,7 +300,41 @@ Dummy files created: X
 Missing files: 0
 ```
 
-#### Step 12: Setup Xero Integration
+#### Step 13a: Fix Shop Client Name (Required after Production Restore)
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+from apps.client.models import Client
+
+# Find and rename the shop client (anonymized during backup)
+# The shop client typically has the special ID: 00000000-0000-0000-0000-000000000001
+shop_client = Client.objects.get(id='00000000-0000-0000-0000-000000000001')
+old_name = shop_client.name
+shop_client.name = 'Demo Company Shop'
+shop_client.save()
+
+print(f'Updated shop client:')
+print(f'  Old name: {old_name}')
+print(f'  New name: {shop_client.name}')
+print(f'  ID: {shop_client.id}')
+print(f'  Job count: {shop_client.jobs.count()}')
+"
+```
+**Check:**
+```bash
+python manage.py shell -c "
+from apps.client.models import Client
+shop = Client.objects.get(id='00000000-0000-0000-0000-000000000001')
+print(f'Shop client: {shop.name}')
+"
+```
+**Expected output:**
+```
+Shop client: Demo Company Shop
+```
+
+#### Step 14: Setup Xero Integration
 **Run as:** Development system user (after server is running)
 **Steps:**
 1. **Start the development server:**
@@ -348,7 +382,143 @@ print(f'Clients count: {Client.objects.count()}')
 "
 ```
 
-#### Step 13: Final Application Test
+#### Step 15: Test Admin User Login
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+from django.contrib.auth import authenticate
+from apps.accounts.models import Staff
+
+# Test authentication
+user = authenticate(email='defaultadmin@example.com', password='Default-admin-password')
+if user:
+    print(f'✓ Login successful: {user.email}')
+    print(f'✓ Is active: {user.is_active}')
+    print(f'✓ Is staff: {user.is_staff}')
+    print(f'✓ Is superuser: {user.is_superuser}')
+else:
+    print('✗ Login failed - check credentials')
+"
+```
+**Expected output:**
+```
+✓ Login successful: defaultadmin@example.com
+✓ Is active: True
+✓ Is staff: True
+✓ Is superuser: True
+```
+
+#### Step 15a: Test Job Serialization (Before API Testing)
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+import os
+os.environ['HTTP_HOST'] = 'localhost:8000'
+
+from apps.job.models import Job
+from apps.job.serializers import JobSerializer
+from django.test import RequestFactory
+
+# Create a proper mock request
+factory = RequestFactory()
+request = factory.get('/')
+request.META['HTTP_HOST'] = 'localhost:8000'
+
+# Test serializing ALL jobs
+jobs = Job.objects.all()
+failed_jobs = []
+success_count = 0
+total_jobs = jobs.count()
+
+print(f'Testing serialization of ALL {total_jobs} jobs...')
+
+for i, job in enumerate(jobs):
+    try:
+        serializer = JobSerializer(job, context={'request': request})
+        data = serializer.data  # This triggers the actual serialization
+        success_count += 1
+        if (i + 1) % 100 == 0:
+            print(f'Processed {i + 1}/{total_jobs} jobs...')
+    except Exception as e:
+        failed_jobs.append({
+            'job_number': job.job_number,
+            'name': job.name,
+            'error': str(e)
+        })
+
+print(f'\\nSerialization Results:')
+print(f'Total jobs: {total_jobs}')
+print(f'Successfully serialized: {success_count}')
+print(f'Failed to serialize: {len(failed_jobs)}')
+
+if failed_jobs:
+    print(f'\\nFirst 10 failures:')
+    for failure in failed_jobs[:10]:
+        print(f'  Job {failure[\"job_number\"]}: {failure[\"name\"]} - Error: {failure[\"error\"]}')
+
+    if len(failed_jobs) > 10:
+        print(f'  ... and {len(failed_jobs) - 10} more failures')
+else:
+    print('✓ ALL jobs serialized successfully!')
+"
+```
+**Expected output (if all working):**
+```
+Testing serialization of ALL 648 jobs...
+Processed 100/648 jobs...
+Processed 200/648 jobs...
+...
+Processed 600/648 jobs...
+
+Serialization Results:
+Total jobs: 648
+Successfully serialized: 648
+Failed to serialize: 0
+✓ ALL jobs serialized successfully!
+```
+**Expected output (if issues found):**
+```
+Testing serialization of ALL 648 jobs...
+...
+Serialization Results:
+Total jobs: 648
+Successfully serialized: 643
+Failed to serialize: 5
+
+First 10 failures:
+  Job 12345: Some Job Name - Error: [actual error message]
+  ...
+```
+
+#### Step 16: Test Kanban HTTP API
+**Run as:** Development system user
+**Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
+
+**Command:**
+```bash
+./scripts/test_kanban_api.sh
+```
+
+**Expected output (WORKING API):**
+```
+✓ API working: 174 active jobs, 23 archived
+```
+
+**Expected output (BROKEN API):**
+```
+✗ ERROR: API test failed
+Server errors:
+ERROR 2025-07-13 01:44:27,880 kanban_view_api Error fetching all jobs
+ERROR 2025-07-13 01:44:27,886 log Internal Server Error: /job/api/jobs/fetch-all/
+API response:
+{"success": false, "error": "validation errors", ...}
+```
+
+**CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
+
+#### Step 17: Final Application Test
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -357,6 +527,7 @@ python manage.py runserver 0.0.0.0:8000
 **Check in browser:** Navigate to http://localhost:8000 and verify:
 - Login works with credentials: `defaultadmin@example.com` / `Default-admin-password`
 - Job list displays with real data
+- Kanban board loads without errors and shows jobs
 - Xero integration shows connected status
 - No database errors in console
 

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from rest_framework.views import APIView
 
 
-class DevelopmentOrAuthenticatedPermission(BasePermission):
+class F(BasePermission):
     """
     Permission class that allows unauthenticated access in development (DEBUG=True)
     but requires authentication in all other environments.

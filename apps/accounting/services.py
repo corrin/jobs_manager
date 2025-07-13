@@ -1139,3 +1139,224 @@ class JobAgingService:
                 persist_app_error(exc)
 
         return None
+
+
+class StaffPerformanceService:
+    """
+    Service responsible for calculating staff performance metrics.
+    All business logic related to staff utilisation and performance.
+    """
+
+    @staticmethod
+    def get_staff_performance_data(
+        start_date: date, end_date: date, staff_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get staff performance data for the specified period.
+
+        Args:
+            start_date: Period start date
+            end_date: Period end date
+            staff_id: Optional staff ID filter for individual report
+
+        Returns:
+            Dict containing team averages and staff performance data
+        """
+        try:
+            # Get time entries from CostLine
+            cost_lines = (
+                CostLine.objects.annotate(
+                    staff_id_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))", ()
+                    ),
+                    date_meta=RawSQL("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))", ()),
+                    is_billable_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))", ()
+                    ),
+                )
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    date_meta__gte=start_date.isoformat(),
+                    date_meta__lte=end_date.isoformat(),
+                )
+                .select_related("cost_set__job__client")
+            )
+
+            # Get all active staff
+            excluded_staff_ids = get_excluded_staff()
+            all_staff = Staff.objects.filter(is_active=True).exclude(
+                id__in=excluded_staff_ids
+            )
+
+            # Filter to specific staff if requested
+            if staff_id:
+                all_staff = all_staff.filter(id=staff_id)
+
+            staff_data = []
+            include_job_breakdown = staff_id is not None
+
+            for staff in all_staff:
+                staff_cost_lines = cost_lines.filter(staff_id_meta=str(staff.id))
+                staff_metrics = StaffPerformanceService._calculate_staff_metrics(
+                    staff, staff_cost_lines, include_job_breakdown
+                )
+                staff_data.append(staff_metrics)
+
+            # Calculate team averages
+            team_averages = StaffPerformanceService._calculate_team_averages(staff_data)
+
+            return {
+                "team_averages": team_averages,
+                "staff": staff_data,
+            }
+
+        except Exception as exc:
+            logger.error(f"Error getting staff performance data: {str(exc)}")
+            persist_app_error(exc)
+            raise
+
+    @staticmethod
+    def _calculate_staff_metrics(
+        staff: Staff, cost_lines: models.QuerySet, include_job_breakdown: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate performance metrics for a single staff member.
+
+        Args:
+            staff: Staff instance
+            cost_lines: QuerySet of CostLine entries for this staff
+            include_job_breakdown: Whether to include detailed job breakdown
+
+        Returns:
+            Dict containing staff performance metrics
+        """
+        total_hours = float(sum(line.quantity for line in cost_lines))
+        billable_hours = float(
+            sum(
+                line.quantity
+                for line in cost_lines
+                if line.meta.get("is_billable", "true").lower() == "true"
+            )
+        )
+        non_billable_hours = total_hours - billable_hours
+
+        total_revenue = float(sum(line.total_rev for line in cost_lines))
+        total_cost = float(sum(line.total_cost for line in cost_lines))
+        profit = total_revenue - total_cost
+
+        # Calculate percentages and rates
+        billable_percentage = (
+            (billable_hours / total_hours * 100) if total_hours > 0 else 0
+        )
+        revenue_per_hour = (total_revenue / total_hours) if total_hours > 0 else 0
+        profit_per_hour = (profit / total_hours) if total_hours > 0 else 0
+
+        # Count unique jobs
+        unique_jobs = set(line.cost_set.job.id for line in cost_lines)
+        jobs_worked = len(unique_jobs)
+
+        staff_metrics = {
+            "staff_id": str(staff.id),
+            "name": staff.get_display_full_name(),
+            "total_hours": total_hours,
+            "billable_hours": billable_hours,
+            "billable_percentage": billable_percentage,
+            "total_revenue": total_revenue,
+            "total_cost": total_cost,
+            "profit": profit,
+            "revenue_per_hour": revenue_per_hour,
+            "profit_per_hour": profit_per_hour,
+            "jobs_worked": jobs_worked,
+        }
+
+        # Add job breakdown if requested
+        if include_job_breakdown:
+            job_breakdown = StaffPerformanceService._calculate_job_breakdown(cost_lines)
+            staff_metrics["job_breakdown"] = job_breakdown
+
+        return staff_metrics
+
+    @staticmethod
+    def _calculate_job_breakdown(cost_lines: models.QuerySet) -> List[Dict[str, Any]]:
+        """
+        Calculate job-level breakdown for cost lines.
+
+        Args:
+            cost_lines: QuerySet of CostLine entries
+
+        Returns:
+            List of job breakdown dictionaries
+        """
+        job_data = {}
+
+        for line in cost_lines:
+            job = line.cost_set.job
+            job_id = str(job.id)
+
+            if job_id not in job_data:
+                job_data[job_id] = {
+                    "job_id": job_id,
+                    "job_number": job.job_number or "",
+                    "job_name": job.name or "",
+                    "client_name": job.client.name if job.client else "",
+                    "billable_hours": 0.0,
+                    "non_billable_hours": 0.0,
+                    "revenue": 0.0,
+                    "cost": 0.0,
+                }
+
+            hours = float(line.quantity)
+            is_billable = line.meta.get("is_billable", "true").lower() == "true"
+
+            if is_billable:
+                job_data[job_id]["billable_hours"] += hours
+            else:
+                job_data[job_id]["non_billable_hours"] += hours
+
+            job_data[job_id]["revenue"] += float(line.total_rev)
+            job_data[job_id]["cost"] += float(line.total_cost)
+
+        # Calculate derived fields
+        for job in job_data.values():
+            job["total_hours"] = job["billable_hours"] + job["non_billable_hours"]
+            job["profit"] = job["revenue"] - job["cost"]
+            job["revenue_per_hour"] = (
+                job["revenue"] / job["total_hours"] if job["total_hours"] > 0 else 0
+            )
+
+        return list(job_data.values())
+
+    @staticmethod
+    def _calculate_team_averages(staff_data: List[Dict[str, Any]]) -> Dict[str, float]:
+        """
+        Calculate team average metrics.
+
+        Args:
+            staff_data: List of staff performance dictionaries
+
+        Returns:
+            Dict containing team average metrics
+        """
+        if not staff_data:
+            return {
+                "billable_percentage": 0.0,
+                "revenue_per_hour": 0.0,
+                "profit_per_hour": 0.0,
+                "jobs_per_person": 0.0,
+            }
+
+        staff_count = len(staff_data)
+        total_billable_percentage = sum(
+            staff["billable_percentage"] for staff in staff_data
+        )
+        total_revenue_per_hour = sum(staff["revenue_per_hour"] for staff in staff_data)
+        total_profit_per_hour = sum(staff["profit_per_hour"] for staff in staff_data)
+        total_jobs = sum(staff["jobs_worked"] for staff in staff_data)
+
+        return {
+            "billable_percentage": total_billable_percentage / staff_count,
+            "revenue_per_hour": total_revenue_per_hour / staff_count,
+            "profit_per_hour": total_profit_per_hour / staff_count,
+            "jobs_per_person": total_jobs / staff_count,
+        }

@@ -41,7 +41,7 @@ class JWTAuthentication(BaseJWTAuthentication):
                 )
             return result
         except (InvalidToken, TokenError) as e:
-            if getattr(settings, "ENABLE_DUAL_AUTHENTICATION", False):
+            if settings.DEBUG:
                 return None
             raise exceptions.AuthenticationFailed(str(e))
 
