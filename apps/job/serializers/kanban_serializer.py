@@ -44,7 +44,7 @@ class KanbanErrorResponseSerializer(serializers.Serializer):
 class JobSearchFiltersSerializer(serializers.Serializer):
     """Serializer for advanced search filters."""
 
-    job_number = serializers.CharField(required=False, allow_blank=True)
+    job_number = serializers.IntegerField(required=False, allow_null=True)
     name = serializers.CharField(required=False, allow_blank=True)
     description = serializers.CharField(required=False, allow_blank=True)
     client_name = serializers.CharField(required=False, allow_blank=True)
@@ -73,7 +73,7 @@ class KanbanJobSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
     description = serializers.CharField(allow_blank=True, allow_null=True)
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
 
     # Client and contact info
     client_name = serializers.CharField(allow_blank=True)
@@ -144,7 +144,7 @@ class KanbanColumnJobSerializer(serializers.Serializer):
 
     # Basic job info
     id = serializers.CharField()  # Converted to string by service
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     name = serializers.CharField()
     description = serializers.CharField(allow_blank=True, allow_null=True)
 
