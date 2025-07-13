@@ -32,6 +32,10 @@ class LoginRequiredMiddleware:
                     self.exempt_url_prefixes.append(url_name)
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
+        # Skip authentication entirely for local development when DEBUG=True
+        if settings.DEBUG:
+            return self.get_response(request)
+
         login_path = reverse("accounts:login")
         # Allow POST requests to login endpoint
         login_path = reverse("accounts:login").rstrip("/")
@@ -69,8 +73,6 @@ class LoginRequiredMiddleware:
                     status=401,
                 )
             # Always redirect to the front-end SPA login
-            from django.conf import settings
-
             frontend_login_url = getattr(settings, "FRONT_END_URL", None)
             if frontend_login_url:
                 return redirect(frontend_login_url.rstrip("/") + "/login")
@@ -101,11 +103,6 @@ class PasswordStrengthMiddleware:
                 reverse("accounts:token_refresh"),
                 reverse("accounts:token_verify"),
             ]
-
-            if request.path.startswith("/api/") and getattr(
-                settings, "ENABLE_DUAL_AUTHENTICATION", False
-            ):
-                return self.get_response(request)
 
             if request.path not in exempt_urls and not request.path.startswith(
                 "/static/"

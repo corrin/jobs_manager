@@ -53,6 +53,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.workflow.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
@@ -61,12 +62,11 @@ MIDDLEWARE = [
 # JWT/general authentication settings
 
 ENABLE_JWT_AUTH = True
-ENABLE_DUAL_AUTHENTICATION = False
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [
-        "apps.workflow.permissions.DevelopmentOrAuthenticatedPermission",
+        "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -325,7 +325,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
         "NAME": os.getenv("MYSQL_DATABASE"),
-        "USER": os.getenv("MSM_DB_USER"),
+        "USER": os.getenv("MYSQL_DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT"),
