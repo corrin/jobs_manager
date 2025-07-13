@@ -52,7 +52,7 @@ ls -la restore/
 
 ### DEVELOPMENT STEPS
 
-#### Step 4: Verify Environment Configuration
+#### Step 3: Verify Environment Configuration
 **Run as:** Development system user
 **Check:**
 ```bash
@@ -73,7 +73,7 @@ DB_PORT=3306
 
 Note.  If you're using Claude or similar, you need to specify these explicitly on all subsequent command lines rather than use environment variables
 
-#### Step 5: Reset Database
+#### Step 4: Reset Database
 **Run as:** System root (for MySQL admin operations)
 **Command:**
 ```bash
@@ -87,7 +87,7 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW DATABASES;" | grep msm
 # Should show: msm_workflow
 ```
 
-#### Step 6: Apply Production Schema
+#### Step 5: Apply Production Schema
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -103,7 +103,7 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SELECT COUNT(*) FROM workfl
 # Should show: 0 (empty table)
 ```
 
-#### Step 7: Extract and Convert JSON to SQL
+#### Step 6: Extract and Convert JSON to SQL
 **Run as:** Development system user
 **Commands:**
 ```bash
@@ -126,7 +126,7 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 # Should show thousands of INSERT statements
 ```
 
-#### Step 8: Load Production Data
+#### Step 7: Load Production Data
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -155,7 +155,7 @@ UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
 +-------------------+-------+
 ```
 
-#### Step 8a: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
+#### Step 8: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -169,7 +169,7 @@ python manage.py showmigrations
 ```
 **Expected:** All migrations should show [X] (applied)
 
-#### Step 8b: Load Company Defaults Fixture
+#### Step 9: Load Company Defaults Fixture
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -188,12 +188,12 @@ print(f'Company defaults loaded: {company.company_name}')
 Company defaults loaded: Demo Company
 ```
 
-#### Step 9: Verify Specific Data
+#### Step 10: Verify Specific Data
 **Run as:** Development system user
 **Command:**
 ```bash
 MYSQL_PWD=your_dev_password mysql -u django_user -e "
-SELECT id, name, job_number, status, contact_person
+SELECT id, name, job_number, status
 FROM workflow_job
 WHERE name LIKE '%test%' OR name LIKE '%sample%'
 LIMIT 5;
@@ -201,7 +201,7 @@ LIMIT 5;
 ```
 **Check:** Should show actual job records with realistic data
 
-#### Step 10: Test Django ORM
+#### Step 11: Test Django ORM
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -215,7 +215,7 @@ print(f'Clients: {Client.objects.count()}')
 job = Job.objects.first()
 if job:
     print(f'Sample job: {job.name} (#{job.job_number})')
-    print(f'Contact: {job.contact_person}')
+    print(f'Contact: {job.contact.name if job.contact else "None"}')
 else:
     print('ERROR: No jobs found')
 "
@@ -229,7 +229,7 @@ Sample job: [Real Job Name] (#12345)
 Contact: [Real Contact Name]
 ```
 
-#### Step 11: Create Admin User
+#### Step 12: Create Admin User
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -248,7 +248,7 @@ Is staff: True
 Is superuser: True
 ```
 
-#### Step 11a: Create Dummy Files for JobFile Instances
+#### Step 13: Create Dummy Files for JobFile Instances
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -300,7 +300,7 @@ Dummy files created: X
 Missing files: 0
 ```
 
-#### Step 12: Setup Xero Integration
+#### Step 14: Setup Xero Integration
 **Run as:** Development system user (after server is running)
 **Steps:**
 1. **Start the development server:**
@@ -348,7 +348,87 @@ print(f'Clients count: {Client.objects.count()}')
 "
 ```
 
-#### Step 13: Final Application Test
+#### Step 15: Test Admin User Login
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+from django.contrib.auth import authenticate
+from apps.accounts.models import Staff
+
+# Test authentication
+user = authenticate(email='defaultadmin@example.com', password='Default-admin-password')
+if user:
+    print(f'✓ Login successful: {user.email}')
+    print(f'✓ Is active: {user.is_active}')
+    print(f'✓ Is staff: {user.is_staff}')
+    print(f'✓ Is superuser: {user.is_superuser}')
+else:
+    print('✗ Login failed - check credentials')
+"
+```
+**Expected output:**
+```
+✓ Login successful: defaultadmin@example.com
+✓ Is active: True
+✓ Is staff: True
+✓ Is superuser: True
+```
+
+#### Step 16: Test Kanban API
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+from apps.job.services.kanban_service import KanbanService
+from django.http import HttpRequest
+import json
+
+# Create a mock request for serialization
+request = HttpRequest()
+request.META['HTTP_HOST'] = 'localhost:8000'
+request.META['wsgi.url_scheme'] = 'http'
+
+try:
+    # Test getting active jobs
+    active_jobs = KanbanService.get_all_active_jobs()
+    print(f'✓ Active jobs count: {active_jobs.count()}')
+
+    # Test serialization of first few jobs
+    test_jobs = active_jobs[:3]
+    serialized_count = 0
+    for job in test_jobs:
+        try:
+            serialized = KanbanService.serialize_job_for_api(job, request)
+            serialized_count += 1
+        except Exception as e:
+            print(f'✗ Serialization error for job {job.job_number}: {e}')
+            break
+
+    if serialized_count == len(test_jobs):
+        print(f'✓ Job serialization successful: {serialized_count}/{len(test_jobs)} jobs')
+    else:
+        print(f'✗ Job serialization failed: {serialized_count}/{len(test_jobs)} jobs')
+
+    # Test archived jobs
+    archived_jobs = KanbanService.get_archived_jobs(10)
+    print(f'✓ Archived jobs count: {archived_jobs.count()}')
+
+    print('✓ Kanban API test completed successfully')
+
+except Exception as e:
+    print(f'✗ Kanban API test failed: {e}')
+"
+```
+**Expected output:**
+```
+✓ Active jobs count: [number > 0]
+✓ Job serialization successful: 3/3 jobs
+✓ Archived jobs count: [number >= 0]
+✓ Kanban API test completed successfully
+```
+
+#### Step 17: Final Application Test
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -357,6 +437,7 @@ python manage.py runserver 0.0.0.0:8000
 **Check in browser:** Navigate to http://localhost:8000 and verify:
 - Login works with credentials: `defaultadmin@example.com` / `Default-admin-password`
 - Job list displays with real data
+- Kanban board loads without errors and shows jobs
 - Xero integration shows connected status
 - No database errors in console
 
