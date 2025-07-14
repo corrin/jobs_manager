@@ -133,7 +133,7 @@ class CompanyDefaults(models.Model):
         super().save(*args, **kwargs)
 
     @classmethod
-    def get_instance(cls):
+    def get_instance(cls) -> "CompanyDefaults":
         """
         Get the singleton instance.
         This is the preferred way to get the CompanyDefaults instance.

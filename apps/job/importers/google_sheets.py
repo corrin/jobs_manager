@@ -31,7 +31,7 @@ SCOPES = [
 ]
 
 # Global credentials - initialized on first use
-CREDS = None
+CREDS: Optional[service_account.Credentials] = None
 
 
 def _get_credentials() -> service_account.Credentials:
@@ -57,7 +57,7 @@ def _get_credentials() -> service_account.Credentials:
                     f"Google service account key file not found: {key_file}"
                 )
 
-            CREDS = service_account.Credentials.from_service_account_file(
+            CREDS = service_account.Credentials.from_service_account_file(  # type: ignore[no-untyped-call]
                 key_file, scopes=SCOPES
             )
 
@@ -66,6 +66,7 @@ def _get_credentials() -> service_account.Credentials:
         except Exception as e:
             raise RuntimeError(f"Failed to load Google API credentials: {str(e)}")
 
+    assert CREDS is not None  # Should be set in the if block above
     return CREDS
 
 
@@ -375,7 +376,7 @@ def copy_template_for_job(job: Job) -> tuple[str, str]:
         from apps.workflow.models.company_defaults import CompanyDefaults
 
         # Get company defaults for the template
-        company_defaults = CompanyDefaults.get_current()
+        company_defaults = CompanyDefaults.get_instance()
         if not company_defaults or not company_defaults.master_quote_template_id:
             raise RuntimeError(
                 "No master quote template configured in company defaults"
@@ -439,7 +440,7 @@ def _get_or_create_jobs_manager_folder() -> str:
         if folders:
             folder_id = folders[0]["id"]
             logger.debug(f"Found existing Jobs Manager folder: {folder_id}")
-            return folder_id
+            return str(folder_id) if folder_id else ""
 
         # Create new folder
         folder_id = create_folder("Jobs Manager")
