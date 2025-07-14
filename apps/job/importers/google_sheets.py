@@ -11,13 +11,16 @@ Includes functions for:
 import logging
 import os
 import re
-from typing import Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
+
+from apps.job.models import Job
+from apps.job.models.costing import CostSet
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +34,7 @@ SCOPES = [
 CREDS = None
 
 
-def _get_credentials():
+def _get_credentials() -> service_account.Credentials:
     """
     Get Google API credentials from service account file.
 
@@ -66,7 +69,7 @@ def _get_credentials():
     return CREDS
 
 
-def _svc(api: str, version: str):
+def _svc(api: str, version: str) -> Any:
     """
     Create a Google API service client.
 
@@ -145,7 +148,7 @@ def create_folder(name: str, parent_id: Optional[str] = None) -> str:
     try:
         drive_service = _svc("drive", "v3")
 
-        folder_metadata = {
+        folder_metadata: Dict[str, Union[str, List[str]]] = {
             "name": name,
             "mimeType": "application/vnd.google-apps.folder",
         }
@@ -154,12 +157,14 @@ def create_folder(name: str, parent_id: Optional[str] = None) -> str:
             folder_metadata["parents"] = [parent_id]
 
         folder = (
-            drive_service.files().create(body=folder_metadata, fields="id").execute()
+            drive_service.files()
+            .create(body=folder_metadata, fields="id", supportsAllDrives=True)
+            .execute()
         )
 
         folder_id = folder.get("id")
         logger.info(f"Created folder '{name}' with ID: {folder_id}")
-        return folder_id
+        return str(folder_id) if folder_id else ""
 
     except HttpError as e:
         raise RuntimeError(f"Failed to create folder '{name}': {e.reason}")
@@ -196,25 +201,30 @@ def copy_file(
     try:
         drive_service = _svc("drive", "v3")
 
-        copy_metadata = {"name": name}
+        copy_metadata: Dict[str, Union[str, List[str]]] = {"name": name}
 
         if parent_id:
             copy_metadata["parents"] = [parent_id]
 
         copied_file = (
             drive_service.files()
-            .copy(fileId=template_id, body=copy_metadata, fields="id")
+            .copy(
+                fileId=template_id,
+                body=copy_metadata,
+                fields="id",
+                supportsAllDrives=True,
+            )
             .execute()
         )
 
         copied_id = copied_file.get("id")
 
         # Set public edit permissions if requested
-        if make_public_editable:
+        if make_public_editable and copied_id:
             _set_public_edit_permissions(copied_id)
 
         logger.info(f"Copied file '{name}' with ID: {copied_id}")
-        return copied_id
+        return str(copied_id) if copied_id else ""
 
     except HttpError as e:
         raise RuntimeError(f"Failed to copy file '{name}': {e.reason}")
@@ -238,7 +248,9 @@ def _set_public_edit_permissions(file_id: str) -> None:
 
         permission = {"type": "anyone", "role": "writer"}
 
-        drive_service.permissions().create(fileId=file_id, body=permission).execute()
+        drive_service.permissions().create(
+            fileId=file_id, body=permission, supportsAllDrives=True
+        ).execute()
 
         logger.info(f"Set public edit permissions for file: {file_id}")
 
@@ -343,7 +355,7 @@ def fetch_sheet_df(sheet_id: str, sheet_range: str = "Primary Details") -> pd.Da
         raise RuntimeError(f"Unexpected error fetching sheet data: {str(e)}")
 
 
-def copy_template_for_job(job) -> tuple[str, str]:
+def copy_template_for_job(job: Job) -> tuple[str, str]:
     """
     Copy a quote template for a specific job.
 
@@ -360,7 +372,7 @@ def copy_template_for_job(job) -> tuple[str, str]:
         RuntimeError: If template copy fails or company defaults missing
     """
     try:
-        from apps.client.models import CompanyDefaults
+        from apps.workflow.models.company_defaults import CompanyDefaults
 
         # Get company defaults for the template
         company_defaults = CompanyDefaults.get_current()
@@ -412,7 +424,14 @@ def _get_or_create_jobs_manager_folder() -> str:
             "and trashed=false"
         )
         results = (
-            drive_service.files().list(q=query, fields="files(id, name)").execute()
+            drive_service.files()
+            .list(
+                q=query,
+                fields="files(id, name)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+            .execute()
         )
 
         folders = results.get("files", [])
@@ -432,7 +451,7 @@ def _get_or_create_jobs_manager_folder() -> str:
         raise RuntimeError(f"Failed to access Jobs Manager folder: {str(e)}")
 
 
-def populate_sheet_from_costset(sheet_id: str, costset) -> None:
+def populate_sheet_from_costset(sheet_id: str, costset: CostSet) -> None:
     """
     Populate a Google Sheet with data from a CostSet.
 
@@ -555,8 +574,7 @@ def export_sheet_as_xlsx(sheet_id: str, file_path: str) -> None:
         drive_service = _svc("drive", "v3")
         mime_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         request = drive_service.files().export_media(
-            fileId=sheet_id,
-            mimeType=mime_type,
+            fileId=sheet_id, mimeType=mime_type, supportsAllDrives=True
         )
         with open(file_path, "wb") as f:
             downloader = MediaIoBaseDownload(f, request)
