@@ -10,7 +10,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .admin import AIProviderInline, CompanyDefaultsAdmin
         from .authentication import (
             ServiceAPIKeyAuthentication,
             service_api_key_required,
@@ -59,15 +58,19 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
+# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
+# Import these directly where needed using:
+# from .admin import AIProviderInline
+# from .admin import CompanyDefaultsAdmin
+#
+
 __all__ = [
     "AIProviderCreateUpdateSerializer",
-    "AIProviderInline",
     "AIProviderSerializer",
     "AIProviderTypes",
     "AppErrorDetailResponseSerializer",
     "AppErrorListResponseSerializer",
     "AppErrorSerializer",
-    "CompanyDefaultsAdmin",
     "CompanyDefaultsSerializer",
     "DecimalEncoder",
     "F",

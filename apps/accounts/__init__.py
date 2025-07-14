@@ -7,7 +7,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .admin import StaffAdmin
         from .forms import StaffChangeForm, StaffCreationForm
         from .managers import StaffManager
         from .models import Staff
@@ -23,13 +22,17 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
+# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
+# Import these directly where needed using:
+# from .admin import StaffAdmin
+#
+
 __all__ = [
     "AccountsConfig",
     "CustomTokenObtainPairSerializer",
     "IsStaff",
     "KanbanStaffSerializer",
     "Staff",
-    "StaffAdmin",
     "StaffChangeForm",
     "StaffCreationForm",
     "StaffManager",
