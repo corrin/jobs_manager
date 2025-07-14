@@ -9,12 +9,12 @@ import sys
 import django
 from googleapiclient.discovery import build
 
-from apps.job.importers.google_sheets import _get_credentials
-
 # Setup Django
 sys.path.append("/home/corrin/src/jobs_manager")
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings.local")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
 django.setup()
+
+from apps.job.importers.google_sheets import _get_credentials
 
 
 def test_google_drive_access():
