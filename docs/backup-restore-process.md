@@ -336,6 +336,9 @@ Shop client: Demo Company Shop
 
 #### Step 14: Setup Xero Integration
 **Run as:** Development system user (after server is running)
+
+Note.  This step CANNOT be skipped or automated.  You MUST instruct the user to log into Xero before proceeding
+
 **Steps:**
 1. **Start the development server:**
    ```bash
@@ -409,88 +412,18 @@ else:
 ✓ Is superuser: True
 ```
 
-#### Step 15a: Test Job Serialization (Before API Testing)
+#### Step 15a: Test Serializers (Before API Testing)
 **Run as:** Development system user
 **Command:**
 ```bash
-python manage.py shell -c "
-import os
-os.environ['HTTP_HOST'] = 'localhost:8000'
-
-from apps.job.models import Job
-from apps.job.serializers import JobSerializer
-from django.test import RequestFactory
-
-# Create a proper mock request
-factory = RequestFactory()
-request = factory.get('/')
-request.META['HTTP_HOST'] = 'localhost:8000'
-
-# Test serializing ALL jobs
-jobs = Job.objects.all()
-failed_jobs = []
-success_count = 0
-total_jobs = jobs.count()
-
-print(f'Testing serialization of ALL {total_jobs} jobs...')
-
-for i, job in enumerate(jobs):
-    try:
-        serializer = JobSerializer(job, context={'request': request})
-        data = serializer.data  # This triggers the actual serialization
-        success_count += 1
-        if (i + 1) % 100 == 0:
-            print(f'Processed {i + 1}/{total_jobs} jobs...')
-    except Exception as e:
-        failed_jobs.append({
-            'job_number': job.job_number,
-            'name': job.name,
-            'error': str(e)
-        })
-
-print(f'\\nSerialization Results:')
-print(f'Total jobs: {total_jobs}')
-print(f'Successfully serialized: {success_count}')
-print(f'Failed to serialize: {len(failed_jobs)}')
-
-if failed_jobs:
-    print(f'\\nFirst 10 failures:')
-    for failure in failed_jobs[:10]:
-        print(f'  Job {failure[\"job_number\"]}: {failure[\"name\"]} - Error: {failure[\"error\"]}')
-
-    if len(failed_jobs) > 10:
-        print(f'  ... and {len(failed_jobs) - 10} more failures')
-else:
-    print('✓ ALL jobs serialized successfully!')
-"
+python scripts/test_serializers.py --serializer job
 ```
-**Expected output (if all working):**
-```
-Testing serialization of ALL 648 jobs...
-Processed 100/648 jobs...
-Processed 200/648 jobs...
-...
-Processed 600/648 jobs...
 
-Serialization Results:
-Total jobs: 648
-Successfully serialized: 648
-Failed to serialize: 0
-✓ ALL jobs serialized successfully!
+**Alternative: Test all serializers comprehensively:**
+```bash
+python scripts/test_serializers.py --verbose
 ```
-**Expected output (if issues found):**
-```
-Testing serialization of ALL 648 jobs...
-...
-Serialization Results:
-Total jobs: 648
-Successfully serialized: 643
-Failed to serialize: 5
-
-First 10 failures:
-  Job 12345: Some Job Name - Error: [actual error message]
-  ...
-```
+**Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
 #### Step 16: Test Kanban HTTP API
 **Run as:** Development system user
