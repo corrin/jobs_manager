@@ -27,10 +27,15 @@ def get_import_type(module_path: str, module_name: str) -> str:
     # NOTE: 'views' is NOT in this list because it needs special analysis
     always_safe_modules = {"apps", "urls", "enums", "exceptions", "constants"}
 
+    # ALWAYS excluded - these should not be imported in __init__.py
+    # Django automatically discovers these modules
+    always_excluded_modules = {
+        "admin",  # Django auto-discovers admin.py, importing causes double registration
+    }
+
     # ALWAYS conditional - these definitely import models or problematic Django components
     # NOTE: models must be non-conditional as Django needs them during startup
     always_conditional_modules = {
-        "admin",
         "serializers",
         "forms",
         "managers",
@@ -53,6 +58,9 @@ def get_import_type(module_path: str, module_name: str) -> str:
     # Check module name patterns first
     if module_name in always_safe_modules:
         return "safe"
+
+    if module_name in always_excluded_modules:
+        return "excluded"
 
     # Views need special analysis for problematic imports
     if (

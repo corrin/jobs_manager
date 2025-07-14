@@ -17,13 +17,12 @@ class KPIJobBreakdownSerializer(serializers.Serializer[Any]):
     """Serializer for job breakdown data in KPI calendar"""
 
     job_id = serializers.CharField()
-    job_number = serializers.CharField()
-    job_name = serializers.CharField()
-    client_name = serializers.CharField()
-    billable_hours = serializers.FloatField()
-    revenue = serializers.FloatField()
-    cost = serializers.FloatField()
-    profit = serializers.FloatField()
+    job_number = serializers.IntegerField()
+    job_display_name = serializers.CharField()
+    labour_profit = serializers.FloatField()
+    material_profit = serializers.FloatField()
+    adjustment_profit = serializers.FloatField()
+    total_profit = serializers.FloatField()
 
 
 class KPIProfitBreakdownSerializer(serializers.Serializer[Any]):
@@ -150,7 +149,7 @@ class JobAgingJobDataSerializer(serializers.Serializer[Any]):
     """Serialiser for individual job aging data"""
 
     id = serializers.CharField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     name = serializers.CharField()
     client_name = serializers.CharField()
     status = serializers.CharField()
@@ -198,7 +197,7 @@ class StaffPerformanceJobBreakdownSerializer(serializers.Serializer[Any]):
     """Serializer for job breakdown data in staff performance"""
 
     job_id = serializers.CharField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     job_name = serializers.CharField()
     client_name = serializers.CharField()
     billable_hours = serializers.FloatField()

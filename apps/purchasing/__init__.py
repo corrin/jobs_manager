@@ -7,7 +7,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .admin import PurchaseOrderAdmin, PurchaseOrderLineAdmin
         from .forms import PurchaseOrderForm, PurchaseOrderLineForm
         from .models import (
             PurchaseOrder,
@@ -50,6 +49,12 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
+# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
+# Import these directly where needed using:
+# from .admin import PurchaseOrderAdmin
+# from .admin import PurchaseOrderLineAdmin
+#
+
 __all__ = [
     "AllJobsResponseSerializer",
     "AllocationItemSerializer",
@@ -59,7 +64,6 @@ __all__ = [
     "DeliveryReceiptResponseSerializer",
     "JobForPurchasingSerializer",
     "PurchaseOrder",
-    "PurchaseOrderAdmin",
     "PurchaseOrderAllocationsResponseSerializer",
     "PurchaseOrderCreateResponseSerializer",
     "PurchaseOrderCreateSerializer",
@@ -68,7 +72,6 @@ __all__ = [
     "PurchaseOrderEmailResponseSerializer",
     "PurchaseOrderForm",
     "PurchaseOrderLine",
-    "PurchaseOrderLineAdmin",
     "PurchaseOrderLineCreateSerializer",
     "PurchaseOrderLineForm",
     "PurchaseOrderLineSerializer",
