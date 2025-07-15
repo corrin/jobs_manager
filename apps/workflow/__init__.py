@@ -16,7 +16,11 @@ try:
         )
         from .context_processors import debug_mode
         from .helpers import DecimalEncoder, decimal_to_float, get_company_defaults
-        from .middleware import LoginRequiredMiddleware, PasswordStrengthMiddleware
+        from .middleware import (
+            LoginRequiredMiddleware,
+            PasswordStrengthMiddleware,
+            TrackAuthenticatedAccessMiddleware,
+        )
         from .permissions import F
         from .scheduler import (
             get_scheduler,
@@ -77,6 +81,7 @@ __all__ = [
     "LoginRequiredMiddleware",
     "PasswordStrengthMiddleware",
     "ServiceAPIKeyAuthentication",
+    "TrackAuthenticatedAccessMiddleware",
     "WorkflowConfig",
     "XeroAccountSerializer",
     "XeroAuthenticationErrorResponseSerializer",
