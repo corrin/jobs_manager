@@ -1,4 +1,6 @@
+import logging
 import time
+from datetime import datetime
 from typing import Callable
 
 from django.conf import settings
@@ -7,20 +9,33 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
-LAST_AUTH_ACCESS = "/tmp/last_authenticated_access.timestamp"
+# Configure access logger
+access_logger = logging.getLogger("access")
+access_logger.setLevel(logging.INFO)
+if not access_logger.handlers:
+    handler = logging.FileHandler("logs/access.log")
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    access_logger.addHandler(handler)
+    access_logger.propagate = False
 
 
-class TrackAuthenticatedAccessMiddleware:
+class AccessLoggingMiddleware:
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        if request.user.is_authenticated:
-            try:
-                with open(LAST_AUTH_ACCESS, "w") as f:
-                    f.write(str(time.time()))
-            except Exception:
-                pass  # fail quietly on Windows/other platforms
+        # Handle unhappy case first - unauthenticated users
+        if not request.user.is_authenticated:
+            return self.get_response(request)
+
+        # Log authenticated user access
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        user = request.user.username
+        page = request.path
+        method = request.method
+
+        access_logger.info(f"{timestamp}\t{method}\t{user}\t{page}")
+
         return self.get_response(request)
 
 
