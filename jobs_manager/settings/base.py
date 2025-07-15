@@ -53,8 +53,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "apps.workflow.middleware.LoginRequiredMiddleware",
     "apps.workflow.middleware.AccessLoggingMiddleware",
+    "apps.workflow.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
@@ -126,6 +126,10 @@ LOGGING = {
             "format": "{levelname} {message}",
             "style": "{",
         },
+        "access": {
+            "format": "{message}",
+            "style": "{",
+        },
     },
     "handlers": {
         "console": {
@@ -189,6 +193,14 @@ LOGGING = {
             "backupCount": 10,
             "formatter": "verbose",
         },
+        "access_file": {
+            "level": "INFO",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/access.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "access",
+        },
         "mail_admins": {
             "level": "ERROR",
             "class": "django.utils.log.AdminEmailHandler",
@@ -226,6 +238,11 @@ LOGGING = {
         },
         "django_apscheduler": {
             "handlers": ["console", "scheduler_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "access": {
+            "handlers": ["access_file"],
             "level": "INFO",
             "propagate": False,
         },
@@ -465,7 +482,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 
 
-def validate_required_settings():
+def validate_required_settings() -> None:
     """Validate that all required settings are properly configured."""
     required_settings = {
         "SECRET_KEY": SECRET_KEY,
