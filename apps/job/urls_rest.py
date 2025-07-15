@@ -20,6 +20,7 @@ from apps.job.views.job_rest_views import (
     JobDetailRestView,
     JobEventRestView,
 )
+from apps.job.views.job_shop_status_view import JobShopStatusView
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
     ModernTimesheetEntryView,
@@ -41,6 +42,12 @@ rest_urlpatterns = [
     path("rest/month-end/", MonthEndRestView.as_view(), name="month_end_rest"),
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
+    ),
+    # Job shop status
+    path(
+        "rest/jobs/<uuid:job_id>/shop-status/",
+        JobShopStatusView.as_view(),
+        name="job_shop_status",
     ),
     # Job events
     path(

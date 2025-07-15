@@ -1169,7 +1169,9 @@ class StaffPerformanceService:
                     ),
                     date_meta=RawSQL("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))", ()),
                     is_billable_meta=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))", ()
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
+                        (),
+                        output_field=models.BooleanField(),
                     ),
                 )
                 .filter(
@@ -1204,9 +1206,18 @@ class StaffPerformanceService:
             # Calculate team averages
             team_averages = StaffPerformanceService._calculate_team_averages(staff_data)
 
+            # Create period summary
+            period_summary = {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "total_staff": len(staff_data),
+                "period_description": f"{start_date.strftime('%B %d')} - {end_date.strftime('%B %d, %Y')}",
+            }
+
             return {
                 "team_averages": team_averages,
                 "staff": staff_data,
+                "period_summary": period_summary,
             }
 
         except Exception as exc:
@@ -1230,14 +1241,17 @@ class StaffPerformanceService:
             Dict containing staff performance metrics
         """
         total_hours = float(sum(line.quantity for line in cost_lines))
+        # Get shop client ID for filtering
+        shop_client_id = Client.get_shop_client_id()
+
         billable_hours = float(
             sum(
                 line.quantity
                 for line in cost_lines
-                if line.meta.get("is_billable", "true").lower() == "true"
+                if line.is_billable_meta
+                and str(line.cost_set.job.client_id) != shop_client_id
             )
         )
-        non_billable_hours = total_hours - billable_hours
 
         total_revenue = float(sum(line.total_rev for line in cost_lines))
         total_cost = float(sum(line.total_cost for line in cost_lines))
@@ -1305,7 +1319,10 @@ class StaffPerformanceService:
                 }
 
             hours = float(line.quantity)
-            is_billable = line.meta.get("is_billable", "true").lower() == "true"
+            # Shop jobs are always non-billable regardless of the is_billable flag
+            shop_client_id = Client.get_shop_client_id()
+            is_shop_job = str(line.cost_set.job.client_id) == shop_client_id
+            is_billable = line.is_billable_meta and not is_shop_job
 
             if is_billable:
                 job_data[job_id]["billable_hours"] += hours
@@ -1352,9 +1369,19 @@ class StaffPerformanceService:
         total_profit_per_hour = sum(staff["profit_per_hour"] for staff in staff_data)
         total_jobs = sum(staff["jobs_worked"] for staff in staff_data)
 
+        # Calculate totals across all staff
+        total_hours = sum(staff["total_hours"] for staff in staff_data)
+        total_billable_hours = sum(staff["billable_hours"] for staff in staff_data)
+        total_revenue = sum(staff["total_revenue"] for staff in staff_data)
+        total_profit = sum(staff["profit"] for staff in staff_data)
+
         return {
             "billable_percentage": total_billable_percentage / staff_count,
             "revenue_per_hour": total_revenue_per_hour / staff_count,
             "profit_per_hour": total_profit_per_hour / staff_count,
             "jobs_per_person": total_jobs / staff_count,
+            "total_hours": total_hours,
+            "billable_hours": total_billable_hours,
+            "total_revenue": total_revenue,
+            "total_profit": total_profit,
         }

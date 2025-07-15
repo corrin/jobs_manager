@@ -216,6 +216,10 @@ class StaffPerformanceTeamAveragesSerializer(serializers.Serializer[Any]):
     revenue_per_hour = serializers.FloatField()
     profit_per_hour = serializers.FloatField()
     jobs_per_person = serializers.FloatField()
+    total_hours = serializers.FloatField()
+    billable_hours = serializers.FloatField()
+    total_revenue = serializers.FloatField()
+    total_profit = serializers.FloatField()
 
 
 class StaffPerformanceStaffDataSerializer(serializers.Serializer[Any]):
@@ -235,11 +239,21 @@ class StaffPerformanceStaffDataSerializer(serializers.Serializer[Any]):
     job_breakdown = StaffPerformanceJobBreakdownSerializer(many=True, required=False)
 
 
+class StaffPerformancePeriodSummarySerializer(serializers.Serializer[Any]):
+    """Serializer for period summary in staff performance report"""
+
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    total_staff = serializers.IntegerField()
+    period_description = serializers.CharField()
+
+
 class StaffPerformanceResponseSerializer(serializers.Serializer[Any]):
     """Unified serializer for staff performance report responses"""
 
     team_averages = StaffPerformanceTeamAveragesSerializer()
     staff = StaffPerformanceStaffDataSerializer(many=True)
+    period_summary = StaffPerformancePeriodSummarySerializer()
 
 
 class StaffPerformanceErrorResponseSerializer(serializers.Serializer[Any]):

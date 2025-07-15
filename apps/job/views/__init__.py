@@ -24,6 +24,7 @@ from .job_rest_views import (
     JobEventRestView,
     get_company_defaults_api,
 )
+from .job_shop_status_view import JobShopStatusView
 from .modern_timesheet_views import (
     ModernTimesheetDayView,
     ModernTimesheetEntryView,
@@ -87,6 +88,7 @@ __all__ = [
     "JobQuoteChatHistoryView",
     "JobQuoteChatInteractionView",
     "JobQuoteChatMessageView",
+    "JobShopStatusView",
     "LinkQuoteSheetAPIView",
     "ModernTimesheetDayView",
     "ModernTimesheetEntryView",

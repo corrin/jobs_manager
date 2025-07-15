@@ -288,8 +288,16 @@ class AssignJobResponseSerializer(serializers.Serializer):
     """Serialiser for job assignment response"""
 
     success = serializers.BooleanField()
-    message = serializers.CharField(required=False)
-    error = serializers.CharField(required=False)
+    message = serializers.CharField()
+
+
+class JobShopStatusResponseSerializer(serializers.Serializer):
+    """Serializer for job shop status response."""
+
+    job_id = serializers.CharField()
+    job_number = serializers.IntegerField()
+    is_shop_job = serializers.BooleanField()
+    client_name = serializers.CharField(allow_null=True)
 
 
 class ArchiveJobsRequestSerializer(serializers.Serializer):
