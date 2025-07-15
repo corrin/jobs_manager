@@ -25,9 +25,7 @@ class AccessLoggingMiddleware:
         if not request.user.is_authenticated:
             jwt_auth = JWTAuthentication()
             try:
-                auth_result: Optional[Tuple[Staff, Any]] = jwt_auth.authenticate(
-                    request
-                )
+                auth_result = jwt_auth.authenticate(request)
                 if auth_result:
                     request.user, _ = auth_result
             except Exception:
