@@ -67,7 +67,10 @@ class KanbanJobPersonSerializer(serializers.Serializer):
 
 
 class KanbanJobSerializer(serializers.Serializer):
-    """Serializer for job data in kanban context (matches KanbanService.serialize_job_for_api)."""
+    """
+    Serializer for job data in kanban context
+    (matches KanbanService.serialize_job_for_api).
+    """
 
     # Basic job info
     id = serializers.UUIDField()
@@ -140,7 +143,10 @@ class AdvancedSearchResponseSerializer(serializers.Serializer):
 
 
 class KanbanColumnJobSerializer(serializers.Serializer):
-    """Serializer for job data in kanban column context (from get_jobs_by_kanban_column)."""
+    """
+    Serializer for job data in kanban column context
+    (from get_jobs_by_kanban_column).
+    """
 
     # Basic job info
     id = serializers.CharField()  # Converted to string by service

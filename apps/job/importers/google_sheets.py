@@ -57,9 +57,9 @@ def _get_credentials() -> service_account.Credentials:
                     f"Google service account key file not found: {key_file}"
                 )
 
-            CREDS = service_account.Credentials.from_service_account_file(  # type: ignore[no-untyped-call]
+            CREDS = service_account.Credentials.from_service_account_file(
                 key_file, scopes=SCOPES
-            )
+            )  # type: ignore[no-untyped-call]
 
             logger.info(f"Google API credentials loaded from {key_file}")
 

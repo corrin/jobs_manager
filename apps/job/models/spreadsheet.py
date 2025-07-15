@@ -28,4 +28,9 @@ class QuoteSpreadsheet(models.Model):
         verbose_name_plural = "Quote Spreadsheets"
 
     def __str__(self):
-        return f"Quote Spreadsheet for Job {self.job.job_number}\nID: {self.sheet_id}\nURL: {self.sheet_url}\n{'-' * 40}"
+        return (
+            f"Quote Spreadsheet for Job {self.job.job_number}\n"
+            f"ID: {self.sheet_id}\n"
+            f"URL: {self.sheet_url}\n"
+            f"{'-' * 40}"
+        )

@@ -27,7 +27,8 @@ class Command(BaseCommand):
     end-to-end debugging of the Gemini LLM pipeline.
 
     Example:
-        python manage.py test_gemini_chat <job_id> "What is the price for 2 mm steel sheet?"
+        python manage.py test_gemini_chat <job_id> \\
+            "What is the price for 2 mm steel sheet?"
     """
 
     help = "Tests the Gemini chat functionality for a given job and message."
@@ -104,7 +105,8 @@ class Command(BaseCommand):
             if assistant_message.metadata and assistant_message.metadata.get("error"):
                 self.stderr.write(
                     self.style.ERROR(
-                        f"An error was reported in the assistant message metadata: {assistant_message.metadata.get('error_message')}"
+                        f"An error was reported in the assistant message metadata: "
+                        f"{assistant_message.metadata.get('error_message')}"
                     )
                 )
 

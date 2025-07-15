@@ -76,7 +76,8 @@ class MCPChatService:
 
     def _get_system_prompt(self, job: Job) -> str:
         """Generate system prompt with job context and MCP tool descriptions."""
-        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works, a custom metal fabrication business.
+        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works,
+a sheet metal jobbing shop.
 
 Current Job Context:
 - Job: {job.name}
@@ -90,7 +91,8 @@ You have access to the following tools to help with quoting and material sourcin
    - Use this to find specific materials or products
    - Example: search_products("steel sheet 4x8")
 
-2. **get_pricing_for_material**: Get pricing information for specific materials with dimensions
+2. **get_pricing_for_material**: Get pricing information for specific materials \\
+with dimensions
    - Use this to get current market pricing
    - Example: get_pricing_for_material("aluminum", "4x8")
 
@@ -106,14 +108,16 @@ You have access to the following tools to help with quoting and material sourcin
    - Use this to find the best pricing options
    - Example: compare_suppliers("steel angle")
 
-Always be helpful, professional, and specific in your responses. When providing pricing or material recommendations, explain your reasoning and mention any relevant supplier information."""
+Always be helpful, professional, and specific in your responses. When providing
+pricing or material recommendations, explain your reasoning and mention any relevant
+supplier information."""
 
     def _get_mcp_tools(self) -> List[Dict[str, Any]]:
         """Define MCP tools for Claude API."""
         return [
             {
                 "name": "search_products",
-                "description": "Search supplier products by description or specifications",
+                "description": "Search supplier products by description or specs",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -415,7 +419,10 @@ Always be helpful, professional, and specific in your responses. When providing 
                 job=job,
                 message_id=f"assistant-error-{uuid.uuid4()}",
                 role="assistant",
-                content=f"I apologize, but I encountered an error processing your request: {str(e)}",
+                content=(
+                    "I apologize, but I encountered an error processing your request:"
+                    f"{str(e)}"
+                ),
                 metadata={"error": True, "error_message": str(e)},
             )
             return error_message

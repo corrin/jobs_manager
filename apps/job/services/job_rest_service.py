@@ -328,7 +328,9 @@ class JobRestService:
             ):
                 return {
                     "can_disable": False,
-                    "reason": "Cannot disable complex mode with multiple pricing entries",
+                    "reason": (
+                        "Cannot disable complex mode with multiple pricing entries"
+                    ),
                 }
 
         return {"can_disable": True, "reason": ""}
