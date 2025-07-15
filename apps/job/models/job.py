@@ -26,33 +26,45 @@ class Job(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [
+        ("draft", "Draft"),
+        ("awaiting_approval", "Awaiting Approval"),
+        ("approved", "Approved"),
+        ("in_progress", "In Progress"),
+        ("unusual", "Unusual"),
+        ("recently_completed", "Recently Completed"),
+        # Legacy statuses that are maintained but not shown on kanban
+        ("special", "Special"),
+        ("rejected", "Rejected"),
+        ("archived", "Archived"),
+        # Legacy statuses for data migration
         ("quoting", "Quoting"),
         ("accepted_quote", "Accepted Quote"),
         ("awaiting_materials", "Awaiting Materials"),
         ("awaiting_staff", "Awaiting Staff"),
         ("awaiting_site_availability", "Awaiting Site Availability"),
-        ("in_progress", "In Progress"),
         ("on_hold", "On Hold"),
-        ("special", "Special"),
-        ("recently_completed", "Recently Completed"),
         ("completed", "Completed"),
-        ("rejected", "Rejected"),
-        ("archived", "Archived"),
     ]
 
     STATUS_TOOLTIPS: Dict[str, str] = {
-        "quoting": "The quote is currently being prepared.",
-        "accepted_quote": "The quote has been approved, but work hasn't started yet.",
-        "awaiting_materials": "Job is ready to start but waiting for materials.",
-        "awaiting_staff": "Job is waiting for available staff to be assigned.",
-        "awaiting_site_availability": "Job is waiting for site access or availability.",
-        "rejected": "The quote was declined.",
-        "in_progress": "Work has started on this job.",
-        "on_hold": "The job is on hold for other reasons.",
-        "special": "Shop jobs, upcoming shutdowns, etc. (filtered from kanban).",
-        "recently_completed": "Work has just finished on this job.",
-        "completed": "Work finished and job is completed.",
-        "archived": "The job has been paid for and picked up.",
+        "draft": "Initial job creation - quote being prepared",
+        "awaiting_approval": "Quote submitted and waiting for customer approval",
+        "approved": "Quote approved and ready to start work",
+        "in_progress": "Work has started on this job",
+        "unusual": "Jobs requiring special attention or unusual circumstances",
+        "recently_completed": "Work has just finished on this job",
+        # Legacy tooltips for migration
+        "quoting": "The quote is currently being prepared (legacy)",
+        "accepted_quote": "The quote has been approved (legacy)",
+        "awaiting_materials": "Job is ready to start but waiting for materials (legacy)",
+        "awaiting_staff": "Job is waiting for available staff (legacy)",
+        "awaiting_site_availability": "Job is waiting for site access (legacy)",
+        "rejected": "The quote was declined",
+        "in_progress": "Work has started on this job",
+        "on_hold": "The job is on hold for other reasons (legacy)",
+        "special": "Shop jobs, upcoming shutdowns, etc. (filtered from kanban)",
+        "completed": "Work finished and job is completed (legacy)",
+        "archived": "The job has been paid for and picked up",
     }
 
     client = models.ForeignKey(
@@ -85,7 +97,7 @@ class Job(models.Model):
     )
     delivery_date = models.DateField(null=True, blank=True)  # type: ignore
     status: str = models.CharField(
-        max_length=30, choices=JOB_STATUS_CHOICES, default="quoting"
+        max_length=30, choices=JOB_STATUS_CHOICES, default="draft"
     )  # type: ignore
 
     PRICING_METHODOLOGY_CHOICES = [
