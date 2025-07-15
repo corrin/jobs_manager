@@ -170,9 +170,9 @@ class JobDetailRestView(BaseJobRestView):
         try:
             job_data = JobRestService.get_job_for_edit(job_id, request)
 
+            # The service returns already-serialized data, so return it directly
             response_data = {"success": True, "data": job_data}
-            response_serializer = JobDetailResponseSerializer(response_data)
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -190,9 +190,9 @@ class JobDetailRestView(BaseJobRestView):
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
 
-            # Since this returns the job data directly, we'll serialize it properly
-            job_serializer = JobSerializer(job_data, context={"request": request})
-            return Response(job_serializer.data, status=status.HTTP_200_OK)
+            # The service returns already-serialized data
+            response_data = {"success": True, "data": job_data}
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)

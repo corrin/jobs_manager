@@ -20,7 +20,6 @@ from apps.job.views.job_rest_views import (
     JobDetailRestView,
     JobEventRestView,
 )
-from apps.job.views.job_shop_status_view import JobShopStatusView
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
     ModernTimesheetEntryView,
@@ -43,12 +42,6 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
     ),
-    # Job shop status
-    path(
-        "rest/jobs/<uuid:job_id>/shop-status/",
-        JobShopStatusView.as_view(),
-        name="job_shop_status",
-    ),
     # Job events
     path(
         "rest/jobs/<uuid:job_id>/events/",
@@ -56,7 +49,8 @@ rest_urlpatterns = [
         name="job_events_rest",
     ),
     # Job entries
-    # Use CostLine endpoints instead of JobTimeEntryRestView, JobMaterialEntryRestView, JobAdjustmentEntryRestView
+    # Use CostLine endpoints instead of JobTimeEntryRestView,
+    # JobMaterialEntryRestView, JobAdjustmentEntryRestView
     # Job costing
     path(
         "rest/jobs/<uuid:pk>/cost_sets/<str:kind>/",

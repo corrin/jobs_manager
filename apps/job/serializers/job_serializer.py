@@ -158,6 +158,7 @@ class JobSerializer(serializers.ModelSerializer):
             "invoiced",
             "quote",
             "invoice",
+            "shop_job",
         ]
 
     def validate(self, attrs):
@@ -291,15 +292,6 @@ class AssignJobResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
-class JobShopStatusResponseSerializer(serializers.Serializer):
-    """Serializer for job shop status response."""
-
-    job_id = serializers.CharField()
-    job_number = serializers.IntegerField()
-    is_shop_job = serializers.BooleanField()
-    client_name = serializers.CharField(allow_null=True)
-
-
 class ArchiveJobsRequestSerializer(serializers.Serializer):
     """Serialiser for job archiving request"""
 
@@ -331,7 +323,8 @@ class WorkshopPDFResponseSerializer(serializers.Serializer):
     )
 
     class Meta:
-        # This is primarily for documentation - the actual response is a FileResponse (PDF)
+        # This is primarily for documentation - the actual response is a
+        # FileResponse (PDF)
         help_text = "Generates and returns a workshop PDF for the specified job"
 
 

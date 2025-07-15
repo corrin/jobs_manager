@@ -1211,7 +1211,10 @@ class StaffPerformanceService:
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
                 "total_staff": len(staff_data),
-                "period_description": f"{start_date.strftime('%B %d')} - {end_date.strftime('%B %d, %Y')}",
+                "period_description": (
+                    f"{start_date.strftime('%B %d')} - "
+                    f"{end_date.strftime('%B %d, %Y')}"
+                ),
             }
 
             return {
