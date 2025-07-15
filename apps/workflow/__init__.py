@@ -17,9 +17,9 @@ try:
         from .context_processors import debug_mode
         from .helpers import DecimalEncoder, decimal_to_float, get_company_defaults
         from .middleware import (
+            AccessLoggingMiddleware,
             LoginRequiredMiddleware,
             PasswordStrengthMiddleware,
-            TrackAuthenticatedAccessMiddleware,
         )
         from .permissions import F
         from .scheduler import (
@@ -72,6 +72,7 @@ __all__ = [
     "AIProviderCreateUpdateSerializer",
     "AIProviderSerializer",
     "AIProviderTypes",
+    "AccessLoggingMiddleware",
     "AppErrorDetailResponseSerializer",
     "AppErrorListResponseSerializer",
     "AppErrorSerializer",
@@ -81,7 +82,6 @@ __all__ = [
     "LoginRequiredMiddleware",
     "PasswordStrengthMiddleware",
     "ServiceAPIKeyAuthentication",
-    "TrackAuthenticatedAccessMiddleware",
     "WorkflowConfig",
     "XeroAccountSerializer",
     "XeroAuthenticationErrorResponseSerializer",
