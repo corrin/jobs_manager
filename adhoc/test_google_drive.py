@@ -33,7 +33,7 @@ def test_google_drive_access() -> bool:
 
         # Test folder access
         folder_id = "1DNw8rOVNaqRuDB56yR3e4dSHxTmXGQJu"
-        print(f"\n📁 Testing access to folder: {folder_id}")
+        print(f"Testing access to folder: {folder_id}")
 
         # Get folder metadata (with Shared Drive support)
         folder = (
@@ -71,7 +71,7 @@ def test_google_drive_access() -> bool:
         print("All tests passed! Google Drive integration is working correctly.")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"Error: {e}")
         print(f"   Type: {type(e).__name__}")
 
         # More detailed error info

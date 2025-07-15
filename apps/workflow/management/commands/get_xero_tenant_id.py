@@ -48,27 +48,25 @@ class Command(BaseCommand):
 
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"\nAutomatically set tenant ID to {tenant_id} "
+                        f"Automatically set tenant ID to {tenant_id} "
                         f"({tenant_name}) in CompanyDefaults"
                     )
                 )
             except Exception as e:
                 self.stdout.write(
-                    self.style.ERROR(
-                        f"\nFailed to set tenant ID in CompanyDefaults: {e}"
-                    )
+                    self.style.ERROR(f"Failed to set tenant ID in CompanyDefaults: {e}")
                 )
         elif len(connections) == 1 and options["no_set"]:
             self.stdout.write(
                 self.style.WARNING(
-                    "\nSingle tenant found but --no-set specified, "
+                    "Single tenant found but --no-set specified, "
                     "not updating CompanyDefaults"
                 )
             )
         elif len(connections) > 1:
             self.stdout.write(
                 self.style.WARNING(
-                    f"\nMultiple tenants found ({len(connections)}), "
+                    f"Multiple tenants found ({len(connections)}), "
                     "not automatically setting tenant ID"
                 )
             )

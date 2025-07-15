@@ -73,7 +73,7 @@ class SerializerTester:
                 "status": "SKIPPED - No data",
             }
 
-        print(f"\n🔍 Testing {name} ({total_count} records)...")
+        print(f"Testing {name} ({total_count} records)...")
 
         start_time = time.time()
         success_count = 0
@@ -239,7 +239,7 @@ class SerializerTester:
                 result = test_method()
                 self.results[test_name] = result
             except ImportError as e:
-                print(f"\n⚠️  Skipping {test_name}: {e}")
+                print(f"Skipping {test_name}: {e}")
                 self.results[test_name] = {
                     "name": test_name,
                     "status": f"SKIPPED - Import Error: {e}",
@@ -248,7 +248,7 @@ class SerializerTester:
                     "failed": 0,
                 }
             except Exception as e:
-                print(f"\n❌ Error testing {test_name}: {e}")
+                print(f"Error testing {test_name}: {e}")
                 self.results[test_name] = {
                     "name": test_name,
                     "status": f"ERROR: {e}",

@@ -102,5 +102,5 @@ if __name__ == "__main__":
     # Then test POST with different headers
     test_with_different_headers()
 
-    logger.info("\nNote: Make sure the Django server is running on port 8000")
+    logger.info("Note: Make sure the Django server is running on port 8000")
     logger.info("If you're getting connection errors, the server might not be running.")

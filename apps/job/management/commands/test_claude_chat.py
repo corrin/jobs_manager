@@ -81,7 +81,7 @@ class Command(BaseCommand):
             )
 
             # 4. Print the results
-            self.stdout.write(self.style.SUCCESS("\n--- AI Response Received ---"))
+            self.stdout.write(self.style.SUCCESS("--- AI Response Received ---"))
             self.stdout.write(f"Message ID: {assistant_message.message_id}")
             self.stdout.write(f"Role: {assistant_message.role}")
 
@@ -119,4 +119,4 @@ class Command(BaseCommand):
             logger.exception("An unexpected error occurred during the chat test.")
             raise CommandError(f"An unexpected error occurred: {e}")
 
-        self.stdout.write(self.style.SUCCESS("\n--- Test Completed Successfully ---"))
+        self.stdout.write(self.style.SUCCESS("--- Test Completed Successfully ---"))

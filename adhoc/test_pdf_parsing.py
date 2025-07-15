@@ -37,7 +37,7 @@ def test_pdf_parsing():
     for pdf_file in pdf_files:
         file_path = os.path.join(pdf_dir, pdf_file)
         if os.path.exists(file_path):
-            print(f"\n{'='*60}")
+            print(f"{'='*60}")
             print(f"Testing: {pdf_file}")
             print(f"{'='*60}")
 

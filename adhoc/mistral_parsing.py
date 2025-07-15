@@ -79,7 +79,7 @@ def main():
         print("-" * 50)
         if hasattr(ocr_response, "pages") and ocr_response.pages:
             first_page = ocr_response.pages[0]
-            print(f"\nPage 1 of {len(ocr_response.pages)}:")
+            print(f"Page 1 of {len(ocr_response.pages)}:")
             # Try to get markdown content first, fall back to text
             if hasattr(first_page, "markdown") and first_page.markdown:
                 preview = first_page.markdown[:500]
@@ -96,7 +96,7 @@ def main():
         print(f"- {os.path.abspath(json_output_file)}")
         print(f"- {os.path.abspath(md_output_file)}")
     except Exception as e:
-        print(f"\nAn error occurred: {str(e)}")
+        print(f"An error occurred: {str(e)}")
         if "retry_after" in str(e).lower():
             print(
                 "The server is processing your request. "
