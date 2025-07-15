@@ -97,7 +97,9 @@ class Job(models.Model):
         max_length=20,
         choices=PRICING_METHODOLOGY_CHOICES,
         default="time_materials",
-        help_text="Determines whether job uses quotes or time and materials pricing type.",
+        help_text=(
+            "Determines whether job uses quotes or time and materials pricing type."
+        ),
     )
 
     # Decided not to bother with parent for now since we don't have a hierarchy of jobs.
@@ -378,7 +380,8 @@ class Job(models.Model):
                     job=self,
                     event_type="status_changed",
                     description=(
-                        f"Status changed from {original_status.replace('_', ' ').title()} "
+                        f"Status changed from "
+                        f"{original_status.replace('_', ' ').title()} "
                         f"to {self.status.replace('_', ' ').title()}"
                     ),
                     staff=staff,

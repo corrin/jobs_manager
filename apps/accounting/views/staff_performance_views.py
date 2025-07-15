@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from logging import getLogger
 from typing import Any
 
@@ -40,7 +40,9 @@ class StaffPerformanceSummaryAPIView(APIView):
 
             if not start_date_str or not end_date_str:
                 error_data = {
-                    "error": "Both start_date and end_date query parameters are required"
+                    "error": (
+                        "Both start_date and end_date query parameters are required"
+                    )
                 }
                 error_serializer = StaffPerformanceErrorResponseSerializer(
                     data=error_data
@@ -53,14 +55,18 @@ class StaffPerformanceSummaryAPIView(APIView):
             try:
                 start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
                 end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-            except ValueError:
+            except ValueError as exc:
                 error_data = {"error": "Invalid date format. Use YYYY-MM-DD format"}
                 error_serializer = StaffPerformanceErrorResponseSerializer(
                     data=error_data
                 )
                 error_serializer.is_valid(raise_exception=True)
-                PersistAppError(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                persist_app_error(
+                    exc,
+                    additional_context={
+                        "start_date": start_date_str,
+                        "end_date": end_date_str,
+                    },
                 )
                 return Response(
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
@@ -72,8 +78,12 @@ class StaffPerformanceSummaryAPIView(APIView):
                     data=error_data
                 )
                 error_serializer.is_valid(raise_exception=True)
-                PersistAppError(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                persist_app_error(
+                    ValueError("start_date must be before or equal to end_date"),
+                    additional_context={
+                        "start_date": start_date_str,
+                        "end_date": end_date_str,
+                    },
                 )
                 return Response(
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
@@ -103,7 +113,10 @@ class StaffPerformanceSummaryAPIView(APIView):
                 },
             )
             error_data = {
-                "error": "Internal server error occurred while generating staff performance report"
+                "error": (
+                    "Internal server error occurred while generating staff "
+                    "performance report"
+                )
             }
             error_serializer = StaffPerformanceErrorResponseSerializer(data=error_data)
             error_serializer.is_valid(raise_exception=True)
@@ -125,7 +138,9 @@ class StaffPerformanceDetailAPIView(APIView):
 
             if not start_date_str or not end_date_str:
                 error_data = {
-                    "error": "Both start_date and end_date query parameters are required"
+                    "error": (
+                        "Both start_date and end_date query parameters are required"
+                    )
                 }
                 error_serializer = StaffPerformanceErrorResponseSerializer(
                     data=error_data
@@ -194,7 +209,10 @@ class StaffPerformanceDetailAPIView(APIView):
                 },
             )
             error_data = {
-                "error": "Internal server error occurred while generating staff performance report"
+                "error": (
+                    "Internal server error occurred while generating staff "
+                    "performance report"
+                )
             }
             error_serializer = StaffPerformanceErrorResponseSerializer(data=error_data)
             error_serializer.is_valid(raise_exception=True)

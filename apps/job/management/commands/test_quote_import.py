@@ -24,12 +24,18 @@ class Command(BaseCommand):
             "--file",
             type=str,
             default="Quoting Spreadsheet 2025.xlsx",
-            help="Path to the Excel file (default: Quoting Spreadsheet 2025.xlsx in project root)",
+            help=(
+                "Path to the Excel file "
+                "(default: Quoting Spreadsheet 2025.xlsx in project root)"
+            ),
         )
         parser.add_argument(
             "--job-id",
             type=str,
-            help="Job ID to import quote for (if not provided, will use or create test job)",
+            help=(
+                "Job ID to import quote for "
+                "(if not provided, will use or create test job)"
+            ),
         )
         parser.add_argument(
             "--preview-only",
@@ -132,7 +138,8 @@ class Command(BaseCommand):
         validation_report = preview_data.get("validation_report")
         if validation_report:
             self.stdout.write(
-                f"  Validation issues: {validation_report.get('summary', {}).get('total_issues', 0)}"
+                f"  Validation issues: "
+                f"{validation_report.get('summary', {}).get('total_issues', 0)}"
             )
             if validation_report.get("critical_issues"):
                 self.stdout.write(
@@ -191,7 +198,8 @@ class Command(BaseCommand):
 
             if result.cost_set:
                 self.stdout.write(
-                    f"  New CostSet: Rev {result.cost_set.rev} (ID: {result.cost_set.id})"
+                    f"  New CostSet: Rev {result.cost_set.rev} "
+                    f"(ID: {result.cost_set.id})"
                 )
                 self.stdout.write(f"  Summary: {result.cost_set.summary}")
                 self.stdout.write(f"  Cost lines: {result.cost_set.cost_lines.count()}")

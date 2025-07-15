@@ -1,7 +1,6 @@
 import logging
-import time
 from datetime import datetime
-from typing import Callable
+from typing import Any, Callable, Optional, Tuple
 
 from django.conf import settings
 from django.contrib import messages
@@ -9,14 +8,12 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
-# Configure access logger
+from apps.accounts.models import Staff
+from apps.workflow.services.error_persistence import persist_app_error
+from jobs_manager.authentication import JWTAuthentication
+
+# Get access logger configured in Django settings
 access_logger = logging.getLogger("access")
-access_logger.setLevel(logging.INFO)
-if not access_logger.handlers:
-    handler = logging.FileHandler("logs/access.log")
-    handler.setFormatter(logging.Formatter("%(message)s"))
-    access_logger.addHandler(handler)
-    access_logger.propagate = False
 
 
 class AccessLoggingMiddleware:
@@ -24,18 +21,33 @@ class AccessLoggingMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
+        # Try to authenticate with JWT if not already authenticated
+        if not request.user.is_authenticated:
+            jwt_auth = JWTAuthentication()
+            try:
+                auth_result = jwt_auth.authenticate(request)
+                if auth_result:
+                    request.user, _ = auth_result
+            except Exception:
+                # If JWT authentication fails, continue with anonymous user
+                pass
+
         # Handle unhappy case first - unauthenticated users
         if not request.user.is_authenticated:
             return self.get_response(request)
 
         # Log authenticated user access
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        user = request.user.username
-        page = request.path
-        method = request.method
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            user = getattr(request.user, "email", str(request.user))
+            page = request.path
+            method = request.method
 
-        access_logger.info(f"{timestamp}\t{method}\t{user}\t{page}")
-
+            access_logger.info(f"{timestamp}\t{method}\t{user}\t{page}")
+        except Exception as e:
+            # Log any errors that occur during logging
+            access_logger.error(f"Error logging access: {e}")
+            persist_app_error(e)
         return self.get_response(request)
 
 
@@ -64,8 +76,9 @@ class LoginRequiredMiddleware:
                     self.exempt_url_prefixes.append(url_name)
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        # Skip authentication entirely for local development when DEBUG=True
+        # In DEBUG mode, skip login requirements but continue processing
         if settings.DEBUG:
+            # Don't enforce login requirements, continue middleware chain
             return self.get_response(request)
 
         login_path = reverse("accounts:login")
@@ -141,7 +154,8 @@ class PasswordStrengthMiddleware:
             ):
                 messages.warning(
                     request,
-                    "For security reasons, you need to update your password to meet our new requirements.",
+                    "For security reasons, you need to update your password to "
+                    "meet our new requirements.",
                 )
                 return redirect("accounts:password_change")
 

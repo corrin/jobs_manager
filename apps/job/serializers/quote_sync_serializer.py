@@ -50,7 +50,8 @@ class QuoteChangesSerializer(serializers.Serializer):
 class PreviewQuoteResponseSerializer(serializers.Serializer):
     """Serializer for preview quote response."""
 
-    # This will be flexible to accommodate the actual structure from quote_sync_service.preview_quote()
+    # This will be flexible to accommodate the actual structure
+    # from quote_sync_service.preview_quote()
     success = serializers.BooleanField(required=False)
     draft_lines = DraftLineSerializer(many=True, required=False)
     changes = QuoteChangesSerializer(required=False)
