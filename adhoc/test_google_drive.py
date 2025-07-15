@@ -27,13 +27,13 @@ def test_google_drive_access() -> bool:
         print("✅ Credentials loaded successfully")
 
         # Build Drive service
-        print("\n🔨 Building Google Drive service...")
+        print("Building Google Drive service...")
         drive_service = build("drive", "v3", credentials=creds)
         print("✅ Drive service created successfully")
 
         # Test folder access
         folder_id = "1DNw8rOVNaqRuDB56yR3e4dSHxTmXGQJu"
-        print(f"\n📁 Testing access to folder: {folder_id}")
+        print(f"Testing access to folder: {folder_id}")
 
         # Get folder metadata (with Shared Drive support)
         folder = (
@@ -48,7 +48,7 @@ def test_google_drive_access() -> bool:
         print(f"   Created: {folder.get('createdTime', 'Unknown')}")
 
         # List folder contents (with Shared Drive support)
-        print("\n📋 Listing contents of folder...")
+        print("Listing contents of folder...")
         results = (
             drive_service.files()
             .list(
@@ -68,10 +68,10 @@ def test_google_drive_access() -> bool:
         else:
             print("✅ Folder is empty (as expected)")
 
-        print("\n🎉 All tests passed! Google Drive integration is working correctly.")
+        print("All tests passed! Google Drive integration is working correctly.")
 
     except Exception as e:
-        print(f"\n❌ Error: {e}")
+        print(f"Error: {e}")
         print(f"   Type: {type(e).__name__}")
 
         # More detailed error info

@@ -175,7 +175,7 @@ class Command(BaseCommand):
                     time.sleep(delay)
 
             # Final statistics
-            self.stdout.write(self.style.SUCCESS("\n=== FINAL RESULTS ==="))
+            self.stdout.write(self.style.SUCCESS("=== FINAL RESULTS ==="))
             self.stdout.write(f"Total products processed: {processed_count}")
             self.stdout.write(f"Total products failed: {failed_count}")
             self.stdout.write(
@@ -192,7 +192,7 @@ class Command(BaseCommand):
             if failed_count > 0:
                 self.stdout.write(
                     self.style.WARNING(
-                        f"\n{failed_count} products failed to process. "
+                        f"{failed_count} products failed to process. "
                         "You can re-run this command with --resume to retry failed items."
                     )
                 )

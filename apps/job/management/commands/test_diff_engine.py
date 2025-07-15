@@ -68,7 +68,7 @@ class Command(BaseCommand):
         diff_result = diff_costset(old_cost_set, draft_lines)
 
         # Show diff results
-        self.stdout.write("\n📊 Diff Results:")
+        self.stdout.write("Diff Results:")
         self.stdout.write(f"  Additions: {len(diff_result.to_add)}")
         self.stdout.write(f"  Updates: {len(diff_result.to_update)}")
         self.stdout.write(f"  Deletions: {len(diff_result.to_delete)}")
@@ -80,16 +80,14 @@ class Command(BaseCommand):
         # Apply diff to create new cost set
         if diff_result.has_changes:
             new_cost_set = apply_diff(old_cost_set, diff_result)
-            self.stdout.write(f"\n✅ Applied diff - created new CostSet: {new_cost_set}")
+            self.stdout.write(f"Applied diff - created new CostSet: {new_cost_set}")
 
             if verbose:
                 self._show_cost_set_details(new_cost_set, "New CostSet")
         else:
-            self.stdout.write("\n✅ No changes detected - no new CostSet created")
+            self.stdout.write("No changes detected - no new CostSet created")
 
-        self.stdout.write(
-            self.style.SUCCESS("\n🎉 Diff engine test completed successfully")
-        )
+        self.stdout.write(self.style.SUCCESS("Diff engine test completed successfully"))
 
     def _create_test_cost_set(self, job: Job) -> CostSet:
         """Create a test CostSet with sample data"""
@@ -199,7 +197,7 @@ class Command(BaseCommand):
 
     def _show_cost_set_details(self, cost_set: CostSet, title: str):
         """Show detailed information about a CostSet"""
-        self.stdout.write(f"\n📋 {title}:")
+        self.stdout.write(f"{title}:")
         self.stdout.write(f"  ID: {cost_set.id}")
         self.stdout.write(f"  Kind: {cost_set.kind}")
         self.stdout.write(f"  Revision: {cost_set.rev}")
@@ -215,7 +213,7 @@ class Command(BaseCommand):
 
     def _show_draft_lines(self, drafts: list[DraftLine]):
         """Show draft line details"""
-        self.stdout.write("\n📝 Draft Lines:")
+        self.stdout.write("Draft Lines:")
         for i, draft in enumerate(drafts, 1):
             self.stdout.write(
                 f"  {i}. [{draft.kind}] {draft.desc} "
@@ -226,7 +224,7 @@ class Command(BaseCommand):
     def _show_diff_details(self, diff_result):
         """Show detailed diff results"""
         if diff_result.to_add:
-            self.stdout.write(f"\n➕ Lines to ADD ({len(diff_result.to_add)}):")
+            self.stdout.write(f"Lines to ADD ({len(diff_result.to_add)}):")
             for i, draft in enumerate(diff_result.to_add, 1):
                 self.stdout.write(
                     f"  {i}. [{draft.kind}] {draft.desc} "
@@ -234,7 +232,7 @@ class Command(BaseCommand):
                 )
 
         if diff_result.to_update:
-            self.stdout.write(f"\n🔄 Lines to UPDATE ({len(diff_result.to_update)}):")
+            self.stdout.write(f"Lines to UPDATE ({len(diff_result.to_update)}):")
             for i, (old_line, draft) in enumerate(diff_result.to_update, 1):
                 self.stdout.write(f"  {i}. [{old_line.kind}] {old_line.desc}")
                 self.stdout.write(
@@ -245,7 +243,7 @@ class Command(BaseCommand):
                 )
 
         if diff_result.to_delete:
-            self.stdout.write(f"\n❌ Lines to DELETE ({len(diff_result.to_delete)}):")
+            self.stdout.write(f"Lines to DELETE ({len(diff_result.to_delete)}):")
             for i, line in enumerate(diff_result.to_delete, 1):
                 self.stdout.write(
                     f"  {i}. [{line.kind}] {line.desc} "

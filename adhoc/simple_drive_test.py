@@ -54,7 +54,7 @@ def test_drive_access():
         print("✅ Drive service created")
 
         # Test basic API access - list some files
-        print("\n🔍 Testing basic Drive API access...")
+        print("Testing basic Drive API access...")
         try:
             results = (
                 drive_service.files()
@@ -71,9 +71,7 @@ def test_drive_access():
                     jobs_manager_folder = f["id"]
 
             if jobs_manager_folder:
-                print(
-                    f"\n💡 Found existing 'Jobs Manager' folder: {jobs_manager_folder}"
-                )
+                print(f"Found existing 'Jobs Manager' folder: {jobs_manager_folder}")
                 print(f"💡 Update CompanyDefaults to use: {jobs_manager_folder}")
         except Exception as e:
             print(f"❌ Basic Drive API failed: {e}")
@@ -84,7 +82,7 @@ def test_drive_access():
 
         # Test the original folder access
         folder_id = "1DNw8rOVNaqRuDB56yR3e4dSHxTmXGQJu"
-        print(f"\n📁 Testing original folder: {folder_id}")
+        print(f"Testing original folder: {folder_id}")
 
         try:
             folder = drive_service.files().get(fileId=folder_id).execute()
@@ -103,7 +101,7 @@ def test_drive_access():
 
         # Test the file you created
         file_id = "1ds1MwgIfRLtv1c_mbREE8H6xcRzz_yhAHHx3kKBehN0"
-        print(f"\n📄 Testing your test file: {file_id}")
+        print(f"Testing your test file: {file_id}")
 
         try:
             file_info = drive_service.files().get(fileId=file_id).execute()
@@ -121,10 +119,10 @@ def test_drive_access():
                     print(f"✅ Parent folder: '{parent['name']}'")
 
                     if not original_folder_works:
-                        print(f"\n💡 Use this working folder ID: {parent_id}")
+                        print(f"Use this working folder ID: {parent_id}")
 
                     # Try creating subfolder in working folder
-                    print("\n🔨 Testing subfolder creation...")
+                    print("Testing subfolder creation...")
                     test_folder = {
                         "name": "Test Jobs Manager",
                         "parents": [parent_id],
@@ -157,11 +155,11 @@ def test_drive_access():
                     f"   Response content: {e.content.decode() if hasattr(e, 'content') else 'N/A'}"
                 )
 
-        print("\n🎉 SUCCESS: Google Drive API is working!")
+        print("SUCCESS: Google Drive API is working!")
         return True
 
     except Exception as e:
-        print(f"\n❌ ERROR: {e}")
+        print(f"ERROR: {e}")
         return False
 
 

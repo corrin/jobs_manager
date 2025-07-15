@@ -128,11 +128,11 @@ class Command(BaseCommand):
 
     def _test_preview(self, job: Job, file_path: str):
         """Test the preview functionality"""
-        self.stdout.write("\n🔍 Testing quote import preview...")
+        self.stdout.write("Testing quote import preview...")
 
         preview_data = preview_quote_import(job, file_path)
 
-        self.stdout.write("\n📋 Preview Results:")
+        self.stdout.write("Preview Results:")
         self.stdout.write(f"  Can proceed: {preview_data.get('can_proceed', False)}")
         # Show validation report
         validation_report = preview_data.get("validation_report")
@@ -167,17 +167,17 @@ class Command(BaseCommand):
 
         if preview_data.get("can_proceed", False):
             self.stdout.write(
-                self.style.SUCCESS("\n✅ Preview successful - import can proceed")
+                self.style.SUCCESS("Preview successful - import can proceed")
             )
         else:
             self.stdout.write(
-                self.style.ERROR("\n❌ Preview failed - import cannot proceed")
+                self.style.ERROR("Preview failed - import cannot proceed")
             )
 
     def _test_import(self, job: Job, file_path: str, skip_validation: bool):
         """Test the full import functionality"""
         self.stdout.write(
-            f"\n📥 Testing quote import (skip_validation={skip_validation})..."
+            f"Testing quote import (skip_validation={skip_validation})..."
         )
 
         # Show current state
@@ -194,7 +194,7 @@ class Command(BaseCommand):
 
         # Show results
         if result.success:
-            self.stdout.write(self.style.SUCCESS("\n✅ Quote import successful!"))
+            self.stdout.write(self.style.SUCCESS("Quote import successful!"))
 
             if result.cost_set:
                 self.stdout.write(
@@ -225,7 +225,7 @@ class Command(BaseCommand):
                 self.stdout.write("  ❌ Job latest_quote pointer not updated correctly")
 
         else:
-            self.stdout.write(self.style.ERROR("\n❌ Quote import failed!"))
+            self.stdout.write(self.style.ERROR("Quote import failed!"))
             self.stdout.write(f"  Error: {result.error_message}")
             if result.validation_report:
                 self.stdout.write("  Validation issues:")
