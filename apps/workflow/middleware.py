@@ -1,3 +1,4 @@
+import time
 from typing import Callable
 
 from django.conf import settings
@@ -5,6 +6,22 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+
+LAST_AUTH_ACCESS = "/tmp/last_authenticated_access.timestamp"
+
+
+class TrackAuthenticatedAccessMiddleware:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        if request.user.is_authenticated:
+            try:
+                with open(LAST_AUTH_ACCESS, "w") as f:
+                    f.write(str(time.time()))
+            except Exception:
+                pass  # fail quietly on Windows/other platforms
+        return self.get_response(request)
 
 
 class LoginRequiredMiddleware:
