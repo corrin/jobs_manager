@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin, JobNumberLookupMixin
-from apps.job.models import Job, JobFile
+from apps.job.models import JobFile
 from apps.job.serializers.job_file_serializer import (
     JobFileErrorResponseSerializer,
     JobFileSerializer,

@@ -53,6 +53,8 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.workflow.middleware.AccessLoggingMiddleware",
+    "apps.workflow.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
@@ -61,12 +63,11 @@ MIDDLEWARE = [
 # JWT/general authentication settings
 
 ENABLE_JWT_AUTH = True
-ENABLE_DUAL_AUTHENTICATION = False
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [
-        "apps.workflow.permissions.DevelopmentOrAuthenticatedPermission",
+        "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -123,6 +124,10 @@ LOGGING = {
         },
         "simple": {
             "format": "{levelname} {message}",
+            "style": "{",
+        },
+        "access": {
+            "format": "{message}",
             "style": "{",
         },
     },
@@ -188,6 +193,14 @@ LOGGING = {
             "backupCount": 10,
             "formatter": "verbose",
         },
+        "access_file": {
+            "level": "INFO",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/access.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "access",
+        },
         "mail_admins": {
             "level": "ERROR",
             "class": "django.utils.log.AdminEmailHandler",
@@ -225,6 +238,11 @@ LOGGING = {
         },
         "django_apscheduler": {
             "handlers": ["console", "scheduler_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "access": {
+            "handlers": ["access_file"],
             "level": "INFO",
             "propagate": False,
         },
@@ -325,7 +343,7 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.mysql",
         "NAME": os.getenv("MYSQL_DATABASE"),
-        "USER": os.getenv("MSM_DB_USER"),
+        "USER": os.getenv("MYSQL_DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT"),
@@ -464,7 +482,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 20 * 1024 * 1024
 
 
-def validate_required_settings():
+def validate_required_settings() -> None:
     """Validate that all required settings are properly configured."""
     required_settings = {
         "SECRET_KEY": SECRET_KEY,

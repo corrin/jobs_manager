@@ -1,13 +1,13 @@
 import calendar
 import datetime
+import logging
 from datetime import date, timedelta
 from decimal import Decimal
 from logging import getLogger
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import holidays
 from django.db import models
-from django.db.models import Case, DecimalField, F, Sum, Value, When
 from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
@@ -15,8 +15,8 @@ from apps.accounting.utils import get_nz_tz
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
-from apps.job.models.costing import CostLine, CostSet
-from apps.job.models import Job, JobEvent
+from apps.job.models import Job
+from apps.job.models.costing import CostLine
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -30,10 +30,10 @@ class KPIService:
     """
 
     nz_timezone = get_nz_tz()
-    shop_client_id: str = None  # Will be set on first access
+    shop_client_id: Optional[str] = None  # Will be set on first access
 
     @classmethod
-    def _ensure_shop_client_id(cls):
+    def _ensure_shop_client_id(cls) -> None:
         """Ensure shop_client_id is set, initialize if needed"""
         if cls.shop_client_id is None:
             cls.shop_client_id = Client.get_shop_client_id()
@@ -49,6 +49,8 @@ class KPIService:
         logger.info("Retrieving company thresholds for KPI calculations")
         try:
             company_defaults: CompanyDefaults = CompanyDefaults.objects.first()
+            if not company_defaults:
+                raise ValueError("No company defaults found")
             thresholds = {
                 "billable_threshold_green": float(
                     company_defaults.billable_threshold_green
@@ -69,8 +71,10 @@ class KPIService:
 
     @staticmethod
     def _process_entries(
-        entries: Dict, revenue_key="revenue", cost_key="cost"
-    ) -> Dict[datetime.date, Dict]:
+        entries: List[Dict[str, Any]],
+        revenue_key: str = "revenue",
+        cost_key: str = "cost",
+    ) -> Dict[datetime.date, Dict[str, float]]:
         """
         Segregates entries by date based on the provided Dict
         """
@@ -84,7 +88,7 @@ class KPIService:
         return entries_by_date
 
     @classmethod
-    def _get_holidays(cls, year, month=None):
+    def _get_holidays(cls, year: int, month: Optional[int] = None) -> Dict[date, str]:
         """
         Gets New Zealand holidays for a specific year and month.
 
@@ -332,8 +336,6 @@ class KPIService:
             "material_profit": 0,
             "adjustment_profit": 0,
         }
-
-        decimal_field = DecimalField(max_digits=10, decimal_places=2)
 
         # Process data using CostLine from 'actual' cost sets
         # Get time entries aggregated by date
@@ -774,39 +776,46 @@ class JobAgingService:
     def get_job_aging_data(include_archived: bool = False) -> Dict[str, Any]:
         """
         Main method to fetch and process all job aging data.
-        
+
         Args:
             include_archived: Whether to include archived jobs in the results
-            
+
         Returns:
             Dict containing job aging data
         """
         logger.info("Generating job aging data")
-        
+
         try:
             # Get active jobs (exclude archived unless requested)
             jobs_query = Job.objects.select_related("client").prefetch_related(
                 "events", "cost_sets__cost_lines"
             )
-            
+
             if not include_archived:
                 jobs_query = jobs_query.exclude(status="archived")
-            
+
             jobs = jobs_query.order_by("-created_at")
         except Exception as exc:
             logger.error(f"Database error fetching jobs: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                additional_context={
+                    "operation": "fetch_jobs_for_aging_report",
+                    "include_archived": include_archived,
+                    "query_filters": "active_jobs_with_client_and_cost_data",
+                },
+            )
             return {"jobs": []}
-        
+
         job_data = []
         for job in jobs:
             try:
                 # Get financial data
                 financial_data = JobAgingService._get_financial_totals(job)
-                
+
                 # Get timing data
                 timing_data = JobAgingService._get_timing_data(job)
-                
+
                 job_info = {
                     "id": str(job.id),
                     "job_number": job.job_number,
@@ -815,41 +824,58 @@ class JobAgingService:
                     "status": job.status,
                     "status_display": job.get_status_display(),
                     "financial_data": financial_data,
-                    "timing_data": timing_data
+                    "timing_data": timing_data,
                 }
                 job_data.append(job_info)
             except Exception as exc:
                 logger.error(f"Error processing job {job.job_number}: {str(exc)}")
-                persist_app_error(exc)
+                persist_app_error(
+                    exc,
+                    job_id=job.id,
+                    additional_context={
+                        "operation": "process_individual_job_for_aging",
+                        "job_number": job.job_number,
+                        "job_status": job.status,
+                        "client_name": job.client.name if job.client else None,
+                    },
+                )
                 # Continue processing other jobs
-        
+
         # Sort by last activity (most recent first)
         try:
             job_data.sort(key=lambda x: x["timing_data"]["last_activity_days_ago"])
         except Exception as exc:
             logger.warning(f"Error sorting job data: {str(exc)}")
-            persist_app_error(exc)
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                additional_context={
+                    "operation": "sort_job_aging_data",
+                    "jobs_count": len(job_data),
+                    "sort_key": "timing_data.last_activity_days_ago",
+                },
+            )
             # Return unsorted data
-        
+
         return {"jobs": job_data}
 
     @staticmethod
     def _get_financial_totals(job: Job) -> Dict[str, float]:
         """
         Extract estimate/quote/actual totals from CostSets.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Dict containing financial totals
         """
         financial_data = {
             "estimate_total": 0.0,
             "quote_total": 0.0,
-            "actual_total": 0.0
+            "actual_total": 0.0,
         }
-        
+
         try:
             # Get latest estimate
             if job.latest_estimate:
@@ -857,9 +883,21 @@ class JobAgingService:
                     sum(line.total_rev for line in job.latest_estimate.cost_lines.all())
                 )
         except Exception as exc:
-            logger.warning(f"Error calculating estimate total for job {job.job_number}: {str(exc)}")
-            persist_app_error(exc)
-        
+            logger.warning(
+                f"Error calculating estimate total for job {job.job_number}: {str(exc)}"
+            )
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                job_id=job.id,
+                additional_context={
+                    "operation": "calculate_job_estimate_total",
+                    "job_number": job.job_number,
+                    "has_latest_estimate": job.latest_estimate is not None,
+                    "business_process": "job_aging_financial_data",
+                },
+            )
+
         try:
             # Get latest quote
             if job.latest_quote:
@@ -867,9 +905,21 @@ class JobAgingService:
                     sum(line.total_rev for line in job.latest_quote.cost_lines.all())
                 )
         except Exception as exc:
-            logger.warning(f"Error calculating quote total for job {job.job_number}: {str(exc)}")
-            persist_app_error(exc)
-        
+            logger.warning(
+                f"Error calculating quote total for job {job.job_number}: {str(exc)}"
+            )
+            persist_app_error(
+                exc,
+                severity=logging.WARNING,
+                job_id=job.id,
+                additional_context={
+                    "operation": "calculate_job_quote_total",
+                    "job_number": job.job_number,
+                    "has_latest_quote": job.latest_quote is not None,
+                    "business_process": "job_aging_financial_data",
+                },
+            )
+
         try:
             # Get latest actual
             if job.latest_actual:
@@ -877,25 +927,27 @@ class JobAgingService:
                     sum(line.total_rev for line in job.latest_actual.cost_lines.all())
                 )
         except Exception as exc:
-            logger.warning(f"Error calculating actual total for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error calculating actual total for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         return financial_data
 
     @staticmethod
     def _get_timing_data(job: Job) -> Dict[str, Any]:
         """
         Calculate timing information for a job.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Dict containing timing data
         """
         now = timezone.now()
         created_date = job.created_at.date()
-        
+
         timing_data = {
             "created_date": created_date.isoformat(),
             "created_days_ago": (now.date() - created_date).days,
@@ -903,42 +955,46 @@ class JobAgingService:
             "last_activity_date": None,
             "last_activity_days_ago": None,
             "last_activity_type": None,
-            "last_activity_description": None
+            "last_activity_description": None,
         }
-        
+
         try:
-            timing_data["days_in_current_status"] = JobAgingService._calculate_time_in_status(job)
+            timing_data[
+                "days_in_current_status"
+            ] = JobAgingService._calculate_time_in_status(job)
         except Exception as exc:
-            logger.warning(f"Error calculating time in status for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error calculating time in status for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         try:
             # Get last activity
             last_activity = JobAgingService._get_last_activity(job)
             if last_activity:
                 timing_data.update(last_activity)
         except Exception as exc:
-            logger.warning(f"Error getting last activity for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error getting last activity for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         return timing_data
 
     @staticmethod
     def _calculate_time_in_status(job: Job) -> int:
         """
         Calculate days in current status using JobEvent model.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Number of days in current status
         """
         # Find the most recent status change event
-        latest_status_change = job.events.filter(
-            event_type="status_change"
-        ).first()
-        
+        latest_status_change = job.events.filter(event_type="status_change").first()
+
         if latest_status_change:
             days_in_status = (timezone.now() - latest_status_change.timestamp).days
             return days_in_status
@@ -950,104 +1006,385 @@ class JobAgingService:
     def _get_last_activity(job: Job) -> Dict[str, Any]:
         """
         Find most recent activity across ALL sources.
-        
+
         Args:
             job: Job instance
-            
+
         Returns:
             Dict containing last activity information or None if no activities found
         """
         activities = []
-        
+
         try:
             # Check job events
             latest_event = job.events.first()  # Already ordered by -timestamp
             if latest_event:
-                activities.append({
-                    "date": latest_event.timestamp,
-                    "type": "job_event",
-                    "description": f"{latest_event.event_type}: {latest_event.description}"
-                })
+                activities.append(
+                    {
+                        "date": latest_event.timestamp,
+                        "type": "job_event",
+                        "description": (
+                            f"{latest_event.event_type}: {latest_event.description}"
+                        ),
+                    }
+                )
         except Exception as exc:
-            logger.warning(f"Error checking job events for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error checking job events for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         try:
             # Check job model updates
             if job.updated_at:
-                activities.append({
-                    "date": job.updated_at,
-                    "type": "job_update",
-                    "description": "Job record updated"
-                })
+                activities.append(
+                    {
+                        "date": job.updated_at,
+                        "type": "job_update",
+                        "description": "Job record updated",
+                    }
+                )
         except Exception as exc:
-            logger.warning(f"Error checking job updates for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                f"Error checking job updates for job {job.job_number}: {str(exc)}"
+            )
             persist_app_error(exc)
-        
+
         try:
             # Check cost lines across all job cost sets
             for cost_set in job.cost_sets.all():
                 for cost_line in cost_set.cost_lines.all():
-                    # Get the creation date - use the meta date if available, otherwise fall back to cost_set creation
-                    line_date = cost_line.meta.get('date')
+                    # Get the creation date - use the meta date if available,
+                    # otherwise fall back to cost_set creation
+                    line_date = cost_line.meta.get("date")
                     if line_date:
                         try:
                             # Convert from ISO string to datetime
                             import datetime
+
                             line_datetime = datetime.datetime.fromisoformat(line_date)
                             # Convert to timezone-aware datetime
                             from django.utils import timezone
+
                             if timezone.is_naive(line_datetime):
                                 line_datetime = timezone.make_aware(line_datetime)
                         except (ValueError, TypeError):
                             # Fall back to cost_set creation date if date parsing fails
                             line_datetime = cost_set.created
                     else:
+                        logger.warning("Fallback called - cost_set created date used")
                         # Fall back to cost_set creation date if no date in meta
                         line_datetime = cost_set.created
-                    
-                    description = f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
+
+                    description = (
+                        f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
+                    )
                     if cost_line.kind == "time":
                         try:
-                            staff_id = cost_line.meta.get('staff_id')
+                            staff_id = cost_line.meta.get("staff_id")
                             staff = Staff.objects.get(id=staff_id)
-                            description = f"Time added by {staff.get_display_full_name()}"
+                            description = (
+                                f"Time added by {staff.get_display_full_name()}"
+                            )
                         except (Staff.DoesNotExist, ValueError, TypeError) as exc:
-                            logger.error("Corrupted data.  staff_id is missing in cost line meta.")
+                            logger.error(
+                                "Corrupted data. staff_id is missing in cost line meta."
+                            )
                             persist_app_error(exc)
-                            description = f"Time added by unknown staff"
+                            description = "Time added by unknown staff"
 
-                    activities.append({
-                        "date": line_datetime,
-                        "type": f"cost_line_{cost_line.kind}",
-                        "description": description
-                    })
+                    activities.append(
+                        {
+                            "date": line_datetime,
+                            "type": f"cost_line_{cost_line.kind}",
+                            "description": description,
+                        }
+                    )
         except Exception as exc:
-            logger.warning(f"Error checking cost line activities for job {job.job_number}: {str(exc)}")
+            logger.warning(
+                (
+                    f"Error checking cost line activities for job "
+                    f"{job.job_number}: {str(exc)}"
+                )
+            )
             persist_app_error(exc)
-        
+
         # Find the most recent activity
         if activities:
             try:
                 latest_activity = max(activities, key=lambda x: x["date"])
                 activity_date = latest_activity["date"]
-                
+
                 # Handle both date and datetime objects
-                if hasattr(activity_date, 'date'):
+                if hasattr(activity_date, "date"):
                     activity_date_obj = activity_date.date()
                 else:
                     activity_date_obj = activity_date
-                
+
                 days_ago = (timezone.now().date() - activity_date_obj).days
-                
+
                 return {
                     "last_activity_date": activity_date_obj.isoformat(),
                     "last_activity_days_ago": days_ago,
                     "last_activity_type": latest_activity["type"],
-                    "last_activity_description": latest_activity["description"]
+                    "last_activity_description": latest_activity["description"],
                 }
             except Exception as exc:
-                logger.warning(f"Error processing latest activity for job {job.job_number}: {str(exc)}")
+                logger.warning(
+                    f"Error processing latest activity for job "
+                    f"{job.job_number}: {str(exc)}"
+                )
                 persist_app_error(exc)
-        
+
         return None
+
+
+class StaffPerformanceService:
+    """
+    Service responsible for calculating staff performance metrics.
+    All business logic related to staff utilisation and performance.
+    """
+
+    @staticmethod
+    def get_staff_performance_data(
+        start_date: date, end_date: date, staff_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Get staff performance data for the specified period.
+
+        Args:
+            start_date: Period start date
+            end_date: Period end date
+            staff_id: Optional staff ID filter for individual report
+
+        Returns:
+            Dict containing team averages and staff performance data
+        """
+        try:
+            # Get time entries from CostLine
+            cost_lines = (
+                CostLine.objects.annotate(
+                    staff_id_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))", ()
+                    ),
+                    date_meta=RawSQL("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))", ()),
+                    is_billable_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
+                        (),
+                        output_field=models.BooleanField(),
+                    ),
+                )
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    date_meta__gte=start_date.isoformat(),
+                    date_meta__lte=end_date.isoformat(),
+                )
+                .select_related("cost_set__job__client")
+            )
+
+            # Get all active staff
+            excluded_staff_ids = get_excluded_staff()
+            all_staff = Staff.objects.filter(is_active=True).exclude(
+                id__in=excluded_staff_ids
+            )
+
+            # Filter to specific staff if requested
+            if staff_id:
+                all_staff = all_staff.filter(id=staff_id)
+
+            staff_data = []
+            include_job_breakdown = staff_id is not None
+
+            for staff in all_staff:
+                staff_cost_lines = cost_lines.filter(staff_id_meta=str(staff.id))
+                staff_metrics = StaffPerformanceService._calculate_staff_metrics(
+                    staff, staff_cost_lines, include_job_breakdown
+                )
+                staff_data.append(staff_metrics)
+
+            # Calculate team averages
+            team_averages = StaffPerformanceService._calculate_team_averages(staff_data)
+
+            # Create period summary
+            period_summary = {
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "total_staff": len(staff_data),
+                "period_description": (
+                    f"{start_date.strftime('%B %d')} - "
+                    f"{end_date.strftime('%B %d, %Y')}"
+                ),
+            }
+
+            return {
+                "team_averages": team_averages,
+                "staff": staff_data,
+                "period_summary": period_summary,
+            }
+
+        except Exception as exc:
+            logger.error(f"Error getting staff performance data: {str(exc)}")
+            persist_app_error(exc)
+            raise
+
+    @staticmethod
+    def _calculate_staff_metrics(
+        staff: Staff, cost_lines: models.QuerySet, include_job_breakdown: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Calculate performance metrics for a single staff member.
+
+        Args:
+            staff: Staff instance
+            cost_lines: QuerySet of CostLine entries for this staff
+            include_job_breakdown: Whether to include detailed job breakdown
+
+        Returns:
+            Dict containing staff performance metrics
+        """
+        total_hours = float(sum(line.quantity for line in cost_lines))
+        # Get shop client ID for filtering
+        shop_client_id = Client.get_shop_client_id()
+
+        billable_hours = float(
+            sum(
+                line.quantity
+                for line in cost_lines
+                if line.is_billable_meta
+                and str(line.cost_set.job.client_id) != shop_client_id
+            )
+        )
+
+        total_revenue = float(sum(line.total_rev for line in cost_lines))
+        total_cost = float(sum(line.total_cost for line in cost_lines))
+        profit = total_revenue - total_cost
+
+        # Calculate percentages and rates
+        billable_percentage = (
+            (billable_hours / total_hours * 100) if total_hours > 0 else 0
+        )
+        revenue_per_hour = (total_revenue / total_hours) if total_hours > 0 else 0
+        profit_per_hour = (profit / total_hours) if total_hours > 0 else 0
+
+        # Count unique jobs
+        unique_jobs = set(line.cost_set.job.id for line in cost_lines)
+        jobs_worked = len(unique_jobs)
+
+        staff_metrics = {
+            "staff_id": str(staff.id),
+            "name": staff.get_display_full_name(),
+            "total_hours": total_hours,
+            "billable_hours": billable_hours,
+            "billable_percentage": billable_percentage,
+            "total_revenue": total_revenue,
+            "total_cost": total_cost,
+            "profit": profit,
+            "revenue_per_hour": revenue_per_hour,
+            "profit_per_hour": profit_per_hour,
+            "jobs_worked": jobs_worked,
+        }
+
+        # Add job breakdown if requested
+        if include_job_breakdown:
+            job_breakdown = StaffPerformanceService._calculate_job_breakdown(cost_lines)
+            staff_metrics["job_breakdown"] = job_breakdown
+
+        return staff_metrics
+
+    @staticmethod
+    def _calculate_job_breakdown(cost_lines: models.QuerySet) -> List[Dict[str, Any]]:
+        """
+        Calculate job-level breakdown for cost lines.
+
+        Args:
+            cost_lines: QuerySet of CostLine entries
+
+        Returns:
+            List of job breakdown dictionaries
+        """
+        job_data = {}
+
+        for line in cost_lines:
+            job = line.cost_set.job
+            job_id = str(job.id)
+
+            if job_id not in job_data:
+                job_data[job_id] = {
+                    "job_id": job_id,
+                    "job_number": job.job_number or "",
+                    "job_name": job.name or "",
+                    "client_name": job.client.name if job.client else "",
+                    "billable_hours": 0.0,
+                    "non_billable_hours": 0.0,
+                    "revenue": 0.0,
+                    "cost": 0.0,
+                }
+
+            hours = float(line.quantity)
+            # Shop jobs are always non-billable regardless of the is_billable flag
+            shop_client_id = Client.get_shop_client_id()
+            is_shop_job = str(line.cost_set.job.client_id) == shop_client_id
+            is_billable = line.is_billable_meta and not is_shop_job
+
+            if is_billable:
+                job_data[job_id]["billable_hours"] += hours
+            else:
+                job_data[job_id]["non_billable_hours"] += hours
+
+            job_data[job_id]["revenue"] += float(line.total_rev)
+            job_data[job_id]["cost"] += float(line.total_cost)
+
+        # Calculate derived fields
+        for job in job_data.values():
+            job["total_hours"] = job["billable_hours"] + job["non_billable_hours"]
+            job["profit"] = job["revenue"] - job["cost"]
+            job["revenue_per_hour"] = (
+                job["revenue"] / job["total_hours"] if job["total_hours"] > 0 else 0
+            )
+
+        return list(job_data.values())
+
+    @staticmethod
+    def _calculate_team_averages(staff_data: List[Dict[str, Any]]) -> Dict[str, float]:
+        """
+        Calculate team average metrics.
+
+        Args:
+            staff_data: List of staff performance dictionaries
+
+        Returns:
+            Dict containing team average metrics
+        """
+        if not staff_data:
+            return {
+                "billable_percentage": 0.0,
+                "revenue_per_hour": 0.0,
+                "profit_per_hour": 0.0,
+                "jobs_per_person": 0.0,
+            }
+
+        staff_count = len(staff_data)
+        total_billable_percentage = sum(
+            staff["billable_percentage"] for staff in staff_data
+        )
+        total_revenue_per_hour = sum(staff["revenue_per_hour"] for staff in staff_data)
+        total_profit_per_hour = sum(staff["profit_per_hour"] for staff in staff_data)
+        total_jobs = sum(staff["jobs_worked"] for staff in staff_data)
+
+        # Calculate totals across all staff
+        total_hours = sum(staff["total_hours"] for staff in staff_data)
+        total_billable_hours = sum(staff["billable_hours"] for staff in staff_data)
+        total_revenue = sum(staff["total_revenue"] for staff in staff_data)
+        total_profit = sum(staff["profit"] for staff in staff_data)
+
+        return {
+            "billable_percentage": total_billable_percentage / staff_count,
+            "revenue_per_hour": total_revenue_per_hour / staff_count,
+            "profit_per_hour": total_profit_per_hour / staff_count,
+            "jobs_per_person": total_jobs / staff_count,
+            "total_hours": total_hours,
+            "billable_hours": total_billable_hours,
+            "total_revenue": total_revenue,
+            "total_profit": total_profit,
+        }

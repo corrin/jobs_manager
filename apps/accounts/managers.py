@@ -1,14 +1,18 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, Optional
 
 from django.contrib.auth.base_user import BaseUserManager
 
 if TYPE_CHECKING:
     from apps.accounts.models import Staff
 
+    BaseManagerClass = BaseUserManager["Staff"]
+else:
+    BaseManagerClass = BaseUserManager
 
-class StaffManager(BaseUserManager):
+
+class StaffManager(BaseManagerClass):
     """
     Custom manager for Staff user model that combines:
     - Type hints for better code maintainability
@@ -26,7 +30,7 @@ class StaffManager(BaseUserManager):
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
-        return cast("Staff", user)
+        return user
 
     def create_superuser(
         self, email: str, password: str, **extra_fields: Any

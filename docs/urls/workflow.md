@@ -4,6 +4,15 @@
 
 ## API Endpoints
 
+#### Aws Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/api/aws/instance/` | `aws_instance_view.AWSInstanceManagementView` | `aws_instance_management` | Combined view for AWS instance management operations |
+| `/api/aws/instance/reboot/` | `aws_instance_view.reboot_instance` | `aws_instance_reboot` | Reboot the UAT instance |
+| `/api/aws/instance/start/` | `aws_instance_view.start_instance` | `aws_instance_start` | Start the UAT instance |
+| `/api/aws/instance/status/` | `aws_instance_view.get_instance_status` | `aws_instance_status` | Get current status of the UAT instance |
+| `/api/aws/instance/stop/` | `aws_instance_view.stop_instance` | `aws_instance_stop` | Stop the UAT instance |
+
 #### System
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
@@ -27,6 +36,12 @@
 | `/api/xero/sync-stream/` | `xero_view.stream_xero_sync` | `stream_xero_sync` | HTTP endpoint to serve an EventSource stream of Xero sync events. |
 | `/api/xero/sync/` | `xero_view.start_xero_sync` | `synchronise_xero_data` | View function to start a Xero sync as a background task. |
 | `/api/xero/webhook/` | `XeroWebhookView` | `xero_webhook` | Handle incoming Xero webhook notifications. |
+
+### App-Errors Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/app-errors/` | `app_error_view.AppErrorListAPIView` | `app-error-list` | API view for listing application errors. |
+| `/app-errors/<uuid:pk>/` | `app_error_view.AppErrorDetailAPIView` | `app-error-detail` | API view for retrieving a single application error. |
 
 ### System
 | URL Pattern | View | Name | Description |

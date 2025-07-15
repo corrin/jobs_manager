@@ -36,30 +36,52 @@ URL Structure Patterns:
 Follow these patterns when adding new URLs to maintain consistency.
 """
 
-import debug_toolbar
+import debug_toolbar  # type: ignore[import-untyped]
 from django.urls import include, path
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 from apps.workflow.api.enums import get_enum_choices
 from apps.workflow.views.ai_provider_viewset import AIProviderViewSet
+from apps.workflow.views.app_error_view import (
+    AppErrorDetailAPIView,
+    AppErrorListAPIView,
+    AppErrorViewSet,
+)
+from apps.workflow.views.aws_instance_view import (
+    AWSInstanceManagementView,
+    get_instance_status,
+    reboot_instance,
+    start_instance,
+    stop_instance,
+)
 from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
 
 # ---------------------------------------------------------------------------
-# DRF Router setup for AI Provider endpoints
+# DRF Router setup for AI Provider and AppError endpoints
 # ---------------------------------------------------------------------------
 router = DefaultRouter()
 router.register("ai-providers", AIProviderViewSet, basename="ai-provider")
+router.register("app-errors", AppErrorViewSet, basename="app-error")
 
 # Create home redirect pattern with metadata
 home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")
-home_pattern.functional_group = "Main Redirect"
+home_pattern.functional_group = "Main Redirect"  # type: ignore[attr-defined]
 
 urlpatterns = [
     # Redirect to Kanban board
     home_pattern,
+    path(
+        "api/aws/instance/",
+        AWSInstanceManagementView.as_view(),
+        name="aws_instance_management",
+    ),
+    path("api/aws/instance/status/", get_instance_status, name="aws_instance_status"),
+    path("api/aws/instance/start/", start_instance, name="aws_instance_start"),
+    path("api/aws/instance/stop/", stop_instance, name="aws_instance_stop"),
+    path("api/aws/instance/reboot/", reboot_instance, name="aws_instance_reboot"),
     path("api/enums/<str:enum_name>/", get_enum_choices, name="get_enum_choices"),
     path(
         "api/xero/authenticate/",
@@ -130,6 +152,16 @@ urlpatterns = [
         "api/xero/ping/",
         xero_view.xero_ping,
         name="xero_ping",
+    ),
+    path(
+        "app-errors/",
+        AppErrorListAPIView.as_view(),
+        name="app-error-list",
+    ),
+    path(
+        "app-errors/<uuid:pk>/",
+        AppErrorDetailAPIView.as_view(),
+        name="app-error-detail",
     ),
     path(
         "xero-errors/",

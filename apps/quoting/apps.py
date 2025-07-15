@@ -2,7 +2,7 @@ import logging
 
 from django.apps import AppConfig
 
-from apps.workflow.scheduler import get_scheduler, start_scheduler
+from apps.workflow.scheduler import get_scheduler
 
 logger = logging.getLogger(__name__)
 

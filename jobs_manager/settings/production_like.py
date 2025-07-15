@@ -1,3 +1,6 @@
+from django.apps import apps
+from django.core.signals import request_started
+from django.db import ProgrammingError
 from dotenv import load_dotenv
 
 from .base import *  # noqa: F403
@@ -167,10 +170,9 @@ else:
     ]
 
 # Enable JWT Authentication for API - Load from environment
-ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
-ENABLE_DUAL_AUTHENTICATION = (
-    os.getenv("ENABLE_DUAL_AUTHENTICATION", "False").lower() == "true"
-)
+if not os.getenv("ENABLE_JWT_AUTH"):
+    raise ImproperlyConfigured("ENABLE_JWT_AUTH environment variable is required")
+ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH").lower() == "true"
 
 # JWT Configuration for production - override base settings for secure cookies
 if ENABLE_JWT_AUTH:
@@ -189,9 +191,6 @@ if ENABLE_JWT_AUTH:
             "REFRESH_COOKIE_SAMESITE": "Lax",
         }
     )
-
-from django.apps import apps
-from django.db import ProgrammingError
 
 
 def configure_site_for_environment():
@@ -219,8 +218,6 @@ def configure_site_for_environment():
         logger = logging.getLogger(__name__)
         logger.error(f"Error configuring the site: {e}")
 
-
-from django.core.signals import request_started
 
 request_started.connect(
     lambda **kwargs: configure_site_for_environment(),

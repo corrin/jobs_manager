@@ -16,18 +16,36 @@ from typing import Any, Dict, List, Optional
 # Add the project root to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Set up Django environment
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
-
-import django
-
-django.setup()
-
-from django.urls import URLPattern, URLResolver, get_resolver
-
-# Set up logging
+# Set up logging first
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def setup_django():
+    """Setup Django environment with error handling for pre-commit hooks."""
+    try:
+        # Set up Django environment
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
+
+        import django
+
+        django.setup()
+
+        from django.urls import URLPattern, URLResolver, get_resolver
+
+        return URLPattern, URLResolver, get_resolver
+
+    except Exception as e:
+        logger.error(f"Failed to setup Django environment: {e}")
+        logger.error("This script requires a properly configured Django environment.")
+        logger.error(
+            "Make sure you're running from the project root and database is accessible."
+        )
+        sys.exit(1)
+
+
+# Setup Django and get required classes
+URLPattern, URLResolver, get_resolver = setup_django()
 
 
 class URLDocumentationGenerator:
@@ -43,7 +61,7 @@ class URLDocumentationGenerator:
         try:
             pattern = self._get_pattern_string(url_pattern)
             if not pattern:
-                logger.warning(f"Could not extract pattern from URL")
+                logger.warning("Could not extract pattern from URL")
                 return None
 
             view_info = self._resolve_view_info(url_pattern)
@@ -414,8 +432,8 @@ class URLDocumentationGenerator:
                 return "Other"
 
         # Path-based categorization logic
-        module = view_info.get("module", "").lower()
-        pattern_lower = pattern.lower()
+        view_info.get("module", "").lower()
+        pattern.lower()
 
         # Main redirect
         if pattern == "/":

@@ -1,21 +1,11 @@
-from datetime import timezone
 from zoneinfo import ZoneInfo
 
 
-def get_nz_tz() -> timezone | ZoneInfo:
+def get_nz_tz() -> ZoneInfo:
     """
-    Gets the New Zealand timezone object using either zoneinfo or pytz.
+    Gets the New Zealand timezone object using zoneinfo.
 
     Returns:
-        timezone | ZoneInfo: A timezone object for Pacific/Auckland,
-        using ZoneInfo if available (Python 3.9+) or falling back to pytz
+        ZoneInfo: A timezone object for Pacific/Auckland
     """
-    try:
-        from zoneinfo import ZoneInfo
-
-        nz_timezone = ZoneInfo("Pacific/Auckland")
-    except ImportError:
-        import pytz
-
-        nz_timezone = pytz.timezone("Pacific/Auckland")
-    return nz_timezone
+    return ZoneInfo("Pacific/Auckland")

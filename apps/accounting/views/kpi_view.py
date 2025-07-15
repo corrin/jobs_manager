@@ -1,15 +1,16 @@
 import traceback
 from datetime import date
 from logging import getLogger
+from typing import Any, Dict
 
 from django.views.generic import TemplateView
 from rest_framework import status
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounting.serializers import (
     KPICalendarDataSerializer,
-    KPICalendarErrorResponseSerializer,
     StandardErrorSerializer,
 )
 from apps.accounting.services import KPIService
@@ -22,7 +23,7 @@ class KPICalendarTemplateView(TemplateView):
 
     template_name = "reports/kpi_calendar.html"
 
-    def get_context_data(self, **kwargs):
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["page_title"] = "KPI Calendar"
         return context
@@ -33,12 +34,12 @@ class KPICalendarAPIView(APIView):
 
     serializer_class = KPICalendarDataSerializer
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
-            year = str(request.query_params.get("year", date.today().year))
-            month = str(request.query_params.get("month", date.today().month))
+            year_str = str(request.query_params.get("year", date.today().year))
+            month_str = str(request.query_params.get("month", date.today().month))
 
-            if not year.isdigit() or not month.isdigit():
+            if not year_str.isdigit() or not month_str.isdigit():
                 error_serializer = StandardErrorSerializer(
                     data={
                         "error": "The provided query param 'year' or 'month' is "
@@ -50,8 +51,8 @@ class KPICalendarAPIView(APIView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            year = int(year)
-            month = int(month)
+            year = int(year_str)
+            month = int(month_str)
 
             if not 1 <= month <= 12 or not 2000 <= year <= 2100:
                 error_serializer = StandardErrorSerializer(

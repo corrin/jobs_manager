@@ -160,7 +160,6 @@ class JSONToMySQLConverter:
                     logging.warning(
                         f"Failed to parse datetime '{value}' for field '{field_name}'"
                     )
-                    pass
 
             # Escape single quotes, backslashes, and newlines
             escaped = (

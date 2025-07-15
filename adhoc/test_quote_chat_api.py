@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 """Test script to verify the quote chat API endpoint is working properly."""
 
-import json
 import logging
-import sys
 
 import requests
 
@@ -13,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 # Test configuration
 BASE_URL = "http://localhost:8000"
-JOB_ID = "523540fd-9c40-463d-a762-594b07012f11"  # Using the job ID from the original error log
+# Using the job ID from the original error log
+JOB_ID = "523540fd-9c40-463d-a762-594b07012f11"
 ENDPOINT = f"{BASE_URL}/job/api/jobs/{JOB_ID}/quote-chat/ai-response/"
 
 
@@ -103,5 +102,5 @@ if __name__ == "__main__":
     # Then test POST with different headers
     test_with_different_headers()
 
-    logger.info("\nNote: Make sure the Django server is running on port 8000")
+    logger.info("Note: Make sure the Django server is running on port 8000")
     logger.info("If you're getting connection errors, the server might not be running.")

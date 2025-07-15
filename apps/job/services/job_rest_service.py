@@ -6,13 +6,11 @@ All business logic for Job REST operations should be implemented here.
 """
 
 import logging
-from decimal import Decimal
 from typing import Any, Dict
 from uuid import UUID
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
@@ -330,7 +328,9 @@ class JobRestService:
             ):
                 return {
                     "can_disable": False,
-                    "reason": "Cannot disable complex mode with multiple pricing entries",
+                    "reason": (
+                        "Cannot disable complex mode with multiple pricing entries"
+                    ),
                 }
 
         return {"can_disable": True, "reason": ""}

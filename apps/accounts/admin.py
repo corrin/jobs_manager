@@ -8,7 +8,7 @@ from apps.accounts.models import Staff
 
 
 @admin.register(Staff)
-class StaffAdmin(UserAdmin, SimpleHistoryAdmin):
+class StaffAdmin(UserAdmin, SimpleHistoryAdmin):  # type: ignore[type-arg]
     add_form = StaffCreationForm
     form = StaffChangeForm
     model = Staff

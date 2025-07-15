@@ -31,10 +31,10 @@ def migrate_pricing_to_costing(apps, schema_editor):
         # Use SHOW COLUMNS instead of INFORMATION_SCHEMA for accurate results
         cur.execute("SHOW COLUMNS FROM workflow_jobpricing")
         columns = [row[0] for row in cur.fetchall()]
-        
-        has_stage = 'pricing_stage' in columns
-        has_method = 'pricing_methodology' in columns
-        
+
+        has_stage = "pricing_stage" in columns
+        has_method = "pricing_methodology" in columns
+
         if has_stage and not has_method:
             print("Renaming pricing_stage → pricing_methodology …")
             cur.execute(
@@ -43,7 +43,9 @@ def migrate_pricing_to_costing(apps, schema_editor):
         elif has_stage and has_method:
             # Both exist - consolidate to pricing_methodology
             print("Both columns exist, consolidating to pricing_methodology...")
-            cur.execute("UPDATE workflow_jobpricing SET pricing_methodology = pricing_stage WHERE pricing_methodology IS NULL OR pricing_methodology = ''")
+            cur.execute(
+                "UPDATE workflow_jobpricing SET pricing_methodology = pricing_stage WHERE pricing_methodology IS NULL OR pricing_methodology = ''"
+            )
             cur.execute("ALTER TABLE workflow_jobpricing DROP COLUMN pricing_stage")
         else:
             print(
@@ -94,11 +96,17 @@ def migrate_pricing_to_costing(apps, schema_editor):
                 )
             rev = jp.revision_number or 1
             # Check for existing CostSet and combine duplicates
-            existing_costset = CostSet.objects.filter(job=jp.job, kind=kind, rev=rev).first()
+            existing_costset = CostSet.objects.filter(
+                job=jp.job, kind=kind, rev=rev
+            ).first()
             if existing_costset:
                 print(f"DUPLICATE DETECTED - COMBINING:")
-                print(f"  Current JobPricing: ID={jp.id}, Job={jp.job.job_number}, Kind={kind}, Rev={rev}")
-                print(f"  Combining with existing CostSet: ID={existing_costset.id}, Created={existing_costset.created}")
+                print(
+                    f"  Current JobPricing: ID={jp.id}, Job={jp.job.job_number}, Kind={kind}, Rev={rev}"
+                )
+                print(
+                    f"  Combining with existing CostSet: ID={existing_costset.id}, Created={existing_costset.created}"
+                )
                 cost_set = existing_costset
                 cs_skipped += 1
             else:

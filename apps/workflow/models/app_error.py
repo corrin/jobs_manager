@@ -1,6 +1,8 @@
+import logging
 import uuid
 
 from django.db import models
+from django.utils import timezone
 
 
 class AppError(models.Model):
@@ -11,11 +13,51 @@ class AppError(models.Model):
     message = models.TextField()
     data = models.JSONField(blank=True, null=True)
 
+    # Code location fields for filtering
+    app = models.CharField(max_length=50, blank=True, null=True)
+    file = models.CharField(max_length=200, blank=True, null=True)
+    function = models.CharField(max_length=100, blank=True, null=True)
+    severity = models.IntegerField(default=logging.ERROR)
+
+    # Commonly filtered business context (separate fields)
+    job_id = models.UUIDField(blank=True, null=True)
+    user_id = models.UUIDField(blank=True, null=True)
+
+    # Error resolution tracking
+    resolved = models.BooleanField(default=False)
+    resolved_by = models.ForeignKey(
+        "accounts.Staff", on_delete=models.SET_NULL, blank=True, null=True
+    )
+    resolved_timestamp = models.DateTimeField(blank=True, null=True)
+
+    def mark_resolved(self, staff_member):
+        """Mark this error as resolved by the given staff member."""
+        self.resolved = True
+        self.resolved_by = staff_member
+        self.resolved_timestamp = timezone.now()
+        self.save()
+
+    def mark_unresolved(self, staff_member):
+        """Remove the resolved flag."""
+        self.resolved = False
+        self.resolved_by = None
+        self.resolved_timestamp = None
+        self.save()
+
     class Meta:
         db_table = "workflow_app_error"
         ordering = ["-timestamp"]
         verbose_name = "Application Error"
         verbose_name_plural = "Application Errors"
+        indexes = [
+            models.Index(
+                fields=["timestamp", "severity"]
+            ),  # Common: recent errors by severity
+            models.Index(
+                fields=["resolved", "timestamp"]
+            ),  # Common: unresolved errors chronologically
+            models.Index(fields=["app", "severity"]),  # Common: errors by app section
+        ]
 
 
 class XeroError(AppError):

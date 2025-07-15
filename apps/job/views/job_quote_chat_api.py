@@ -18,7 +18,6 @@ from apps.job.serializers import (
     JobQuoteChatInteractionErrorResponseSerializer,
     JobQuoteChatInteractionRequestSerializer,
     JobQuoteChatInteractionSuccessResponseSerializer,
-    JobQuoteChatSerializer,
 )
 from apps.job.services.gemini_chat_service import GeminiChatService
 

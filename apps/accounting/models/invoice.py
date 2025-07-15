@@ -1,9 +1,14 @@
 import uuid
 from abc import abstractmethod
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.db import models
+from django.db.models import QuerySet
 from django.utils import timezone
+
+if TYPE_CHECKING:
+    from apps.client.models import Client
 
 from apps.accounting.enums import InvoiceStatus
 
@@ -39,17 +44,20 @@ class BaseXeroInvoiceDocument(models.Model):
     class Meta:
         abstract = True
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.number} - {self.client.name}"
 
     @abstractmethod
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["BaseLineItem"]:
         """Return the queryset of line items related to this document."""
 
     @property
-    def total_amount(self):
+    def total_amount(self) -> Decimal:
         """Calculate the total amount by summing up the related line items."""
-        return sum(item.line_amount_excl_tax for item in self.get_line_items())
+        return sum(
+            (item.line_amount_excl_tax or Decimal("0.00"))
+            for item in self.get_line_items()
+        ) or Decimal("0.00")
 
 
 class BaseLineItem(models.Model):
@@ -82,11 +90,11 @@ class BaseLineItem(models.Model):
     class Meta:
         abstract = True
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.description} - {self.line_amount_excl_tax}"
 
     @property
-    def total_price(self):
+    def total_price(self) -> Decimal:
         """Compute the total price of the line item including tax."""
         return (self.unit_price or Decimal("0.00")) * (self.quantity or Decimal("1.00"))
 
@@ -110,11 +118,11 @@ class Invoice(BaseXeroInvoiceDocument):
         ordering = ["-date", "number"]
         db_table = "workflow_invoice"
 
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["InvoiceLineItem"]:
         return self.line_items.all()
 
     @property
-    def paid(self):
+    def paid(self) -> bool:
         """
         Computes whether this invoice was already paid based on the amount due value.
         """
@@ -133,15 +141,15 @@ class Bill(BaseXeroInvoiceDocument):
         db_table = "workflow_bill"
 
     @property
-    def supplier(self):
+    def supplier(self) -> "Client":
         """Return the client as 'supplier' for bills."""
         return self.client
 
     @supplier.setter
-    def supplier(self, value):
+    def supplier(self, value: "Client") -> None:
         self.client = value
 
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["BillLineItem"]:
         return self.line_items.all()
 
 
@@ -157,10 +165,10 @@ class CreditNote(BaseXeroInvoiceDocument):
         ordering = ["-date"]
         db_table = "workflow_creditnote"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Credit Note {self.number} ({self.status})"
 
-    def get_line_items(self):
+    def get_line_items(self) -> QuerySet["CreditNoteLineItem"]:
         return self.line_items.all()
 
 

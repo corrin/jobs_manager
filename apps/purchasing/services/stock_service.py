@@ -49,9 +49,11 @@ def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
             unit_rev=unit_rev,
             ext_refs={"stock_id": str(item.id)},
             meta={
-                "consumed_by": str(getattr(user, "id", None))
-                if getattr(user, "id", None)
-                else None
+                "consumed_by": (
+                    str(getattr(user, "id", None))
+                    if getattr(user, "id", None)
+                    else None
+                )
             },
         )
 

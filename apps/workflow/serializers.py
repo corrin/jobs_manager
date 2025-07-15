@@ -1,8 +1,16 @@
+from typing import Any, Dict, List
+
 from rest_framework import serializers
 
 # Existing models used in this serializer module
-from .models import XeroError  # Added to support XeroErrorSerializer
-from .models import AIProvider, CompanyDefaults, XeroAccount, XeroToken
+from .models import (
+    AIProvider,
+    AppError,
+    CompanyDefaults,
+    XeroAccount,
+    XeroError,
+    XeroToken,
+)
 
 
 class XeroTokenSerializer(serializers.ModelSerializer):
@@ -35,7 +43,9 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
         model = CompanyDefaults
         fields = "__all__"
 
-    def update(self, instance, validated_data):
+    def update(
+        self, instance: CompanyDefaults, validated_data: Dict[str, Any]
+    ) -> CompanyDefaults:
         # Handle ai_providers from request data since it's read_only in the serializer
         request = self.context.get("request") if self.context else None
 
@@ -47,7 +57,9 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
         # Update the rest of the fields
         return super().update(instance, validated_data)
 
-    def _update_ai_providers(self, instance, ai_providers_data):
+    def _update_ai_providers(
+        self, instance: CompanyDefaults, ai_providers_data: List[Dict[str, Any]]
+    ) -> None:
         """
         Update the AI providers for this company.
         This will update existing providers and create new ones as needed.
@@ -81,11 +93,16 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
                 provider.save()
                 updated_provider_ids.add(provider_id)
             else:
-                # Create new provider
-                new_provider = AIProvider.objects.create(
+                # Create new provider - validate required fields first
+                if not provider_data.get("name"):
+                    raise ValueError("Provider name is required")
+                if not provider_data.get("provider_type"):
+                    raise ValueError("Provider type is required")
+
+                AIProvider.objects.create(
                     company=instance,
-                    name=provider_data.get("name", ""),
-                    provider_type=provider_data.get("provider_type", "openai"),
+                    name=provider_data["name"],
+                    provider_type=provider_data["provider_type"],
                     model_name=provider_data.get("model_name", ""),
                     api_key=provider_data.get("api_key", ""),
                     default=provider_data.get("default", False),
@@ -233,3 +250,43 @@ class XeroPingResponseSerializer(serializers.Serializer):
     """Serializer for Xero ping response."""
 
     connected = serializers.BooleanField()
+
+
+# ---------------------------------------------------------------------------
+# App Error Serializers
+# ---------------------------------------------------------------------------
+
+
+class AppErrorSerializer(serializers.ModelSerializer):
+    """Basic serializer for AppError instances."""
+
+    class Meta:
+        model = AppError
+        fields = "__all__"
+
+
+class AppErrorListResponseSerializer(serializers.Serializer):
+    """Serializer for paginated AppError list response."""
+
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = AppErrorSerializer(many=True)
+
+
+class AppErrorDetailResponseSerializer(serializers.Serializer):
+    """Serializer for single AppError detail response."""
+
+    id = serializers.UUIDField()
+    timestamp = serializers.DateTimeField()
+    message = serializers.CharField()
+    data = serializers.JSONField()
+    app = serializers.CharField(allow_null=True)
+    file = serializers.CharField(allow_null=True)
+    function = serializers.CharField(allow_null=True)
+    severity = serializers.IntegerField()
+    job_id = serializers.UUIDField(allow_null=True)
+    user_id = serializers.UUIDField(allow_null=True)
+    resolved = serializers.BooleanField()
+    resolved_by = serializers.UUIDField(allow_null=True)
+    resolved_timestamp = serializers.DateTimeField(allow_null=True)

@@ -2,8 +2,6 @@
 Serializers for Kanban views.
 """
 
-from uuid import UUID
-
 from rest_framework import serializers
 
 
@@ -46,7 +44,7 @@ class KanbanErrorResponseSerializer(serializers.Serializer):
 class JobSearchFiltersSerializer(serializers.Serializer):
     """Serializer for advanced search filters."""
 
-    job_number = serializers.CharField(required=False, allow_blank=True)
+    job_number = serializers.IntegerField(required=False, allow_null=True)
     name = serializers.CharField(required=False, allow_blank=True)
     description = serializers.CharField(required=False, allow_blank=True)
     client_name = serializers.CharField(required=False, allow_blank=True)
@@ -69,13 +67,16 @@ class KanbanJobPersonSerializer(serializers.Serializer):
 
 
 class KanbanJobSerializer(serializers.Serializer):
-    """Serializer for job data in kanban context (matches KanbanService.serialize_job_for_api)."""
+    """
+    Serializer for job data in kanban context
+    (matches KanbanService.serialize_job_for_api).
+    """
 
     # Basic job info
     id = serializers.UUIDField()
     name = serializers.CharField()
-    description = serializers.CharField(allow_blank=True)
-    job_number = serializers.CharField()
+    description = serializers.CharField(allow_blank=True, allow_null=True)
+    job_number = serializers.IntegerField()
 
     # Client and contact info
     client_name = serializers.CharField(allow_blank=True)
@@ -100,7 +101,7 @@ class KanbanJobSerializer(serializers.Serializer):
     )  # Formatted as string by service
 
     # Priority
-    priority = serializers.IntegerField()
+    priority = serializers.FloatField()
 
 
 class FetchAllJobsResponseSerializer(serializers.Serializer):
@@ -142,13 +143,16 @@ class AdvancedSearchResponseSerializer(serializers.Serializer):
 
 
 class KanbanColumnJobSerializer(serializers.Serializer):
-    """Serializer for job data in kanban column context (from get_jobs_by_kanban_column)."""
+    """
+    Serializer for job data in kanban column context
+    (from get_jobs_by_kanban_column).
+    """
 
     # Basic job info
     id = serializers.CharField()  # Converted to string by service
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     name = serializers.CharField()
-    description = serializers.CharField(allow_blank=True)
+    description = serializers.CharField(allow_blank=True, allow_null=True)
 
     # Client and contact info
     client_name = serializers.CharField(allow_blank=True)
@@ -171,7 +175,7 @@ class KanbanColumnJobSerializer(serializers.Serializer):
     created_at = serializers.CharField(allow_null=True)
 
     # Priority
-    priority = serializers.IntegerField()
+    priority = serializers.FloatField()
 
     # Badge information (specific to column view)
     badge_label = serializers.CharField()

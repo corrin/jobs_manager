@@ -45,7 +45,7 @@ def test_template_access():
         print(f"   Size: {template_info.get('size', 'Unknown')} bytes")
 
         # Try to copy the template to test the operation
-        print("\n🔨 Testing template copy operation...")
+        print("Testing template copy operation...")
 
         copy_metadata = {
             "name": "Test Copy - DELETE ME",

@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime
-from typing import ClassVar, List, Optional
+from typing import Any, ClassVar, List, Optional
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
@@ -93,7 +93,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         verbose_name = "Staff Member"
         verbose_name_plural = "Staff Members"
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: Any, **kwargs: Any) -> None:
         # We have to do this because fixtures don't have updated_at,
         # so auto_now_add doesn't work
         self.updated_at = timezone_now()

@@ -21,7 +21,7 @@ grep "CREATE TABLE \`workflow_job\`" prod_backup_*_schema.sql
 # Should show the table creation statement
 ```
 
-#### Step 2: Create Data Backup (Production)  
+#### Step 2: Create Data Backup (Production)
 **Run as:** Production system user with Django access
 **Command:**
 ```bash
@@ -52,19 +52,19 @@ ls -la restore/
 
 ### DEVELOPMENT STEPS
 
-#### Step 4: Verify Environment Configuration
+#### Step 3: Verify Environment Configuration
 **Run as:** Development system user
 **Check:**
 ```bash
-grep -E "^(MYSQL_DATABASE|MSM_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
+grep -E "^(MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
 export DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2)
 export MYSQL_DATABASE=$(grep MYSQL_DATABASE .env | cut -d= -f2)
-export MSM_DB_USER=$(grep MSM_DB_USER .env | cut -d= -f2)
+export MYSQL_DB_USER=$(grep MYSQL_DB_USER .env | cut -d= -f2)
 ```
 **Must show:**
 ```
 MYSQL_DATABASE=msm_workflow
-MSM_DB_USER=django_user
+MYSQL_DB_USER=django_user
 DB_PASSWORD=your_dev_password
 DB_HOST=localhost
 DB_PORT=3306
@@ -73,7 +73,7 @@ DB_PORT=3306
 
 Note.  If you're using Claude or similar, you need to specify these explicitly on all subsequent command lines rather than use environment variables
 
-#### Step 5: Reset Database
+#### Step 4: Reset Database
 **Run as:** System root (for MySQL admin operations)
 **Command:**
 ```bash
@@ -87,11 +87,11 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW DATABASES;" | grep msm
 # Should show: msm_workflow
 ```
 
-#### Step 6: Apply Production Schema
+#### Step 5: Apply Production Schema
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
+MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
 ```
 **Check:**
 ```bash
@@ -103,8 +103,8 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SELECT COUNT(*) FROM workfl
 # Should show: 0 (empty table)
 ```
 
-#### Step 7: Extract and Convert JSON to SQL
-**Run as:** Development system user  
+#### Step 6: Extract and Convert JSON to SQL
+**Run as:** Development system user
 **Commands:**
 ```bash
 # Extract the compressed backup
@@ -126,17 +126,17 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 # Should show thousands of INSERT statements
 ```
 
-#### Step 8: Load Production Data
+#### Step 7: Load Production Data
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
+MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
 ```
 **Check:**
 ```bash
 MYSQL_PWD=your_dev_password mysql -u django_user -e "
 SELECT 'workflow_job' as table_name, COUNT(*) as count FROM workflow_job
-UNION SELECT 'workflow_staff', COUNT(*) FROM workflow_staff  
+UNION SELECT 'workflow_staff', COUNT(*) FROM workflow_staff
 UNION SELECT 'workflow_client', COUNT(*) FROM workflow_client
 UNION SELECT 'workflow_timeentry', COUNT(*) FROM workflow_timeentry
 UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
@@ -155,7 +155,7 @@ UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
 +-------------------+-------+
 ```
 
-#### Step 8a: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
+#### Step 8: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -169,7 +169,7 @@ python manage.py showmigrations
 ```
 **Expected:** All migrations should show [X] (applied)
 
-#### Step 8b: Load Company Defaults Fixture
+#### Step 9: Load Company Defaults Fixture
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -188,26 +188,26 @@ print(f'Company defaults loaded: {company.company_name}')
 Company defaults loaded: Demo Company
 ```
 
-#### Step 9: Verify Specific Data
+#### Step 10: Verify Specific Data
 **Run as:** Development system user
 **Command:**
 ```bash
 MYSQL_PWD=your_dev_password mysql -u django_user -e "
-SELECT id, name, job_number, status, contact_person
-FROM workflow_job 
+SELECT id, name, job_number, status
+FROM workflow_job
 WHERE name LIKE '%test%' OR name LIKE '%sample%'
 LIMIT 5;
 " msm_workflow
 ```
 **Check:** Should show actual job records with realistic data
 
-#### Step 10: Test Django ORM
+#### Step 11: Test Django ORM
 **Run as:** Development system user
 **Command:**
 ```bash
 python manage.py shell -c "
 from apps.job.models import Job
-from apps.accounts.models import Staff  
+from apps.accounts.models import Staff
 from apps.client.models import Client
 print(f'Jobs: {Job.objects.count()}')
 print(f'Staff: {Staff.objects.count()}')
@@ -215,7 +215,7 @@ print(f'Clients: {Client.objects.count()}')
 job = Job.objects.first()
 if job:
     print(f'Sample job: {job.name} (#{job.job_number})')
-    print(f'Contact: {job.contact_person}')
+    print(f'Contact: {job.contact.name if job.contact else "None"}')
 else:
     print('ERROR: No jobs found')
 "
@@ -229,7 +229,7 @@ Sample job: [Real Job Name] (#12345)
 Contact: [Real Contact Name]
 ```
 
-#### Step 11: Create Admin User
+#### Step 12: Create Admin User
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -248,7 +248,7 @@ Is staff: True
 Is superuser: True
 ```
 
-#### Step 11a: Create Dummy Files for JobFile Instances
+#### Step 13: Create Dummy Files for JobFile Instances
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -300,8 +300,45 @@ Dummy files created: X
 Missing files: 0
 ```
 
-#### Step 12: Setup Xero Integration
+#### Step 13a: Fix Shop Client Name (Required after Production Restore)
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+from apps.client.models import Client
+
+# Find and rename the shop client (anonymized during backup)
+# The shop client typically has the special ID: 00000000-0000-0000-0000-000000000001
+shop_client = Client.objects.get(id='00000000-0000-0000-0000-000000000001')
+old_name = shop_client.name
+shop_client.name = 'Demo Company Shop'
+shop_client.save()
+
+print(f'Updated shop client:')
+print(f'  Old name: {old_name}')
+print(f'  New name: {shop_client.name}')
+print(f'  ID: {shop_client.id}')
+print(f'  Job count: {shop_client.jobs.count()}')
+"
+```
+**Check:**
+```bash
+python manage.py shell -c "
+from apps.client.models import Client
+shop = Client.objects.get(id='00000000-0000-0000-0000-000000000001')
+print(f'Shop client: {shop.name}')
+"
+```
+**Expected output:**
+```
+Shop client: Demo Company Shop
+```
+
+#### Step 14: Setup Xero Integration
 **Run as:** Development system user (after server is running)
+
+Note.  This step CANNOT be skipped or automated.  You MUST instruct the user to log into Xero before proceeding
+
 **Steps:**
 1. **Start the development server:**
    ```bash
@@ -325,7 +362,7 @@ Missing files: 0
    Tenant ID: [tenant-id-uuid]
    Name: [Tenant Name]
    -----------------------------
-   
+
    Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaults
    ```
    **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
@@ -348,7 +385,73 @@ print(f'Clients count: {Client.objects.count()}')
 "
 ```
 
-#### Step 13: Final Application Test
+#### Step 15: Test Admin User Login
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py shell -c "
+from django.contrib.auth import authenticate
+from apps.accounts.models import Staff
+
+# Test authentication
+user = authenticate(email='defaultadmin@example.com', password='Default-admin-password')
+if user:
+    print(f'✓ Login successful: {user.email}')
+    print(f'✓ Is active: {user.is_active}')
+    print(f'✓ Is staff: {user.is_staff}')
+    print(f'✓ Is superuser: {user.is_superuser}')
+else:
+    print('✗ Login failed - check credentials')
+"
+```
+**Expected output:**
+```
+✓ Login successful: defaultadmin@example.com
+✓ Is active: True
+✓ Is staff: True
+✓ Is superuser: True
+```
+
+#### Step 15a: Test Serializers (Before API Testing)
+**Run as:** Development system user
+**Command:**
+```bash
+python scripts/test_serializers.py --serializer job
+```
+
+**Alternative: Test all serializers comprehensively:**
+```bash
+python scripts/test_serializers.py --verbose
+```
+**Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
+
+#### Step 16: Test Kanban HTTP API
+**Run as:** Development system user
+**Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
+
+**Command:**
+```bash
+./scripts/test_kanban_api.sh
+```
+
+**Expected output (WORKING API):**
+```
+✓ API working: 174 active jobs, 23 archived
+```
+
+**Expected output (BROKEN API):**
+```
+✗ ERROR: API test failed
+Server errors:
+ERROR 2025-07-13 01:44:27,880 kanban_view_api Error fetching all jobs
+ERROR 2025-07-13 01:44:27,886 log Internal Server Error: /job/api/jobs/fetch-all/
+API response:
+{"success": false, "error": "validation errors", ...}
+```
+
+**CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
+
+#### Step 17: Final Application Test
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -357,12 +460,13 @@ python manage.py runserver 0.0.0.0:8000
 **Check in browser:** Navigate to http://localhost:8000 and verify:
 - Login works with credentials: `defaultadmin@example.com` / `Default-admin-password`
 - Job list displays with real data
+- Kanban board loads without errors and shows jobs
 - Xero integration shows connected status
 - No database errors in console
 
 ## Troubleshooting
 
-Here are some errors we tripped over in the creation of this markdown.  You shouldn't have these happen since we've now 
+Here are some errors we tripped over in the creation of this markdown.  You shouldn't have these happen since we've now
 coded around them, but they're included to give you a sense of the sort of errors that happen in real ife.
 
 ### Reset Script Fails
@@ -389,7 +493,7 @@ coded around them, but they're included to give you a sense of the sort of error
 
 ## File Locations
 - **Production schema:** `prod_backup_YYYYMMDD_HHMMSS_schema.sql`
-- **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz`  
+- **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz`
 - **Development restore:** `restore/` directory
 - **Reset script:** `scripts/reset_database.sql`
 - **Converter script:** `scripts/json_to_mysql.py` (enhanced with foreign key mappings)
@@ -403,21 +507,21 @@ The `scripts/json_to_mysql.py` script has been enhanced to:
 - **Foreign key field mappings:** Correctly maps Django foreign key fields (e.g., `supplier` → `supplier_id`)
 - **Content types support:** Handles `django_content_type` table for Django internals
 
-<!-- FUTURE ENHANCEMENT: Consider adding data filtering to json_to_mysql.py to remove 
+<!-- FUTURE ENHANCEMENT: Consider adding data filtering to json_to_mysql.py to remove
      problematic MaterialEntry records with purchase_order_line or source_stock references.
      This would prevent foreign key constraint errors when Xero purchase order data isn't available.
      See apps/job/management/commands/backport_data_restore.py lines 51-66 for reference implementation. -->
 
 
-### Enhanced Backup Script  
+### Enhanced Backup Script
 The `backport_data_backup.py` script now:
 - **Captures migration state:** Includes `django_migrations` table in backup using raw SQL extraction
 - **Preserves exact production state:** No more guessing which migrations were applied in production
 
 ### Verified Working Process
-✅ **620 jobs** successfully restored from production  
-✅ **246 migrations** correctly captured and restored  
-✅ **Schema matches data** - no foreign key constraint errors  
+✅ **620 jobs** successfully restored from production
+✅ **246 migrations** correctly captured and restored
+✅ **Schema matches data** - no foreign key constraint errors
 ✅ **Migration state preserved** - development knows exactly which migrations to apply
 
 ## Required Passwords

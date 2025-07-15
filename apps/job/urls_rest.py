@@ -49,7 +49,8 @@ rest_urlpatterns = [
         name="job_events_rest",
     ),
     # Job entries
-    # Use CostLine endpoints instead of JobTimeEntryRestView, JobMaterialEntryRestView, JobAdjustmentEntryRestView
+    # Use CostLine endpoints instead of JobTimeEntryRestView,
+    # JobMaterialEntryRestView, JobAdjustmentEntryRestView
     # Job costing
     path(
         "rest/jobs/<uuid:pk>/cost_sets/<str:kind>/",
@@ -143,7 +144,10 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/quote/import/preview/",
         lambda request, *args, **kwargs: HttpResponse(
-            '{"error": "This endpoint has been deprecated. Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}',
+            (
+                '{"error": "This endpoint has been deprecated. '
+                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
+            ),
             status=status.HTTP_410_GONE,
             content_type="application/json",
         ),
@@ -152,7 +156,10 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/quote/import/",
         lambda request, *args, **kwargs: HttpResponse(
-            '{"error": "This endpoint has been deprecated. Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}',
+            (
+                '{"error": "This endpoint has been deprecated. '
+                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
+            ),
             status=status.HTTP_410_GONE,
             content_type="application/json",
         ),

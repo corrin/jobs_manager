@@ -1,12 +1,14 @@
 import logging
 import uuid
+from typing import Any, Dict, List, Optional
 
 from django.contrib.messages import get_messages
+from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
 
 
-def extract_messages(request):
+def extract_messages(request: HttpRequest) -> List[Dict[str, Any]]:
     """
     Extracts messages from the request object and returns them as a list of
     dictionaries.
@@ -36,7 +38,7 @@ def is_valid_uuid(value: str) -> bool:
         return False
 
 
-def get_machine_id(path="/etc/machine-id"):
+def get_machine_id(path: str = "/etc/machine-id") -> Optional[str]:
     """
     Reads the machine ID from the specified path.
     Defaults to /etc/machine-id for Linux systems.

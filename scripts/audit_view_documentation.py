@@ -7,7 +7,6 @@ Compares actual view files with existing documentation.
 import glob
 import logging
 import os
-from pathlib import Path
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -109,8 +108,9 @@ def main():
     logger.info("Undocumented view files (high priority for Phase 2):")
     undocumented_files = []
     for view_file, views in file_to_views.items():
-        file_basename = os.path.basename(view_file).replace(".py", "")
-        app_name = view_file.split("/")[1]  # Extract app name
+        os.path.basename(view_file).replace(".py", "")
+        # app_name = view_file.split("/")[1]  # Extract app name
+        # Commented out as we don't need app name currently
 
         # Check if any view from this file is documented
         documented = False
@@ -123,7 +123,7 @@ def main():
             undocumented_files.append(view_file)
             logger.info(f"  - {view_file} ({len(views)} views)")
 
-    logger.info(f"Summary:")
+    logger.info("Summary:")
     logger.info(f"  - View files: {len(view_files)}")
     logger.info(f"  - Documented view directories: {len(documented_views)}")
     logger.info(f"  - Undocumented view files: {len(undocumented_files)}")

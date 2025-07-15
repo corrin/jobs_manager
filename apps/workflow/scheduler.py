@@ -8,7 +8,6 @@ once at import time and can be started/stopped as needed.
 
 import logging
 import os
-import sys
 from typing import Optional
 
 from apscheduler.schedulers.background import BackgroundScheduler

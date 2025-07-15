@@ -49,7 +49,7 @@ class JobLookupMixin(GenericAPIView):
         else:
             try:
                 job = self.get_object()
-            except:
+            except Exception:
                 job = None
 
         if job is None:
