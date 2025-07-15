@@ -26,7 +26,6 @@ from apps.job.serializers.job_serializer import (
     JobDeleteResponseSerializer,
     JobDetailResponseSerializer,
     JobRestErrorResponseSerializer,
-    JobSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
 

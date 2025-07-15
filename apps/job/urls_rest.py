@@ -144,7 +144,10 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/quote/import/preview/",
         lambda request, *args, **kwargs: HttpResponse(
-            '{"error": "This endpoint has been deprecated. Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}',
+            (
+                '{"error": "This endpoint has been deprecated. '
+                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
+            ),
             status=status.HTTP_410_GONE,
             content_type="application/json",
         ),
@@ -153,7 +156,10 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/quote/import/",
         lambda request, *args, **kwargs: HttpResponse(
-            '{"error": "This endpoint has been deprecated. Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}',
+            (
+                '{"error": "This endpoint has been deprecated. '
+                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
+            ),
             status=status.HTTP_410_GONE,
             content_type="application/json",
         ),
