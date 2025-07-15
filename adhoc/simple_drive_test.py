@@ -54,7 +54,7 @@ def test_drive_access():
         print("✅ Drive service created")
 
         # Test basic API access - list some files
-        print("\n🔍 Testing basic Drive API access...")
+        print("Testing basic Drive API access...")
         try:
             results = (
                 drive_service.files()
@@ -124,7 +124,7 @@ def test_drive_access():
                         print(f"\n💡 Use this working folder ID: {parent_id}")
 
                     # Try creating subfolder in working folder
-                    print("\n🔨 Testing subfolder creation...")
+                    print("Testing subfolder creation...")
                     test_folder = {
                         "name": "Test Jobs Manager",
                         "parents": [parent_id],
@@ -157,7 +157,7 @@ def test_drive_access():
                     f"   Response content: {e.content.decode() if hasattr(e, 'content') else 'N/A'}"
                 )
 
-        print("\n🎉 SUCCESS: Google Drive API is working!")
+        print("SUCCESS: Google Drive API is working!")
         return True
 
     except Exception as e:

@@ -264,7 +264,7 @@ class SerializerTester:
 
     def _print_summary(self, total_duration: float):
         """Print comprehensive test summary"""
-        print("\n" + "=" * 60)
+        print("=" * 60)
         print("📊 SERIALIZER TEST SUMMARY")
         print("=" * 60)
 
@@ -298,7 +298,7 @@ class SerializerTester:
 
         if failed_serializers:
             print(f"❌ FAILED SERIALIZERS: {', '.join(failed_serializers)}")
-            print("\n⚠️  CRITICAL: Some serializers failed. Check data integrity!")
+            print("CRITICAL: Some serializers failed. Check data integrity!")
             return False
         else:
             print("✅ ALL SERIALIZERS PASSED!")

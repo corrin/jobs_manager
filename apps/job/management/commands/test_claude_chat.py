@@ -85,7 +85,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Message ID: {assistant_message.message_id}")
             self.stdout.write(f"Role: {assistant_message.role}")
 
-            self.stdout.write("\n--- Content ---")
+            self.stdout.write("--- Content ---")
             self.stdout.write(assistant_message.content)
             self.stdout.write("--- End Content ---\n")
 

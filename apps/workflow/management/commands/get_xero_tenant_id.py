@@ -29,7 +29,7 @@ class Command(BaseCommand):
         identity_api = IdentityApi(api_client)
         connections = identity_api.get_connections()
 
-        self.stdout.write("\nAvailable Xero Organizations:")
+        self.stdout.write("Available Xero Organizations:")
         self.stdout.write("-----------------------------")
         for conn in connections:
             self.stdout.write(self.style.SUCCESS(f"Tenant ID: {conn.tenant_id}"))

@@ -71,11 +71,11 @@ def main():
                         f.write(f"# Page {i}\n\n")
                         f.write(page.markdown)
                         f.write("\n\n---\n\n")  # Add separator between pages
-        print("\nOCR processing complete!")
+        print("OCR processing complete!")
         print(f"- JSON results saved to: {os.path.abspath(json_output_file)}")
         print(f"- Markdown results saved to: {os.path.abspath(md_output_file)}")
         # Print a preview of the results
-        print("\nPreview of the OCR results (first page):")
+        print("Preview of the OCR results (first page):")
         print("-" * 50)
         if hasattr(ocr_response, "pages") and ocr_response.pages:
             first_page = ocr_response.pages[0]
@@ -91,7 +91,7 @@ def main():
                 print("No text content available for preview")
         else:
             print("No pages found in the OCR response.")
-        print("\n" + "=" * 50)
+        print("=" * 50)
         print("Full results have been saved to:")
         print(f"- {os.path.abspath(json_output_file)}")
         print(f"- {os.path.abspath(md_output_file)}")
