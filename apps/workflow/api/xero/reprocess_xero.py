@@ -37,7 +37,8 @@ def set_invoice_or_bill_fields(document, document_type, new_from_xero=False):
 
     if new_from_xero:
         logger.info(
-            f"[XERO-WEBHOOK] Setting fields for new {document_type.lower()} from Xero data: {document.number}"
+            f"[XERO-WEBHOOK] Setting fields for new {document_type.lower()} "
+            f"from Xero data: {document.number}"
             f"[XERO-WEBHOOK] Document ID: {document.xero_id}"
         )
 
