@@ -6,6 +6,8 @@ Service layer for handling weekly timesheet business logic including:
 - IMS export functionality
 - Staff summary calculations
 - Job metrics
+
+Refactored to use CostSet/CostLine system only
 """
 
 import logging
@@ -13,12 +15,14 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from django.db.models import Q, Sum
+from django.db import models
+from django.db.models import Q
+from django.db.models.expressions import RawSQL
 
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_excluded_staff
-from apps.job.models import Job, JobPricing
-from apps.timesheet.models import TimeEntry
+from apps.job.models import Job
+from apps.job.models.costing import CostLine, CostSet
 
 logger = logging.getLogger(__name__)
 
@@ -182,29 +186,56 @@ class WeeklyTimesheetService:
 
     @classmethod
     def _get_daily_data(cls, staff_member: Staff, day: date) -> Dict[str, Any]:
-        """Get standard daily data for a staff member."""
+        """Get standard daily data for a staff member using CostLine."""
         try:
             scheduled_hours = staff_member.get_scheduled_hours(day)
-            time_entries = TimeEntry.objects.filter(
-                staff=staff_member, date=day
-            ).select_related("job_pricing")
 
-            daily_hours = sum(entry.hours for entry in time_entries)
+            # Get cost lines for this staff and date from 'actual' cost sets
+            cost_lines = (
+                CostLine.objects.annotate(
+                    staff_id=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    line_date=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    is_billable=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
+                        (),
+                        output_field=models.BooleanField(),
+                    ),
+                )
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    staff_id=str(staff_member.id),
+                    line_date=day.isoformat(),
+                )
+                .select_related("cost_set__job")
+            )
+
+            daily_hours = sum(Decimal(line.quantity) for line in cost_lines)
             billable_hours = sum(
-                entry.hours for entry in time_entries if entry.is_billable
+                Decimal(line.quantity) for line in cost_lines if line.is_billable
             )
 
-            # Check for leave
-            leave_entries = time_entries.filter(
-                job_pricing__job__name__icontains="Leave"
-            )
-            has_leave = leave_entries.exists()
-            leave_type = (
-                leave_entries.first().job_pricing.job.name if has_leave else None
-            )
+            # Check for leave - look for jobs with "Leave" in name
+            leave_lines = [
+                line
+                for line in cost_lines
+                if line.cost_set
+                and line.cost_set.job
+                and "Leave" in line.cost_set.job.name
+            ]
+            has_leave = len(leave_lines) > 0
+            leave_type = leave_lines[0].cost_set.job.name if has_leave else None
 
             # Determine status
-            status = cls._get_day_status(daily_hours, scheduled_hours, has_leave)
+            status = cls._get_day_status(float(daily_hours), scheduled_hours, has_leave)
 
             return {
                 "day": day.strftime("%Y-%m-%d"),
@@ -230,40 +261,81 @@ class WeeklyTimesheetService:
 
     @classmethod
     def _get_ims_daily_data(cls, staff_member: Staff, day: date) -> Dict[str, Any]:
-        """Get IMS-specific daily data including wage rate breakdowns."""
+        """Get IMS-specific daily data including wage rate breakdowns using CostLine."""
         try:
             base_data = cls._get_daily_data(staff_member, day)
 
-            # Get wage rate breakdowns
-            time_entries = TimeEntry.objects.filter(
-                staff=staff_member, date=day
-            ).exclude(job_pricing__job__name__icontains="Leave")
+            # Get wage rate breakdowns from CostLine meta
+            cost_lines = (
+                CostLine.objects.annotate(
+                    staff_id=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    line_date=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    rate_multiplier=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.rate_multiplier'))",
+                        (),
+                        output_field=models.DecimalField(),
+                    ),
+                )
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    staff_id=str(staff_member.id),
+                    line_date=day.isoformat(),
+                )
+                .exclude(cost_set__job__name__icontains="Leave")
+            )
 
             standard_hours = 0
             time_and_half_hours = 0
             double_time_hours = 0
             unpaid_hours = 0
 
-            for entry in time_entries:
-                multiplier = Decimal(entry.wage_rate_multiplier or 1.0)
+            for line in cost_lines:
+                multiplier = line.rate_multiplier or Decimal("1.0")
+                hours = line.quantity
+
                 if multiplier == Decimal("1.0"):
-                    standard_hours += entry.hours
+                    standard_hours += hours
                 elif multiplier == Decimal("1.5"):
-                    time_and_half_hours += entry.hours
+                    time_and_half_hours += hours
                 elif multiplier == Decimal("2.0"):
-                    double_time_hours += entry.hours
+                    double_time_hours += hours
                 elif multiplier == Decimal("0.0"):
-                    unpaid_hours += entry.hours
+                    unpaid_hours += hours
 
             # Calculate overtime
             scheduled_hours = base_data["scheduled_hours"]
             overtime = max(0, base_data["hours"] - scheduled_hours)
 
-            # Get leave hours
-            leave_entries = TimeEntry.objects.filter(
-                staff=staff_member, date=day, job_pricing__job__name__icontains="Leave"
+            # Get leave hours from CostLine
+            leave_lines = CostLine.objects.annotate(
+                staff_id=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                line_date=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+            ).filter(
+                cost_set__kind="actual",
+                kind="time",
+                staff_id=str(staff_member.id),
+                line_date=day.isoformat(),
+                cost_set__job__name__icontains="Leave",
             )
-            leave_hours = sum(entry.hours for entry in leave_entries)
+
+            leave_hours = sum(line.quantity for line in leave_lines)
 
             base_data.update(
                 {
@@ -333,34 +405,54 @@ class WeeklyTimesheetService:
 
     @classmethod
     def _get_job_metrics(cls, start_date: date, end_date: date) -> Dict[str, Any]:
-        """Get job-related metrics for the week."""
+        """Get job-related metrics for the week using CostLine system."""
         try:
             # Get active jobs
             active_jobs = Job.objects.filter(
-                status__in=["approved", "in_progress", "quoting"]
+                status__in=["accepted_quote", "in_progress", "quoting"]
             ).count()
+
             # Get jobs with entries in this week using CostLine system
             jobs_with_entries = (
-                Job.objects.filter(
-                    cost_sets__cost_lines__entry_date__range=[start_date, end_date]
+                CostSet.objects.annotate(
+                    line_date=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(cost_lines.meta, '$.date'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
                 )
+                .filter(
+                    kind="actual",
+                    cost_lines__kind="time",
+                    line_date__gte=start_date.isoformat(),
+                    line_date__lte=end_date.isoformat(),
+                )
+                .values("job")
                 .distinct()
                 .count()
             )
 
-            # Calculate total estimated and actual hours using CostLine system
-            job_stats = Job.objects.filter(
-                cost_sets__cost_lines__entry_date__range=[start_date, end_date]
-            ).aggregate(
-                total_estimated=Sum("estimated_hours"),
-                total_actual=Sum("cost_sets__cost_lines__actual_hours"),
+            # Calculate total hours for the week
+            cost_lines_week = CostLine.objects.annotate(
+                line_date=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+            ).filter(
+                cost_set__kind="actual",
+                kind="time",
+                line_date__gte=start_date.isoformat(),
+                line_date__lte=end_date.isoformat(),
             )
+
+            total_actual_hours = sum(line.quantity for line in cost_lines_week)
 
             return {
                 "job_count": active_jobs,
                 "jobs_worked_this_week": jobs_with_entries,
-                "total_estimated_hours": float(job_stats["total_estimated"] or 0),
-                "total_actual_hours": float(job_stats["total_actual"] or 0),
+                "total_estimated_hours": 0,  # Would need to calculate from estimates
+                "total_actual_hours": float(total_actual_hours),
             }
 
         except Exception as e:
@@ -409,7 +501,7 @@ class WeeklyTimesheetService:
         hours_per_day: float,
         description: str = "",
     ) -> Dict[str, Any]:
-        """Submit a paid absence request."""
+        """Submit a paid absence request using CostLine system."""
         try:
             # Get staff member
             staff = Staff.objects.get(id=staff_id)
@@ -431,36 +523,67 @@ class WeeklyTimesheetService:
             if not leave_job:
                 raise ValueError(f"Leave job '{job_name}' not found")
 
-            # Get job pricing
-            job_pricing = JobPricing.objects.filter(job=leave_job).first()
-            if not job_pricing:
-                raise ValueError(f"Job pricing for '{job_name}' not found")
+            # Get or create actual cost set for the leave job
+            cost_set, created = CostSet.objects.get_or_create(
+                job=leave_job, kind="actual", defaults={"rev": 1, "summary": {}}
+            )
 
-            # Create time entries for each working day
+            # Create cost lines for each working day
             current_date = start_date
             entries_created = 0
 
             while current_date <= end_date:
                 # Skip weekends
                 if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-                    # Check if entry already exists
-                    existing_entry = TimeEntry.objects.filter(
-                        staff=staff, date=current_date, job_pricing=job_pricing
-                    ).first()
+                    # Check if entry already exists using CostLine
+                    existing_lines = CostLine.objects.annotate(
+                        staff_id=RawSQL(
+                            "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                            (),
+                            output_field=models.CharField(),
+                        ),
+                        line_date=RawSQL(
+                            "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                            (),
+                            output_field=models.CharField(),
+                        ),
+                    ).filter(
+                        cost_set=cost_set,
+                        kind="time",
+                        staff_id=str(staff_id),
+                        line_date=current_date.isoformat(),
+                    )
 
-                    if not existing_entry:
-                        TimeEntry.objects.create(
-                            staff=staff,
-                            date=current_date,
-                            job_pricing=job_pricing,
-                            hours=Decimal(str(hours_per_day)),
-                            description=f"{leave_type.title()} - {description}".strip(),
-                            is_billable=False,
-                            wage_rate_multiplier=Decimal("1.0"),
+                    if not existing_lines.exists():
+                        CostLine.objects.create(
+                            cost_set=cost_set,
+                            kind="time",
+                            desc=f"{leave_type.title()} - {description}".strip(),
+                            quantity=Decimal(str(hours_per_day)),
+                            unit_cost=staff.wage_rate,  # Use staff wage rate
+                            unit_rev=Decimal("0"),  # Leave is not billable
+                            meta={
+                                "staff_id": str(staff_id),
+                                "date": current_date.isoformat(),
+                                "is_billable": False,
+                                "wage_rate": float(staff.wage_rate),
+                                "charge_out_rate": 0.0,
+                                "rate_multiplier": 1.0,
+                                "leave_type": leave_type,
+                                "created_from_timesheet": True,
+                            },
                         )
                         entries_created += 1
 
                 current_date += timedelta(days=1)
+
+            # Update job's latest_actual pointer if needed
+            if (
+                not leave_job.latest_actual
+                or cost_set.rev >= leave_job.latest_actual.rev
+            ):
+                leave_job.latest_actual = cost_set
+                leave_job.save(update_fields=["latest_actual"])
 
             return {
                 "success": True,

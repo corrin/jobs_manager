@@ -3,13 +3,15 @@ RESTful URLs for the purchasing app.
 Following REST conventions with clear resource-based naming.
 """
 
-from django.urls import include, path
+from typing import List, Union
+
+from django.urls import URLPattern, URLResolver, include, path
 
 from . import views
 
 app_name = "purchasing"
 
-urlpatterns = [
+urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # Purchase Orders - REST endpoints
     path(
         "purchase-orders/",
@@ -66,7 +68,7 @@ urlpatterns = [
     # Delivery Receipts - API endpoints
     path(
         "api/delivery-receipts/process/",
-        views.process_delivery_receipt,
+        views.DeliveryReceiptRestView.as_view(),
         name="delivery_receipts_process",
     ),
     # Stock Management - REST endpoints

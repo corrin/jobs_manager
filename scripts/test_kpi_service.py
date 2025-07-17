@@ -21,8 +21,6 @@ from datetime import date
 
 import django
 
-from apps.accounting.services import KPIService
-
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -33,6 +31,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Setup Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
 django.setup()
+
+from apps.accounting.services import KPIService
 
 
 def test_kpi_calendar(year=None, month=None):

@@ -17,7 +17,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
-from apps.job.serializers.costing_serializer import CostSetSerializer
+from apps.job.serializers.costing_serializer import (
+    CostSetSerializer,
+    QuoteImportStatusResponseSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +77,7 @@ class QuoteImportStatusView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = QuoteImportStatusResponseSerializer
 
     def get(self, request, job_id):
         """Get quote status for job"""

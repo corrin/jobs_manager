@@ -11,7 +11,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin
-from apps.job.models import Job
 from apps.job.serializers import CostSetSerializer
 
 logger = logging.getLogger(__name__)
@@ -28,6 +27,7 @@ class JobCostSetView(JobLookupMixin, APIView):
     """
 
     lookup_url_kwarg = "pk"  # Match the URL parameter name
+    serializer_class = CostSetSerializer
 
     def get(self, request, pk, kind):
         """

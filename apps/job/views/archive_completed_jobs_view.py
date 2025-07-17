@@ -8,6 +8,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.serializers import (
+    ArchiveJobsRequestSerializer,
+    ArchiveJobsResponseSerializer,
+)
 from apps.job.serializers.job_serializer import CompleteJobSerializer
 from apps.job.services.job_service import archive_complete_jobs, get_paid_complete_jobs
 
@@ -48,29 +52,47 @@ class ArchiveCompleteJobsViews:
         """API Endpoint to set 'paid' flag as True in the received jobs"""
 
         permission_classes = [IsAuthenticated]
+        serializer_class = ArchiveJobsResponseSerializer
+
+        def get_serializer_class(self):
+            """Return the serializer class for documentation"""
+            if self.request.method == "POST":
+                return ArchiveJobsRequestSerializer
+            return ArchiveJobsResponseSerializer
 
         def post(self, request, *args, **kwargs):
             try:
-                job_ids = request.data.get("ids", [])
-
-                if not job_ids:
-                    return Response(
-                        {
+                # Validate request data
+                request_serializer = ArchiveJobsRequestSerializer(data=request.data)
+                if not request_serializer.is_valid():
+                    response_serializer = ArchiveJobsResponseSerializer(
+                        data={
                             "success": False,
-                            "error": "No jobs found for the provided list of IDs. Please try again or contact an administrator if the problem persists.",
-                        },
-                        status.HTTP_400_BAD_REQUEST,
+                            "error": "Invalid request data",
+                            "errors": [str(request_serializer.errors)],
+                        }
                     )
+                    response_serializer.is_valid(raise_exception=True)
+                    return Response(
+                        response_serializer.data,
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                job_ids = request_serializer.validated_data["ids"]
 
                 errors, archived_count = archive_complete_jobs(job_ids)
 
                 if errors:
-                    return Response(
-                        {
+                    response_serializer = ArchiveJobsResponseSerializer(
+                        data={
                             "success": archived_count > 0,
                             "message": f"Successfully archived {archived_count} jobs with {len(errors)} errors",
                             "errors": errors,
-                        },
+                        }
+                    )
+                    response_serializer.is_valid(raise_exception=True)
+                    return Response(
+                        response_serializer.data,
                         status=(
                             status.HTTP_207_MULTI_STATUS
                             if archived_count > 0
@@ -78,20 +100,28 @@ class ArchiveCompleteJobsViews:
                         ),
                     )
 
-                return Response(
-                    {
+                response_serializer = ArchiveJobsResponseSerializer(
+                    data={
                         "success": True,
                         "message": f"Successfully archived {archived_count} jobs.",
-                    },
+                    }
+                )
+                response_serializer.is_valid(raise_exception=True)
+                return Response(
+                    response_serializer.data,
                     status=status.HTTP_200_OK,
                 )
 
             except Exception as e:
                 logger.exception(f"Unexpected error in archive jobs view: {str(e)}")
-                return Response(
-                    {
+                response_serializer = ArchiveJobsResponseSerializer(
+                    data={
                         "success": False,
                         "error": f"An unexpected error occurred: {str(e)}",
-                    },
+                    }
+                )
+                response_serializer.is_valid(raise_exception=True)
+                return Response(
+                    response_serializer.data,
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )

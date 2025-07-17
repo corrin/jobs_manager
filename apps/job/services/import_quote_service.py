@@ -16,10 +16,8 @@ This module provides both file-based and draft-based import functions:
 """
 
 import logging
-from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
 from apps.job.diff import DiffResult, apply_diff, diff_costset
@@ -29,7 +27,7 @@ from apps.job.importers.quote_spreadsheet import (
     parse_xlsx,
     parse_xlsx_with_validation,
 )
-from apps.job.models import CostLine, CostSet, Job
+from apps.job.models import CostSet, Job
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +45,8 @@ def serialize_validation_report(
         Dictionary representation or None
     """
 
-    # ValidationReport is optional in several functions and returning it as None simply means that we didn't have any problems.
+    # ValidationReport is optional in several functions and returning it as None
+    # simply means that we didn't have any problems.
     if validation_report is None:
         return None
 
@@ -81,8 +80,6 @@ def serialize_draft_lines(draft_lines: List[DraftLine]) -> List[Dict[str, Any]]:
 
 class QuoteImportError(Exception):
     """Custom exception for quote import errors"""
-
-    pass
 
 
 class QuoteImportResult:
@@ -170,8 +167,10 @@ def preview_quote_import_from_drafts(
                 diff_result = diff_costset(old_cost_set, draft_lines)
                 next_revision = actual_latest_rev + 1
 
-                # Reorganize draft_lines to match categorization order for frontend slicing
-                # Order: additions first, then updates (draft parts), then we don't include deletions in draft_lines
+                # Reorganize draft_lines to match categorization order for
+                # frontend slicing
+                # Order: additions first, then updates (draft parts), then we
+                # don't include deletions in draft_lines
                 categorized_draft_lines = []
 
                 # Add all additions first
@@ -297,8 +296,8 @@ def import_quote_from_drafts(
             elif db_latest_rev is not None:
                 # Only database has data - pointer is missing or outdated
                 logger.warning(
-                    f"Job {job.id}: Database has quote rev {db_latest_rev} but pointer is None. "
-                    f"Pointer may be stale."
+                    f"Job {job.id}: Database has quote rev {db_latest_rev} "
+                    f"but pointer is None. Pointer may be stale."
                 )
                 actual_latest_rev = db_latest_rev
                 old_cost_set = job.cost_sets.filter(
@@ -313,8 +312,8 @@ def import_quote_from_drafts(
                     logger.info(f"Job {job.id}: Using pointer revision {pointer_rev}")
                 else:
                     logger.error(
-                        f"Job {job.id}: Pointer references non-existent revision {pointer_rev}. "
-                        f"Treating as no existing quote."
+                        f"Job {job.id}: Pointer references non-existent "
+                        f"revision {pointer_rev}. Treating as no existing quote."
                     )
                     actual_latest_rev = None
                     old_cost_set = None
@@ -365,7 +364,8 @@ def import_quote_from_drafts(
                 new_cost_set = apply_diff(empty_cost_set, diff_result)
 
             logger.info(
-                f"Created new quote CostSet rev {new_cost_set.rev} (ID: {new_cost_set.id})"
+                f"Created new quote CostSet rev {new_cost_set.rev} "
+                f"(ID: {new_cost_set.id})"
             )
 
             # Step 6: Update job's latest_quote pointer to maintain consistency
@@ -427,7 +427,9 @@ def import_quote_from_file(
                 return QuoteImportResult(
                     success=False,
                     validation_report=result["validation_report"],
-                    error_message="Spreadsheet validation failed - see validation report",
+                    error_message=(
+                        "Spreadsheet validation failed - see validation report"
+                    ),
                 )
 
             draft_lines = result["draft_lines"]
@@ -456,7 +458,8 @@ def import_quote_from_file(
 
 def preview_quote_import(job: Job, file_path: str) -> Dict[str, Any]:
     """
-    Preview what changes would be made by importing a quote without actually importing it.
+    Preview what changes would be made by importing a quote without actually
+    importing it.
 
     Args:
         job: Job instance

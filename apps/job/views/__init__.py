@@ -5,16 +5,100 @@ from .archive_completed_jobs_view import (
     StandardResultsSetPagination,
 )
 from .assign_job_view import AssignJobView
-from .job_file_upload import JobFileUploadView
-from .job_file_view import BinaryFileRenderer, JobFileView
+from .job_costing_views import JobCostSetView
+from .job_costline_views import (
+    CostLineCreateView,
+    CostLineDeleteView,
+    CostLineUpdateView,
+)
+from .job_file_view import BinaryFileRenderer, JobFileThumbnailView, JobFileView
+from .job_quote_chat_views import (
+    BaseJobQuoteChatView,
+    JobQuoteChatHistoryView,
+    JobQuoteChatMessageView,
+)
+from .job_rest_views import (
+    BaseJobRestView,
+    JobCreateRestView,
+    JobDetailRestView,
+    JobEventRestView,
+    get_company_defaults_api,
+)
+from .modern_timesheet_views import (
+    ModernTimesheetDayView,
+    ModernTimesheetEntryView,
+    ModernTimesheetJobView,
+)
+from .month_end_rest_view import MonthEndRestView
+from .quote_import_views import (
+    QuoteImportPreviewView,
+    QuoteImportStatusView,
+    QuoteImportView,
+)
+from .quote_sync_views import (
+    ApplyQuoteAPIView,
+    LinkQuoteSheetAPIView,
+    PreviewQuoteAPIView,
+)
 from .workshop_view import WorkshopPDFView
 
+# Conditional imports (only when Django is ready)
+try:
+    from django.apps import apps
+
+    if apps.ready:
+        from .job_file_upload import JobFileUploadView
+        from .job_quote_chat_api import JobQuoteChatInteractionView
+        from .kanban_view_api import (
+            AdvancedSearchAPIView,
+            FetchAllJobsAPIView,
+            FetchJobsAPIView,
+            FetchJobsByColumnAPIView,
+            FetchStatusValuesAPIView,
+            ReorderJobAPIView,
+            UpdateJobStatusAPIView,
+        )
+except (ImportError, RuntimeError):
+    # Django not ready or circular import, skip conditional imports
+    pass
+
 __all__ = [
-    "StandardResultsSetPagination",
+    "AdvancedSearchAPIView",
+    "ApplyQuoteAPIView",
     "ArchiveCompleteJobsViews",
     "AssignJobView",
-    "JobFileUploadView",
+    "BaseJobQuoteChatView",
+    "BaseJobRestView",
     "BinaryFileRenderer",
+    "CostLineCreateView",
+    "CostLineDeleteView",
+    "CostLineUpdateView",
+    "FetchAllJobsAPIView",
+    "FetchJobsAPIView",
+    "FetchJobsByColumnAPIView",
+    "FetchStatusValuesAPIView",
+    "JobCostSetView",
+    "JobCreateRestView",
+    "JobDetailRestView",
+    "JobEventRestView",
+    "JobFileThumbnailView",
+    "JobFileUploadView",
     "JobFileView",
+    "JobQuoteChatHistoryView",
+    "JobQuoteChatInteractionView",
+    "JobQuoteChatMessageView",
+    "LinkQuoteSheetAPIView",
+    "ModernTimesheetDayView",
+    "ModernTimesheetEntryView",
+    "ModernTimesheetJobView",
+    "MonthEndRestView",
+    "PreviewQuoteAPIView",
+    "QuoteImportPreviewView",
+    "QuoteImportStatusView",
+    "QuoteImportView",
+    "ReorderJobAPIView",
+    "StandardResultsSetPagination",
+    "UpdateJobStatusAPIView",
     "WorkshopPDFView",
+    "get_company_defaults_api",
 ]

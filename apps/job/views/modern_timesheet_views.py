@@ -2,13 +2,14 @@
 Modern Timesheet REST Views
 
 REST views for the modern timesheet system using CostLine architecture.
-Provides a bridge between legacy TimeEntry system and modern CostLine system.
+Works directly with CostSet/CostLine models using MariaDB-compatible JSONField queries.
 """
 
 import logging
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import models, transaction
+from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
 from rest_framework import status
@@ -17,12 +18,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Staff
-from apps.job.models import CostLine, Job
-from apps.job.serializers.costing_serializer import (
-    CostLineSerializer,
-    TimesheetCostLineSerializer,
+from apps.job.models.costing import CostLine, CostSet
+from apps.job.models.job import Job
+from apps.job.serializers.costing_serializer import TimesheetCostLineSerializer
+from apps.job.serializers.job_serializer import (
+    ModernTimesheetDayGetResponseSerializer,
+    ModernTimesheetEntryGetResponseSerializer,
+    ModernTimesheetEntryPostRequestSerializer,
+    ModernTimesheetEntryPostResponseSerializer,
+    ModernTimesheetErrorResponseSerializer,
+    ModernTimesheetJobGetResponseSerializer,
 )
-from apps.job.services.timesheet_migration_service import TimesheetToCostLineService
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +42,15 @@ class ModernTimesheetEntryView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = ModernTimesheetEntryGetResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "GET":
+            return ModernTimesheetEntryGetResponseSerializer
+        elif self.request.method == "POST":
+            return ModernTimesheetEntryPostResponseSerializer
+        return ModernTimesheetEntryGetResponseSerializer
 
     def get(self, request):
         """Get timesheet entries (CostLines) for a specific staff member and date"""
@@ -44,49 +59,71 @@ class ModernTimesheetEntryView(APIView):
 
         # Guard clauses for validation
         if not staff_id:
-            return Response(
-                {"error": "staff_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            error_response = {"error": "staff_id is required"}
+            error_serializer = ModernTimesheetErrorResponseSerializer(
+                data=error_response
             )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         if not entry_date:
-            return Response(
-                {"error": "date is required"}, status=status.HTTP_400_BAD_REQUEST
+            error_response = {"error": "date is required"}
+            error_serializer = ModernTimesheetErrorResponseSerializer(
+                data=error_response
             )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate staff exists
         try:
             staff = Staff.objects.get(id=staff_id)
         except Staff.DoesNotExist:
-            return Response(
-                {"error": "Staff member not found"}, status=status.HTTP_404_NOT_FOUND
+            error_response = {"error": "Staff member not found"}
+            error_serializer = ModernTimesheetErrorResponseSerializer(
+                data=error_response
             )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
         # Validate date format
         parsed_date = parse_date(entry_date)
         if not parsed_date:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"},
-                status=status.HTTP_400_BAD_REQUEST,
+            error_response = {"error": "Invalid date format. Use YYYY-MM-DD"}
+            error_serializer = ModernTimesheetErrorResponseSerializer(
+                data=error_response
             )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
-        try:  # Query CostLines with kind='time' for the staff/date
-            # Using JSON field queries for metadata (MySQL compatible)
+        try:
+            # Query CostLines with kind='time' for the staff/date using MariaDB-compatible JSONField queries
             cost_lines = (
-                CostLine.objects.filter(
-                    kind="time",
-                    meta__contains={
-                        "staff_id": str(staff_id),
-                        "date": parsed_date.isoformat(),
-                    },
+                CostLine.objects.annotate(
+                    staff_id_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    date_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
                 )
-                .select_related("cost_set__job__client")
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    staff_id_meta=str(staff_id),
+                    date_meta=entry_date,
+                )
+                .select_related("cost_set__job")
                 .order_by("id")
             )
 
             # Calculate totals
-            total_hours = sum(float(line.quantity) for line in cost_lines)
+            total_hours = sum(Decimal(line.quantity) for line in cost_lines)
             billable_hours = sum(
-                float(line.quantity)
+                Decimal(line.quantity)
                 for line in cost_lines
                 if line.meta.get("is_billable", True)
             )
@@ -94,74 +131,73 @@ class ModernTimesheetEntryView(APIView):
             total_revenue = sum(line.total_rev for line in cost_lines)
 
             # Serialize the results using timesheet-specific serializer
-            serializer = TimesheetCostLineSerializer(cost_lines, many=True)
+            cost_line_serializer = TimesheetCostLineSerializer(cost_lines, many=True)
 
-            return Response(
-                {
-                    "cost_lines": serializer.data,
-                    "staff": {
-                        "id": str(staff.id),
-                        "name": staff.get_display_name(),
-                        "firstName": staff.first_name,
-                        "lastName": staff.last_name,
-                    },
-                    "date": entry_date,
-                    "summary": {
-                        "total_hours": total_hours,
-                        "billable_hours": billable_hours,
-                        "non_billable_hours": total_hours - billable_hours,
-                        "total_cost": float(total_cost),
-                        "total_revenue": float(total_revenue),
-                        "entry_count": cost_lines.count(),
-                    },
+            response_data = {
+                "cost_lines": cost_line_serializer.data,
+                "staff": {
+                    "id": str(staff.id),
+                    "name": f"{staff.first_name} {staff.last_name}",
+                    "firstName": staff.first_name,
+                    "lastName": staff.last_name,
                 },
-                status=status.HTTP_200_OK,
+                "date": parsed_date,
+                "summary": {
+                    "total_hours": float(total_hours),
+                    "billable_hours": float(billable_hours),
+                    "non_billable_hours": float(total_hours - billable_hours),
+                    "total_cost": float(total_cost),
+                    "total_revenue": float(total_revenue),
+                    "entry_count": len(cost_lines),
+                },
+            }
+
+            response_serializer = ModernTimesheetEntryGetResponseSerializer(
+                data=response_data
             )
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(
                 f"Error fetching timesheet entries for staff {staff_id}, date {entry_date}: {e}"
             )
+            error_response = {"error": "Failed to fetch timesheet entries"}
+            error_serializer = ModernTimesheetErrorResponseSerializer(
+                data=error_response
+            )
+            error_serializer.is_valid(raise_exception=True)
             return Response(
-                {"error": "Failed to fetch timesheet entries"},
+                error_serializer.data,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     def post(self, request):
         """Create a timesheet entry as a CostLine in the actual CostSet"""
         try:
-            data = request.data
-
-            # Validate required fields with guard clauses
-            job_id = data.get("job_id")
-            if not job_id:
+            # Validate input data using serializer
+            input_serializer = ModernTimesheetEntryPostRequestSerializer(
+                data=request.data
+            )
+            if not input_serializer.is_valid():
+                error_response = {"error": f"Invalid input: {input_serializer.errors}"}
+                error_serializer = ModernTimesheetErrorResponseSerializer(
+                    data=error_response
+                )
+                error_serializer.is_valid(raise_exception=True)
                 return Response(
-                    {"error": "job_id is required"}, status=status.HTTP_400_BAD_REQUEST
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            staff_id = data.get("staff_id")
-            if not staff_id:
-                return Response(
-                    {"error": "staff_id is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            hours = data.get("hours")
-            if not hours or float(hours) <= 0:
-                return Response(
-                    {"error": "hours must be greater than 0"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Parse and validate date
-            entry_date_str = data.get("entry_date")
-            if not entry_date_str:
-                return Response(
-                    {"error": "entry_date is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            entry_date = parse_date(entry_date_str)
+            # Extract validated data
+            validated_data = input_serializer.validated_data
+            job_id = validated_data["job_id"]
+            staff_id = validated_data["staff_id"]
+            hours = validated_data["hours"]
+            entry_date = validated_data["date"]
+            description = validated_data["description"]
+            is_billable = validated_data.get("is_billable", True)
+            hourly_rate = validated_data.get("hourly_rate")
             if not entry_date:
                 return Response(
                     {"error": "entry_date must be in YYYY-MM-DD format"},
@@ -177,53 +213,106 @@ class ModernTimesheetEntryView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
+            # Get job
+            try:
+                job = Job.objects.get(id=job_id)
+            except Job.DoesNotExist:
+                error_response = {"error": f"Job {job_id} not found"}
+                error_serializer = ModernTimesheetErrorResponseSerializer(
+                    data=error_response
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+
+            # Get staff
             try:
                 staff = Staff.objects.get(id=staff_id)
             except Staff.DoesNotExist:
-                return Response(
-                    {"error": f"Staff {staff_id} not found"},
-                    status=status.HTTP_404_NOT_FOUND,
+                error_response = {"error": f"Staff {staff_id} not found"}
+                error_serializer = ModernTimesheetErrorResponseSerializer(
+                    data=error_response
                 )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
             # Extract other fields with defaults
-            description = data.get("description", "")
-            rate_multiplier = Decimal(str(data.get("rate_multiplier", 1.0)))
-            is_billable = data.get("is_billable", True)
+            rate_multiplier = Decimal("1.0")
 
             # Get rates from staff and job
-            wage_rate = staff.wage_rate
+            wage_rate = hourly_rate if hourly_rate else staff.wage_rate
             charge_out_rate = job.charge_out_rate
 
-            # Override rates if provided
-            if data.get("wage_rate"):
-                wage_rate = Decimal(str(data.get("wage_rate")))
-            if data.get("charge_out_rate"):
-                charge_out_rate = Decimal(str(data.get("charge_out_rate")))
-
-            # Create CostLine using migration service
+            # Create CostLine directly
             with transaction.atomic():
-                cost_line = TimesheetToCostLineService.create_cost_line_from_timesheet(
-                    job_id=str(job_id),
-                    staff_id=str(staff_id),
-                    entry_date=entry_date,
-                    hours=Decimal(str(hours)),
-                    description=description,
-                    wage_rate=wage_rate,
-                    charge_out_rate=charge_out_rate,
-                    rate_multiplier=rate_multiplier,
-                    is_billable=is_billable,
-                    ext_refs=data.get("ext_refs", {}),
-                    meta=data.get("meta", {}),
+                # Get or create actual cost set for the job
+                cost_set, created = CostSet.objects.get_or_create(
+                    job=job, kind="actual", defaults={"rev": 1, "summary": {}}
                 )
 
-            # Serialize and return the created cost line
-            serializer = CostLineSerializer(cost_line)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+                if not created:
+                    # If cost set exists, increment revision if needed
+                    latest_rev = (
+                        CostSet.objects.filter(job=job, kind="actual")
+                        .order_by("-rev")
+                        .first()
+                        .rev
+                    )
+                    cost_set.rev = latest_rev
+
+                # Calculate costs
+                hours_decimal = Decimal(str(hours))
+                unit_cost = wage_rate * rate_multiplier
+                unit_rev = (
+                    charge_out_rate * rate_multiplier if is_billable else Decimal("0")
+                )
+
+                # Create the cost line
+                cost_line = CostLine.objects.create(
+                    cost_set=cost_set,
+                    kind="time",
+                    desc=description
+                    or f"Timesheet entry for {staff.get_display_name()}",
+                    quantity=hours_decimal,
+                    unit_cost=unit_cost,
+                    unit_rev=unit_rev,
+                    ext_refs={},
+                    meta={
+                        "staff_id": str(staff_id),
+                        "date": entry_date.isoformat(),
+                        "is_billable": is_billable,
+                        "wage_rate": float(wage_rate),
+                        "charge_out_rate": float(charge_out_rate),
+                        "rate_multiplier": float(rate_multiplier),
+                        "created_from_timesheet": True,
+                    },
+                )
+
+                # Update job's latest_actual pointer if this is the most recent
+                if not job.latest_actual or cost_set.rev >= job.latest_actual.rev:
+                    job.latest_actual = cost_set
+                    job.save(update_fields=["latest_actual"])
+
+            # Return success response
+            response_data = {
+                "success": True,
+                "cost_line_id": str(cost_line.id),
+                "message": "Timesheet entry created successfully",
+            }
+            response_serializer = ModernTimesheetEntryPostResponseSerializer(
+                data=response_data
+            )
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             logger.error(f"Error creating timesheet entry: {e}")
+            error_response = {"error": "Failed to create timesheet entry"}
+            error_serializer = ModernTimesheetErrorResponseSerializer(
+                data=error_response
+            )
+            error_serializer.is_valid(raise_exception=True)
             return Response(
-                {"error": "Failed to create timesheet entry"},
+                error_serializer.data,
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -236,6 +325,7 @@ class ModernTimesheetDayView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = ModernTimesheetDayGetResponseSerializer
 
     def get(self, request, staff_id, entry_date):
         """Get all cost lines for a staff member on a specific date"""
@@ -255,14 +345,28 @@ class ModernTimesheetDayView(APIView):
                 return Response(
                     {"error": f"Staff {staff_id} not found"},
                     status=status.HTTP_404_NOT_FOUND,
-                )  # Find all cost lines for this staff on this date
-            cost_lines = (
-                CostLine.objects.filter(
-                    kind="time",
-                    meta__staff_id=str(staff_id),
-                    meta__entry_date=parsed_date.isoformat(),
                 )
-                .select_related("cost_set__job__client")
+            # Find all cost lines for this staff on this date using MariaDB-compatible queries
+            cost_lines = (
+                CostLine.objects.annotate(
+                    staff_id_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    date_meta=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                )
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    staff_id_meta=str(staff_id),
+                    date_meta=entry_date,
+                )
+                .select_related("cost_set__job")
                 .order_by("id")
             )
 
@@ -272,19 +376,22 @@ class ModernTimesheetDayView(APIView):
             return Response(
                 {
                     "staff_id": str(staff_id),
-                    "staff_name": staff.get_display_full_name(),
+                    "staff_name": f"{staff.first_name} {staff.last_name}",
                     "entry_date": entry_date,
                     "cost_lines": serializer.data,
                     "total_hours": sum(float(line.quantity) for line in cost_lines),
-                    "total_cost": sum(line.total_cost for line in cost_lines),
-                    "total_revenue": sum(line.total_rev for line in cost_lines),
-                }
+                    "total_cost": sum(float(line.total_cost) for line in cost_lines),
+                    "total_revenue": sum(float(line.total_rev) for line in cost_lines),
+                },
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
-            logger.error(f"Error getting timesheet entries: {e}")
+            logger.error(
+                f"Error retrieving timesheet day for staff {staff_id}, date {entry_date}: {e}"
+            )
             return Response(
-                {"error": "Failed to get timesheet entries"},
+                {"error": "Failed to retrieve timesheet data"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -297,6 +404,7 @@ class ModernTimesheetJobView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = ModernTimesheetJobGetResponseSerializer
 
     def get(self, request, job_id):
         """Get all timesheet cost lines for a job"""
@@ -304,23 +412,23 @@ class ModernTimesheetJobView(APIView):
             # Validate job exists
             job = get_object_or_404(Job, id=job_id)
 
-            # Get the actual cost set
-            cost_set = job.cost_sets.filter(kind="actual").order_by("-rev").first()
-
-            if not cost_set:
-                return Response(
-                    {
-                        "job_id": str(job_id),
-                        "job_name": job.name,
-                        "cost_lines": [],
-                        "total_hours": 0,
-                        "total_cost": 0,
-                        "total_revenue": 0,
-                    }
-                )  # Get time cost lines (timesheet entries)
-            timesheet_lines = cost_set.cost_lines.filter(
-                kind="time", meta__created_from_timesheet=True
-            ).order_by("meta__entry_date", "id")
+            # Get timesheet cost lines for this job using MariaDB-compatible queries
+            timesheet_lines = (
+                CostLine.objects.annotate(
+                    created_from_timesheet=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.created_from_timesheet'))",
+                        (),
+                        output_field=models.BooleanField(),
+                    ),
+                )
+                .filter(
+                    cost_set__job=job,
+                    cost_set__kind="actual",
+                    kind="time",
+                    created_from_timesheet=True,
+                )
+                .order_by("id")
+            )
 
             # Serialize the cost lines using timesheet-specific serializer
             serializer = TimesheetCostLineSerializer(timesheet_lines, many=True)
@@ -334,14 +442,19 @@ class ModernTimesheetJobView(APIView):
                     "total_hours": sum(
                         float(line.quantity) for line in timesheet_lines
                     ),
-                    "total_cost": sum(line.total_cost for line in timesheet_lines),
-                    "total_revenue": sum(line.total_rev for line in timesheet_lines),
-                }
+                    "total_cost": sum(
+                        float(line.total_cost) for line in timesheet_lines
+                    ),
+                    "total_revenue": sum(
+                        float(line.total_rev) for line in timesheet_lines
+                    ),
+                },
+                status=status.HTTP_200_OK,
             )
 
         except Exception as e:
-            logger.error(f"Error getting job timesheet entries: {e}")
+            logger.error(f"Error retrieving timesheet entries for job {job_id}: {e}")
             return Response(
-                {"error": "Failed to get job timesheet entries"},
+                {"error": "Failed to retrieve timesheet entries"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

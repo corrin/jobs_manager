@@ -37,7 +37,8 @@ def set_invoice_or_bill_fields(document, document_type, new_from_xero=False):
 
     if new_from_xero:
         logger.info(
-            f"[XERO-WEBHOOK] Setting fields for new {document_type.lower()} from Xero data: {document.number}"
+            f"[XERO-WEBHOOK] Setting fields for new {document_type.lower()} "
+            f"from Xero data: {document.number}"
             f"[XERO-WEBHOOK] Document ID: {document.xero_id}"
         )
 
@@ -214,7 +215,8 @@ def set_client_fields(client, new_from_xero=False):
                 isinstance(address_entry, dict)
                 and address_entry.get("_address_type") == "STREET"
             ):
-                # Concatenate address lines, city, region, postal code, country if they exist
+                # Concatenate address lines, city, region, postal code, country if they
+                # exist
                 parts = [
                     address_entry.get("_address_line1"),
                     address_entry.get("_address_line2"),
@@ -295,7 +297,8 @@ def set_client_fields(client, new_from_xero=False):
             client.xero_last_modified = parse_datetime(updated_date_utc_str)
         except ValueError:
             logger.error(
-                f"Could not parse _updated_date_utc: {updated_date_utc_str} for client {client.id}"
+                f"Could not parse _updated_date_utc: {updated_date_utc_str} "
+                f"for client {client.id}"
             )
             client.xero_last_modified = client.xero_last_modified or timezone.now()
     else:
@@ -306,7 +309,8 @@ def set_client_fields(client, new_from_xero=False):
 
     if new_from_xero:
         logger.info(
-            f"[XERO-WEBHOOK] Client {client.name} (ID: {client.id}) created from Xero data."
+            f"[XERO-WEBHOOK] Client {client.name} (ID: {client.id}) "
+            f"created from Xero data."
         )
     else:
         logger.info(f"Client {client.name} (ID: {client.id}) updated from Xero data.")
@@ -438,7 +442,8 @@ def reprocess_clients():
 def reprocess_journals():
     """
     Iterate over all XeroJournal records and re-run the set_journal_fields().
-    Useful if we've tweaked mapping logic and want to re-derive fields from stored raw_json.
+    Useful if we've tweaked mapping logic and want to re-derive fields from stored
+    raw_json.
     """
     from apps.workflow.models import XeroJournal
 

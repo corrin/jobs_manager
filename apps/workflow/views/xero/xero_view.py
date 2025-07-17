@@ -30,7 +30,15 @@ from apps.workflow.api.xero.xero import (
     refresh_token,
 )
 from apps.workflow.models import XeroAccount, XeroError, XeroJournal, XeroToken
-from apps.workflow.serializers import XeroErrorSerializer
+from apps.workflow.serializers import (
+    XeroAuthenticationErrorResponseSerializer,
+    XeroErrorSerializer,
+    XeroOperationResponseSerializer,
+    XeroPingResponseSerializer,
+    XeroSyncInfoResponseSerializer,
+    XeroSyncStartResponseSerializer,
+    XeroTriggerSyncResponseSerializer,
+)
 from apps.workflow.services.xero_sync_service import XeroSyncService
 from apps.workflow.utils import extract_messages
 
@@ -132,10 +140,6 @@ def refresh_xero_data(request):
 
 # workflow/views/xero_sync_events.py
 
-import logging
-
-from django.http import HttpRequest
-from django.views.decorators.http import require_GET
 
 logger = logging.getLogger("xero.events")
 
@@ -258,14 +262,14 @@ def ensure_xero_authentication():
     """
     token = get_valid_token()
     if not token:
-        return JsonResponse(
-            {
-                "success": False,
-                "redirect_to_auth": True,
-                "message": "Your Xero session has expired. Please log in again.",
-            },
-            status=401,
-        )
+        error_response = {
+            "success": False,
+            "redirect_to_auth": True,
+            "message": "Your Xero session has expired. Please log in again.",
+        }
+        error_serializer = XeroAuthenticationErrorResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=401)
+
     tenant_id = cache.get("xero_tenant_id")  # Use consistent cache key
     if not tenant_id:
         try:
@@ -273,14 +277,13 @@ def ensure_xero_authentication():
             cache.set("xero_tenant_id", tenant_id, timeout=1800)
         except Exception as e:
             logger.error(f"Error retrieving tenant ID: {e}")
-            return JsonResponse(
-                {
-                    "success": False,
-                    "redirect_to_auth": True,
-                    "message": "Unable to fetch Xero tenant ID. Please log in Xero again.",
-                },
-                status=401,
-            )
+            error_response = {
+                "success": False,
+                "redirect_to_auth": True,
+                "message": "Unable to fetch Xero tenant ID. Please log in Xero again.",
+            }
+            error_serializer = XeroAuthenticationErrorResponseSerializer(error_response)
+            return JsonResponse(error_serializer.data, status=401)
     return tenant_id
 
 
@@ -327,9 +330,9 @@ def _handle_creator_response(
         # Should not happen if managers always return JsonResponse or raise Exception
         logger.error("Manager did not return JsonResponse or raise Exception.")
         messages.error(request, "An unexpected internal error occurred.")
-        return JsonResponse(
-            {"success": False, "error": "Internal processing error."}, status=500
-        )
+        error_response = {"success": False, "error": "Internal processing error."}
+        error_serializer = XeroOperationResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=500)
 
 
 @csrf_exempt
@@ -350,23 +353,25 @@ def create_xero_invoice(request, job_id):
         )
     except Job.DoesNotExist:
         messages.error(request, f"Job with ID {job_id} not found.")
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Job not found.",
-                "messages": extract_messages(request),
-            },
-            status=404,
-        )
+        error_response = {
+            "success": False,
+            "error": "Job not found.",
+            "messages": extract_messages(request),
+        }
+        error_serializer = XeroOperationResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=404)
     except Exception as e:
         logger.error(f"Error in create_xero_invoice view: {str(e)}", exc_info=True)
         messages.error(
             request, "An unexpected error occurred while creating the invoice."
         )
-        return JsonResponse(
-            {"success": False, "error": str(e), "messages": extract_messages(request)},
-            status=500,
-        )
+        error_response = {
+            "success": False,
+            "error": str(e),
+            "messages": extract_messages(request),
+        }
+        error_serializer = XeroOperationResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=500)
 
 
 @csrf_exempt
@@ -676,16 +681,20 @@ def get_xero_sync_info(request):
         }
         sync_range = "Syncing data since last successful sync"
         sync_in_progress = cache.get("xero_sync_lock", False)
-        return JsonResponse(
-            {
-                "last_syncs": last_syncs,
-                "sync_range": sync_range,
-                "sync_in_progress": sync_in_progress,
-            }
-        )
+
+        response_data = {
+            "last_syncs": last_syncs,
+            "sync_range": sync_range,
+            "sync_in_progress": sync_in_progress,
+        }
+
+        response_serializer = XeroSyncInfoResponseSerializer(response_data)
+        return JsonResponse(response_serializer.data)
     except Exception as e:
         logger.error(f"Error getting sync info: {str(e)}")
-        return JsonResponse({"error": str(e)}, status=500)
+        error_response = {"error": str(e)}
+        error_serializer = XeroSyncInfoResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=500)
 
 
 @csrf_exempt
@@ -696,29 +705,31 @@ def start_xero_sync(request):
     try:
         token = get_valid_token()
         if not token:
-            return JsonResponse(
-                {"error": "No valid token. Please authenticate."}, status=401
-            )
+            error_response = {"error": "No valid token. Please authenticate."}
+            error_serializer = XeroSyncStartResponseSerializer(error_response)
+            return JsonResponse(error_serializer.data, status=401)
 
         # Start sync using the service
         task_id, is_new = XeroSyncService.start_sync()
 
         if not task_id:
-            return JsonResponse(
-                {
-                    "status": "error",
-                    "message": "Failed to start sync. The scheduler may not be running or a sync is already in progress.",
-                },
-                status=500,
-            )
+            error_response = {
+                "status": "error",
+                "message": "Failed to start sync. The scheduler may not be running or a sync is already in progress.",
+            }
+            error_serializer = XeroSyncStartResponseSerializer(error_response)
+            return JsonResponse(error_serializer.data, status=500)
 
         message = "Started new Xero sync" if is_new else "A sync is already running"
-        return JsonResponse(
-            {"status": "success", "message": message, "task_id": task_id}
-        )
+        response_data = {"status": "success", "message": message, "task_id": task_id}
+
+        response_serializer = XeroSyncStartResponseSerializer(response_data)
+        return JsonResponse(response_serializer.data)
     except Exception as e:
         logger.error(f"Error starting Xero sync: {str(e)}")
-        return JsonResponse({"error": str(e)}, status=500)
+        error_response = {"error": str(e)}
+        error_serializer = XeroSyncStartResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=500)
 
 
 @csrf_exempt
@@ -735,11 +746,13 @@ def trigger_xero_sync(request):
 
     task_id, started = XeroSyncService.start_sync()
     if not task_id:
-        return JsonResponse(
-            {"success": False, "message": "Unable to start sync."}, status=400
-        )
+        error_response = {"success": False, "message": "Unable to start sync."}
+        error_serializer = XeroTriggerSyncResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data, status=400)
 
-    return JsonResponse({"success": True, "task_id": task_id, "started": started})
+    response_data = {"success": True, "task_id": task_id, "started": started}
+    response_serializer = XeroTriggerSyncResponseSerializer(response_data)
+    return JsonResponse(response_serializer.data)
 
 
 @csrf_exempt
@@ -753,10 +766,15 @@ def xero_ping(request: HttpRequest) -> JsonResponse:
         token = get_valid_token()
         is_connected = bool(token)
         logger.info(f"Xero ping: connected={is_connected}")
-        return JsonResponse({"connected": is_connected})
+
+        response_data = {"connected": is_connected}
+        response_serializer = XeroPingResponseSerializer(response_data)
+        return JsonResponse(response_serializer.data)
     except Exception as e:
         logger.error(f"Error in xero_ping: {str(e)}")
-        return JsonResponse({"connected": False})
+        error_response = {"connected": False}
+        error_serializer = XeroPingResponseSerializer(error_response)
+        return JsonResponse(error_serializer.data)
 
 
 class XeroErrorListAPIView(ListAPIView):

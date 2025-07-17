@@ -1,3 +1,5 @@
+from typing import Any
+
 from django import forms
 from django.db.models import Q
 
@@ -36,7 +38,7 @@ class PaidAbsenceForm(forms.Form):
         required=True,
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["staff"].queryset = Staff.objects.filter(
             is_active=True, is_staff=False

@@ -4,14 +4,22 @@ import os
 from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin, JobNumberLookupMixin
-from apps.job.models import Job, JobFile
-from apps.job.serializers.job_file_serializer import JobFileSerializer
+from apps.job.models import JobFile
+from apps.job.serializers.job_file_serializer import (
+    JobFileErrorResponseSerializer,
+    JobFileSerializer,
+    JobFileThumbnailErrorResponseSerializer,
+    JobFileUpdateSuccessResponseSerializer,
+    JobFileUploadPartialResponseSerializer,
+    JobFileUploadSuccessResponseSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +48,15 @@ class JobFileView(JobNumberLookupMixin, APIView):
     """
 
     renderer_classes = [JSONRenderer, BinaryFileRenderer]
+    serializer_class = JobFileSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return JobFileUploadSuccessResponseSerializer
+        elif self.request.method == "PUT":
+            return JobFileUpdateSuccessResponseSerializer
+        return JobFileSerializer
 
     def save_file(self, job, file_obj, print_on_jobsheet):
         """
@@ -117,6 +134,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
             logger.exception("Error processing file %s: %s", file_obj.name, str(e))
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
 
+    @extend_schema(operation_id="uploadJobFilesApi")
     def post(self, request):
         """
         Handle file uploads. Creates new files or updates existing ones with POST.
@@ -131,10 +149,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
 
         files = request.FILES.getlist("files")
         if not files:
-            return Response(
-                {"status": "error", "message": "No files uploaded"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {"status": "error", "message": "No files uploaded"}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         print_on_jobsheet = True
         uploaded_files = []
@@ -148,27 +165,36 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 uploaded_files.append(result)
 
         if errors:
-            return Response(
-                {
-                    "status": "partial_success" if uploaded_files else "error",
+            if uploaded_files:
+                response_data = {
+                    "status": "partial_success",
                     "uploaded": uploaded_files,
                     "errors": errors,
-                },
-                status=(
-                    status.HTTP_207_MULTI_STATUS
-                    if uploaded_files
-                    else status.HTTP_400_BAD_REQUEST
-                ),
-            )
+                }
+                partial_serializer = JobFileUploadPartialResponseSerializer(
+                    response_data
+                )
+                return Response(
+                    partial_serializer.data, status=status.HTTP_207_MULTI_STATUS
+                )
+            else:
+                response_data = {
+                    "status": "error",
+                    "uploaded": uploaded_files,
+                    "errors": errors,
+                }
+                error_serializer = JobFileUploadPartialResponseSerializer(response_data)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
-        return Response(
-            {
-                "status": "success",
-                "uploaded": uploaded_files,
-                "message": "Files uploaded successfully",
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        response_data = {
+            "status": "success",
+            "uploaded": uploaded_files,
+            "message": "Files uploaded successfully",
+        }
+        success_serializer = JobFileUploadSuccessResponseSerializer(response_data)
+        return Response(success_serializer.data, status=status.HTTP_201_CREATED)
 
     def _get_by_number(self, job_number):
         """
@@ -191,10 +217,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
         full_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, file_path)
 
         if not os.path.exists(full_path):
-            return Response(
-                {"status": "error", "message": "File not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            error_response = {"status": "error", "message": "File not found"}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
         try:
             response = FileResponse(open(full_path, "rb"))
@@ -211,11 +236,13 @@ class JobFileView(JobNumberLookupMixin, APIView):
             return response
         except Exception as e:
             logger.exception(f"Error serving file {file_path}")
+            error_response = {"status": "error", "message": str(e)}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
             return Response(
-                {"status": "error", "message": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(operation_id="retrieveJobFilesApi")
     def get(self, request, file_path=None, job_number=None):
         """
         Based on the request, serve a file for download or return the file list of the job.
@@ -225,14 +252,14 @@ class JobFileView(JobNumberLookupMixin, APIView):
         elif file_path:
             return self._get_by_path(file_path)
         else:
-            return Response(
-                {
-                    "status": "error",
-                    "message": "Invalid request, provide file_path or job_number",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {
+                "status": "error",
+                "message": "Invalid request, provide file_path or job_number",
+            }
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
+    @extend_schema(operation_id="updateJobFilesApi")
     def put(self, request):
         """
         Update an existing job file:
@@ -292,10 +319,13 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 filename,
             )
 
-            return Response(
-                {"status": "success", "message": "Updated print_on_jobsheet only"},
-                status=status.HTTP_200_OK,
-            )
+            response_data = {
+                "status": "success",
+                "message": "Updated print_on_jobsheet only",
+                "print_on_jobsheet": print_on_jobsheet,
+            }
+            success_serializer = JobFileUpdateSuccessResponseSerializer(response_data)
+            return Response(success_serializer.data, status=status.HTTP_200_OK)
 
         # Case 2: File provided, overwrite the file + update print_on_jobsheet
         logger.info(
@@ -311,17 +341,18 @@ class JobFileView(JobNumberLookupMixin, APIView):
             logger.error(
                 "File not found for update: %s in job %s", file_obj.name, job_number
             )
-            return Response(
-                {"status": "error", "message": "File not found for update"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            error_response = {"status": "error", "message": "File not found for update"}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
         if file_obj.size == 0:
             logger.warning("PUT aborted because new file is 0 bytes: %s", file_obj.name)
-            return Response(
-                {"status": "error", "message": "New file is 0 bytes, update aborted."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            error_response = {
+                "status": "error",
+                "message": "New file is 0 bytes, update aborted.",
+            }
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         file_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path)
         logger.debug("Overwriting file on disk: %s", file_path)
@@ -346,9 +377,13 @@ class JobFileView(JobNumberLookupMixin, APIView):
                     on_disk,
                     file_obj.size,
                 )
+                error_response = {
+                    "status": "error",
+                    "message": "File got truncated or incomplete.",
+                }
+                error_serializer = JobFileErrorResponseSerializer(error_response)
                 return Response(
-                    {"status": "error", "message": "File got truncated or incomplete."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
             old_print_value = job_file.print_on_jobsheet
@@ -361,21 +396,25 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 old_print_value,
                 print_on_jobsheet,
             )
-            return Response(
-                {
-                    "status": "success",
-                    "message": "File updated successfully",
-                    "print_on_jobsheet": job_file.print_on_jobsheet,
-                },
-                status=status.HTTP_200_OK,
-            )
+            response_data = {
+                "status": "success",
+                "message": "File updated successfully",
+                "print_on_jobsheet": job_file.print_on_jobsheet,
+            }
+            success_serializer = JobFileUpdateSuccessResponseSerializer(response_data)
+            return Response(success_serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception("Error updating file %s: %s", file_path, str(e))
+            error_response = {
+                "status": "error",
+                "message": f"Error updating file: {str(e)}",
+            }
+            error_serializer = JobFileErrorResponseSerializer(error_response)
             return Response(
-                {"status": "error", "message": f"Error updating file: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @extend_schema(operation_id="deleteJobFilesApi")
     def delete(self, request, file_path=None):
         """Delete a job file by its ID. (file_path param is actually the job_file.id)"""
         try:
@@ -394,15 +433,15 @@ class JobFileView(JobNumberLookupMixin, APIView):
 
         except JobFile.DoesNotExist:
             logger.error("JobFile not found with id: %s", file_path)
-            return Response(
-                {"status": "error", "message": "File not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            error_response = {"status": "error", "message": "File not found"}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.exception("Error deleting file %s", file_path)
+            error_response = {"status": "error", "message": str(e)}
+            error_serializer = JobFileErrorResponseSerializer(error_response)
             return Response(
-                {"status": "error", "message": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -419,13 +458,14 @@ class JobFileThumbnailView(JobLookupMixin, APIView):
     """
 
     lookup_url_kwarg = "file_id"  # Note: this view uses file_id, not job_id
+    serializer_class = JobFileThumbnailErrorResponseSerializer
 
+    @extend_schema(operation_id="getJobFileThumbnail")
     def get(self, request, file_id):
         job_file = get_object_or_404(JobFile, id=file_id, status="active")
         thumb = job_file.thumbnail_path
         if not thumb or not os.path.exists(thumb):
-            return Response(
-                {"status": "error", "message": "Thumbnail not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            error_response = {"status": "error", "message": "Thumbnail not found"}
+            error_serializer = JobFileThumbnailErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
         return FileResponse(open(thumb, "rb"), content_type="image/jpeg")

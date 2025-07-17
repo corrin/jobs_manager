@@ -27,7 +27,8 @@ class Command(BaseCommand):
     end-to-end debugging of the Gemini LLM pipeline.
 
     Example:
-        python manage.py test_gemini_chat <job_id> "What is the price for 2 mm steel sheet?"
+        python manage.py test_gemini_chat <job_id> \\
+            "What is the price for 2 mm steel sheet?"
     """
 
     help = "Tests the Gemini chat functionality for a given job and message."
@@ -80,11 +81,11 @@ class Command(BaseCommand):
             )
 
             # 4. Print the results
-            self.stdout.write(self.style.SUCCESS("\n--- AI Response Received ---"))
+            self.stdout.write(self.style.SUCCESS("--- AI Response Received ---"))
             self.stdout.write(f"Message ID: {assistant_message.message_id}")
             self.stdout.write(f"Role: {assistant_message.role}")
 
-            self.stdout.write("\n--- Content ---")
+            self.stdout.write("--- Content ---")
             self.stdout.write(assistant_message.content)
             self.stdout.write("--- End Content ---\n")
 
@@ -104,7 +105,8 @@ class Command(BaseCommand):
             if assistant_message.metadata and assistant_message.metadata.get("error"):
                 self.stderr.write(
                     self.style.ERROR(
-                        f"An error was reported in the assistant message metadata: {assistant_message.metadata.get('error_message')}"
+                        f"An error was reported in the assistant message metadata: "
+                        f"{assistant_message.metadata.get('error_message')}"
                     )
                 )
 
@@ -117,4 +119,4 @@ class Command(BaseCommand):
             logger.exception("An unexpected error occurred during the chat test.")
             raise CommandError(f"An unexpected error occurred: {e}")
 
-        self.stdout.write(self.style.SUCCESS("\n--- Test Completed Successfully ---"))
+        self.stdout.write(self.style.SUCCESS("--- Test Completed Successfully ---"))

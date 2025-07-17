@@ -4,14 +4,14 @@ import sys
 
 import django
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
+django.setup()
+
 from apps.quoting.services.gemini_price_list_extraction import (
     extract_data_from_supplier_price_list_gemini,
 )
 from apps.workflow.models import AIProvider
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
-django.setup()
 
 
 def test_pdf_parsing():
@@ -37,7 +37,7 @@ def test_pdf_parsing():
     for pdf_file in pdf_files:
         file_path = os.path.join(pdf_dir, pdf_file)
         if os.path.exists(file_path):
-            print(f"\n{'='*60}")
+            print(f"{'='*60}")
             print(f"Testing: {pdf_file}")
             print(f"{'='*60}")
 

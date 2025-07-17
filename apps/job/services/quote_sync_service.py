@@ -1,4 +1,4 @@
-# filepath: c:\Users\florz\dev\workflow_app\jobs_manager\apps\job\services\quote_sync_service.py
+# filepath: jobs_manager\apps\job\services\quote_sync_service.py
 """
 Quote Sync Service
 
@@ -20,9 +20,6 @@ from apps.job.importers.google_sheets import (
     fetch_sheet_df,
     populate_sheet_from_costset,
 )
-from apps.job.importers.quote_spreadsheet import parse_xlsx_with_validation
-
-# Excel import functionality removed - no longer supported
 from apps.job.models import Job
 from apps.job.models.spreadsheet import QuoteSpreadsheet
 from apps.job.services.import_quote_service import (
@@ -36,8 +33,9 @@ logger = logging.getLogger(__name__)
 
 def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsheet:
     """
-    1. Ensure the parent 'Jobs Manager' folder exists inside CompanyDefaults.gdrive_quotes_folder_id
-       (create if missing and update CompanyDefaults).
+    1. Ensure the parent 'Jobs Manager' folder exists inside
+       CompanyDefaults.gdrive_quotes_folder_id (create if missing and update
+       CompanyDefaults).
     2. Create or locate a sub-folder named '{job.job_number} – {job.name}'.
     3. Copy the template (passed in or CompanyDefaults.master_quote_template_url)
        into that folder; rename to '{job.job_number} Quote'.
@@ -89,7 +87,9 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
             job=job,
             defaults={
                 "sheet_id": quote_file_id,
-                "sheet_url": f"https://docs.google.com/spreadsheets/d/{quote_file_id}/edit",
+                "sheet_url": (
+                    f"https://docs.google.com/spreadsheets/d/{quote_file_id}/edit"
+                ),
                 "tab": "Primary Details",
             },
         )
@@ -107,7 +107,8 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
             quote_lines_count = quote_cost_set.cost_lines.count()
             if quote_lines_count > 0:
                 logger.info(
-                    f"Pre-populating quote sheet with {quote_lines_count} quote lines (priority)"
+                    f"Pre-populating quote sheet with {quote_lines_count} "
+                    "quote lines (priority)"
                 )
                 try:
                     populate_sheet_from_costset(quote_file_id, quote_cost_set)
@@ -117,7 +118,8 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
                     return quote_sheet
                 except Exception as e:
                     logger.warning(
-                        f"Failed to pre-populate quote sheet from quote: {str(e)} - Sheet created but empty"
+                        f"Failed to pre-populate quote sheet from quote: {str(e)} - "
+                        "Sheet created but empty"
                     )
                     return quote_sheet
 
@@ -146,11 +148,13 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
                         )
                 except Exception as e:
                     logger.warning(
-                        f"Failed to pre-populate quote sheet from estimate: {str(e)} - Sheet created but empty"
+                        f"Failed to pre-populate quote sheet from estimate: {str(e)} - "
+                        "Sheet created but empty"
                     )
 
         logger.info(
-            f"Successfully linked quote sheet for job {job.job_number}: {quote_sheet.sheet_url}"
+            f"Successfully linked quote sheet for job {job.job_number}: "
+            f"{quote_sheet.sheet_url}"
         )
         return quote_sheet
 
@@ -161,7 +165,8 @@ def link_quote_sheet(job: Job, template_url: str | None = None) -> QuoteSpreadsh
 
 def _fetch_drafts(job: Job):
     """
-    Download the linked sheet as xlsx, parse using the same Excel parser, and return DraftLine[].
+    Download the linked sheet as xlsx, parse using the same Excel parser,
+    and return DraftLine[].
     WARNING: THIS CODE WAS WRITTEN BY AI
     """
     logger.info(f"Fetching drafts for job {job.job_number}")
@@ -298,7 +303,8 @@ def apply_quote(job: Job):
             logger.info(f"Successfully applied quote for job {job.job_number}")
         else:
             logger.error(
-                f"Failed to apply quote for job {job.job_number}: {result.error_message}"
+                f"Failed to apply quote for job {job.job_number}: "
+                f"{result.error_message}"
             )
 
         return result
@@ -398,7 +404,8 @@ def _copy_estimate_to_quote_costset(estimate_cost_set, quote_cost_set):
         quote_cost_set.save()
 
         logger.info(
-            f"Copied {estimate_cost_set.cost_lines.count()} lines from estimate to quote"
+            f"Copied {estimate_cost_set.cost_lines.count()} lines from "
+            "estimate to quote"
         )
 
     except Exception as e:

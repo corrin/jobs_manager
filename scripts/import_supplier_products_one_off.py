@@ -5,8 +5,6 @@ import sys
 from collections import defaultdict
 from decimal import Decimal
 
-from apps.quoting.services.product_parser import populate_all_mappings_with_llm
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -20,10 +18,12 @@ import django
 
 django.setup()
 
+# Django imports after setup
 from django.db import transaction
 
 from apps.client.models import Client
 from apps.quoting.models import SupplierProduct
+from apps.quoting.services.product_parser import populate_all_mappings_with_llm
 
 
 def validate_and_parse_csv(csv_file_path):

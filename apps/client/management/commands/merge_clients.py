@@ -65,7 +65,7 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(
-            self.style.WARNING(f"\nFound {count} clients with name '{client_name}':")
+            self.style.WARNING(f"Found {count} clients with name '{client_name}':")
         )
 
         # Display information about each client
@@ -74,7 +74,7 @@ class Command(BaseCommand):
             job_count = Job.objects.filter(client=client).count()
             clients_with_job_counts.append((client, job_count))
 
-            self.stdout.write(f"\n{i + 1}. Client ID: {client.pk}")
+            self.stdout.write(f"{i + 1}. Client ID: {client.pk}")
             self.stdout.write(f"   Created: {client.django_created_at}")
             self.stdout.write(f"   Jobs: {job_count}")
             if client.xero_contact_id:
@@ -86,7 +86,7 @@ class Command(BaseCommand):
         primary_client = clients_with_job_counts[0][0]
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nRecommended primary client: {primary_client.pk} "
+                f"Recommended primary client: {primary_client.pk} "
                 f"(has {clients_with_job_counts[0][1]} jobs)"
             )
         )
@@ -94,7 +94,7 @@ class Command(BaseCommand):
         # Ask for confirmation unless --auto flag is used
         if not options["auto"]:
             response = input(
-                "\nDo you want to merge all duplicates into this client? (yes/no): "
+                "Do you want to merge all duplicates into this client? (yes/no): "
             )
             if response.lower() != "yes":
                 self.stdout.write(self.style.WARNING("Operation cancelled"))
@@ -104,7 +104,7 @@ class Command(BaseCommand):
         with transaction.atomic():
             for client, job_count in clients_with_job_counts[1:]:
                 self.stdout.write(
-                    f"\nMerging client {client.pk} into {primary_client.pk}..."
+                    f"Merging client {client.pk} into {primary_client.pk}..."
                 )
 
                 # Update all jobs to point to the primary client
@@ -119,7 +119,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"\nSuccess! All duplicates merged into client {primary_client.pk}"
+                f"Success! All duplicates merged into client {primary_client.pk}"
             )
         )
         self.stdout.write(

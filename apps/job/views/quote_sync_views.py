@@ -11,160 +11,187 @@ Provides functionality to:
 import logging
 
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.job.serializers.costing_serializer import CostSetSerializer
+from apps.job.serializers.quote_sync_serializer import (
+    ApplyQuoteErrorResponseSerializer,
+    ApplyQuoteResponseSerializer,
+    LinkQuoteSheetRequestSerializer,
+    LinkQuoteSheetResponseSerializer,
+    PreviewQuoteResponseSerializer,
+    QuoteSyncErrorResponseSerializer,
+)
 from apps.job.services import quote_sync_service
 
 logger = logging.getLogger(__name__)
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def link_quote_sheet(request: Request, pk: str) -> Response:
+class LinkQuoteSheetAPIView(APIView):
     """
     Link a job to a Google Sheets quote template.
 
     POST /job/rest/jobs/<uuid:pk>/quote/link/
-
-    Request body (optional):
-    {
-        "template_url": "https://docs.google.com/spreadsheets/d/..."
-    }
-
-    Returns:
-    {
-        "sheet_url": "https://docs.google.com/spreadsheets/d/.../edit",
-        "sheet_id": "spreadsheet_id",
-        "job_id": "job_uuid"
-    }
     """
-    try:
-        # Get job
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = LinkQuoteSheetResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return LinkQuoteSheetRequestSerializer
+        return LinkQuoteSheetResponseSerializer
+
+    def post(self, request: Request, pk: str) -> Response:
         try:
-            job = Job.objects.get(pk=pk)
-        except Job.DoesNotExist:
-            return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            # Get job
+            try:
+                job = Job.objects.get(pk=pk)
+            except Job.DoesNotExist:
+                error_response = {"error": "Job not found"}
+                error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
-        # Extract template URL from request if provided
-        template_url = request.data.get("template_url")
+            # Validate input data
+            input_serializer = LinkQuoteSheetRequestSerializer(data=request.data)
+            if not input_serializer.is_valid():
+                error_response = {"error": f"Invalid input: {input_serializer.errors}"}
+                error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
-        # Link quote sheet
-        quote_sheet = quote_sync_service.link_quote_sheet(job, template_url)
+            # Extract template URL from request if provided
+            template_url = input_serializer.validated_data.get("template_url")
 
-        return Response(
-            {
+            # Link quote sheet
+            quote_sheet = quote_sync_service.link_quote_sheet(job, template_url)
+
+            response_data = {
                 "sheet_url": quote_sheet.sheet_url,
                 "sheet_id": quote_sheet.sheet_id,
                 "job_id": str(job.id),
-            },
-            status=status.HTTP_200_OK,
-        )
+            }
 
-    except RuntimeError as e:
-        logger.error(f"Error linking quote sheet for job {pk}: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"Unexpected error linking quote sheet for job {pk}: {str(e)}")
-        return Response(
-            {"error": "An unexpected error occurred"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+            response_serializer = LinkQuoteSheetResponseSerializer(data=response_data)
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except RuntimeError as e:
+            logger.error(f"Error linking quote sheet for job {pk}: {str(e)}")
+            error_response = {"error": str(e)}
+            error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error linking quote sheet for job {pk}: {str(e)}")
+            error_response = {"error": "An unexpected error occurred"}
+            error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def preview_quote(request: Request, pk: str) -> Response:
+class PreviewQuoteAPIView(APIView):
     """
     Preview quote import from linked Google Sheet.
 
     POST /job/rest/jobs/<uuid:pk>/quote/preview/
-
-    Returns:
-    The preview dictionary from quote_sync_service.preview_quote()
     """
-    try:
-        # Get job
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PreviewQuoteResponseSerializer
+
+    def post(self, request: Request, pk: str) -> Response:
         try:
-            job = Job.objects.get(pk=pk)
-        except Job.DoesNotExist:
+            # Get job
+            try:
+                job = Job.objects.get(pk=pk)
+            except Job.DoesNotExist:
+                error_response = {"error": "Job not found"}
+                error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+
+            # Preview quote
+            preview_data = quote_sync_service.preview_quote(job)
+
+            # Serialize the preview data
+            response_serializer = PreviewQuoteResponseSerializer(data=preview_data)
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except RuntimeError as e:
+            logger.error(f"Error previewing quote for job {pk}: {str(e)}")
+            error_response = {"error": str(e)}
+            error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error previewing quote for job {pk}: {str(e)}")
+            error_response = {"error": "An unexpected error occurred"}
+            error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
             return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        # Preview quote
-        preview_data = quote_sync_service.preview_quote(job)
 
-        return Response(preview_data, status=status.HTTP_200_OK)
-
-    except RuntimeError as e:
-        logger.error(f"Error previewing quote for job {pk}: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"Unexpected error previewing quote for job {pk}: {str(e)}")
-        return Response(
-            {"error": "An unexpected error occurred"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def apply_quote(request: Request, pk: str) -> Response:
+class ApplyQuoteAPIView(APIView):
     """
     Apply quote import from linked Google Sheet.
 
     POST /job/rest/jobs/<uuid:pk>/quote/apply/
-
-    Returns:
-    {
-        "success": true,
-        "cost_set": CostSetSerializer(...),
-        "changes": {
-            "additions": [...],
-            "updates": [...],
-            "deletions": [...]
-        }
-    }
     """
-    try:
-        # Get job
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ApplyQuoteResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on success/error"""
+        return ApplyQuoteResponseSerializer
+
+    def post(self, request: Request, pk: str) -> Response:
         try:
-            job = Job.objects.get(pk=pk)
-        except Job.DoesNotExist:
-            return Response(
-                {"error": "Job not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            # Get job
+            try:
+                job = Job.objects.get(pk=pk)
+            except Job.DoesNotExist:
+                error_response = {"error": "Job not found"}
+                error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
-        # Apply quote
-        result = quote_sync_service.apply_quote(job)
+            # Apply quote
+            result = quote_sync_service.apply_quote(job)
 
-        if result.success:
-            # Serialize the cost set if available
-            cost_set_data = None
-            if result.cost_set:
-                cost_set_data = CostSetSerializer(result.cost_set).data
+            if result.success:
+                # Serialize the cost set if available
+                cost_set_data = None
+                if result.cost_set:
+                    cost_set_data = CostSetSerializer(result.cost_set).data
 
-            # Convert DraftLine objects to dictionaries for JSON serialization
-            def draft_line_to_dict(draft_line):
-                return {
-                    "kind": draft_line.kind,
-                    "desc": draft_line.desc,
-                    "quantity": float(draft_line.quantity),
-                    "unit_cost": float(draft_line.unit_cost),
-                    "unit_rev": float(draft_line.unit_rev),
-                    "total_cost": float(draft_line.quantity * draft_line.unit_cost),
-                    "total_rev": float(draft_line.quantity * draft_line.unit_rev),
-                }
+                # Convert DraftLine objects to dictionaries for JSON serialization
+                def draft_line_to_dict(draft_line):
+                    return {
+                        "kind": draft_line.kind,
+                        "desc": draft_line.desc,
+                        "quantity": float(draft_line.quantity),
+                        "unit_cost": float(draft_line.unit_cost),
+                        "unit_rev": float(draft_line.unit_rev),
+                        "total_cost": float(draft_line.quantity * draft_line.unit_cost),
+                        "total_rev": float(draft_line.quantity * draft_line.unit_rev),
+                    }
 
-            return Response(
-                {
+                response_data = {
                     "success": True,
                     "cost_set": cost_set_data,
                     "draft_lines": (
@@ -204,21 +231,32 @@ def apply_quote(request: Request, pk: str) -> Response:
                             else []
                         ),
                     },
-                },
-                status=status.HTTP_200_OK,
-            )
-        else:
-            return Response(
-                {"success": False, "error": result.error_message},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                }
 
-    except RuntimeError as e:
-        logger.error(f"Error applying quote for job {pk}: {str(e)}")
-        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"Unexpected error applying quote for job {pk}: {str(e)}")
-        return Response(
-            {"error": "An unexpected error occurred"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+                response_serializer = ApplyQuoteResponseSerializer(data=response_data)
+                response_serializer.is_valid(raise_exception=True)
+                return Response(response_serializer.data, status=status.HTTP_200_OK)
+            else:
+                error_response = {"success": False, "error": result.error_message}
+                error_serializer = ApplyQuoteErrorResponseSerializer(
+                    data=error_response
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+        except RuntimeError as e:
+            logger.error(f"Error applying quote for job {pk}: {str(e)}")
+            error_response = {"error": str(e)}
+            error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error applying quote for job {pk}: {str(e)}")
+            error_response = {"error": "An unexpected error occurred"}
+            error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

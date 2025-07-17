@@ -14,7 +14,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
-from apps.job.serializers import JobQuoteChatSerializer
+from apps.job.serializers import (
+    JobQuoteChatInteractionErrorResponseSerializer,
+    JobQuoteChatInteractionRequestSerializer,
+    JobQuoteChatInteractionSuccessResponseSerializer,
+)
 from apps.job.services.gemini_chat_service import GeminiChatService
 
 logger = logging.getLogger(__name__)
@@ -36,6 +40,7 @@ class JobQuoteChatInteractionView(APIView):
 
     # Only allow POST (and implicit OPTIONS for CORS pre-flight)
     http_method_names = ["post", "options"]
+    serializer_class = JobQuoteChatInteractionRequestSerializer
 
     def post(self, request, job_id):
         """
@@ -46,13 +51,20 @@ class JobQuoteChatInteractionView(APIView):
         JobQuoteChatHistoryView, and then call this endpoint to get the
         assistant's reply.
         """
-        user_message = request.data.get("message")
-
-        if not user_message:
-            return Response(
-                {"success": False, "error": "Message content is required."},
-                status=status.HTTP_400_BAD_REQUEST,
+        # Validate input data
+        serializer = JobQuoteChatInteractionRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            error_response = {
+                "success": False,
+                "error": "Invalid input data",
+                "details": serializer.errors,
+            }
+            error_serializer = JobQuoteChatInteractionErrorResponseSerializer(
+                error_response
             )
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
+        user_message = serializer.validated_data["message"]
 
         try:
             # Instantiate the chat service
@@ -66,40 +78,46 @@ class JobQuoteChatInteractionView(APIView):
             )
 
             # Serialize the final assistant message to return to the client
-            serializer = JobQuoteChatSerializer(assistant_message_obj)
-
-            return Response(
-                {"success": True, "data": serializer.data},
-                status=status.HTTP_201_CREATED,
+            response_data = {"success": True, "data": assistant_message_obj}
+            response_serializer = JobQuoteChatInteractionSuccessResponseSerializer(
+                response_data
             )
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Job.DoesNotExist:
-            return Response(
-                {
-                    "success": False,
-                    "error": "Job not found",
-                    "code": "JOB_NOT_FOUND",
-                },
-                status=status.HTTP_404_NOT_FOUND,
+            error_data = {
+                "success": False,
+                "error": "Job not found",
+                "code": "JOB_NOT_FOUND",
+            }
+            error_serializer = JobQuoteChatInteractionErrorResponseSerializer(
+                error_data
             )
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+
         except ValueError as e:
             # This can catch configuration errors from the service,
             # e.g., "No default Gemini AI provider configured"
             logger.error(
                 f"Configuration error in chat interaction for job {job_id}: {e}"
             )
-            return Response(
-                {"success": False, "error": str(e)},
-                status=status.HTTP_400_BAD_REQUEST,
+            error_data = {"success": False, "error": str(e)}
+            error_serializer = JobQuoteChatInteractionErrorResponseSerializer(
+                error_data
             )
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
             logger.exception(
                 f"Unhandled error in chat interaction for job {job_id}: {e}"
             )
+            error_data = {
+                "success": False,
+                "error": "An internal error occurred while processing your request.",
+            }
+            error_serializer = JobQuoteChatInteractionErrorResponseSerializer(
+                error_data
+            )
             return Response(
-                {
-                    "success": False,
-                    "error": "An internal error occurred while processing your request.",
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

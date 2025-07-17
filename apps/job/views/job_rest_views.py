@@ -19,6 +19,14 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.helpers import get_company_defaults
+from apps.job.serializers.job_serializer import (
+    JobCreateRequestSerializer,
+    JobCreateResponseSerializer,
+    JobDeleteResponseSerializer,
+    JobDetailResponseSerializer,
+    JobRestErrorResponseSerializer,
+)
 from apps.job.services.job_rest_service import JobRestService
 
 logger = logging.getLogger(__name__)
@@ -57,22 +65,25 @@ class BaseJobRestView(APIView):
 
         match type(error).__name__:
             case "ValueError":
+                error_response = {"error": error_message}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(
-                    {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
             case "PermissionError":
-                return Response(
-                    {"error": error_message}, status=status.HTTP_403_FORBIDDEN
-                )
+                error_response = {"error": error_message}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(error_serializer.data, status=status.HTTP_403_FORBIDDEN)
             case "NotFound" | "Http404":
-                return Response(
-                    {"error": "Resource not found"}, status=status.HTTP_404_NOT_FOUND
-                )
+                error_response = {"error": "Resource not found"}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
             case _:
                 logger.exception(f"Unhandled error: {error}")
+                error_response = {"error": "Internal server error"}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(
-                    {"error": "Internal server error"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
 
 
@@ -82,6 +93,14 @@ class JobCreateRestView(BaseJobRestView):
     REST view for Job creation.
     Single responsibility: orchestrate job creation.
     """
+
+    serializer_class = JobCreateResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return JobCreateRequestSerializer
+        return JobCreateResponseSerializer
 
     def post(self, request):
         """
@@ -99,16 +118,31 @@ class JobCreateRestView(BaseJobRestView):
         """
         try:
             data = self.parse_json_body(request)
-            job = JobRestService.create_job(data, request.user)
-            return Response(
-                {
-                    "success": True,
-                    "job_id": str(job.id),
-                    "job_number": job.job_number,
-                    "message": "Job created successfully",
-                },
-                status=status.HTTP_201_CREATED,
+
+            # Validate input data
+            input_serializer = JobCreateRequestSerializer(data=data)
+            if not input_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {input_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            job = JobRestService.create_job(
+                input_serializer.validated_data, request.user
             )
+
+            response_data = {
+                "success": True,
+                "job_id": str(job.id),
+                "job_number": job.job_number,
+                "message": "Job created successfully",
+            }
+
+            response_serializer = JobCreateResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -120,6 +154,14 @@ class JobDetailRestView(BaseJobRestView):
     REST view for CRUD operations on a specific Job.
     """
 
+    serializer_class = JobDetailResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "DELETE":
+            return JobDeleteResponseSerializer
+        return JobDetailResponseSerializer
+
     def get(self, request, job_id):
         """
         Fetch complete Job data for editing.
@@ -127,9 +169,9 @@ class JobDetailRestView(BaseJobRestView):
         try:
             job_data = JobRestService.get_job_for_edit(job_id, request)
 
-            return Response(
-                {"success": True, "data": job_data}, status=status.HTTP_200_OK
-            )
+            # The service returns already-serialized data, so return it directly
+            response_data = {"success": True, "data": job_data}
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -146,7 +188,10 @@ class JobDetailRestView(BaseJobRestView):
 
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
-            return Response(job_data, status=status.HTTP_200_OK)
+
+            # The service returns already-serialized data
+            response_data = {"success": True, "data": job_data}
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -157,75 +202,13 @@ class JobDetailRestView(BaseJobRestView):
         """
         try:
             result = JobRestService.delete_job(job_id, request.user)
-            return Response(result, status=status.HTTP_200_OK)
+
+            # Serialize the result properly
+            response_serializer = JobDeleteResponseSerializer(result)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobToggleComplexRestView(BaseJobRestView):
-    """
-    REST view for toggling Job complex mode.
-    """
-
-    def post(self, request):
-        """
-        Toggle the complex_job mode.
-
-        Expected JSON:
-        {
-            "job_id": "job-uuid",
-            "complex_job": true/false
-        }
-        """
-        try:
-            data = self.parse_json_body(request)
-
-            # Guard clauses - validate required data
-            if "job_id" not in data:
-                raise ValueError("job_id is required")
-
-            if "complex_job" not in data:
-                raise ValueError("complex_job is required")
-
-            result = JobRestService.toggle_complex_job(
-                data["job_id"], data["complex_job"], request.user
-            )
-
-            return JsonResponse(result)
-
-        except Exception as e:
-            return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobTogglePricingMethodologyRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated as pricing methodologies are not toggled.
-    The system now uses CostSet/CostLine for all pricing operations.
-    JobPricings are legacy and should not be used for new functionality.
-    """
-
-    def post(self, request):
-        """
-        This endpoint is deprecated and should not be used.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobTogglePricingMethodologyRestView is deprecated. Use CostSet/CostLine system instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Pricing methodologies are not toggled - use CostSet/CostLine system for all pricing operations.",
-            },
-            status=410,  # Gone
-        )
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -233,6 +216,8 @@ class JobEventRestView(BaseJobRestView):
     """
     REST view for Job events.
     """
+
+    serializer_class = JobRestErrorResponseSerializer
 
     def post(self, request, job_id):
         """
@@ -260,91 +245,18 @@ class JobEventRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
-@method_decorator(csrf_exempt, name="dispatch")
-class JobTimeEntryRestView(BaseJobRestView):
+def get_company_defaults_api(request):
     """
-    DEPRECATED: This view is deprecated. Use CostLine endpoints instead.
-    Time entries should be created using the modern CostSet/CostLine system.
+    API endpoint to fetch company default settings.
+    Uses the get_company_defaults() helper function to ensure
+    a single instance is retrieved or created if it doesn't exist.
     """
-
-    def post(self, request, job_id):
-        """
-        This endpoint is deprecated and should not be used.
-        Use the CostLine creation endpoints instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobTimeEntryRestView is deprecated. Use CostLine endpoints instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Use CostLine endpoints for creating time entries.",
-                "alternative_endpoint": "/rest/jobs/{job_id}/cost_sets/actual/cost_lines/",
-            },
-            status=410,  # Gone
-        )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobMaterialEntryRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated. Use CostLine endpoints instead.
-    Material entries should be created using the modern CostSet/CostLine system.
-    """
-
-    def post(self, request, job_id):
-        """
-        This endpoint is deprecated and should not be used.
-        Use the CostLine creation endpoints instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobMaterialEntryRestView is deprecated. Use CostLine endpoints instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Use CostLine endpoints for creating material entries.",
-                "alternative_endpoint": "/rest/jobs/{job_id}/cost_sets/actual/cost_lines/",
-            },
-            status=410,  # Gone
-        )
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobAdjustmentEntryRestView(BaseJobRestView):
-    """
-    DEPRECATED: This view is deprecated. Use CostLine endpoints instead.
-    Adjustment entries should be created using the modern CostSet/CostLine system.
-    """
-
-    def post(self, request, job_id):
-        """
-        This endpoint is deprecated and should not be used.
-        Use the CostLine creation endpoints instead.
-        """
-        import warnings
-
-        warnings.warn(
-            "JobAdjustmentEntryRestView is deprecated. Use CostLine endpoints instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "This endpoint is deprecated. Use CostLine endpoints for creating adjustment entries.",
-                "alternative_endpoint": "/rest/jobs/{job_id}/cost_sets/actual/cost_lines/",
-            },
-            status=410,  # Gone
-        )
+    defaults = get_company_defaults()
+    return JsonResponse(
+        {
+            "materials_markup": float(defaults.materials_markup),
+            "time_markup": float(defaults.time_markup),
+            "charge_out_rate": float(defaults.charge_out_rate),
+            "wage_rate": float(defaults.wage_rate),
+        }
+    )

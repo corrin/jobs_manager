@@ -15,7 +15,14 @@ from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin
 from apps.job.models import Job, JobQuoteChat
-from apps.job.serializers import JobQuoteChatSerializer, JobQuoteChatUpdateSerializer
+from apps.job.serializers import (
+    JobQuoteChatCreateResponseSerializer,
+    JobQuoteChatDeleteResponseSerializer,
+    JobQuoteChatHistoryResponseSerializer,
+    JobQuoteChatSerializer,
+    JobQuoteChatUpdateResponseSerializer,
+    JobQuoteChatUpdateSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +88,16 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
     DELETE: Clear all chat history for a job
     """
 
+    def get_serializer_class(self):
+        """Return appropriate serializer class based on request method."""
+        if self.request.method == "POST":
+            return JobQuoteChatSerializer
+        elif self.request.method == "GET":
+            return JobQuoteChatHistoryResponseSerializer
+        elif self.request.method == "DELETE":
+            return JobQuoteChatDeleteResponseSerializer
+        return JobQuoteChatHistoryResponseSerializer
+
     def get(self, request, job_id):
         """
         Load all chat messages for a specific job.
@@ -112,13 +129,14 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
                     }
                 )
 
-            return Response(
-                {
-                    "success": True,
-                    "data": {"job_id": str(job.id), "messages": formatted_messages},
-                },
-                status=status.HTTP_200_OK,
-            )
+            # Serialize the response
+            response_data = {
+                "success": True,
+                "data": {"job_id": str(job.id), "messages": formatted_messages},
+            }
+
+            serializer = JobQuoteChatHistoryResponseSerializer(response_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_error(e)
@@ -151,16 +169,17 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             # Create the message with job relationship
             message = serializer.save(job=job)
 
-            return Response(
-                {
-                    "success": True,
-                    "data": {
-                        "message_id": message.message_id,
-                        "timestamp": message.timestamp.isoformat(),
-                    },
+            # Serialize the response
+            response_data = {
+                "success": True,
+                "data": {
+                    "message_id": message.message_id,
+                    "timestamp": message.timestamp.isoformat(),
                 },
-                status=status.HTTP_201_CREATED,
-            )
+            }
+
+            response_serializer = JobQuoteChatCreateResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
             return self.handle_error(e)
@@ -181,10 +200,11 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             # Delete all messages for this job
             deleted_count, _ = JobQuoteChat.objects.filter(job=job).delete()
 
-            return Response(
-                {"success": True, "data": {"deleted_count": deleted_count}},
-                status=status.HTTP_200_OK,
-            )
+            # Serialize the response
+            response_data = {"success": True, "data": {"deleted_count": deleted_count}}
+
+            serializer = JobQuoteChatDeleteResponseSerializer(response_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_error(e)
@@ -197,6 +217,8 @@ class JobQuoteChatMessageView(JobLookupMixin, BaseJobQuoteChatView):
 
     PATCH: Update an existing message (useful for streaming responses)
     """
+
+    serializer_class = JobQuoteChatUpdateSerializer
 
     def patch(self, request, job_id, message_id):
         """
@@ -225,18 +247,19 @@ class JobQuoteChatMessageView(JobLookupMixin, BaseJobQuoteChatView):
             serializer.is_valid(raise_exception=True)
             updated_message = serializer.save()
 
-            return Response(
-                {
-                    "success": True,
-                    "data": {
-                        "message_id": updated_message.message_id,
-                        "content": updated_message.content,
-                        "metadata": updated_message.metadata,
-                        "timestamp": updated_message.timestamp.isoformat(),
-                    },
+            # Serialize the response
+            response_data = {
+                "success": True,
+                "data": {
+                    "message_id": updated_message.message_id,
+                    "content": updated_message.content,
+                    "metadata": updated_message.metadata,
+                    "timestamp": updated_message.timestamp.isoformat(),
                 },
-                status=status.HTTP_200_OK,
-            )
+            }
+
+            response_serializer = JobQuoteChatUpdateResponseSerializer(response_data)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_error(e)

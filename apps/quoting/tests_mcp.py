@@ -7,7 +7,7 @@ from django.test import TestCase
 
 from apps.client.models import Client
 from apps.job.models import Job
-from apps.quoting.models import SupplierPriceList, SupplierProduct
+from apps.quoting.models import SupplierProduct
 
 from .mcp import QuotingTool, SupplierProductQueryTool
 

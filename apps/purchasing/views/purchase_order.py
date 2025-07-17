@@ -24,6 +24,13 @@ from apps.job.models import Job
 # Apps Models
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
 
+# Apps Serializers
+from apps.purchasing.serializers import (
+    PurchaseOrderEmailRequestSerializer,
+    PurchaseOrderEmailResponseSerializer,
+    PurchaseOrderPDFResponseSerializer,
+)
+
 # Apps Services
 from apps.purchasing.services.purchase_order_email_service import (
     create_purchase_order_email,
@@ -520,6 +527,13 @@ class PurchaseOrderEmailView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = PurchaseOrderEmailResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return PurchaseOrderEmailRequestSerializer
+        return PurchaseOrderEmailResponseSerializer
 
     def post(self, request, purchase_order_id):
         """
@@ -587,6 +601,7 @@ class PurchaseOrderPDFView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = PurchaseOrderPDFResponseSerializer
 
     def get(self, request, purchase_order_id):
         """

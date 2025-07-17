@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
+from apps.job.serializers.job_serializer import WorkshopPDFResponseSerializer
 from apps.job.services.workshop_pdf_service import create_workshop_pdf
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,8 @@ class WorkshopPDFView(APIView):
     GET: Generates a workshop PDF for the specified job ID and returns
          it as a file response with appropriate headers for printing.
     """
+
+    serializer_class = WorkshopPDFResponseSerializer
 
     def get(self, request, job_id):
         """Generate and return a workshop PDF for printing."""

@@ -15,6 +15,7 @@ from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, Table, TableStyle
 
 from apps.job.models import Job
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +287,7 @@ def add_job_details_table(pdf, y_position, job: Job):
         )
     )
 
-    table_width, table_height = details_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
+    _, table_height = details_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
     details_table.drawOn(pdf, MARGIN, y_position - table_height)
     return y_position - table_height - 40
 
@@ -318,6 +319,7 @@ def add_materials_table(pdf, y_position):
     )
 
     materials_width, materials_height = materials_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
+    # materials_width reserved for future use
 
     # Check if materials table fits in remaining space
     required_space = 25 + materials_height + 20  # Title (25) + Table + Spacing (20)
@@ -443,5 +445,6 @@ def merge_pdfs(pdf_sources):
         for buffer in buffers_to_close:
             try:
                 buffer.close()
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error closing buffer: {str(e)}")
+                persist_app_error(e)

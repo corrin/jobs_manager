@@ -10,12 +10,12 @@ from .xero_token import XeroToken
 
 __all__ = [
     "AIProvider",
+    "AppError",
     "CompanyDefaults",
     "ServiceAPIKey",
     "XeroAccount",
+    "XeroError",
     "XeroJournal",
     "XeroJournalLineItem",
     "XeroToken",
-    "AppError",
-    "XeroError",
 ]

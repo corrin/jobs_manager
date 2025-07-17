@@ -26,7 +26,8 @@ def use_stock_view(request, job_id=None):
 
     Args:
         request: The HTTP request
-        job_id: Optional job ID to pre-select in the dropdown (can be provided in URL path or query string)
+        job_id: Optional job ID to pre-select in the dropdown
+            (can be provided in URL path or query string)
     """
     # Check if job_id is provided in query string
     if not job_id and request.GET.get("job_id"):
@@ -67,10 +68,11 @@ def use_stock_view(request, job_id=None):
             }
         )
 
-    # If job_id is provided, get the job object to pass to the template
+    # If job_id is provided, validate that it exists in active jobs
     if job_id:
         target_id = UUID(job_id)
-        job = next(j for j in active_jobs if j.id == target_id)  # StopIteration if none
+        if not any(j.id == target_id for j in active_jobs):
+            raise ValueError(f"Job {target_id} not found in active jobs")
 
     context = {
         "title": "Use Stock",

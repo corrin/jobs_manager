@@ -16,14 +16,9 @@ from apps.job.views.job_quote_chat_views import (
     JobQuoteChatMessageView,
 )
 from apps.job.views.job_rest_views import (
-    JobAdjustmentEntryRestView,
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
-    JobMaterialEntryRestView,
-    JobTimeEntryRestView,
-    JobToggleComplexRestView,
-    JobTogglePricingMethodologyRestView,
 )
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
@@ -32,7 +27,11 @@ from apps.job.views.modern_timesheet_views import (
 )
 from apps.job.views.month_end_rest_view import MonthEndRestView
 from apps.job.views.quote_import_views import QuoteImportStatusView
-from apps.job.views.quote_sync_views import apply_quote, link_quote_sheet, preview_quote
+from apps.job.views.quote_sync_views import (
+    ApplyQuoteAPIView,
+    LinkQuoteSheetAPIView,
+    PreviewQuoteAPIView,
+)
 from apps.job.views.workshop_view import WorkshopPDFView
 
 # URLs for new REST views
@@ -43,17 +42,6 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
     ),
-    # Job toggles
-    path(
-        "rest/jobs/toggle-complex/",
-        JobToggleComplexRestView.as_view(),
-        name="job_toggle_complex_rest",
-    ),
-    path(
-        "rest/jobs/toggle-pricing-methodology/",
-        JobTogglePricingMethodologyRestView.as_view(),
-        name="job_toggle_pricing_methodology_rest",
-    ),
     # Job events
     path(
         "rest/jobs/<uuid:job_id>/events/",
@@ -61,21 +49,8 @@ rest_urlpatterns = [
         name="job_events_rest",
     ),
     # Job entries
-    path(
-        "rest/jobs/<uuid:job_id>/time-entries/",
-        JobTimeEntryRestView.as_view(),
-        name="job_time_entries_rest",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/material-entries/",
-        JobMaterialEntryRestView.as_view(),
-        name="job_material_entries_rest",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/adjustment-entries/",
-        JobAdjustmentEntryRestView.as_view(),
-        name="job_adjustment_entries_rest",
-    ),
+    # Use CostLine endpoints instead of JobTimeEntryRestView,
+    # JobMaterialEntryRestView, JobAdjustmentEntryRestView
     # Job costing
     path(
         "rest/jobs/<uuid:pk>/cost_sets/<str:kind>/",
@@ -150,14 +125,29 @@ rest_urlpatterns = [
         name="job_file_thumbnail",
     ),
     # Quote Import (NEW - Google Sheets sync)
-    path("rest/jobs/<uuid:pk>/quote/link/", link_quote_sheet, name="quote_link_sheet"),
-    path("rest/jobs/<uuid:pk>/quote/preview/", preview_quote, name="quote_preview"),
-    path("rest/jobs/<uuid:pk>/quote/apply/", apply_quote, name="quote_apply"),
-    # Quote Import (DEPRECATED - file upload based)
+    path(
+        "rest/jobs/<uuid:pk>/quote/link/",
+        LinkQuoteSheetAPIView.as_view(),
+        name="quote_link_sheet",
+    ),
+    path(
+        "rest/jobs/<uuid:pk>/quote/preview/",
+        PreviewQuoteAPIView.as_view(),
+        name="quote_preview",
+    ),
+    path(
+        "rest/jobs/<uuid:pk>/quote/apply/",
+        ApplyQuoteAPIView.as_view(),
+        name="quote_apply",
+    ),
+    # Quote Import
     path(
         "rest/jobs/<uuid:job_id>/quote/import/preview/",
         lambda request, *args, **kwargs: HttpResponse(
-            '{"error": "This endpoint has been deprecated. Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}',
+            (
+                '{"error": "This endpoint has been deprecated. '
+                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
+            ),
             status=status.HTTP_410_GONE,
             content_type="application/json",
         ),
@@ -166,7 +156,10 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/quote/import/",
         lambda request, *args, **kwargs: HttpResponse(
-            '{"error": "This endpoint has been deprecated. Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}',
+            (
+                '{"error": "This endpoint has been deprecated. '
+                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
+            ),
             status=status.HTTP_410_GONE,
             content_type="application/json",
         ),

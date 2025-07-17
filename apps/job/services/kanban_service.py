@@ -61,7 +61,10 @@ class KanbanService:
 
     @staticmethod
     def get_all_active_jobs() -> QuerySet[Job]:
-        """Get all active (non-archived) jobs, filtered for kanban display, ordered by priority only."""
+        """
+        Get all active (non-archived) jobs, filtered for kanban display,
+        ordered by priority only.
+        """
         # Get non-archived jobs and filter out special jobs for kanban
         active_jobs = Job.objects.exclude(status="archived").order_by("-priority")
         return KanbanService.filter_kanban_jobs(active_jobs)

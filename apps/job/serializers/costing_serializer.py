@@ -12,8 +12,8 @@ class CostLineSerializer(serializers.ModelSerializer):
     Serializer for CostLine model - read-only with basic depth
     """
 
-    total_cost = serializers.ReadOnlyField()
-    total_rev = serializers.ReadOnlyField()
+    total_cost = serializers.SerializerMethodField()
+    total_rev = serializers.SerializerMethodField()
 
     class Meta:
         model = CostLine
@@ -29,7 +29,14 @@ class CostLineSerializer(serializers.ModelSerializer):
             "ext_refs",
             "meta",
         ]
-        read_only_fields = fields
+
+    def get_total_cost(self, obj) -> float:
+        """Get total cost (quantity * unit_cost)"""
+        return float(obj.total_cost)
+
+    def get_total_rev(self, obj) -> float:
+        """Get total revenue (quantity * unit_rev)"""
+        return float(obj.total_rev)
 
 
 class TimesheetCostLineSerializer(serializers.ModelSerializer):
@@ -47,8 +54,8 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
     - Simplified queries and maintenance
     """
 
-    total_cost = serializers.ReadOnlyField()
-    total_rev = serializers.ReadOnlyField()
+    total_cost = serializers.SerializerMethodField()
+    total_rev = serializers.SerializerMethodField()
 
     # Job information from CostSet relationship (NOT from metadata)
     job_id = serializers.CharField(source="cost_set.job.id", read_only=True)
@@ -64,7 +71,15 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
     # Client name with null handling
     client_name = serializers.SerializerMethodField()
 
-    def get_client_name(self, obj):
+    def get_total_cost(self, obj) -> float:
+        """Get total cost (quantity * unit_cost)"""
+        return float(obj.total_cost)
+
+    def get_total_rev(self, obj) -> float:
+        """Get total revenue (quantity * unit_rev)"""
+        return float(obj.total_rev)
+
+    def get_client_name(self, obj) -> str:
         """Get client name with safe null handling"""
         if obj.cost_set and obj.cost_set.job and obj.cost_set.job.client:
             return obj.cost_set.job.client.name
@@ -158,3 +173,37 @@ class CostSetSerializer(serializers.ModelSerializer):
         model = CostSet
         fields = ["id", "kind", "rev", "summary", "created", "cost_lines"]
         read_only_fields = fields
+
+
+class CostLineErrorResponseSerializer(serializers.Serializer):
+    """Serializer for cost line error responses."""
+
+    error = serializers.CharField()
+
+
+class CostLineCreateResponseSerializer(serializers.Serializer):
+    """Serializer for cost line creation success response."""
+
+    # Uses the full CostLineSerializer data structure
+    id = serializers.CharField()
+    kind = serializers.CharField()
+    desc = serializers.CharField()
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_rev = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_cost = serializers.ReadOnlyField()
+    total_rev = serializers.ReadOnlyField()
+    ext_refs = serializers.JSONField(required=False)
+    meta = serializers.JSONField(required=False)
+
+
+class QuoteImportStatusResponseSerializer(serializers.Serializer):
+    """Serializer for quote import status response"""
+
+    job_id = serializers.CharField()
+    job_name = serializers.CharField()
+    has_quote = serializers.BooleanField()
+    quote = CostSetSerializer(required=False)
+    revision = serializers.IntegerField(required=False)
+    created = serializers.DateTimeField(required=False)
+    summary = serializers.JSONField(required=False)
