@@ -82,7 +82,7 @@ class KanbanService:
         # Get all kanban columns instead of individual statuses
         columns = categorization_service.get_all_columns()
 
-        # Create status choices based on columns (for backward compatibility)
+        # Create status choices based on columns (simplified kanban structure)
         status_choices = {}
         status_tooltips = {}
 
@@ -90,9 +90,10 @@ class KanbanService:
             # Use column as the main "status" for the kanban view
             status_choices[column.column_id] = column.column_title
 
-            # Create tooltip that shows sub-categories
-            sub_cat_labels = [sub_cat.badge_label for sub_cat in column.sub_categories]
-            status_tooltips[column.column_id] = f"Includes: {', '.join(sub_cat_labels)}"
+            # Create tooltip based on column's status key
+            status_tooltips[
+                column.column_id
+            ] = f"Status: {column.status_key.replace('_', ' ').title()}"
 
         return {"statuses": status_choices, "tooltips": status_tooltips}
 
@@ -129,6 +130,7 @@ class KanbanService:
             ],
             "status": job.get_status_display(),
             "status_key": job.status,
+            "rejected_flag": job.rejected_flag,
             "paid": job.paid,
             "created_by_id": job.created_by.id if job.created_by else None,
             "created_at": (
@@ -405,10 +407,8 @@ class KanbanService:
                     "filtered_count": 0,
                 }
 
-            # Get valid statuses for this column
-            valid_statuses = [
-                sub_cat.status_key for sub_cat in column.sub_categories
-            ]  # Build base query and filter out 'special' jobs
+            # Get valid statuses for this column (simplified approach - column = status)
+            valid_statuses = [column.status_key]  # Only the column's main status
             jobs_query = Job.objects.filter(status__in=valid_statuses).select_related(
                 "client"
             )

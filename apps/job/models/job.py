@@ -26,17 +26,17 @@ class Job(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [
+        # Main kanban columns (visible)
         ("draft", "Draft"),
         ("awaiting_approval", "Awaiting Approval"),
         ("approved", "Approved"),
         ("in_progress", "In Progress"),
         ("unusual", "Unusual"),
         ("recently_completed", "Recently Completed"),
-        # Legacy statuses that are maintained but not shown on kanban
+        # Hidden statuses (maintained but not shown on kanban)
         ("special", "Special"),
-        ("rejected", "Rejected"),
         ("archived", "Archived"),
-        # Legacy statuses for data migration
+        # Legacy statuses for migration compatibility - remove after migration is complete
         ("quoting", "Quoting"),
         ("accepted_quote", "Accepted Quote"),
         ("awaiting_materials", "Awaiting Materials"),
@@ -44,27 +44,29 @@ class Job(models.Model):
         ("awaiting_site_availability", "Awaiting Site Availability"),
         ("on_hold", "On Hold"),
         ("completed", "Completed"),
+        ("rejected", "Rejected"),
     ]
 
     STATUS_TOOLTIPS: Dict[str, str] = {
+        # Main kanban statuses
         "draft": "Initial job creation - quote being prepared",
         "awaiting_approval": "Quote submitted and waiting for customer approval",
         "approved": "Quote approved and ready to start work",
         "in_progress": "Work has started on this job",
-        "unusual": "Jobs requiring special attention or unusual circumstances",
-        "recently_completed": "Work has just finished on this job",
-        # Legacy tooltips for migration
-        "quoting": "The quote is currently being prepared (legacy)",
-        "accepted_quote": "The quote has been approved (legacy)",
-        "awaiting_materials": "Job is ready to start but waiting for materials (legacy)",
-        "awaiting_staff": "Job is waiting for available staff (legacy)",
-        "awaiting_site_availability": "Job is waiting for site access (legacy)",
-        "rejected": "The quote was declined",
-        "in_progress": "Work has started on this job",
-        "on_hold": "The job is on hold for other reasons (legacy)",
-        "special": "Shop jobs, upcoming shutdowns, etc. (filtered from kanban)",
-        "completed": "Work finished and job is completed (legacy)",
+        "unusual": "Jobs requiring special attention - on hold, waiting for materials/staff/site",
+        "recently_completed": "Work has just finished on this job (including rejected jobs)",
+        # Hidden statuses
+        "special": "Shop jobs, upcoming shutdowns, etc. (not visible on kanban without advanced search)",
         "archived": "The job has been paid for and picked up",
+        # Legacy tooltips for migration compatibility - remove after migration is complete
+        "quoting": "The quote is currently being prepared (legacy - will become draft)",
+        "accepted_quote": "The quote has been approved (legacy - will become approved)",
+        "awaiting_materials": "Job is ready to start but waiting for materials (legacy - will become unusual)",
+        "awaiting_staff": "Job is waiting for available staff (legacy - will become unusual)",
+        "awaiting_site_availability": "Job is waiting for site access (legacy - will become unusual)",
+        "on_hold": "The job is on hold for other reasons (legacy - will become unusual)",
+        "completed": "Work finished and job is completed (legacy - will become recently_completed)",
+        "rejected": "The quote was declined (legacy - will become recently_completed with rejected_flag=True)",
     }
 
     client = models.ForeignKey(
@@ -98,6 +100,12 @@ class Job(models.Model):
     delivery_date = models.DateField(null=True, blank=True)  # type: ignore
     status: str = models.CharField(
         max_length=30, choices=JOB_STATUS_CHOICES, default="draft"
+    )  # type: ignore
+
+    # Flag to track jobs that were rejected (displayed in Recently Completed with different styling)
+    rejected_flag = models.BooleanField(
+        default=False,
+        help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
     )  # type: ignore
 
     PRICING_METHODOLOGY_CHOICES = [

@@ -32,7 +32,7 @@ urlpatterns = [
     path(
         "staff/<uuid:pk>/", StaffUpdateView.as_view(), name="update_staff"
     ),  # Staff API
-    path("api/staff/all/", StaffListAPIView.as_view(), name="api_staff_list"),
+    path("api/staff/all/", StaffListAPIView.as_view(), name="api_staff_all_list"),
     path("api/staff/rates/<uuid:staff_id>/", get_staff_rates, name="get_staff_rates"),
     # JWT endpoints
     path("api/token/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),

@@ -10,32 +10,31 @@ logger = logging.getLogger(__name__)
 
 def update_job_statuses_for_simplified_kanban(apps, schema_editor):
     """
-    Update job statuses for simplified kanban with 6 columns:
-    - Draft: draft (unchanged)
-    - Awaiting Approval: awaiting_approval (new, maps from quoting)
+    Update job statuses for simplified kanban with 6 columns based on Corrin's mapping:
+    - Draft: draft (maps from quoting)
+    - Awaiting Approval: awaiting_approval (start empty, manual moves expected)
     - Approved: approved (maps from accepted_quote)
-    - In Progress: in_progress (maps from awaiting_materials, awaiting_staff, awaiting_site_availability)
-    - Unusual: unusual (maps from on_hold, special)
-    - Recently Completed: recently_completed (maps from completed)
+    - In Progress: in_progress (unchanged)
+    - Unusual: unusual (maps from awaiting_materials, awaiting_staff, awaiting_site_availability, on_hold)
+    - Recently Completed: recently_completed (maps from completed, rejected with rejected_flag=True)
 
-    Legacy statuses (rejected, archived) remain unchanged but hidden from kanban.
+    Hidden statuses: special (not visible without advanced search), archived (unchanged)
     """
     Job = apps.get_model("job", "Job")
 
-    # Map old statuses to new ones
+    # Map old statuses to new ones based on Corrin's table
     status_mapping = {
-        # Map quoting to awaiting_approval (quote submitted, waiting for customer approval)
-        "quoting": "awaiting_approval",
-        # Map accepted_quote back to approved (quote approved, ready to start)
+        # Quoting -> Draft (not awaiting_approval as previously thought)
+        "quoting": "draft",
+        # Accepted Quote -> Approved
         "accepted_quote": "approved",
-        # Map various waiting states to in_progress (work has started or is ready to start)
-        "awaiting_materials": "in_progress",
-        "awaiting_staff": "in_progress",
-        "awaiting_site_availability": "in_progress",
-        # Map problematic statuses to unusual (requiring special attention)
+        # All waiting states -> Unusual (not in_progress)
+        "awaiting_materials": "unusual",
+        "awaiting_staff": "unusual",
+        "awaiting_site_availability": "unusual",
+        # On Hold -> Unusual
         "on_hold": "unusual",
-        "special": "unusual",
-        # Map completed to recently_completed (just finished)
+        # Completed -> Recently Completed
         "completed": "recently_completed",
     }
 
@@ -48,8 +47,28 @@ def update_job_statuses_for_simplified_kanban(apps, schema_editor):
             )
             total_updated += updated_count
 
+    # Special handling for rejected jobs - set rejected_flag=True and status=recently_completed
+    rejected_jobs = Job.objects.filter(status="rejected")
+    rejected_count = rejected_jobs.update(
+        status="recently_completed", rejected_flag=True
+    )
+    if rejected_count > 0:
+        logger.info(
+            f"Updated {rejected_count} rejected jobs to recently_completed with rejected_flag=True"
+        )
+        total_updated += rejected_count
+
     # Log statuses that remain unchanged
-    unchanged_statuses = ["draft", "rejected", "archived"]
+    unchanged_statuses = [
+        "draft",
+        "awaiting_approval",
+        "approved",
+        "in_progress",
+        "unusual",
+        "recently_completed",
+        "special",
+        "archived",
+    ]
     for status in unchanged_statuses:
         count = Job.objects.filter(status=status).count()
         if count > 0:
@@ -67,11 +86,11 @@ def reverse_job_statuses_for_simplified_kanban(apps, schema_editor):
     # Reverse mapping - note that some mappings are lossy
     # Multiple old statuses mapped to single new ones, so we map back to most common
     reverse_mapping = {
-        "awaiting_approval": "quoting",
-        "approved": "accepted_quote",
-        "in_progress": "awaiting_materials",  # Default back to awaiting_materials
-        "unusual": "on_hold",  # Default back to on_hold
-        "recently_completed": "completed",
+        "draft": "quoting",  # Draft came from quoting
+        "approved": "accepted_quote",  # Approved came from accepted_quote
+        "unusual": "awaiting_materials",  # Default unusual back to awaiting_materials
+        "recently_completed": "completed",  # Default back to completed (rejected will be lost)
+        # awaiting_approval and in_progress stay unchanged
     }
 
     total_reverted = 0
@@ -88,7 +107,7 @@ def reverse_job_statuses_for_simplified_kanban(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("job", "0031_remove_jobpart_job_pricing_and_more"),
+        ("job", "0033_add_rejected_flag_field"),
     ]
 
     operations = [

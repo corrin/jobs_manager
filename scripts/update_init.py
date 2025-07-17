@@ -1,6 +1,5 @@
 import argparse
 import ast
-import fcntl
 import glob
 import logging
 import os
@@ -266,21 +265,87 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
 
     logger.info(f"=== Starting update_init_py for {target_dir} ===")
 
+    # Normalize target_dir path for cross-platform compatibility
+    target_dir = os.path.normpath(target_dir)
+    logger.debug(f"Normalized target_dir: {target_dir}")
+    logger.debug(f"target_dir ends with 'models': {target_dir.endswith('models')}")
+    logger.debug(
+        f"target_dir contains apps sep: {os.path.sep + 'apps' + os.path.sep in target_dir}"
+    )
+
+    # Special exclusion for models directories inside apps (should be handled manually)
+    if target_dir.endswith("models") and (
+        os.path.sep + "apps" + os.path.sep in target_dir
+        or target_dir.startswith("apps" + os.path.sep)
+    ):
+        logger.info(
+            f"Skipping models directory (requires manual handling): {target_dir}"
+        )
+        return 0  # Success, but skipped
+
+    # Special exclusion for migrations directories (Django auto-discovery)
+    if (
+        target_dir.endswith("migrations")
+        or os.path.basename(target_dir) == "migrations"
+    ):
+        logger.info(
+            f"Skipping migrations directory (Django auto-discovery): {target_dir}"
+        )
+        return 0  # Success, but skipped
+
     # Files/directories to exclude from auto-generation
     EXCLUDED_PATHS = {
-        "jobs_manager/settings/__init__.py",
-        "jobs_manager/__init__.py",  # Main project init
+        os.path.normpath("jobs_manager/settings/__init__.py"),
+        os.path.normpath("jobs_manager/__init__.py"),  # Main project init
     }
 
-    # Also exclude migration directories and management/commands - they shouldn't have imports
-    if "/migrations" in target_dir or "/management/commands" in target_dir:
-        logger.info(f"Skipping excluded directory: {target_dir}")
-        return 0  # Success, but skipped
+    # Directories that should never have their __init__.py modified
+    EXCLUDED_DIRECTORY_PATTERNS = [
+        "migrations",
+        "management" + os.sep + "commands",
+        "__pycache__",
+        "settings",  # Django settings directory
+        "venv",  # Virtual environment
+        ".venv",  # Alternative venv name
+        "env",  # Alternative env name
+        ".env",  # Alternative env name
+        "node_modules",  # Node.js dependencies
+        ".git",  # Git directory
+        "logs",  # Log directory
+    ]
+
+    # Check if this is an excluded directory type
+    for pattern in EXCLUDED_DIRECTORY_PATTERNS:
+        # Check if the pattern appears anywhere in the path
+        if pattern in target_dir.split(os.sep):
+            logger.info(
+                f"Skipping excluded directory pattern '{pattern}': {target_dir}"
+            )
+            return 0  # Success, but skipped
+
+        # Also check the full path contains the pattern
+        if pattern in target_dir:
+            logger.info(
+                f"Skipping excluded directory pattern '{pattern}': {target_dir}"
+            )
+            return 0  # Success, but skipped
+
+    # Additional exclusion for the main jobs_manager directory itself
+    if os.path.basename(target_dir) == "jobs_manager" and target_dir.endswith(
+        "jobs_manager"
+    ):
+        parent_dir = os.path.dirname(target_dir)
+        # Check if this is the main project directory (not an app named jobs_manager)
+        if os.path.exists(os.path.join(target_dir, "settings")) and os.path.exists(
+            os.path.join(target_dir, "wsgi.py")
+        ):
+            logger.info(f"Skipping main Django project directory: {target_dir}")
+            return 0  # Success, but skipped
 
     init_file = os.path.join(target_dir, "__init__.py")
 
     # Check if this file should be excluded
-    relative_init_path = os.path.relpath(init_file)
+    relative_init_path = os.path.normpath(os.path.relpath(init_file))
     if relative_init_path in EXCLUDED_PATHS:
         logger.info(f"Skipping excluded file: {relative_init_path}")
         return 0  # Success, but skipped
@@ -379,9 +444,65 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
 
 
 def find_all_init_directories() -> list[str]:
-    """Find all directories containing __init__.py files."""
+    """Find all directories containing __init__.py files, excluding problematic directories."""
     init_files = glob.glob("**/__init__.py", recursive=True)
-    return [os.path.dirname(init_file) for init_file in init_files]
+    directories = [os.path.dirname(init_file) for init_file in init_files]
+
+    # Filter out directories that should never be processed
+    GLOBAL_EXCLUDED_PATTERNS = [
+        "migrations",
+        "management" + os.sep + "commands",
+        "__pycache__",
+        "venv",
+        ".venv",
+        "env",
+        ".env",
+        "node_modules",
+        ".git",
+        "logs",
+    ]
+
+    filtered_directories = []
+    for directory in directories:
+        should_exclude = False
+        normalized_dir = os.path.normpath(directory)
+
+        # Check if any excluded pattern appears in the directory path
+        for pattern in GLOBAL_EXCLUDED_PATTERNS:
+            if pattern in normalized_dir.split(os.sep):
+                should_exclude = True
+                break
+            if pattern in normalized_dir:
+                should_exclude = True
+                break
+
+        # Special check for main Django project directory
+        if os.path.basename(
+            normalized_dir
+        ) == "jobs_manager" and normalized_dir.endswith("jobs_manager"):
+            if os.path.exists(
+                os.path.join(normalized_dir, "settings")
+            ) and os.path.exists(os.path.join(normalized_dir, "wsgi.py")):
+                should_exclude = True
+
+        # Special check for models directories in apps
+        if normalized_dir.endswith("models") and (
+            os.path.sep + "apps" + os.path.sep in normalized_dir
+            or normalized_dir.startswith("apps" + os.path.sep)
+        ):
+            should_exclude = True
+
+        # Special check for migrations directories (Django auto-discovery)
+        if (
+            normalized_dir.endswith("migrations")
+            or os.path.basename(normalized_dir) == "migrations"
+        ):
+            should_exclude = True
+
+        if not should_exclude:
+            filtered_directories.append(directory)
+
+    return filtered_directories
 
 
 def update_all_init_files(verbose: bool = False) -> int:
