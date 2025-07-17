@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.db import models, transaction
 from django.db.models import Index, Max
-from simple_history.models import HistoricalRecords  # type: ignore
+from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Staff
 from apps.job.helpers import get_company_defaults
@@ -21,10 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
-    name = models.CharField(max_length=100, null=False, blank=False)
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
+    name = models.CharField(max_length=100, null=False, blank=False)
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [
         # Main kanban columns (visible)
         ("draft", "Draft"),
@@ -91,13 +90,13 @@ class Job(models.Model):
         blank=True,
         null=True,
         help_text="This becomes the first line item on the invoice",
-    )  # type: ignore
+    )
 
-    quote_acceptance_date: datetime = models.DateTimeField(  # type: ignore
+    quote_acceptance_date: datetime = models.DateTimeField(
         null=True,
         blank=True,
     )
-    delivery_date = models.DateField(null=True, blank=True)  # type: ignore
+    delivery_date = models.DateField(null=True, blank=True)
     status: str = models.CharField(
         max_length=30, choices=JOB_STATUS_CHOICES, default="draft"
     )  # type: ignore
@@ -134,9 +133,9 @@ class Job(models.Model):
     # )
     # Shop job has no client (client_id is None)
 
-    job_is_valid = models.BooleanField(default=False)  # type: ignore
-    collected: bool = models.BooleanField(default=False)  # type: ignore
-    paid: bool = models.BooleanField(default=False)  # type: ignore
+    job_is_valid = models.BooleanField(default=False)
+    collected: bool = models.BooleanField(default=False)
+    paid: bool = models.BooleanField(default=False)
     charge_out_rate = (
         models.DecimalField(  # TODO: This needs to be added to the edit job form
             max_digits=10,
@@ -151,7 +150,7 @@ class Job(models.Model):
 
     history: HistoricalRecords = HistoricalRecords(table_name="workflow_historicaljob")
 
-    complex_job = models.BooleanField(default=False)  # type: ignore
+    complex_job = models.BooleanField(default=False)
 
     notes = models.TextField(
         blank=True,
@@ -196,7 +195,7 @@ class Job(models.Model):
     priority = models.FloatField(
         default=0.0,
         help_text="Priority of the job, higher numbers are higher priority.",
-    )  # type: ignore
+    )
 
     class Meta:
         verbose_name = "Job"

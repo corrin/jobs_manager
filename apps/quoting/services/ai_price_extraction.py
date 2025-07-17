@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Tuple
 from apps.workflow.enums import AIProviderTypes
 from apps.workflow.helpers import get_company_defaults
 
-# from .providers.gemini_provider import GeminiPriceExtractionProvider
+from .providers.gemini_provider import GeminiPriceExtractionProvider
 # from .providers.claude_provider import ClaudePriceExtractionProvider
 from .providers.mistral_provider import MistralPriceExtractionProvider
 
@@ -39,12 +39,12 @@ class PriceExtractionFactory:
     """Factory for creating AI price extraction providers."""
 
     @staticmethod
-    def create_provider(provider_type: str, api_key: str) -> PriceExtractionProvider:
+    def create_provider(provider_type: str, api_key: str, model_name: str = None) -> PriceExtractionProvider:
         """Create a provider instance based on type."""
         if provider_type == AIProviderTypes.MISTRAL:
             return MistralPriceExtractionProvider(api_key)
-        #       elif provider_type == AIProviderTypes.GOOGLE:
-        #            return GeminiPriceExtractionProvider(api_key)
+        elif provider_type == AIProviderTypes.GOOGLE:
+            return GeminiPriceExtractionProvider(api_key, model_name or "gemini-2.0-flash-exp")
         #        elif provider_type == AIProviderTypes.ANTHROPIC:
         #            return ClaudePriceExtractionProvider(api_key)
         else:
@@ -103,7 +103,7 @@ def extract_price_data(
 
     # 3. Create provider instance and call - fail early, don't eat errors
     provider = PriceExtractionFactory.create_provider(
-        ai_provider.provider_type, ai_provider.api_key
+        ai_provider.provider_type, ai_provider.api_key, ai_provider.model_name
     )
 
     logger.info(f"Using {provider.get_provider_name()} for price extraction")
