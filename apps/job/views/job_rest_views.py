@@ -171,8 +171,7 @@ class JobDetailRestView(BaseJobRestView):
             job_data = JobRestService.get_job_for_edit(job_id, request)
 
             response_data = {"success": True, "data": job_data}
-            response_serializer = JobDetailResponseSerializer(response_data)
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
+            return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)

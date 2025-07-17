@@ -17,8 +17,6 @@ from apps.client.views.client_rest_views import (
     ClientSearchRestView,
 )
 
-app_name = "clients_rest"
-
 urlpatterns = [
     # Client list all REST endpoint
     path(

@@ -257,11 +257,29 @@ class JobCreateResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
+class JobEventSerializer(serializers.Serializer):
+    """Serializer for job events in detail response."""
+
+    id = serializers.CharField()
+    timestamp = serializers.CharField()
+    event_type = serializers.CharField()
+    description = serializers.CharField()
+    staff = serializers.CharField()
+
+
+class JobDetailDataSerializer(serializers.Serializer):
+    """Serializer for the data field in job detail response."""
+
+    job = JobSerializer()
+    events = JobEventSerializer(many=True)
+    company_defaults = serializers.DictField()
+
+
 class JobDetailResponseSerializer(serializers.Serializer):
     """Serializer for job detail response."""
 
     success = serializers.BooleanField(default=True)
-    data = JobSerializer()
+    data = JobDetailDataSerializer()
 
 
 class JobRestErrorResponseSerializer(serializers.Serializer):
