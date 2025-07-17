@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Morris Sheetmetal Works</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <style>
+        .preview-table {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .editable-cell {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.25rem;
+        }
+        .editable-cell:focus {
+            outline: none;
+            border-color: #86b7fe;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+        .delete-row {
+            cursor: pointer;
+            color: #dc3545;
+        }
+        .delete-row:hover {
+            color: #b02a37;
+        }
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.15s ease-in-out;
+        }
+        .upload-area:hover {
+            border-color: #86b7fe;
+        }
+        .progress-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="h3 mb-0">{{ title }}</h1>
+                <p class="text-muted">Import supplier price lists from PDF documents</p>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        {% if not show_preview %}
+            <!-- Upload Form -->
+            <div class="row mb-4">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-cloud-upload"></i> Upload PDF Price List
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="upload">
+                                
+                                <div class="upload-area mb-3">
+                                    <i class="bi bi-file-earmark-pdf display-4 text-muted mb-3"></i>
+                                    <h5>Choose PDF File</h5>
+                                    <p class="text-muted mb-3">Select a supplier price list PDF to import</p>
+                                    <input type="file" name="pdf_file" id="pdf_file" class="form-control" accept=".pdf" required>
+                                </div>
+                                
+                                <div class="progress-container">
+                                    <div class="progress mb-3">
+                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <p class="text-center text-muted">Processing PDF...</p>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-upload"></i> Upload and Extract Data
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Uploads -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-clock-history"></i> Recent Imports
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            {% if uploaded_pricing %}
+                                <div class="list-group list-group-flush">
+                                    {% for price_list in uploaded_pricing|slice:":5" %}
+                                        <div class="list-group-item px-0">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <h6 class="mb-1">{{ price_list.supplier.name }}</h6>
+                                                    <p class="mb-1 small text-muted">{{ price_list.file_name }}</p>
+                                                    <small class="text-muted">{{ price_list.uploaded_at|date:"M d, Y H:i" }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No recent imports</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Preview Section -->
+            <div class="row mb-4">
+                <div class="col">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-eye"></i> Preview Extracted Data
+                                </h5>
+                                <small class="text-muted">
+                                    File: {{ preview_data.filename }} | 
+                                    Supplier: {{ preview_data.supplier_name }} | 
+                                    Items: {{ preview_data.total_items }}
+                                </small>
+                            </div>
+                            <div>
+                                <form method="post" style="display: inline;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="cancel">
+                                    <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                        <i class="bi bi-x-circle"></i> Cancel
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            {% if preview_data.parsing_stats %}
+                                <div class="row mb-3">
+                                    <div class="col-md-2">
+                                        <div class="text-center">
+                                            <div class="h4 text-primary">{{ preview_data.parsing_stats.pages_processed|default:"N/A" }}</div>
+                                            <small class="text-muted">Pages Processed</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-center">
+                                            <div class="h4 text-success">{{ preview_data.parsing_stats.items_found|default:"N/A" }}</div>
+                                            <small class="text-muted">Items Found</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-center">
+                                            <div class="h4 text-info">{{ preview_data.parsing_stats.total_lines|default:"N/A" }}</div>
+                                            <small class="text-muted">Total Lines</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-center">
+                                            <div class="h4 text-warning">{{ preview_data.total_items }}</div>
+                                            <small class="text-muted">Ready to Import</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-center">
+                                            <div class="h4 text-success">{{ preview_data.duplicate_analysis.new_products }}</div>
+                                            <small class="text-muted">New Products</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <div class="text-center">
+                                            <div class="h4 {% if preview_data.duplicate_analysis.duplicates_found > 0 %}text-danger{% else %}text-muted{% endif %}">{{ preview_data.duplicate_analysis.duplicates_found }}</div>
+                                            <small class="text-muted">Duplicates Found</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Duplicate Handling Section -->
+                            {% if preview_data.duplicate_analysis.duplicates_found > 0 %}
+                                <div class="alert alert-warning">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6><i class="bi bi-exclamation-triangle"></i> Duplicates Detected</h6>
+                                            <p class="mb-2">Found {{ preview_data.duplicate_analysis.duplicates_found }} duplicate product(s) that already exist in the database.</p>
+                                            <div class="mb-3">
+                                                <label class="form-label">How should duplicates be handled?</label>
+                                                <select class="form-select" id="duplicateStrategy" name="duplicate_strategy">
+                                                    <option value="skip" selected>Skip duplicates (recommended)</option>
+                                                    <option value="update">Update existing products with new data</option>
+                                                    <option value="create_new">Create new products with modified IDs</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#duplicateDetails">
+                                            View Details
+                                        </button>
+                                    </div>
+                                    
+                                    <div class="collapse" id="duplicateDetails">
+                                        <hr>
+                                        <h6>Duplicate Products:</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Product Name</th>
+                                                        <th>Item Code</th>
+                                                        <th>Current Price</th>
+                                                        <th>New Price</th>
+                                                        <th>Last Updated</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for duplicate in preview_data.duplicate_analysis.duplicates %}
+                                                        <tr>
+                                                            <td>{{ duplicate.existing_product.product_name }}</td>
+                                                            <td>{{ duplicate.existing_product.item_no|default:"-" }}</td>
+                                                            <td>${{ duplicate.existing_product.price|default:"N/A" }}</td>
+                                                            <td>${{ duplicate.new_product.unit_price|default:"N/A" }}</td>
+                                                            <td>{{ duplicate.existing_product.updated_at|date:"M d, Y" }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Review the data below:</strong> You can edit product names, descriptions, and prices directly in the table. 
+                                Click the trash icon to remove unwanted items. When ready, click "Confirm Import" to save to database.
+                            </div>
+                            
+                            <div class="preview-table">
+                                <table class="table table-striped table-hover" id="previewTable">
+                                    <thead class="table-dark sticky-top">
+                                        <tr>
+                                            <th style="width: 5%">Action</th>
+                                            <th style="width: 25%">Product Name</th>
+                                            <th style="width: 30%">Description</th>
+                                            <th style="width: 15%">Item Code</th>
+                                            <th style="width: 10%">Price</th>
+                                            <th style="width: 10%">Unit</th>
+                                            <th style="width: 5%">Valid</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in preview_data.items %}
+                                            <tr data-index="{{ forloop.counter0 }}">
+                                                <td>
+                                                    <i class="bi bi-trash delete-row" title="Delete this item"></i>
+                                                </td>
+                                                <td>
+                                                    <div class="editable-cell" contenteditable="true" data-field="product_name">
+                                                        {{ item.product_name|default:item.description|default:"" }}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="editable-cell" contenteditable="true" data-field="description">
+                                                        {{ item.description|default:"" }}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="editable-cell" contenteditable="true" data-field="item_no">
+                                                        {{ item.item_no|default:"" }}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="editable-cell" contenteditable="true" data-field="unit_price">
+                                                        {{ item.unit_price|default:"" }}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <div class="editable-cell" contenteditable="true" data-field="price_unit">
+                                                        {{ item.price_unit|default:"each" }}
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    {% if item.product_name or item.description %}
+                                                        <i class="bi bi-check-circle text-success" title="Valid"></i>
+                                                    {% else %}
+                                                        <i class="bi bi-exclamation-triangle text-warning" title="Missing required data"></i>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% empty %}
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted">No items found</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {% if preview_data.items %}
+                                <div class="d-flex justify-content-between align-items-center mt-3">
+                                    <div>
+                                        <small class="text-muted">
+                                            <span id="itemCount">{{ preview_data.total_items }}</span> items ready for import
+                                        </small>
+                                    </div>
+                                    <div>
+                                        <form method="post" style="display: inline;" id="confirmForm">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="confirm">
+                                            <input type="hidden" name="duplicate_strategy" id="hiddenDuplicateStrategy" value="skip">
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="bi bi-check-circle"></i> Confirm Import
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle file upload progress
+            const uploadForm = document.getElementById('uploadForm');
+            const progressContainer = document.querySelector('.progress-container');
+            const progressBar = document.querySelector('.progress-bar');
+            
+            if (uploadForm) {
+                uploadForm.addEventListener('submit', function() {
+                    progressContainer.style.display = 'block';
+                    // Simulate progress (real progress would need AJAX)
+                    let progress = 0;
+                    const interval = setInterval(function() {
+                        progress += 10;
+                        progressBar.style.width = progress + '%';
+                        if (progress >= 90) {
+                            clearInterval(interval);
+                        }
+                    }, 200);
+                });
+            }
+            
+            // Handle row deletion
+            document.querySelectorAll('.delete-row').forEach(function(deleteBtn) {
+                deleteBtn.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to remove this item?')) {
+                        const row = this.closest('tr');
+                        row.remove();
+                        updateItemCount();
+                    }
+                });
+            });
+            
+            // Handle cell editing validation
+            document.querySelectorAll('.editable-cell').forEach(function(cell) {
+                cell.addEventListener('blur', function() {
+                    validateRow(this.closest('tr'));
+                });
+            });
+            
+            function validateRow(row) {
+                const productName = row.querySelector('[data-field="product_name"]').textContent.trim();
+                const description = row.querySelector('[data-field="description"]').textContent.trim();
+                const validIcon = row.querySelector('td:last-child i');
+                
+                if (productName || description) {
+                    validIcon.className = 'bi bi-check-circle text-success';
+                    validIcon.title = 'Valid';
+                } else {
+                    validIcon.className = 'bi bi-exclamation-triangle text-warning';
+                    validIcon.title = 'Missing required data';
+                }
+            }
+            
+            function updateItemCount() {
+                const itemCount = document.querySelectorAll('#previewTable tbody tr').length;
+                const itemCountSpan = document.getElementById('itemCount');
+                if (itemCountSpan) {
+                    itemCountSpan.textContent = itemCount;
+                }
+            }
+            
+            // Handle duplicate strategy selection
+            const duplicateStrategySelect = document.getElementById('duplicateStrategy');
+            const hiddenDuplicateStrategy = document.getElementById('hiddenDuplicateStrategy');
+            
+            if (duplicateStrategySelect && hiddenDuplicateStrategy) {
+                duplicateStrategySelect.addEventListener('change', function() {
+                    hiddenDuplicateStrategy.value = this.value;
+                });
+            }
+            
+            // Handle confirm form submission
+            const confirmForm = document.getElementById('confirmForm');
+            if (confirmForm) {
+                confirmForm.addEventListener('submit', function(e) {
+                    const validItems = document.querySelectorAll('.bi-check-circle').length;
+                    const totalItems = document.querySelectorAll('#previewTable tbody tr').length;
+                    
+                    if (validItems < totalItems) {
+                        if (!confirm(`${totalItems - validItems} items have missing data and will be skipped. Continue with import?`)) {
+                            e.preventDefault();
+                        }
+                    }
+                    
+                    // Sync duplicate strategy one more time before submission
+                    if (duplicateStrategySelect && hiddenDuplicateStrategy) {
+                        hiddenDuplicateStrategy.value = duplicateStrategySelect.value;
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
