@@ -775,6 +775,13 @@ paths:
     get:
       operationId: clients_search_retrieve
       description: Searches clients by name following early return pattern.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search query for client name
+        required: true
       tags:
       - clients
       security:
@@ -1212,13 +1219,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssignJobResponse'
+              $ref: '#/components/schemas/AssignJobRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AssignJobResponse'
+              $ref: '#/components/schemas/AssignJobRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AssignJobResponse'
+              $ref: '#/components/schemas/AssignJobRequest'
         required: true
       security:
       - cookieAuth: []
@@ -3735,6 +3742,19 @@ components:
           description: List of job IDs to archive
       required:
       - ids
+    AssignJobRequest:
+      type: object
+      description: Serialiser for job assignment request
+      properties:
+        job_id:
+          type: string
+          description: Job ID
+        staff_id:
+          type: string
+          description: Staff ID
+      required:
+      - job_id
+      - staff_id
     AssignJobResponse:
       type: object
       description: Serialiser for job assignment response
