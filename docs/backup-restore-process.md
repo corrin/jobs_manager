@@ -56,15 +56,15 @@ ls -la restore/
 **Run as:** Development system user
 **Check:**
 ```bash
-grep -E "^(MYSQL_DATABASE|MSM_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
+grep -E "^(MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
 export DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2)
 export MYSQL_DATABASE=$(grep MYSQL_DATABASE .env | cut -d= -f2)
-export MSM_DB_USER=$(grep MSM_DB_USER .env | cut -d= -f2)
+export MYSQL_DB_USER=$(grep MYSQL_DB_USER .env | cut -d= -f2)
 ```
 **Must show:**
 ```
 MYSQL_DATABASE=msm_workflow
-MSM_DB_USER=django_user
+MYSQL_DB_USER=django_user
 DB_PASSWORD=your_dev_password
 DB_HOST=localhost
 DB_PORT=3306
@@ -91,7 +91,7 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW DATABASES;" | grep msm
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
+MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
 ```
 **Check:**
 ```bash
@@ -130,7 +130,7 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MSM_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
+MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
 ```
 **Check:**
 ```bash
