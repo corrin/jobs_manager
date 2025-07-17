@@ -347,12 +347,11 @@ pricing, and suppliers."""
 
                 # Send tool result back to the model
                 logger.debug("Sending tool result back to Gemini")
-                response = chat.send_message(
-                    Part.from_function_response(
-                        name=tool_name,
-                        response={"result": tool_result},
-                    )
+                function_response = genai.protos.FunctionResponse(
+                    name=tool_name, response={"result": tool_result}
                 )
+                part = genai.protos.Part(function_response=function_response)
+                response = chat.send_message(part)
                 logger.debug(f"Received response after tool call #{tool_call_count}")
 
             # The final response from the model
