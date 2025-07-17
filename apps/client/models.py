@@ -25,6 +25,9 @@ class Client(models.Model):
     is_account_customer = models.BooleanField(
         default=False
     )  # Account vs cash customer flag
+    is_supplier = models.BooleanField(
+        default=False
+    )  # Indicates if this client is also a supplier
     xero_last_modified = models.DateTimeField(null=False, blank=False)
 
     raw_json = models.JSONField(

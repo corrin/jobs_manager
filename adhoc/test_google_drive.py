@@ -68,7 +68,30 @@ def test_google_drive_access() -> bool:
         else:
             print("✅ Folder is empty (as expected)")
 
-        print("All tests passed! Google Drive integration is working correctly.")
+        # Test creating a subfolder
+        print("\n🆕 Testing folder creation...")
+        test_folder_metadata = {
+            "name": "Test Jobs Manager",
+            "parents": [folder_id],
+            "mimeType": "application/vnd.google-apps.folder",
+        }
+
+        test_folder = (
+            drive_service.files()
+            .create(body=test_folder_metadata, fields="id,name")
+            .execute()
+        )
+
+        print(
+            f"✅ Test folder created: {test_folder['name']} (ID: {test_folder['id']})"
+        )
+
+        # Clean up - delete test folder
+        print("\n🧹 Cleaning up test folder...")
+        drive_service.files().delete(fileId=test_folder["id"]).execute()
+        print("✅ Test folder deleted")
+
+        print("\n🎉 All tests passed! Google Drive integration is working correctly.")
 
     except Exception as e:
         print(f"Error: {e}")

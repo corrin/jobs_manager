@@ -42,10 +42,10 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     ):
                         logger.info("User %s needs password reset", username)
                         response.data["password_needs_reset"] = True
-                        response.data[
-                            "password_reset_url"
-                        ] = request.build_absolute_uri(
-                            reverse("accounts:password_change")
+                        response.data["password_reset_url"] = (
+                            request.build_absolute_uri(
+                                reverse("accounts:password_change")
+                            )
                         )
 
                     if getattr(settings, "ENABLE_JWT_AUTH", False):

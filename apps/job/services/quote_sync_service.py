@@ -241,7 +241,9 @@ def _fetch_drafts(job: Job):
                 logger.warning(f"⚠️ Skipping invalid row {idx}: {e}")
                 continue
 
-        logger.info(f"✅ Created {len(draft_lines)} draft lines from Google Sheets data")
+        logger.info(
+            f"✅ Created {len(draft_lines)} draft lines from Google Sheets data"
+        )
 
         # Log sample of parsed lines
         for i, line in enumerate(draft_lines[:3]):
