@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
-from apps.job.models import Job, JobEvent
+from apps.job.models import CostSet, Job, JobEvent
 from apps.job.serializers import JobSerializer
 
 logger = logging.getLogger(__name__)
@@ -281,16 +281,11 @@ class JobRestService:
         """
         job = get_object_or_404(Job, id=job_id)
 
-        # Guard clause - check if can delete using CostSet system
-        # Check if job has any actual costs via CostSet
-        from apps.workflow.models import CostSet
-
-        actual_cost_set = CostSet.objects.filter(
-            job=job, kind="actual", is_current=True
-        ).first()
+        actual_cost_set = job.latest_actual
 
         if actual_cost_set and (
-            actual_cost_set.total_cost > 0 or actual_cost_set.total_price > 0
+            actual_cost_set.summary.get("cost", 0) > 0
+            or actual_cost_set.summary.get("rev", 0) > 0
         ):
             raise ValueError(
                 "Cannot delete this job because it has real costs or revenue."

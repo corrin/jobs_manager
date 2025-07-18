@@ -3,7 +3,7 @@
 
 import logging
 
-from django.db import migrations
+from django.db import migrations, models
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +107,108 @@ def reverse_job_statuses_for_simplified_kanban(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("job", "0033_add_rejected_flag_field"),
+        ("job", "0032_fix_blank_job_names"),
     ]
 
     operations = [
+        # Add the rejected_flag field to both Job and HistoricalJob models
+        migrations.AddField(
+            model_name="job",
+            name="rejected_flag",
+            field=models.BooleanField(
+                default=False,
+                help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
+            ),
+        ),
+        migrations.AddField(
+            model_name="historicaljob",
+            name="rejected_flag",
+            field=models.BooleanField(
+                default=False,
+                help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
+            ),
+        ),
+        # Update status choices for both models
+        migrations.AlterField(
+            model_name="job",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("draft", "Draft"),
+                    ("awaiting_approval", "Awaiting Approval"),
+                    ("approved", "Approved"),
+                    ("in_progress", "In Progress"),
+                    ("unusual", "Unusual"),
+                    ("recently_completed", "Recently Completed"),
+                    ("special", "Special"),
+                    ("archived", "Archived"),
+                    ("quoting", "Quoting"),
+                    ("accepted_quote", "Accepted Quote"),
+                    ("awaiting_materials", "Awaiting Materials"),
+                    ("awaiting_staff", "Awaiting Staff"),
+                    ("awaiting_site_availability", "Awaiting Site Availability"),
+                    ("on_hold", "On Hold"),
+                    ("completed", "Completed"),
+                    ("rejected", "Rejected"),
+                ],
+                default="draft",
+                max_length=30,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="historicaljob",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("draft", "Draft"),
+                    ("awaiting_approval", "Awaiting Approval"),
+                    ("approved", "Approved"),
+                    ("in_progress", "In Progress"),
+                    ("unusual", "Unusual"),
+                    ("recently_completed", "Recently Completed"),
+                    ("special", "Special"),
+                    ("archived", "Archived"),
+                    ("quoting", "Quoting"),
+                    ("accepted_quote", "Accepted Quote"),
+                    ("awaiting_materials", "Awaiting Materials"),
+                    ("awaiting_staff", "Awaiting Staff"),
+                    ("awaiting_site_availability", "Awaiting Site Availability"),
+                    ("on_hold", "On Hold"),
+                    ("completed", "Completed"),
+                    ("rejected", "Rejected"),
+                ],
+                default="draft",
+                max_length=30,
+            ),
+        ),
+        # Update pricing methodology choices for both models
+        migrations.AlterField(
+            model_name="job",
+            name="pricing_methodology",
+            field=models.CharField(
+                choices=[
+                    ("time_materials", "Time & Materials"),
+                    ("fixed_price", "Fixed Price"),
+                ],
+                default="time_materials",
+                help_text="Determines whether job uses quotes or time and materials pricing type.",
+                max_length=20,
+            ),
+        ),
+        migrations.AlterField(
+            model_name="historicaljob",
+            name="pricing_methodology",
+            field=models.CharField(
+                choices=[
+                    ("time_materials", "Time & Materials"),
+                    ("fixed_price", "Fixed Price"),
+                ],
+                default="time_materials",
+                help_text="Determines whether job uses quotes or time and materials pricing type.",
+                max_length=20,
+            ),
+        ),
+        # Finally, update the job statuses using the new field
         migrations.RunPython(
             update_job_statuses_for_simplified_kanban,
             reverse_job_statuses_for_simplified_kanban,
