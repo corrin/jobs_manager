@@ -25,6 +25,15 @@ try:
             calculate_product_mapping_hash,
             calculate_supplier_product_hash,
         )
+        from .views_backup import (
+            UploadPriceListView,
+            UploadSupplierPricingView,
+            extract_supplier_price_list_data_view,
+            index,
+            job_context_api,
+            search_stock_api,
+            search_supplier_prices_api,
+        )
         from .views_django_jobs import DjangoJobExecutionViewSet, DjangoJobViewSet
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -32,10 +41,10 @@ except (ImportError, RuntimeError):
 
 # EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
 # Import these directly where needed using:
+# from .views import PDFPriceListImportView
 # from .views import UploadPriceListView
 # from .views import UploadSupplierPricingView
 # from .views import extract_supplier_price_list_data_view
-# from .views import index
 # from .views import job_context_api
 # from .views import search_stock_api
 # from .views import search_supplier_prices_api
@@ -55,9 +64,16 @@ __all__ = [
     "SupplierProduct",
     "SupplierProductQueryTool",
     "SupplierProductQueryToolTests",
+    "UploadPriceListView",
+    "UploadSupplierPricingView",
     "auto_parse_stock_item",
     "calculate_product_mapping_hash",
     "calculate_supplier_product_hash",
     "delete_old_job_executions",
+    "extract_supplier_price_list_data_view",
+    "index",
+    "job_context_api",
     "run_all_scrapers_job",
+    "search_stock_api",
+    "search_supplier_prices_api",
 ]

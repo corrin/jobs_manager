@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 
 # Setup Django
 sys.path.append("/home/corrin/src/jobs_manager")
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django.setup()
 
 from apps.job.importers.google_sheets import _get_credentials
@@ -82,9 +82,7 @@ def test_google_drive_access() -> bool:
             .execute()
         )
 
-        print(
-            f"✅ Test folder created: {test_folder['name']} (ID: {test_folder['id']})"
-        )
+        print(f"✅ Test folder created: {test_folder['name']} (ID: {test_folder['id']})")
 
         # Clean up - delete test folder
         print("\n🧹 Cleaning up test folder...")

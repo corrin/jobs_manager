@@ -22,19 +22,39 @@ logger = logging.getLogger(__name__)
 
 
 def setup_django():
-    """Setup Django environment with error handling for pre-commit hooks."""
+    """Setup Django environment with improved error handling."""
     try:
         # Set up Django environment
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
+
+        # Ensure we're in the right directory
+        script_dir = Path(__file__).parent
+        project_root = script_dir.parent
+        os.chdir(project_root)
+
+        # Add project root to Python path if not already there
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
 
         import django
 
+        # Configure Django with minimal settings that won't trigger app loading issues
         django.setup()
 
         from django.urls import URLPattern, URLResolver, get_resolver
 
         return URLPattern, URLResolver, get_resolver
 
+    except ImportError as e:
+        if "apps.quoting" in str(e):
+            logger.error(f"Import error in apps.quoting: {e}")
+            logger.error(
+                "This might be caused by a circular import or missing dependency."
+            )
+            logger.error("Try running: python manage.py check --deploy")
+        else:
+            logger.error(f"Import error during Django setup: {e}")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Failed to setup Django environment: {e}")
         logger.error("This script requires a properly configured Django environment.")
@@ -44,8 +64,13 @@ def setup_django():
         sys.exit(1)
 
 
-# Setup Django and get required classes
-URLPattern, URLResolver, get_resolver = setup_django()
+# Setup Django and get required classes - but handle the import error
+try:
+    URLPattern, URLResolver, get_resolver = setup_django()
+except SystemExit:
+    # If Django setup fails, we still want to exit gracefully
+    logger.error("Django setup failed. Exiting.")
+    sys.exit(1)
 
 
 class URLDocumentationGenerator:

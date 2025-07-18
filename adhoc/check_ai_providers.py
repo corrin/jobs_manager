@@ -6,7 +6,7 @@ import django
 
 # Setup Django
 sys.path.append("/home/corrin/src/jobs_manager")
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings.local")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django.setup()
 
 from apps.workflow.models import AIProvider

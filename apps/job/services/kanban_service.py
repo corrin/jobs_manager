@@ -13,6 +13,7 @@ from django.http import HttpRequest
 
 from apps.job.models import Job
 from apps.job.services.kanban_categorization_service import KanbanCategorizationService
+from apps.workflow.utils import is_valid_invoice_number, is_valid_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -365,6 +366,13 @@ class KanbanService:
 
         if statuses := filters.get("status", []):
             jobs_query = jobs_query.filter(status__in=statuses)
+
+        if xero_invoice_params := filters.get("xero_invoice_params", "").strip():
+            match xero_invoice_params:
+                case param if is_valid_uuid(param):
+                    jobs_query = jobs_query.filter(invoice__xero_id=param)
+                case param if is_valid_invoice_number(param):
+                    jobs_query = jobs_query.filter(invoice__number=param)
 
         # Handle paid filter with match-case
         paid_filter = filters.get("paid", "")
