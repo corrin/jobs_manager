@@ -117,31 +117,15 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         return float(hours_by_day[weekday])
 
     def get_display_name(self) -> str:
-        # Add logging to debug the issue
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         display = self.preferred_name or self.first_name
-        logger.info(
-            f"get_display_name step 1: preferred_name={repr(self.preferred_name)}, first_name={repr(self.first_name)}, display={repr(display)}"
-        )
 
         display = display.split()[0] if display else ""
-        logger.info(f"get_display_name step 2: display after split={repr(display)}")
 
         return display
 
     def get_display_full_name(self) -> str:
         display_name = self.get_display_name()
         full_name = f"{display_name} {self.last_name}"
-        # Add logging to debug the "null Admin" issue
-        import logging
-
-        logger = logging.getLogger(__name__)
-        logger.info(
-            f"get_display_full_name for {self.first_name} {self.last_name}: preferred_name={self.preferred_name}, display_name='{display_name}', full_name='{full_name}'"
-        )
         return full_name
 
     def is_staff_manager(self):

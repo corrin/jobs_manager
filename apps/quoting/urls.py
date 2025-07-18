@@ -2,7 +2,6 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from . import views, views_django_jobs
-from .views import PDFPriceListImportView
 
 router = DefaultRouter()
 router.register(
@@ -34,7 +33,7 @@ urlpatterns = [
     ),
     path(
         "pdf-import/",
-        PDFPriceListImportView.as_view(),
+        views.PDFPriceListImportView.as_view(),
         name="pdf_price_list_import",
     ),
     # MCP API endpoints
