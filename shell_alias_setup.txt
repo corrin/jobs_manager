@@ -1,0 +1,15 @@
+# Add these lines to your ~/.zshrc or ~/.bashrc file
+
+# Alias to activate Jobs Manager environment
+alias jm-activate="cd /path/to/jobs_manager && source venv/bin/activate"
+
+# Alias to start the development server
+alias jm-server="jm-activate && python manage.py runserver"
+
+# Alias to run migrations
+alias jm-migrate="jm-activate && python manage.py migrate"
+
+# After adding these lines, run:
+# source ~/.zshrc  # or source ~/.bashrc
+
+# Replace "/path/to/jobs_manager" with the actual path to your project
