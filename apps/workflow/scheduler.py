@@ -36,8 +36,21 @@ def get_scheduler() -> BackgroundScheduler:
 def should_start_scheduler() -> bool:
     """
     Determine if the scheduler should be started in the current context.
+
+    Checks:
+    1. DJANGO_RUN_SCHEDULER must be "1" (existing requirement)
+    2. UAT_DISABLE_SCHEDULER must not be "true" (UAT machine control)
     """
-    return os.getenv("DJANGO_RUN_SCHEDULER") == "1"
+    # Primary control - must be enabled
+    if os.getenv("DJANGO_RUN_SCHEDULER") != "1":
+        return False
+
+    # UAT-specific control - if explicitly disabled, don't start
+    if os.getenv("UAT_DISABLE_SCHEDULER", "").lower() == "true":
+        logger.info("Scheduler disabled via UAT_DISABLE_SCHEDULER environment variable")
+        return False
+
+    return True
 
 
 def start_scheduler() -> bool:

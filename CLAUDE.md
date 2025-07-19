@@ -71,6 +71,18 @@ python manage.py start_xero_sync
 python manage.py get_xero_tenant_id
 ```
 
+### Scheduler Management
+```bash
+# Start background scheduler (runs APScheduler jobs)
+python manage.py run_scheduler
+
+# UAT Environment: Disable scheduler on specific machines
+# Set UAT_DISABLE_SCHEDULER=true to prevent scheduler from running
+# even when DJANGO_RUN_SCHEDULER=1 is set
+export UAT_DISABLE_SCHEDULER=true
+python manage.py run_scheduler  # Will not start due to UAT_DISABLE_SCHEDULER
+```
+
 ## Architecture Overview
 
 ### Core Application Purpose
