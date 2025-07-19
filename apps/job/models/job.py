@@ -21,7 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, null=False, blank=False)
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [
@@ -35,15 +34,6 @@ class Job(models.Model):
         # Hidden statuses (maintained but not shown on kanban)
         ("special", "Special"),
         ("archived", "Archived"),
-        # Legacy statuses for migration compatibility - remove after migration is complete
-        ("quoting", "Quoting"),
-        ("accepted_quote", "Accepted Quote"),
-        ("awaiting_materials", "Awaiting Materials"),
-        ("awaiting_staff", "Awaiting Staff"),
-        ("awaiting_site_availability", "Awaiting Site Availability"),
-        ("on_hold", "On Hold"),
-        ("completed", "Completed"),
-        ("rejected", "Rejected"),
     ]
 
     STATUS_TOOLTIPS: Dict[str, str] = {
@@ -327,7 +317,13 @@ class Job(models.Model):
         staff = kwargs.pop("staff", None)
 
         is_new = self._state.adding
-        original_status = None if is_new else Job.objects.get(pk=self.pk).status
+        original_job = None
+        original_status = None
+
+        # Track original values for change detection
+        if not is_new:
+            original_job = Job.objects.get(pk=self.pk)
+            original_status = original_job.status
 
         create_creation_event = False
         if (staff and is_new) or (not self.created_by and staff):
@@ -384,29 +380,241 @@ class Job(models.Model):
                 )
 
                 if create_creation_event and staff:
+                    client_name = self.client.name if self.client else "Shop Job"
+                    contact_info = (
+                        f" (Contact: {self.contact.name})" if self.contact else ""
+                    )
                     JobEvent.objects.create(
                         job=self,
                         event_type="job_created",
-                        description="New job created",
+                        description=f"New job '{self.name}' created for client {client_name}{contact_info}. Initial status: {self.get_status_display()}. Pricing methodology: {self.get_pricing_methodology_display()}.",
                         staff=staff,
                     )
 
         else:
-            if original_status != self.status and staff:
-                super(Job, self).save(*args, **kwargs)
+            # Dynamic change detection for existing jobs
+            if staff:
+                self._create_change_events(original_job, staff)
 
-                JobEvent.objects.create(
-                    job=self,
-                    event_type="status_changed",
-                    description=(
-                        f"Status changed from "
-                        f"{original_status.replace('_', ' ').title()} "
-                        f"to {self.status.replace('_', ' ').title()}"
-                    ),
-                    staff=staff,
-                )
-
-                return
-
-            # Step 5: Save the Job to persist everything, including relationships
+            # Save the job first
             super(Job, self).save(*args, **kwargs)
+
+    def _create_change_events(self, original_job, staff):
+        """
+        Dynamically detect field changes and create appropriate events.
+        """
+        # Store staff for use in handlers
+        self._current_staff = staff
+
+        # Field mapping: field_name -> description_generator_function
+        field_handlers = {
+            "status": self._handle_status_change,
+            "name": lambda old, new: (
+                "job_updated",
+                f"Job name changed from '{old}' to '{new}'",
+            ),
+            "client_id": self._handle_client_change,
+            "contact_id": self._handle_contact_change,
+            "order_number": lambda old, new: (
+                "job_updated",
+                f"Order number changed from '{old or 'None'}' to '{new or 'None'}'",
+            ),
+            "description": self._handle_text_field_change(
+                "Job description", "job_updated"
+            ),
+            "notes": self._handle_text_field_change("Internal notes", "notes_updated"),
+            "delivery_date": self._handle_date_change(
+                "delivery_date_changed", "Delivery date"
+            ),
+            "quote_acceptance_date": self._handle_quote_acceptance_change,
+            "pricing_methodology": self._handle_pricing_methodology_change,
+            "charge_out_rate": lambda old, new: (
+                "pricing_changed",
+                f"Charge out rate changed from ${old}/hour to ${new}/hour",
+            ),
+            "priority": lambda old, new: (
+                "priority_changed",
+                f"Job priority changed from {old} to {new}. This affects the job's position in the workflow queue",
+            ),
+            "paid": self._handle_boolean_change(
+                "payment_received",
+                "payment_updated",
+                "Job marked as PAID. Payment has been received from client",
+                "Job payment status changed to UNPAID",
+            ),
+            "collected": self._handle_boolean_change(
+                "job_collected",
+                "collection_updated",
+                "Job marked as COLLECTED. Work has been picked up by client",
+                "Job collection status changed to NOT COLLECTED",
+            ),
+            "complex_job": self._handle_boolean_change(
+                "job_updated",
+                "job_updated",
+                "Job marked as COMPLEX JOB. This job requires special attention or has complex requirements",
+                "Job no longer marked as complex job",
+            ),
+        }
+
+        for field_name, handler in field_handlers.items():
+            old_value = getattr(original_job, field_name)
+            new_value = getattr(self, field_name)
+
+            if old_value != new_value:
+                if callable(handler):
+                    result = handler(old_value, new_value)
+                    if result:  # Handler can return None to skip event creation
+                        event_type, description = result
+                        JobEvent.objects.create(
+                            job=self,
+                            event_type=event_type,
+                            description=description,
+                            staff=staff,
+                        )
+
+    def _handle_status_change(self, old_status, new_status):
+        """Handle status change with special logic for rejected jobs."""
+        old_display = dict(self.JOB_STATUS_CHOICES).get(old_status, old_status)
+        new_display = dict(self.JOB_STATUS_CHOICES).get(new_status, new_status)
+
+        # Create status change event
+        JobEvent.objects.create(
+            job=self,
+            event_type="status_changed",
+            description=f"Status changed from '{old_display}' to '{new_display}'. Job moved to new workflow stage.",
+            staff=self._current_staff,
+        )
+
+        # Special handling for rejected jobs
+        if (
+            new_status == "recently_completed"
+            and hasattr(self, "rejected_flag")
+            and self.rejected_flag
+        ):
+            JobEvent.objects.create(
+                job=self,
+                event_type="job_rejected",
+                description="Job marked as rejected. Quote was declined by client.",
+                staff=self._current_staff,
+            )
+
+        return None  # Already handled, don't create another event
+
+    def _handle_client_change(self, old_client_id, new_client_id):
+        """Handle client change with proper name resolution."""
+        old_client = "Shop Job"
+        new_client = "Shop Job"
+
+        if old_client_id:
+            try:
+                from apps.client.models import Client
+
+                old_client = Client.objects.get(id=old_client_id).name
+            except:
+                old_client = "Unknown Client"
+
+        if new_client_id:
+            new_client = self.client.name if self.client else "Unknown Client"
+
+        return (
+            "client_changed",
+            f"Client changed from '{old_client}' to '{new_client}'",
+        )
+
+    def _handle_contact_change(self, old_contact_id, new_contact_id):
+        """Handle contact change with proper name resolution."""
+        old_contact = "None"
+        new_contact = "None"
+
+        if old_contact_id:
+            try:
+                from apps.client.models import ClientContact
+
+                old_contact = ClientContact.objects.get(id=old_contact_id).name
+            except:
+                old_contact = "Unknown Contact"
+
+        if new_contact_id:
+            new_contact = self.contact.name if self.contact else "Unknown Contact"
+
+        return (
+            "contact_changed",
+            f"Primary contact changed from '{old_contact}' to '{new_contact}'",
+        )
+
+    def _handle_text_field_change(self, field_display_name, event_type):
+        """Factory function for handling text field changes."""
+
+        def handler(old_value, new_value):
+            if old_value and new_value:
+                truncated = (
+                    (old_value[:50] + "...") if len(old_value) > 50 else old_value
+                )
+                return (
+                    event_type,
+                    f"{field_display_name} updated. Previous content: '{truncated}'",
+                )
+            elif not old_value and new_value:
+                truncated = (
+                    (new_value[:100] + "...") if len(new_value) > 100 else new_value
+                )
+                return (event_type, f"{field_display_name} added: '{truncated}'")
+            elif old_value and not new_value:
+                truncated = (
+                    (old_value[:50] + "...") if len(old_value) > 50 else old_value
+                )
+                return (
+                    event_type,
+                    f"{field_display_name} removed. Previous content: '{truncated}'",
+                )
+            return None
+
+        return handler
+
+    def _handle_date_change(self, event_type, field_display_name):
+        """Factory function for handling date field changes."""
+
+        def handler(old_date, new_date):
+            old_str = old_date.strftime("%Y-%m-%d") if old_date else "None"
+            new_str = new_date.strftime("%Y-%m-%d") if new_date else "None"
+            return (
+                event_type,
+                f"{field_display_name} changed from '{old_str}' to '{new_str}'",
+            )
+
+        return handler
+
+    def _handle_quote_acceptance_change(self, old_date, new_date):
+        """Handle quote acceptance date with special logic."""
+        if not old_date and new_date:
+            return (
+                "quote_accepted",
+                f"Quote accepted by client on {new_date.strftime('%Y-%m-%d at %H:%M')}",
+            )
+        elif old_date and not new_date:
+            return (
+                "job_updated",
+                f"Quote acceptance date removed. Was previously accepted on {old_date.strftime('%Y-%m-%d')}",
+            )
+        return None
+
+    def _handle_pricing_methodology_change(self, old_method, new_method):
+        """Handle pricing methodology change with display names."""
+        old_display = dict(self.PRICING_METHODOLOGY_CHOICES).get(old_method, old_method)
+        new_display = dict(self.PRICING_METHODOLOGY_CHOICES).get(new_method, new_method)
+        return (
+            "pricing_changed",
+            f"Pricing methodology changed from '{old_display}' to '{new_display}'",
+        )
+
+    def _handle_boolean_change(self, true_event, false_event, true_desc, false_desc):
+        """Factory function for handling boolean field changes."""
+
+        def handler(old_value, new_value):
+            if new_value and not old_value:
+                return (true_event, true_desc)
+            elif old_value and not new_value:
+                return (false_event, false_desc)
+            return None
+
+        return handler

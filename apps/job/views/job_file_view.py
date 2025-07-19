@@ -135,15 +135,22 @@ class JobFileView(JobNumberLookupMixin, APIView):
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
 
     @extend_schema(operation_id="uploadJobFilesApi")
-    def post(self, request):
+    def post(self, request, job_number=None):
         """
         Handle file uploads. Creates new files or updates existing ones with POST.
         """
         logger.debug("Processing POST request to upload files (creating new).")
 
-        job, error_response = self.get_job_from_request_data(
-            request, error_format="legacy"
-        )
+        # Accept job_number from URL parameter or request data
+        if job_number:
+            job, error_response = self.get_job_or_404_response(
+                job_number=job_number, error_format="legacy"
+            )
+        else:
+            job, error_response = self.get_job_from_request_data(
+                request, error_format="legacy"
+            )
+
         if error_response:
             return error_response
 
@@ -230,9 +237,9 @@ class JobFileView(JobNumberLookupMixin, APIView):
             if content_type:
                 response["Content-Type"] = content_type
 
-            response["Content-Disposition"] = (
-                f'inline; filename="{os.path.basename(file_path)}"'
-            )
+            response[
+                "Content-Disposition"
+            ] = f'inline; filename="{os.path.basename(file_path)}"'
             return response
         except Exception as e:
             logger.exception(f"Error serving file {file_path}")
@@ -260,7 +267,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(operation_id="updateJobFilesApi")
-    def put(self, request):
+    def put(self, request, job_number=None):
         """
         Update an existing job file:
         - If a new file is provided (files[] in request), replace the file on disk.
@@ -270,7 +277,10 @@ class JobFileView(JobNumberLookupMixin, APIView):
             "Processing PUT request to update an existing file or its print_on_jobsheet."
         )
 
-        job_number = request.data.get("job_number")
+        # Accept job_number from URL parameter or request data
+        if not job_number:
+            job_number = request.data.get("job_number")
+
         print_on_jobsheet = str(request.data.get("print_on_jobsheet")) in [
             "true",
             "True",

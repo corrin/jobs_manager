@@ -6,6 +6,7 @@ Works directly with CostSet/CostLine models using MariaDB-compatible JSONField q
 """
 
 import logging
+import traceback
 from decimal import Decimal
 
 from django.db import models, transaction
@@ -96,6 +97,10 @@ class ModernTimesheetEntryView(APIView):
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            logger.info(
+                f"Starting timesheet entries fetch for staff {staff_id}, date {entry_date}"
+            )
+
             # Query CostLines with kind='time' for the staff/date using MariaDB-compatible JSONField queries
             cost_lines = (
                 CostLine.objects.annotate(
@@ -109,6 +114,8 @@ class ModernTimesheetEntryView(APIView):
                         (),
                         output_field=models.CharField(),
                     ),
+                    calculated_total_cost=models.F("quantity") * models.F("unit_cost"),
+                    calculated_total_rev=models.F("quantity") * models.F("unit_rev"),
                 )
                 .filter(
                     cost_set__kind="actual",
@@ -120,21 +127,92 @@ class ModernTimesheetEntryView(APIView):
                 .order_by("id")
             )
 
-            # Calculate totals
-            total_hours = sum(Decimal(line.quantity) for line in cost_lines)
-            billable_hours = sum(
-                Decimal(line.quantity)
-                for line in cost_lines
-                if line.meta.get("is_billable", True)
-            )
-            total_cost = sum(line.total_cost for line in cost_lines)
-            total_revenue = sum(line.total_rev for line in cost_lines)
+            logger.info(f"Query SQL: {cost_lines.query}")
+            logger.info(f"Found {cost_lines.count()} cost lines")
 
-            # Serialize the results using timesheet-specific serializer
+            # Debug first cost line
+            if cost_lines.exists():
+                first_line = cost_lines.first()
+                logger.info(f"First line type: {type(first_line)}")
+                logger.info(f"First line ID: {first_line.id}")
+                logger.info(f"First line meta: {first_line.meta}")
+                logger.info(f"First line quantity: {first_line.quantity}")
+                logger.info(f"First line unit_cost: {first_line.unit_cost}")
+                logger.info(
+                    f"First line calculated_total_cost: {first_line.calculated_total_cost}"
+                )
+            else:
+                logger.info("No cost lines found!")
+                # Let's check why - debug the filter conditions
+                all_cost_lines = CostLine.objects.filter(
+                    cost_set__kind="actual", kind="time"
+                )
+                logger.info(
+                    f"Total time cost lines in actual cost sets: {all_cost_lines.count()}"
+                )
+
+                for line in all_cost_lines[:5]:  # Check first 5
+                    logger.info(f"Line {line.id} meta: {line.meta}")
+                    logger.info(
+                        f"Line {line.id} staff_id in meta: {line.meta.get('staff_id')}"
+                    )
+                    logger.info(f"Line {line.id} date in meta: {line.meta.get('date')}")
+                    logger.info(f"Looking for staff_id={staff_id}, date={entry_date}")
+
+            # Calculate totals
+            logger.info("Calculating totals...")
+            try:
+                total_hours = sum(Decimal(line.quantity) for line in cost_lines)
+                logger.info(f"Total hours calculated: {total_hours}")
+            except Exception as e:
+                logger.error(f"Error calculating total hours: {e}")
+                raise
+
+            try:
+                billable_hours = sum(
+                    Decimal(line.quantity)
+                    for line in cost_lines
+                    if line.meta.get("is_billable", True)
+                )
+                logger.info(f"Billable hours calculated: {billable_hours}")
+            except Exception as e:
+                logger.error(f"Error calculating billable hours: {e}")
+                raise
+
+            try:
+                total_cost = sum(line.calculated_total_cost for line in cost_lines)
+                logger.info(f"Total cost calculated: {total_cost}")
+            except Exception as e:
+                logger.error(f"Error calculating total cost: {e}")
+                logger.error(f"First line type: {type(cost_lines.first())}")
+                if cost_lines.exists():
+                    first_line = cost_lines.first()
+                    logger.error(
+                        f"First line has calculated_total_cost: {hasattr(first_line, 'calculated_total_cost')}"
+                    )
+                    logger.error(
+                        f"First line has total_cost: {hasattr(first_line, 'total_cost')}"
+                    )
+                raise
+
+            try:
+                total_revenue = sum(line.calculated_total_rev for line in cost_lines)
+                logger.info(f"Total revenue calculated: {total_revenue}")
+            except Exception as e:
+                logger.error(f"Error calculating total revenue: {e}")
+                raise
+            logger.info("Creating response data...")
+
+            # First: Serialize each CostLine using TimesheetCostLineSerializer
+            logger.info("Serializing cost lines with TimesheetCostLineSerializer...")
             cost_line_serializer = TimesheetCostLineSerializer(cost_lines, many=True)
+            serialized_cost_lines = cost_line_serializer.data
+            logger.info(
+                f"Successfully serialized {len(serialized_cost_lines)} cost lines"
+            )
 
             response_data = {
-                "cost_lines": cost_line_serializer.data,
+                "cost_lines": serialized_cost_lines,  # Pass serialized dictionaries
                 "staff": {
                     "id": str(staff.id),
                     "name": f"{staff.first_name} {staff.last_name}",
@@ -152,13 +230,16 @@ class ModernTimesheetEntryView(APIView):
                 },
             }
 
+            logger.info("Validating response with serializer...")
             response_serializer = ModernTimesheetEntryGetResponseSerializer(
                 data=response_data
             )
             response_serializer.is_valid(raise_exception=True)
+            logger.info("Response validation successful")
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
+            logger.error(traceback.format_exc())
             logger.error(
                 f"Error fetching timesheet entries for staff {staff_id}, date {entry_date}: {e}"
             )
@@ -346,6 +427,10 @@ class ModernTimesheetDayView(APIView):
                     {"error": f"Staff {staff_id} not found"},
                     status=status.HTTP_404_NOT_FOUND,
                 )
+            logger.info(
+                f"Starting timesheet retrieval for staff {staff_id}, date {entry_date}"
+            )
+
             # Find all cost lines for this staff on this date using MariaDB-compatible queries
             cost_lines = (
                 CostLine.objects.annotate(
@@ -359,6 +444,8 @@ class ModernTimesheetDayView(APIView):
                         (),
                         output_field=models.CharField(),
                     ),
+                    calculated_total_cost=models.F("quantity") * models.F("unit_cost"),
+                    calculated_total_rev=models.F("quantity") * models.F("unit_rev"),
                 )
                 .filter(
                     cost_set__kind="actual",
@@ -370,6 +457,7 @@ class ModernTimesheetDayView(APIView):
                 .order_by("id")
             )
 
+            logger.info(f"Found {cost_lines.count()} cost lines for staff timesheet")
             # Serialize the cost lines using timesheet-specific serializer
             serializer = TimesheetCostLineSerializer(cost_lines, many=True)
 
@@ -380,8 +468,12 @@ class ModernTimesheetDayView(APIView):
                     "entry_date": entry_date,
                     "cost_lines": serializer.data,
                     "total_hours": sum(float(line.quantity) for line in cost_lines),
-                    "total_cost": sum(float(line.total_cost) for line in cost_lines),
-                    "total_revenue": sum(float(line.total_rev) for line in cost_lines),
+                    "total_cost": sum(
+                        float(line.calculated_total_cost) for line in cost_lines
+                    ),
+                    "total_revenue": sum(
+                        float(line.calculated_total_rev) for line in cost_lines
+                    ),
                 },
                 status=status.HTTP_200_OK,
             )
@@ -412,6 +504,8 @@ class ModernTimesheetJobView(APIView):
             # Validate job exists
             job = get_object_or_404(Job, id=job_id)
 
+            logger.info(f"Starting timesheet retrieval for job {job_id}")
+
             # Get timesheet cost lines for this job using MariaDB-compatible queries
             timesheet_lines = (
                 CostLine.objects.annotate(
@@ -420,6 +514,8 @@ class ModernTimesheetJobView(APIView):
                         (),
                         output_field=models.BooleanField(),
                     ),
+                    calculated_total_cost=models.F("quantity") * models.F("unit_cost"),
+                    calculated_total_rev=models.F("quantity") * models.F("unit_rev"),
                 )
                 .filter(
                     cost_set__job=job,
@@ -429,6 +525,8 @@ class ModernTimesheetJobView(APIView):
                 )
                 .order_by("id")
             )
+
+            logger.info(f"Found {timesheet_lines.count()} timesheet lines for job")
 
             # Serialize the cost lines using timesheet-specific serializer
             serializer = TimesheetCostLineSerializer(timesheet_lines, many=True)
@@ -443,10 +541,10 @@ class ModernTimesheetJobView(APIView):
                         float(line.quantity) for line in timesheet_lines
                     ),
                     "total_cost": sum(
-                        float(line.total_cost) for line in timesheet_lines
+                        float(line.calculated_total_cost) for line in timesheet_lines
                     ),
                     "total_revenue": sum(
-                        float(line.total_rev) for line in timesheet_lines
+                        float(line.calculated_total_rev) for line in timesheet_lines
                     ),
                 },
                 status=status.HTTP_200_OK,

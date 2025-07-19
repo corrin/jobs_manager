@@ -73,6 +73,7 @@ class DailyTimesheetService:
         staff_data = []
 
         # Get active staff excluding those in EXCLUDED_STAFF_IDS
+        # EXCLUDED_STAFF_IDS now includes staff with no working hours
         active_staff = (
             Staff.objects.filter(is_active=True)
             .exclude(id__in=cls.EXCLUDED_STAFF_IDS)
@@ -80,6 +81,16 @@ class DailyTimesheetService:
         )
 
         for staff in active_staff:
+            # Check if staff member has working hours for this specific date
+            scheduled_hours_for_date = staff.get_scheduled_hours(target_date)
+
+            # Skip staff with no working hours for this specific day
+            if scheduled_hours_for_date <= 0:
+                logger.debug(
+                    f"Excluding staff {staff.id} ({staff.first_name} {staff.last_name}) - no working hours for {target_date.strftime('%A')}"
+                )
+                continue
+
             staff_info = cls._get_staff_timesheet_data(staff, target_date)
             staff_data.append(staff_info)
 
@@ -197,7 +208,7 @@ class DailyTimesheetService:
             return "No Entry"
 
         if actual_hours < scheduled_hours * Decimal("0.9"):  # Less than 90%
-            return "Incomplete"
+            return "Partial"
 
         if actual_hours >= scheduled_hours:
             return "Complete"
@@ -210,7 +221,6 @@ class DailyTimesheetService:
         status_classes = {
             "Complete": "success",
             "Partial": "warning",
-            "Incomplete": "warning",
             "No Entry": "danger",
             "Weekend": "secondary",
         }

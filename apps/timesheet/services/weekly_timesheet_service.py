@@ -412,48 +412,71 @@ class WeeklyTimesheetService:
                 status__in=["accepted_quote", "in_progress", "quoting"]
             ).count()
 
-            # Get jobs with entries in this week using CostLine system
-            jobs_with_entries = (
-                CostSet.objects.annotate(
+            # Get all cost lines for the week (not just time)
+            cost_lines_week = (
+                CostLine.objects.annotate(
                     line_date=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(cost_lines.meta, '$.date'))",
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
                         (),
                         output_field=models.CharField(),
-                    ),
+                    )
                 )
                 .filter(
-                    kind="actual",
-                    cost_lines__kind="time",
+                    cost_set__kind="actual",
                     line_date__gte=start_date.isoformat(),
                     line_date__lte=end_date.isoformat(),
                 )
-                .values("job")
-                .distinct()
-                .count()
+                .select_related("cost_set__job")
             )
 
-            # Calculate total hours for the week
-            cost_lines_week = CostLine.objects.annotate(
-                line_date=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                    (),
-                    output_field=models.CharField(),
-                ),
-            ).filter(
-                cost_set__kind="actual",
-                kind="time",
-                line_date__gte=start_date.isoformat(),
-                line_date__lte=end_date.isoformat(),
+            jobs_with_entries = (
+                cost_lines_week.values("cost_set__job").distinct().count()
             )
+            logger.info(f"Query result: {cost_lines_week}")
 
-            total_actual_hours = sum(line.quantity for line in cost_lines_week)
+            # Calculate totals
+            total_actual_hours = Decimal(0)
+            total_estimated_hours = Decimal(0)
+            total_estimated_profit = Decimal(0)
+            total_actual_profit = Decimal(0)
 
-            return {
+            # Use a set to track jobs we've already processed for estimates
+            processed_jobs = set()
+
+            for line in cost_lines_week:
+                if line.kind == "time":
+                    total_actual_hours += line.quantity
+
+                # Calculate actual profit for each line
+                total_actual_profit += line.total_rev - line.total_cost
+
+                # Calculate estimated profit for the job (once per job)
+                job = line.cost_set.job
+                if job and job.id not in processed_jobs:
+                    processed_jobs.add(job.id)
+                    if job.latest_estimate:
+                        est_cost = job.latest_estimate.summary["cost"]
+                        est_rev = job.latest_estimate.summary["rev"]
+                        total_estimated_hours += Decimal(
+                            job.latest_estimate.summary.get("total_hours", 0)
+                        )
+                        total_estimated_profit += Decimal(est_rev - est_cost)
+
+            job_metrics = {
                 "job_count": active_jobs,
                 "jobs_worked_this_week": jobs_with_entries,
-                "total_estimated_hours": 0,  # Would need to calculate from estimates
+                "total_estimated_hours": float(total_estimated_hours),
                 "total_actual_hours": float(total_actual_hours),
+                "total_estimated_profit": float(total_estimated_profit),
+                "total_actual_profit": float(total_actual_profit),
+                "total_profit": float(
+                    total_actual_profit
+                ),  # For now, total_profit is actual
             }
+
+            logger.info(f"Job metrics: {job_metrics}")
+
+            return job_metrics
 
         except Exception as e:
             logger.error(f"Error getting job metrics: {e}")
@@ -462,6 +485,9 @@ class WeeklyTimesheetService:
                 "jobs_worked_this_week": 0,
                 "total_estimated_hours": 0,
                 "total_actual_hours": 0,
+                "total_estimated_profit": 0,
+                "total_actual_profit": 0,
+                "total_profit": 0,
             }
 
     @classmethod

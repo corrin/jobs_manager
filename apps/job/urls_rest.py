@@ -19,6 +19,7 @@ from apps.job.views.job_rest_views import (
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
+    WeeklyMetricsRestView,
 )
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
@@ -169,6 +170,12 @@ rest_urlpatterns = [
         "rest/jobs/<uuid:job_id>/quote/status/",
         QuoteImportStatusView.as_view(),
         name="quote_import_status",
+    ),
+    # Weekly Metrics for WeeklyTimesheetView
+    path(
+        "rest/jobs/weekly-metrics/",
+        WeeklyMetricsRestView.as_view(),
+        name="weekly_metrics_rest",
     ),
     # Job Quote Chat APIs
     path(

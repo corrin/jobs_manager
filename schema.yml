@@ -1086,10 +1086,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobFile'
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobFile'
             '*/*':
               schema:
-                $ref: '#/components/schemas/JobFile'
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobFile'
           description: ''
     post:
       operationId: uploadJobFilesApi_3
@@ -1777,13 +1781,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobDetailResponse'
+              $ref: '#/components/schemas/JobUpdateRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobDetailResponse'
+              $ref: '#/components/schemas/JobUpdateRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobDetailResponse'
+              $ref: '#/components/schemas/JobUpdateRequest'
         required: true
       security:
       - cookieAuth: []
@@ -1907,22 +1911,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
         required: true
       security:
       - cookieAuth: []
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobRestErrorResponse'
+                $ref: '#/components/schemas/JobEventCreateResponse'
           description: ''
   /job/rest/jobs/{job_id}/quote/status/:
     get:
@@ -2551,6 +2555,41 @@ paths:
       responses:
         '204':
           description: No response body
+  /job/rest/jobs/weekly-metrics/:
+    get:
+      operationId: job_rest_jobs_weekly_metrics_retrieve
+      summary: Get weekly metrics for jobs
+      parameters:
+        - in: query
+          name: week
+          schema:
+            type: string
+            format: date
+          required: false
+          description: Week date (YYYY-MM-DD) to calculate metrics for. Defaults to current week.
+      responses:
+        '200':
+          description: Weekly metrics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyMetricsResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRestErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRestErrorResponse'
+      tags:
+      - job
+      security:
+      - cookieAuth: []
   /job/rest/jobs/files/upload/:
     post:
       operationId: uploadJobFilesRest
@@ -3572,38 +3611,46 @@ paths:
 components:
   schemas:
     AIProvider:
+    WeeklyMetrics:
       type: object
-      description: |-
-        Serializer for reading AIProvider instances.
-        This serializer is read-only and excludes the `api_key` for security.
       properties:
-        id:
-          type: integer
-          readOnly: true
+        job_id:
+          type: string
+          format: uuid
         name:
           type: string
-          description: Friendly name for this provider
-          maxLength: 100
-        provider_type:
-          allOf:
-          - $ref: '#/components/schemas/ProviderTypeEnum'
-          description: |-
-            Type of AI provider
-
-            * `Claude` - Anthropic
-            * `Gemini` - Google
-            * `Mistral` - Mistral
-        model_name:
+        client:
           type: string
-          description: Specific model name (e.g., gemini-2.5-flash-lite-preview-06-17)
-          maxLength: 100
-        default:
-          type: boolean
-          description: Use this provider as the default
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+        people:
+          type: array
+          items:
+            type: object
+        estimated_hours:
+          type: number
+        actual_hours:
+          type: number
+        profit:
+          type: number
       required:
-      - id
-      - name
-      - provider_type
+        - job_id
+        - name
+        - client
+        - description
+        - status
+        - people
+        - estimated_hours
+        - actual_hours
+        - profit
+    WeeklyMetricsResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/WeeklyMetrics'
     AIProviderCreateUpdate:
       type: object
       description: |-
@@ -4786,6 +4833,35 @@ components:
       required:
       - client_id
       - name
+    JobUpdateRequest:
+      type: object
+      description: Schema for updating job data.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        client_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        order_number:
+          type: string
+          nullable: true
+          maxLength: 100
+        pricing_methodology:
+          type: string
+          enum:
+          - time_materials
+          - fixed_price
     JobDetailResponse:
       type: object
       description: Serializer for job detail response.
@@ -7104,6 +7180,11 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           readOnly: true
+        wage_rate:
+          type: number
+          format: double
+          description: Get staff wage rate from metadata staff_id
+          readOnly: true
       required:
       - charge_out_rate
       - client_name
@@ -7329,6 +7410,26 @@ components:
           type: integer
       required:
       - items
+    JobEventCreateRequest:
+      type: object
+      description: Serializer for job event creation request
+      properties:
+        description:
+          type: string
+          maxLength: 500
+      required:
+      - description
+    JobEventCreateResponse:
+      type: object
+      description: Serializer for job event creation response
+      properties:
+        success:
+          type: boolean
+        event:
+          type: object
+      required:
+      - success
+      - event
   securitySchemes:
     cookieAuth:
       type: apiKey

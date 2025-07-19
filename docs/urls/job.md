@@ -72,6 +72,7 @@
 | `/rest/jobs/files/<path:file_path>/` | `job_file_view.JobFileView` | `jobs:job_file_download` | API view for managing job files including upload, download, update, and deletion. |
 | `/rest/jobs/files/<uuid:file_id>/thumbnail/` | `job_file_view.JobFileThumbnailView` | `jobs:job_file_thumbnail` | API view for serving JPEG thumbnails of job files. |
 | `/rest/jobs/files/upload/` | `job_file_upload.JobFileUploadView` | `jobs:job_file_upload` | REST API view for uploading files to jobs. |
+| `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
 | `/rest/timesheet/entries/` | `modern_timesheet_views.ModernTimesheetEntryView` | `jobs:modern_timesheet_entry_rest` | Modern timesheet entry management using CostLine architecture |
 | `/rest/timesheet/jobs/<uuid:job_id>/` | `modern_timesheet_views.ModernTimesheetJobView` | `jobs:modern_timesheet_job_rest` | Get timesheet entries for a specific job |

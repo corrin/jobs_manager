@@ -22,6 +22,7 @@ from .job_rest_views import (
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
+    WeeklyMetricsRestView,
     get_company_defaults_api,
 )
 from .modern_timesheet_views import (
@@ -99,6 +100,7 @@ __all__ = [
     "ReorderJobAPIView",
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
+    "WeeklyMetricsRestView",
     "WorkshopPDFView",
     "get_company_defaults_api",
 ]

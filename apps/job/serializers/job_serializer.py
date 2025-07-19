@@ -424,7 +424,9 @@ class ModernTimesheetSummarySerializer(serializers.Serializer):
 class ModernTimesheetEntryGetResponseSerializer(serializers.Serializer):
     """Serializer for timesheet entry GET response"""
 
-    cost_lines = TimesheetCostLineSerializer(many=True)
+    cost_lines = serializers.ListField(
+        child=serializers.DictField()
+    )  # Accept list of dicts
     staff = ModernTimesheetStaffSerializer()
     date = serializers.DateField()
     summary = ModernTimesheetSummarySerializer()
@@ -469,3 +471,33 @@ class ModernTimesheetErrorResponseSerializer(serializers.Serializer):
     """Serializer for timesheet error responses"""
 
     error = serializers.CharField(help_text="Error message")
+
+
+class JobEventCreateRequestSerializer(serializers.Serializer):
+    """Serializer for job event creation request"""
+
+    description = serializers.CharField(max_length=500)
+
+
+class JobEventCreateResponseSerializer(serializers.Serializer):
+    """Serializer for job event creation response"""
+
+    success = serializers.BooleanField()
+    event = serializers.DictField()
+
+
+class WeeklyMetricsSerializer(serializers.Serializer):
+    """Serializer for weekly metrics data"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.IntegerField()
+    name = serializers.CharField()
+    client = serializers.CharField()
+    description = serializers.CharField()
+    status = serializers.CharField()
+    people = serializers.ListField(
+        child=serializers.DictField(),
+    )
+    estimated_hours = serializers.FloatField()
+    actual_hours = serializers.FloatField()
+    profit = serializers.FloatField()

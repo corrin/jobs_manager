@@ -226,6 +226,7 @@ SIMPLE_JWT = {
 # Disable DRF authentication entirely when DEBUG=True for local development
 if DEBUG:
     from rest_framework.permissions import IsAuthenticated
+
     IsAuthenticated.has_permission = lambda self, request, view: True
     IsAuthenticated.has_object_permission = lambda self, request, view, obj: True
 
@@ -569,17 +570,19 @@ XERO_REDIRECT_URI = os.getenv("XERO_REDIRECT_URI", "")
 XERO_WEBHOOK_KEY = os.getenv("XERO_WEBHOOK_KEY", "")
 
 # Default scopes if not specified in .env
-DEFAULT_XERO_SCOPES = " ".join([
-    "offline_access",
-    "openid",
-    "profile",
-    "email",
-    "accounting.contacts",
-    "accounting.transactions",
-    "accounting.reports.read",
-    "accounting.settings",
-    "accounting.journals.read",
-])
+DEFAULT_XERO_SCOPES = " ".join(
+    [
+        "offline_access",
+        "openid",
+        "profile",
+        "email",
+        "accounting.contacts",
+        "accounting.transactions",
+        "accounting.reports.read",
+        "accounting.settings",
+        "accounting.journals.read",
+    ]
+)
 XERO_SCOPES = os.getenv("XERO_SCOPES", DEFAULT_XERO_SCOPES).split()
 
 # Hardcoded production Xero tenant ID
@@ -620,7 +623,11 @@ if DJANGO_ADMINS_ENV:
 
 # Email BCC list
 EMAIL_BCC_ENV = os.getenv("EMAIL_BCC")
-EMAIL_BCC = [email.strip() for email in EMAIL_BCC_ENV.split(",") if email.strip()] if EMAIL_BCC_ENV else []
+EMAIL_BCC = (
+    [email.strip() for email in EMAIL_BCC_ENV.split(",") if email.strip()]
+    if EMAIL_BCC_ENV
+    else []
+)
 
 # CACHE CONFIGURATION
 CACHES = {
@@ -667,36 +674,40 @@ validate_required_settings()
 if PRODUCTION_LIKE:
     # Remove debug toolbar from installed apps
     INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "debug_toolbar"]
-    
+
     # Remove debug toolbar middleware
     MIDDLEWARE = [
-        mw for mw in MIDDLEWARE if mw != "debug_toolbar.middleware.DebugToolbarMiddleware"
+        mw
+        for mw in MIDDLEWARE
+        if mw != "debug_toolbar.middleware.DebugToolbarMiddleware"
     ]
-    
+
     # Use ManifestStaticFilesStorage to add hashes to static files
-    STATICFILES_STORAGE = "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
-    
+    STATICFILES_STORAGE = (
+        "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
+    )
+
     # Override static/media paths from environment if provided
     STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_ROOT)
     MEDIA_ROOT = os.getenv("MEDIA_ROOT", MEDIA_ROOT)
-    
+
     # SECURITY CONFIGURATIONS
     # Enable secure cookies and headers
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    
+
     # Security headers
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    
+
     # Proxy/Load Balancer Configuration for UAT/Production
     # Trust the proxy headers to determine HTTPS status
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     USE_X_FORWARDED_HOST = True
     USE_X_FORWARDED_PORT = True
-    
+
     # CACHE CONFIGURATION
     CACHES = {
         "default": {
@@ -704,7 +715,7 @@ if PRODUCTION_LIKE:
             "LOCATION": "unique-snowflake",
         }
     }
-    
+
     # CORS Configuration - stricter for production
     cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS")
     if cors_origins_env:
@@ -713,7 +724,7 @@ if PRODUCTION_LIKE:
         ]
     else:
         CORS_ALLOWED_ORIGINS = []
-    
+
     # Add ngrok domain from environment if available
     ngrok_domain = os.getenv("NGROK_DOMAIN")
     if ngrok_domain and ngrok_domain not in CORS_ALLOWED_ORIGINS:
@@ -724,33 +735,35 @@ if PRODUCTION_LIKE:
         r"^https://.*\.ngrok\.io$",
         r"^https://.*\.ngrok-free\.app$",
     ]
-    
+
     # JWT Configuration for production - secure cookies
-    SIMPLE_JWT.update({
-        "AUTH_COOKIE_SECURE": True,  # Require HTTPS for auth cookies in production
-        "AUTH_COOKIE_HTTP_ONLY": True,  # httpOnly for security
-        "AUTH_COOKIE_SAMESITE": "Lax",
-        "AUTH_COOKIE_DOMAIN": None,  # Let browser determine based on request domain
-        "REFRESH_COOKIE": "refresh_token",
-        "REFRESH_COOKIE_SECURE": True,  # Require HTTPS for refresh cookies
-        "REFRESH_COOKIE_HTTP_ONLY": True,
-        "REFRESH_COOKIE_SAMESITE": "Lax",
-    })
-    
+    SIMPLE_JWT.update(
+        {
+            "AUTH_COOKIE_SECURE": True,  # Require HTTPS for auth cookies in production
+            "AUTH_COOKIE_HTTP_ONLY": True,  # httpOnly for security
+            "AUTH_COOKIE_SAMESITE": "Lax",
+            "AUTH_COOKIE_DOMAIN": None,  # Let browser determine based on request domain
+            "REFRESH_COOKIE": "refresh_token",
+            "REFRESH_COOKIE_SECURE": True,  # Require HTTPS for refresh cookies
+            "REFRESH_COOKIE_HTTP_ONLY": True,
+            "REFRESH_COOKIE_SAMESITE": "Lax",
+        }
+    )
+
     # Password reset timeout
     PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds
-    
+
     # Site configuration for production
     def configure_site_for_environment():
         try:
             from django.apps import apps
             from django.db import ProgrammingError
-            
+
             if apps.is_installed("django.contrib.sites"):
                 Site = apps.get_model("sites", "Site")
                 current_domain = os.getenv("DJANGO_SITE_DOMAIN")
                 current_name = "Jobs Manager"
-                
+
                 try:
                     site = Site.objects.get(pk=SITE_ID)
                     if site.domain != current_domain or site.name != current_name:
@@ -762,14 +775,16 @@ if PRODUCTION_LIKE:
                         pk=SITE_ID, domain=current_domain, name=current_name
                     )
         except ProgrammingError:
-            pass # YEAH, LET"S IGNORE THE INSTRUCTIONS ABOUT NEVER EATING ERRORS, SWEET< THIS IS THE WAY TO GET FIRED.  DO IT!!!
+            pass  # YEAH, LET"S IGNORE THE INSTRUCTIONS ABOUT NEVER EATING ERRORS, SWEET< THIS IS THE WAY TO GET FIRED.  DO IT!!!
         except Exception as e:
             import logging
+
             logger = logging.getLogger(__name__)
             logger.error(f"Error configuring the site: {e}")
-    
+
     # Configure site on Django startup
     from django.core.signals import request_started
+
     request_started.connect(
         lambda **kwargs: configure_site_for_environment(),
         weak=False,
