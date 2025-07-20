@@ -12,6 +12,9 @@ try:
             CostLineSerializer,
             CostSetSerializer,
             QuoteImportStatusResponseSerializer,
+            QuoteRevisionRequestSerializer,
+            QuoteRevisionResponseSerializer,
+            QuoteRevisionsListSerializer,
             TimesheetCostLineSerializer,
         )
         from .job_file_serializer import (
@@ -175,6 +178,9 @@ __all__ = [
     "PreviewQuoteResponseSerializer",
     "QuoteChangesSerializer",
     "QuoteImportStatusResponseSerializer",
+    "QuoteRevisionRequestSerializer",
+    "QuoteRevisionResponseSerializer",
+    "QuoteRevisionsListSerializer",
     "QuoteSerializer",
     "QuoteSpreadsheetSerializer",
     "QuoteSyncErrorResponseSerializer",

@@ -2,7 +2,7 @@ from django.http import HttpResponse
 from django.urls import path
 from rest_framework import status
 
-from apps.job.views.job_costing_views import JobCostSetView
+from apps.job.views.job_costing_views import JobCostSetView, JobQuoteRevisionView
 from apps.job.views.job_costline_views import (
     CostLineCreateView,
     CostLineDeleteView,
@@ -19,6 +19,7 @@ from apps.job.views.job_rest_views import (
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
+    JobQuoteAcceptRestView,
     WeeklyMetricsRestView,
 )
 from apps.job.views.modern_timesheet_views import (
@@ -49,6 +50,12 @@ rest_urlpatterns = [
         JobEventRestView.as_view(),
         name="job_events_rest",
     ),
+    # Quote acceptance endpoint
+    path(
+        "rest/jobs/<uuid:job_id>/quote/accept/",
+        JobQuoteAcceptRestView.as_view(),
+        name="job_quote_accept_rest",
+    ),
     # Job entries
     # Use CostLine endpoints instead of JobTimeEntryRestView,
     # JobMaterialEntryRestView, JobAdjustmentEntryRestView
@@ -57,6 +64,12 @@ rest_urlpatterns = [
         "rest/jobs/<uuid:pk>/cost_sets/<str:kind>/",
         JobCostSetView.as_view(),
         name="job_cost_set_rest",
+    ),
+    # Quote revision endpoint - creates new revision by archiving current data
+    path(
+        "rest/jobs/<uuid:job_id>/cost_sets/quote/revise/",
+        JobQuoteRevisionView.as_view(),
+        name="job_quote_revision_rest",
     ),  # CostLine CRUD operations for modern timesheet
     path(
         "rest/jobs/<uuid:job_id>/cost_sets/actual/cost_lines/",

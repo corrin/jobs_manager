@@ -263,6 +263,34 @@ class JobEventRestView(BaseJobRestView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
+class JobQuoteAcceptRestView(BaseJobRestView):
+    """
+    REST view for accepting job quotes.
+    """
+
+    def post(self, request, job_id):
+        """
+        Accept a quote for the job.
+        Sets the quote_acceptance_date to current datetime.
+        """
+        try:
+            result = JobRestService.accept_quote(job_id, request.user)
+
+            # Create response with proper typing
+            response_data = {
+                "success": result["success"],
+                "job_id": result["job_id"],
+                "quote_acceptance_date": result["quote_acceptance_date"],
+                "message": result["message"],
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
 class WeeklyMetricsRestView(BaseJobRestView):
     """
     REST view for fetching weekly metrics.

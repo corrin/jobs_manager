@@ -57,6 +57,7 @@
 | `/rest/jobs/<uuid:job_id>/` | `job_rest_views.JobDetailRestView` | `jobs:job_detail_rest` | REST view for CRUD operations on a specific Job. |
 | `/rest/jobs/<uuid:job_id>/cost_sets/<str:kind>/cost_lines/` | `job_costline_views.CostLineCreateView` | `jobs:costline_create_any_rest` | Create a new CostLine in the specified job's CostSet |
 | `/rest/jobs/<uuid:job_id>/cost_sets/actual/cost_lines/` | `job_costline_views.CostLineCreateView` | `jobs:costline_create_rest` | Create a new CostLine in the specified job's CostSet |
+| `/rest/jobs/<uuid:job_id>/cost_sets/quote/revise/` | `job_costing_views.JobQuoteRevisionView` | `jobs:job_quote_revision_rest` | Manage quote revisions for jobs. |
 | `/rest/jobs/<uuid:job_id>/events/` | `job_rest_views.JobEventRestView` | `jobs:job_events_rest` | REST view for Job events. |
 | `/rest/jobs/<uuid:job_id>/quote/import/` | `<lambda>` | `jobs:quote_import_deprecated` | Lambda function endpoint |
 | `/rest/jobs/<uuid:job_id>/quote/import/preview/` | `<lambda>` | `jobs:quote_import_preview_deprecated` | Lambda function endpoint |

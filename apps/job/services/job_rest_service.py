@@ -304,6 +304,51 @@ class JobRestService:
         return {"success": True, "message": f"Job {job_number} deleted successfully"}
 
     @staticmethod
+    def accept_quote(job_id: UUID, user: Staff) -> Dict[str, Any]:
+        """
+        Accept a quote for a job by setting the quote_acceptance_date.
+
+        Args:
+            job_id: Job UUID
+            user: User accepting the quote
+
+        Returns:
+            Dict with operation result
+        """
+        from datetime import datetime
+
+        job = get_object_or_404(Job, id=job_id)
+
+        # Guard clause - check if job has a quote
+        if not job.latest_quote:
+            raise ValueError("No quote found for this job")
+
+        # Guard clause - check if quote is already accepted
+        if job.quote_acceptance_date:
+            raise ValueError("Quote has already been accepted")
+
+        with transaction.atomic():
+            job.quote_acceptance_date = datetime.now()
+            job.save()
+
+            # Log the acceptance
+            JobEvent.objects.create(
+                job=job,
+                staff=user,
+                event_type="quote_accepted",
+                description="Quote accepted",
+            )
+
+        logger.info(f"Quote accepted for job {job.job_number} by {user.email}")
+
+        return {
+            "success": True,
+            "job_id": str(job_id),
+            "quote_acceptance_date": job.quote_acceptance_date.isoformat(),
+            "message": "Quote accepted successfully",
+        }
+
+    @staticmethod
     def get_weekly_metrics(week: date = None) -> list[Dict[str, Any]]:
         """
         Fetches weekly metrics for all active jobs.

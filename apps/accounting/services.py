@@ -203,6 +203,7 @@ class KPIService:
                     "job_id": str(job.id),
                     "job_number": job_number,
                     "job_display_name": job.job_display_name,
+                    "client_name": job.client.name,  # Add client name
                     "labour_revenue": 0,
                     "labour_cost": 0,
                     "material_revenue": 0,
@@ -227,6 +228,7 @@ class KPIService:
                     "job_id": str(job.id),
                     "job_number": job_number,
                     "job_display_name": job.job_display_name,
+                    "client_name": job.client.name,  # Add client name
                     "labour_revenue": 0,
                     "labour_cost": 0,
                     "material_revenue": 0,
@@ -248,6 +250,7 @@ class KPIService:
                     "job_id": str(job.id),
                     "job_number": job_number,
                     "job_display_name": job.job_display_name,
+                    "client_name": job.client.name,  # Add client name
                     "labour_revenue": 0,
                     "labour_cost": 0,
                     "material_revenue": 0,
@@ -267,20 +270,45 @@ class KPIService:
             adjustment_profit = data["adjustment_revenue"] - data["adjustment_cost"]
             total_profit = labour_profit + material_profit + adjustment_profit
 
+            # Calculate billable hours for this job on this date
+            billable_hours = 0
+            for line in time_lines:
+                if (
+                    line.cost_set.job.job_number == job_number
+                    and line.is_billable
+                    and str(line.cost_set.job.client_id) != cls.shop_client_id
+                ):
+                    billable_hours += float(line.quantity)
+
+            # Calculate total revenue and cost
+            total_revenue = (
+                data["labour_revenue"]
+                + data["material_revenue"]
+                + data["adjustment_revenue"]
+            )
+            total_cost = (
+                data["labour_cost"] + data["material_cost"] + data["adjustment_cost"]
+            )
+
             result.append(
                 {
                     "job_id": data["job_id"],
-                    "job_number": job_number,
-                    "job_display_name": data["job_display_name"],
-                    "labour_profit": labour_profit,
-                    "material_profit": material_profit,
-                    "adjustment_profit": adjustment_profit,
-                    "total_profit": total_profit,
+                    "job_number": str(
+                        job_number
+                    ),  # Convert to string for frontend schema
+                    "job_name": data[
+                        "job_display_name"
+                    ],  # Use job_name instead of job_display_name
+                    "client_name": data["client_name"],  # Add client_name field
+                    "billable_hours": billable_hours,  # Add billable_hours field
+                    "revenue": total_revenue,  # Add revenue field
+                    "cost": total_cost,  # Add cost field
+                    "profit": total_profit,  # Add profit field
                 }
             )
 
-        # Sort by total profit descending
-        result.sort(key=lambda x: x["total_profit"], reverse=True)
+        # Sort by profit descending
+        result.sort(key=lambda x: x["profit"], reverse=True)
         return result
 
     @classmethod
@@ -295,6 +323,7 @@ class KPIService:
         Returns:
             Dict containing calendar data, monthly totals and threshold informations
         """
+        print(f"🔍 KPIService.get_calendar_data called with year={year}, month={month}")
         logger.info(f"Generating KPI calendar data for {year}-{month}")
 
         cls._ensure_shop_client_id()
@@ -305,6 +334,7 @@ class KPIService:
         )
 
         start_date, end_date, _ = cls.get_month_days_range(year, month)
+        print(f"📅 Date range calculated: {start_date} to {end_date}")
         excluded_staff_ids = get_excluded_staff()
         logger.debug(f"Excluded staff IDs: {excluded_staff_ids}")
 
@@ -698,6 +728,9 @@ class KPIService:
             "year": year,
             "month": month,
         }
+        print(
+            f"✅ KPIService returning data for year={response_data['year']}, month={response_data['month']}"
+        )
         logger.debug(f"Calendar data generated with {len(calendar_data)} days")
         return response_data
 

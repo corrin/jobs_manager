@@ -14,6 +14,7 @@ import logging
 import pandas as pd
 
 from apps.job.importers.google_sheets import (
+    _svc,
     copy_file,
     create_folder,
     extract_file_id,
@@ -315,12 +316,63 @@ def apply_quote(job: Job):
 # ---------- helper functions ----------
 
 
+def _find_folder_by_name_in_parent(folder_name: str, parent_id: str) -> str | None:
+    """
+    Find a folder by name within a specific parent folder.
+
+    Args:
+        folder_name: Name of the folder to find
+        parent_id: ID of the parent folder to search in
+
+    Returns:
+        str | None: Folder ID if found, None otherwise
+    """
+    try:
+        drive_service = _svc("drive", "v3")
+
+        # Search for folder by name within specific parent
+        query = (
+            f"name='{folder_name}' and "
+            f"'{parent_id}' in parents and "
+            "mimeType='application/vnd.google-apps.folder' and "
+            "trashed=false"
+        )
+
+        results = (
+            drive_service.files()
+            .list(
+                q=query,
+                fields="files(id, name)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+            .execute()
+        )
+
+        folders = results.get("files", [])
+
+        if folders:
+            folder_id = folders[0]["id"]
+            logger.debug(
+                f"Found existing folder '{folder_name}' in parent {parent_id}: {folder_id}"
+            )
+            return str(folder_id)
+
+        return None
+
+    except Exception as e:
+        logger.error(
+            f"Error searching for folder '{folder_name}' in parent {parent_id}: {str(e)}"
+        )
+        return None
+
+
 def _ensure_jobs_manager_folder(
     parent_folder_id: str, company_defaults: CompanyDefaults
 ) -> str:
     """
     Ensure 'Jobs Manager' folder exists in the parent folder.
-    Create if missing and update CompanyDefaults.
+    Search for existing folder by name, create if missing.
 
     Args:
         parent_folder_id: Parent folder ID
@@ -329,17 +381,20 @@ def _ensure_jobs_manager_folder(
     Returns:
         str: Jobs Manager folder ID
     """
-    # For now, assume we need to create it
-    # TODO: Add logic to check if folder already exists
     try:
+        # Search for existing 'Jobs Manager' folder in the parent directory
+        existing_folder_id = _find_folder_by_name_in_parent(
+            "Jobs Manager", parent_folder_id
+        )
+
+        if existing_folder_id:
+            logger.info(f"Found existing Jobs Manager folder: {existing_folder_id}")
+            return existing_folder_id
+
+        # Create new 'Jobs Manager' folder
         jobs_manager_folder_id = create_folder("Jobs Manager", parent_folder_id)
 
-        if (
-            not company_defaults.jobs_manager_folder_id
-            or company_defaults.jobs_manager_folder_id != jobs_manager_folder_id
-        ):
-            logger.info(f"Created/found Jobs Manager folder: {jobs_manager_folder_id}")
-
+        logger.info(f"Created Jobs Manager folder: {jobs_manager_folder_id}")
         return jobs_manager_folder_id
 
     except Exception as e:
@@ -349,6 +404,7 @@ def _ensure_jobs_manager_folder(
 def _create_or_get_job_folder(parent_folder_id: str, folder_name: str) -> str:
     """
     Create or get job-specific folder.
+    First search for existing folder, then create if not found.
 
     Args:
         parent_folder_id: Parent folder ID
@@ -358,10 +414,20 @@ def _create_or_get_job_folder(parent_folder_id: str, folder_name: str) -> str:
         str: Job folder ID
     """
     try:
-        # For now, always create new folder
-        # TODO: Add logic to check if folder already exists
+        # First, search for existing folder
+        existing_folder_id = _find_folder_by_name_in_parent(
+            folder_name, parent_folder_id
+        )
+
+        if existing_folder_id:
+            logger.info(
+                f"Found existing job folder '{folder_name}': {existing_folder_id}"
+            )
+            return existing_folder_id
+
+        # Create new folder if not found
         job_folder_id = create_folder(folder_name, parent_folder_id)
-        logger.info(f"Created/found job folder '{folder_name}': {job_folder_id}")
+        logger.info(f"Created new job folder '{folder_name}': {job_folder_id}")
         return job_folder_id
 
     except Exception as e:

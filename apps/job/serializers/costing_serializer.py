@@ -273,3 +273,39 @@ class QuoteImportStatusResponseSerializer(serializers.Serializer):
     revision = serializers.IntegerField(required=False)
     created = serializers.DateTimeField(required=False)
     summary = serializers.JSONField(required=False)
+
+
+class QuoteRevisionRequestSerializer(serializers.Serializer):
+    """Serializer for quote revision request - validates input data"""
+
+    reason = serializers.CharField(
+        max_length=500,
+        required=False,
+        help_text="Optional reason for creating a new quote revision",
+    )
+
+
+class QuoteRevisionResponseSerializer(serializers.Serializer):
+    """Serializer for quote revision response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    quote_revision = serializers.IntegerField()
+    archived_cost_lines_count = serializers.IntegerField()
+    job_id = serializers.CharField()
+
+    # Optional error details
+    error = serializers.CharField(required=False)
+
+
+class QuoteRevisionsListSerializer(serializers.Serializer):
+    """Serializer for listing quote revisions"""
+
+    job_id = serializers.CharField()
+    job_number = serializers.CharField()
+    current_cost_set_rev = serializers.IntegerField()
+    total_revisions = serializers.IntegerField()
+    revisions = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="List of archived quote revisions with their data",
+    )

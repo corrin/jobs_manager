@@ -769,7 +769,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClientCreateRequest'
+                $ref: '#/components/schemas/ClientCreateResponse'
           description: ''
   /clients/search/:
     get:
@@ -2006,6 +2006,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CostSet'
+          description: ''
+  /job/rest/jobs/{id}/cost_sets/quote/revise/:
+    post:
+      operationId: job_rest_jobs_cost_sets_quote_revise_create
+      description: |-
+        Create a new quote revision by archiving current quote data and clearing cost lines.
+
+        This endpoint:
+        1. Archives current quote cost lines and summary in the existing CostSet summary
+        2. Clears all current cost lines from the quote CostSet
+        3. Increments the revision number
+        4. Allows starting fresh quote while preserving historical data
+
+        Only works with kind='quote' CostSets.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - job
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRevisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuoteRevisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuoteRevisionRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRevisionResponse'
           description: ''
   /job/rest/jobs/{id}/quote/apply/:
     post:
@@ -7430,6 +7472,107 @@ components:
       required:
       - success
       - event
+    QuoteRevisionRequest:
+      type: object
+      description: Serializer for quote revision request - validates input data
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Optional reason for creating a new quote revision
+    QuoteRevisionResponse:
+      type: object
+      description: Serializer for quote revision response
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        previous_revision:
+          type: integer
+        new_revision:
+          type: integer
+        archived_cost_lines_count:
+          type: integer
+        job_id:
+          type: string
+        error:
+          type: string
+          description: Optional error details
+      required:
+      - success
+      - message
+      - previous_revision
+      - new_revision
+      - archived_cost_lines_count
+      - job_id
+    ClientCreateRequest:
+      type: object
+      description: Serializer for client creation request
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 50
+        address:
+          type: string
+        is_account_customer:
+          type: boolean
+          default: true
+      required:
+      - name
+    ClientSearchResult:
+      type: object
+      description: Serializer for client search results
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        is_account_customer:
+          type: boolean
+        xero_contact_id:
+          type: string
+        last_invoice_date:
+          type: string
+        total_spend:
+          type: string
+      required:
+      - id
+      - name
+      - email
+      - phone
+      - address
+      - is_account_customer
+      - xero_contact_id
+      - last_invoice_date
+      - total_spend
+    ClientCreateResponse:
+      type: object
+      description: Serializer for client creation response
+      properties:
+        success:
+          type: boolean
+        client:
+          $ref: '#/components/schemas/ClientSearchResult'
+        message:
+          type: string
+      required:
+      - success
+      - client
+      - message
   securitySchemes:
     cookieAuth:
       type: apiKey
