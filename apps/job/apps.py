@@ -1,6 +1,7 @@
 import logging
 
 from django.apps import AppConfig
+from django.conf import settings
 
 from apps.workflow.scheduler import get_scheduler
 
@@ -12,7 +13,8 @@ class JobConfig(AppConfig):
     name = "apps.job"
 
     def ready(self) -> None:
-        self._register_job_jobs()
+        if settings.RUN_SCHEDULER:
+            self._register_job_jobs()
 
     def _register_job_jobs(self) -> None:
         from apps.job.scheduler_jobs import set_paid_flag_jobs

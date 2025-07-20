@@ -1,6 +1,7 @@
 import logging
 
 from django.apps import AppConfig
+from django.conf import settings
 
 from apps.workflow.scheduler import get_scheduler
 
@@ -25,7 +26,8 @@ class WorkflowConfig(AppConfig):
         # Both apps use the same shared scheduler instance for job management.
 
         # Register Xero jobs with the shared scheduler
-        self._register_xero_jobs()
+        if settings.RUN_SCHEDULER:
+            self._register_xero_jobs()
 
     def _register_xero_jobs(self) -> None:
         """Register Xero-related jobs with the shared scheduler."""

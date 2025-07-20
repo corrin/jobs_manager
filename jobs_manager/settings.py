@@ -12,6 +12,9 @@ load_dotenv(BASE_DIR / ".env")
 # Load DEBUG from environment - should be False in production
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
+# Control scheduler registration - used to skip scheduler setup for commands like dbshell
+RUN_SCHEDULER = not os.getenv("DJANGO_SKIP_SCHEDULER_INIT")
+
 # Detect production-like environment (for UAT/production)
 # This matches the original settings/__init__.py logic
 DJANGO_ENV = os.getenv("DJANGO_ENV")
