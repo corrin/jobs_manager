@@ -129,3 +129,4 @@ restore/*
 steel_and_tube_products.csv
 steel_and_tube_products.json
 cookies.txt
+.env.uat

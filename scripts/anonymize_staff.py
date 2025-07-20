@@ -5,7 +5,7 @@ import random
 def create_staff_mapping():
     """Create a consistent mapping for a single staff member"""
     first_name = random.choice(
-        ["John", "Jane", "Michael", "Sarah", "David", "Emma", "James", "Lisa"]
+        ["John", "Anthony", "Phillip", "Doug", "David", "Fred", "James", "Bill"]
     )
     last_name = random.choice(
         ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis"]
