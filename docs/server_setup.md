@@ -89,6 +89,7 @@ source .venv/bin/activate
 
 * For dev: copy `.env.example` to `.env`
 * For UAT: Copy `.env.uat` (from dev) to `.env`
+  * **Current UAT Instance ID**: `i-0db10a8a884664276` (set in `UAT_INSTANCE_ID`)
 * For prod: use the backup in Google Drive
 
 ---
