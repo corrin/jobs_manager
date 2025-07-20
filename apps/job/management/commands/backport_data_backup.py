@@ -118,6 +118,42 @@ class Command(BaseCommand):
                 fields["preferred_name"] = fake.first_name()
             if fields["email"]:
                 fields["email"] = fake.email()
+            if fields["raw_ims_data"]:
+                raw_data = fields["raw_ims_data"]
+                if "EmpNo" in raw_data:
+                    raw_data["EmpNo"] = fake.random_int(min=1000, max=9999)
+                if "Surname" in raw_data:
+                    raw_data["Surname"] = fake.last_name()
+                if "FirstNames" in raw_data:
+                    raw_data["FirstNames"] = fake.first_name()
+                if "PostalAddress1" in raw_data:
+                    raw_data["PostalAddress1"] = fake.street_address()
+                if "PostalAddress2" in raw_data:
+                    raw_data["PostalAddress2"] = fake.city()
+                if "PostalAddress3" in raw_data:
+                    raw_data["PostalAddress3"] = fake.postcode()
+                if "HomePhone" in raw_data:
+                    raw_data["HomePhone"] = fake.phone_number()
+                if "HomePhone2" in raw_data:
+                    raw_data["HomePhone2"] = fake.phone_number()
+                if "StartDate" in raw_data:
+                    raw_data["StartDate"] = fake.date_between(
+                        start_date="-30y", end_date="today"
+                    ).isoformat()
+                if "BirthDate" in raw_data:
+                    raw_data["BirthDate"] = fake.date_of_birth(
+                        minimum_age=18, maximum_age=70
+                    ).isoformat()
+                if "IRDNumber" in raw_data:
+                    raw_data["IRDNumber"] = fake.random_int(min=10000000, max=99999999)
+                if "ALDueDate" in raw_data:
+                    raw_data["ALDueDate"] = fake.date_between(
+                        start_date="today", end_date="+1y"
+                    ).isoformat()
+                if "BankAccount" in raw_data:
+                    raw_data["BankAccount"] = fake.iban()
+                if "EmailAddress" in raw_data:
+                    raw_data["EmailAddress"] = fake.email()
 
         elif model == "client.client":
             # Don't anonymize the shop client (preserve for system functionality)
@@ -134,6 +170,24 @@ class Command(BaseCommand):
                     fields["email"] = fake.email()
                 if fields["phone"]:
                     fields["phone"] = fake.phone_number()
+                if fields["raw_json"]:
+                    raw_json = fields["raw_json"]
+                    if "_name" in raw_json:
+                        raw_json["_name"] = fake.name()
+                    if "_email_address" in raw_json:
+                        raw_json["_email_address"] = fake.email()
+                    if "_bank_account_details" in raw_json:
+                        raw_json["_bank_account_details"] = fake.iban()
+                    if "_phones" in raw_json:
+                        for phone in raw_json["_phones"]:
+                            if "_phone_number" in phone and phone["_phone_number"]:
+                                phone["_phone_number"] = fake.phone_number()
+                    if "_batch_payments" in raw_json and raw_json["_batch_payments"]:
+                        batch = raw_json["_batch_payments"]
+                        if "_bank_account_number" in batch:
+                            batch["_bank_account_number"] = fake.iban()
+                        if "_bank_account_name" in batch:
+                            batch["_bank_account_name"] = fake.name()
 
         elif model == "client.clientcontact":
             fields["name"] = fake.name()
@@ -149,3 +203,35 @@ class Command(BaseCommand):
                 fields["contact_email"] = fake.email()
             if fields["contact_phone"]:
                 fields["contact_phone"] = fake.phone_number()
+            if fields["notes"]:
+                fields["notes"] = fake.text(max_nb_chars=200)
+
+        elif model == "job.adjustmententry":
+            if "description" not in fields:
+                raise KeyError(
+                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
+                )
+            if fields["description"]:
+                fields["description"] = fake.sentence(nb_words=8)
+
+        elif model == "job.jobevent":
+            if "description" not in fields:
+                raise KeyError(
+                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
+                )
+            if fields["description"]:
+                fields["description"] = fake.sentence(nb_words=8)
+
+        elif model == "timesheet.timeentry":
+            if "description" not in fields:
+                raise KeyError(
+                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
+                )
+            if "note" not in fields:
+                raise KeyError(
+                    f"Model {model} missing expected field 'note'. Available fields: {list(fields.keys())}"
+                )
+            if fields["description"]:
+                fields["description"] = fake.sentence(nb_words=6)
+            if fields["note"]:
+                fields["note"] = fake.sentence(nb_words=4)

@@ -39,15 +39,23 @@ def should_start_scheduler() -> bool:
 
     Checks:
     1. DJANGO_RUN_SCHEDULER must be "1" (existing requirement)
-    2. UAT_DISABLE_SCHEDULER must not be "true" (UAT machine control)
+    2. USE_EXTERNAL_SCHEDULER must be explicitly set (required configuration)
     """
     # Primary control - must be enabled
     if os.getenv("DJANGO_RUN_SCHEDULER") != "1":
         return False
 
-    # UAT-specific control - if explicitly disabled, don't start
-    if os.getenv("UAT_DISABLE_SCHEDULER", "").lower() == "true":
-        logger.info("Scheduler disabled via UAT_DISABLE_SCHEDULER environment variable")
+    # External scheduler control - must be explicitly configured
+    external_scheduler = os.getenv("USE_EXTERNAL_SCHEDULER")
+    if external_scheduler is None:
+        raise ValueError(
+            "USE_EXTERNAL_SCHEDULER environment variable must be set to 'true' or 'false'"
+        )
+
+    if external_scheduler.lower() == "true":
+        logger.info(
+            "Using external scheduler - local scheduler disabled via USE_EXTERNAL_SCHEDULER environment variable"
+        )
         return False
 
     return True
