@@ -17,6 +17,7 @@ from apps.purchasing.models import Stock
 from apps.workflow.authentication import service_api_key_required
 
 from .models import SupplierPriceList, SupplierProduct
+
 # Temporarily commented out to debug import issues
 # from .services.ai_price_extraction import extract_price_data
 # from .services.product_parser import (

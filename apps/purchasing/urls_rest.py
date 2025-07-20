@@ -34,7 +34,7 @@ urlpatterns = [
         name="stock_consume_rest",
     ),
     path(
-        "purchase-orders/<uuid:pk>/",
+        "purchase-orders/<uuid:id>/",
         PurchaseOrderDetailRestView.as_view(),
         name="purchase_order_detail_rest",
     ),

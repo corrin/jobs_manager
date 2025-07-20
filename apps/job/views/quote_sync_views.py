@@ -49,9 +49,12 @@ class LinkQuoteSheetAPIView(APIView):
 
     def post(self, request: Request, pk: str) -> Response:
         try:
+            logger.info(f"Starting link quote sheet process for job {pk}")
+
             # Get job
             try:
                 job = Job.objects.get(pk=pk)
+                logger.info(f"Found job: {job.job_number}")
             except Job.DoesNotExist:
                 error_response = {"error": "Job not found"}
                 error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)
@@ -59,6 +62,7 @@ class LinkQuoteSheetAPIView(APIView):
                 return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
             # Validate input data
+            logger.info("Validating input data")
             input_serializer = LinkQuoteSheetRequestSerializer(data=request.data)
             if not input_serializer.is_valid():
                 error_response = {"error": f"Invalid input: {input_serializer.errors}"}
@@ -70,9 +74,12 @@ class LinkQuoteSheetAPIView(APIView):
 
             # Extract template URL from request if provided
             template_url = input_serializer.validated_data.get("template_url")
+            logger.info(f"Template URL: {template_url}")
 
             # Link quote sheet
+            logger.info("Calling quote_sync_service.link_quote_sheet")
             quote_sheet = quote_sync_service.link_quote_sheet(job, template_url)
+            logger.info(f"Quote sheet linked successfully: {quote_sheet.sheet_id}")
 
             response_data = {
                 "sheet_url": quote_sheet.sheet_url,

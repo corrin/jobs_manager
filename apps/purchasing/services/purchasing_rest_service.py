@@ -54,7 +54,12 @@ class PurchasingRestService:
             get_object_or_404(Supplier, id=data["supplier_id"]) if supplier_id else None
         )
 
-        order_date = PurchasingRestService._get_valid_date(data.get("order_date"))
+        order_date = data.get("order_date")
+        if not order_date:
+            order_date = timezone.now().date()
+        else:
+            order_date = PurchasingRestService._get_valid_date(order_date)
+
         expected_delivery = PurchasingRestService._get_valid_date(
             data.get("expected_delivery")
         )
@@ -126,10 +131,17 @@ class PurchasingRestService:
         existing_lines = {str(line.id): line for line in po.po_lines.all()}
         updated_line_ids = set()
 
+        logger.info(f"Processing {len(data.get('lines', []))} lines for PO {po.id}")
+        logger.info(f"Existing lines: {list(existing_lines.keys())}")
+
         for line_data in data.get("lines", []):
             line_id = line_data.get("id")
+            logger.info(f"Processing line with id: {line_id}")
+            logger.info(f"Line data keys: {list(line_data.keys())}")
+
             match bool(line_id and str(line_id) in existing_lines):
                 case True:
+                    logger.info(f"Updating existing line {line_id}")
                     # Update existing line
                     line = existing_lines[str(line_id)]
                     if "description" in line_data:
@@ -160,7 +172,9 @@ class PurchasingRestService:
                         line.dimensions = line_data.get("dimensions", "")
                     line.save()
                     updated_line_ids.add(str(line_id))
+                    logger.info(f"Successfully updated line {line_id}")
                 case False:
+                    logger.info(f"Creating new line (no id or id not found): {line_id}")
                     # Create new line if no id
                     PurchaseOrderLine.objects.create(
                         purchase_order=po,
@@ -184,7 +198,9 @@ class PurchasingRestService:
                         location=line_data.get("location", ""),
                         dimensions=line_data.get("dimensions", ""),
                     )
+                    logger.info(f"Created new line for PO {po.id}")
 
+        logger.info(f"Update complete. Updated line IDs: {updated_line_ids}")
         return po
 
     @staticmethod

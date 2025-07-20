@@ -145,7 +145,7 @@ from django.test import TestCase
 
 class ChatTestCase(TestCase):
     fixtures = ['chat_test_data.json']
-    
+
     def test_with_fixtures(self):
         # Test data is automatically loaded
         pass
@@ -161,7 +161,7 @@ def setUp(self):
         job_number="TEST001",
         # ... other fields
     )
-    
+
     self.chat_message = JobQuoteChat.objects.create(
         job=self.job,
         message_id="test-msg-1",
@@ -180,7 +180,7 @@ def test_ai_response(self, mock_client):
     mock_model = Mock()
     mock_model.model_name = "gemini-pro"
     mock_client.return_value = mock_model
-    
+
     # Test AI response generation
     result = self.service.generate_ai_response(job_id, "Test message")
     self.assertIsNotNone(result)
@@ -192,7 +192,7 @@ def test_ai_response(self, mock_client):
 @patch('apps.job.services.gemini_chat_service.GeminiChatService._execute_mcp_tool')
 def test_tool_execution(self, mock_tool):
     mock_tool.return_value = "Tool result"
-    
+
     # Test tool integration
     result = self.service.generate_ai_response(job_id, "Search products")
     self.assertIn("tool_calls", result.metadata)
@@ -260,10 +260,10 @@ import pstats
 def test_with_profiling(self):
     profiler = cProfile.Profile()
     profiler.enable()
-    
+
     # Run test code
     result = self.service.generate_ai_response(job_id, "Test")
-    
+
     profiler.disable()
     stats = pstats.Stats(profiler)
     stats.sort_stats('cumulative')
@@ -282,24 +282,24 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     steps:
     - uses: actions/checkout@v2
-    
+
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
         python-version: 3.12
-    
+
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
         pip install coverage
-    
+
     - name: Run chat tests
       run: |
         python run_chat_tests.py --coverage
-    
+
     - name: Upload coverage
       uses: codecov/codecov-action@v1
 ```

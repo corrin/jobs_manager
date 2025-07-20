@@ -49,11 +49,29 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class StaffSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data: Any) -> Dict[str, Any]:
         data = data.copy()  # QueryDict can be immutable, so we copy it
+
+        # Handle empty string fields that should be converted to proper values
         for field in ["groups", "user_permissions"]:
             # Usually it comes as a QueryDict so we can use getlist directly
             value = data.getlist(field)
             if value == [""]:
                 data.setlist(field, [])
+
+        # Handle decimal fields that might come as empty strings
+        decimal_fields = [
+            "wage_rate",
+            "hours_mon",
+            "hours_tue",
+            "hours_wed",
+            "hours_thu",
+            "hours_fri",
+            "hours_sat",
+            "hours_sun",
+        ]
+        for field in decimal_fields:
+            if field in data and data[field] == "":
+                data[field] = "0.00"
+
         return super().to_internal_value(data)
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:

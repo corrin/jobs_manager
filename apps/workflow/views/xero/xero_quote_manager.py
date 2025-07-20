@@ -194,6 +194,26 @@ class XeroQuoteManager(XeroDocumentManager):
                     f"Quote {quote.id} created successfully for job {self.job.id}"
                 )
 
+                # Create a job event for quote creation
+                from apps.job.models import JobEvent
+
+                try:
+                    JobEvent.objects.create(
+                        job=self.job,
+                        event_type="quote_created",
+                        description=f"Quote created in Xero",
+                        details={
+                            "quote_id": str(quote.id),
+                            "xero_id": str(xero_quote_id),
+                            "total_incl_tax": str(quote.total_incl_tax),
+                            "quote_url": quote_url,
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create job event for quote creation: {e}"
+                    )
+
                 # Return success details for the view
                 return JsonResponse(
                     {
@@ -321,6 +341,21 @@ class XeroQuoteManager(XeroDocumentManager):
             logger.info(
                 f"Quote {local_quote_id} deleted successfully for job {self.job.id}"
             )
+
+            # Create a job event for quote deletion
+            from apps.job.models import JobEvent
+
+            try:
+                JobEvent.objects.create(
+                    job=self.job,
+                    event_type="quote_deleted",
+                    description=f"Quote deleted from Xero",
+                    details={
+                        "quote_id": str(local_quote_id),
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Failed to create job event for quote deletion: {e}")
 
             return JsonResponse(
                 {

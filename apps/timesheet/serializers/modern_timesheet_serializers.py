@@ -41,6 +41,7 @@ class ModernStaffSerializer(serializers.Serializer):
     lastName = serializers.CharField()
     email = serializers.CharField()
     avatarUrl = serializers.CharField(allow_null=True)
+    wageRate = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class WeeklyTimesheetDataSerializer(serializers.Serializer):

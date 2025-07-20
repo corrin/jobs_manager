@@ -6,6 +6,7 @@ from apps.workflow.enums import AIProviderTypes
 from apps.workflow.helpers import get_company_defaults
 
 from .providers.gemini_provider import GeminiPriceExtractionProvider
+
 # from .providers.claude_provider import ClaudePriceExtractionProvider
 from .providers.mistral_provider import MistralPriceExtractionProvider
 
@@ -39,12 +40,16 @@ class PriceExtractionFactory:
     """Factory for creating AI price extraction providers."""
 
     @staticmethod
-    def create_provider(provider_type: str, api_key: str, model_name: str = None) -> PriceExtractionProvider:
+    def create_provider(
+        provider_type: str, api_key: str, model_name: str = None
+    ) -> PriceExtractionProvider:
         """Create a provider instance based on type."""
         if provider_type == AIProviderTypes.MISTRAL:
             return MistralPriceExtractionProvider(api_key)
         elif provider_type == AIProviderTypes.GOOGLE:
-            return GeminiPriceExtractionProvider(api_key, model_name or "gemini-2.0-flash-exp")
+            return GeminiPriceExtractionProvider(
+                api_key, model_name or "gemini-2.0-flash-exp"
+            )
         #        elif provider_type == AIProviderTypes.ANTHROPIC:
         #            return ClaudePriceExtractionProvider(api_key)
         else:

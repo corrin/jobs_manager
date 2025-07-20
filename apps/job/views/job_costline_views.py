@@ -165,7 +165,7 @@ class CostLineUpdateView(APIView):
                         serializer.errors, status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Save updated cost line
+                # Save updated cost lineTable
                 updated_cost_line = serializer.save()
 
                 # Update cost set summary
