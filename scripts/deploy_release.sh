@@ -28,14 +28,16 @@ DATE_DIR="$BACKUP_ROOT/$RELEASE_DATE"
 
 echo "=== Deploying to $ENV environment ==="
 
-mkdir -p "$DATE_DIR"
+if [ "$ENV" = "PROD" ]; then
+    mkdir -p "$DATE_DIR"
 
-echo "=== Backing up code to $DATE_DIR/code_${RELEASE_DATE}.tgz..."
-CODE_BACKUP="$DATE_DIR/code_${RELEASE_DATE}.tgz"
-tar -zcf "$CODE_BACKUP" \
-    -C "$USER_DIR" \
-    --exclude='gunicorn.sock' \
-    jobs_manager
+    echo "=== Backing up code to $DATE_DIR/code_${RELEASE_DATE}.tgz..."
+    CODE_BACKUP="$DATE_DIR/code_${RELEASE_DATE}.tgz"
+    tar -zcf "$CODE_BACKUP" \
+        -C "$USER_DIR" \
+        --exclude='gunicorn.sock' \
+        jobs_manager
+fi
 
 if [ "$ENV" = "PROD" ]; then
     echo "=== Backing up DB to $DATE_DIR/db_${RELEASE_DATE}.sql.gz..."
@@ -53,10 +55,10 @@ su - "$APP_USER" -c "$PROJECT_DIR/scripts/deploy_app.sh"
 
 if [ "$ENV" = "PROD" ]; then
     echo "=== Restarting Gunicorn…"
-    systemctl restart gunicorn
+    systemctl restart gunicorn-prod
 elif [ "$ENV" = "UAT" ]; then
     echo "=== Restarting Gunicorn…"
-    systemctl restart gunicorn
+    systemctl restart gunicorn-uat
 elif [ "$ENV" = "SCHEDULER" ]; then
     echo "=== Restarting Scheduler…"
     systemctl restart scheduler

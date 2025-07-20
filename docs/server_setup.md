@@ -169,11 +169,11 @@ Generate SSL certificate for the domain:
 
 UAT:
 ```bash
-sudo certbot --nginx uat-office.morrissheetmetal.co.nz
+sudo certbot --nginx -d uat-office.morrissheetmetal.co.nz
 ```
 PROD:
 ```bash
-sudo certbot --nginx office.morrissheetmetal.co.nz
+sudo certbot --nginx -d office.morrissheetmetal.co.nz
 ```
 DEV:
 ```bash
@@ -209,7 +209,5 @@ sudo systemctl status scheduler
 
 ## Notes
 
-**TO BE REVIEWED**
-
-* Scheduler may be offloaded to another instance
-* Use `tmux` or `systemd` for process management
+* Scheduler runs on dedicated instance using systemd service
+* Use `scripts/deploy_release.sh` for automated deployments
