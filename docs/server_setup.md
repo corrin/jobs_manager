@@ -137,6 +137,36 @@ python manage.py runserver 0.0.0.0:8000
 
 * Create reverse proxy config to forward to Gunicorn or Django server
 
+## 9. SSL Certificate Setup
+
+**Reviewed**
+
+Install Certbot for automatic SSL certificate management:
+
+```bash
+sudo apt install python3-certbot-nginx
+```
+
+Generate SSL certificate for the domain:
+
+UAT:
+```bash
+sudo certbot --nginx uat-office.morrissheetmetal.co.nz
+```
+PROD:
+```bash
+sudo certbot --nginx office.morrissheetmetal.co.nz
+```
+DEV:
+```bash
+lt --port 8000 --subdomain msm-corrin
+```
+
+Certbot will automatically:
+* Generate Let's Encrypt SSL certificate
+* Update Nginx configuration for HTTPS
+* Set up automatic certificate renewal
+
 ---
 
 ## 9. Optional: APScheduler Worker

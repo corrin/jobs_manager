@@ -1,6 +1,7 @@
 import logging
 
 from django.apps import AppConfig
+from django.conf import settings
 
 from apps.workflow.scheduler import get_scheduler
 
@@ -19,7 +20,8 @@ class QuotingConfig(AppConfig):
         # The 'workflow' app handles its own scheduled jobs (e.g., Xero syncs).
         # Both apps use the same shared scheduler instance for job management.
         # Register scraper jobs with the shared scheduler
-        self._register_scraper_jobs()
+        if settings.RUN_SCHEDULER:
+            self._register_scraper_jobs()
 
     def _register_scraper_jobs(self) -> None:
         """Register scraper-related jobs with the shared scheduler."""
