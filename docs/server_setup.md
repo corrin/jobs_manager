@@ -43,6 +43,24 @@ sudo apt update
 sudo apt install -y python3.12 python3.12-venv python3-pip mariadb-client git
 ```
 
+### 2.3. Install Dropbox Client (UAT & PROD only)
+
+```bash
+# Download and install Dropbox headless client
+cd /tmp
+# For ARM64 (t4g instances)
+wget -O dropbox.tar.gz "https://www.dropbox.com/download?plat=lnx.aarch64"
+# For x86_64 use: wget -O dropbox.tar.gz "https://www.dropbox.com/download?plat=lnx.x86_64"
+sudo tar xzf dropbox.tar.gz --strip 1 -C /usr/local/bin
+
+# Create Dropbox folder and set permissions
+sudo mkdir -p /opt/dropbox
+sudo chown -R $USER:$USER /opt/dropbox
+
+# Start Dropbox daemon (will prompt for account linking)
+/usr/local/bin/dropboxd &
+```
+
 Install Poetry globally:
 
 ```bash
@@ -105,11 +123,11 @@ source .venv/bin/activate
 
 ## 6. Static & Media Files
 
-**TO BE REVIEWED**
-
 ```bash
 python manage.py collectstatic --noinput
 ```
+
+**Required for UAT and PROD** - collects static files for nginx to serve.
 
 ---
 
@@ -169,12 +187,22 @@ Certbot will automatically:
 
 ---
 
-## 9. Optional: APScheduler Worker
+## 9. Scheduler Service Setup (Scheduler Machine Only)
 
-**TO BE REVIEWED**
+For the dedicated scheduler machine, install the scheduler as a systemd service:
 
 ```bash
-python manage.py run_scheduler
+# Mark machine as scheduler-only
+sudo touch /etc/SCHEDULER_MACHINE
+
+# Install scheduler service
+sudo cp /opt/workflow_app/jobs_manager/scripts/scheduler.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable scheduler
+sudo systemctl start scheduler
+
+# Check status
+sudo systemctl status scheduler
 ```
 
 ---
