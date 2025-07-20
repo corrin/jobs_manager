@@ -591,10 +591,7 @@ PRODUCTION_XERO_TENANT_ID = "75e57cfd-302d-4f84-8734-8aae354e76a7"
 # Hardcoded production machine ID
 PRODUCTION_MACHINE_ID = "19d6339c35f7416b9f41d9a35dba6111"
 
-DROPBOX_WORKFLOW_FOLDER = os.getenv(
-    "DROPBOX_WORKFLOW_FOLDER",
-    os.path.join(os.path.expanduser("~"), "Dropbox/MSM Workflow"),
-)
+DROPBOX_WORKFLOW_FOLDER = os.getenv("DROPBOX_WORKFLOW_FOLDER")
 
 SITE_ID = 1
 
@@ -671,19 +668,11 @@ def validate_required_settings() -> None:
             missing_vars.append(var_name)
 
     if missing_vars:
-        error_msg = (
-            f"\n❌ Missing {len(missing_vars)} required environment variable(s):\n\n"
-        )
+        error_msg = f"Missing {len(missing_vars)} required environment variable(s):\n"
         for var in missing_vars:
             error_msg += f"  • {var}\n"
 
-        error_msg += "\n💡 To fix this:\n"
-        error_msg += "1. Copy .env.example to .env:\n"
-        error_msg += "   cp .env.example .env\n\n"
-        error_msg += (
-            "2. Edit .env and set the missing variables with your actual values\n"
-        )
-        error_msg += "3. See .env.example for format and CLAUDE.md for detailed setup instructions\n"
+        error_msg += "Add the missing variables to your .env file\n"
 
         raise ImproperlyConfigured(error_msg)
 
