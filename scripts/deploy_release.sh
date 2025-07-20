@@ -53,6 +53,11 @@ fi
 echo "=== Deploying (su to $APP_USER)…"
 su - "$APP_USER" -c "$PROJECT_DIR/scripts/deploy_app.sh"
 
+if [ "$ENV" != "SCHEDULER" ]; then
+    echo "=== Building Vue.js frontend…"
+    su - "$APP_USER" -c "cd $USER_DIR/jobs_manager_front && npm install && npm run build"
+fi
+
 if [ "$ENV" = "PROD" ]; then
     echo "=== Restarting Gunicorn…"
     systemctl restart gunicorn-prod
