@@ -112,6 +112,9 @@ shell_alias_setup.txt
 # For Docker
 .yaml
 Dockerfile
+# Logs directory - keep directory but ignore all log files
+logs/*.log
+logs/*.log.*
 logs/.*.lock
 
 # For images

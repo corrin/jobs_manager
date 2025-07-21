@@ -1,5 +1,10 @@
 # Production Data Backup and Restore Process
 
+## MySQL Connection Pattern
+ALL MySQL commands must include: `-h "$DB_HOST" -P "$DB_PORT"`
+
+Example: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"`
+
 ## Complete Step-by-Step Guide
 
 Note! Important! Do not EVER use fake or fake-initial
@@ -77,13 +82,13 @@ Note.  If you're using Claude or similar, you need to specify these explicitly o
 **Run as:** System root (for MySQL admin operations)
 **Command:**
 ```bash
-sudo mysql --execute="source scripts/reset_database.sql"
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source scripts/reset_database.sql"
 ```
 **Check:**
 ```bash
-MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW TABLES;" msm_workflow
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"
 # Should return: Empty set (0.00 sec)
-MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW DATABASES;" | grep msm_workflow
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" -e "SHOW DATABASES;" | grep "$MYSQL_DATABASE"
 # Should show: msm_workflow
 ```
 
@@ -91,15 +96,15 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW DATABASES;" | grep msm
 **Run as:** Development system user
 **Command:**
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
 ```
 **Check:**
 ```bash
-MYSQL_PWD=your_dev_password mysql -u django_user -e "SHOW TABLES;" msm_workflow | wc -l
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;" | wc -l
 # Should show 50+ tables
-MYSQL_PWD=your_dev_password mysql -u django_user -e "DESCRIBE workflow_job;" msm_workflow | grep contact_person
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "DESCRIBE workflow_job;" | grep contact_person
 # Should show: contact_person	varchar(100)	YES		NULL
-MYSQL_PWD=your_dev_password mysql -u django_user -e "SELECT COUNT(*) FROM workflow_job;" msm_workflow
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SELECT COUNT(*) FROM workflow_job;"
 # Should show: 0 (empty table)
 ```
 
