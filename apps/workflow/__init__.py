@@ -3,7 +3,12 @@
 from .apps import WorkflowConfig
 from .enums import AIProviderTypes
 from .exceptions import XeroValidationError
-from .utils import extract_messages, get_machine_id, is_valid_uuid
+from .utils import (
+    extract_messages,
+    get_machine_id,
+    is_valid_invoice_number,
+    is_valid_uuid,
+)
 
 # Conditional imports (only when Django is ready)
 try:
@@ -102,6 +107,7 @@ __all__ = [
     "get_company_defaults",
     "get_machine_id",
     "get_scheduler",
+    "is_valid_invoice_number",
     "is_valid_uuid",
     "process_webhook_event",
     "process_webhook_queue",

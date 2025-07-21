@@ -100,12 +100,21 @@ dmypy.json
 *.swo
 *~
 
+# Environment setup files (personal)
+activate_env.sh
+check_env.py
+ENV_SETUP.md
+shell_alias_setup.txt
+
 /.__debug_sql.lock
 /node_modules/
 
 # For Docker
 .yaml
 Dockerfile
+# Logs directory - keep directory but ignore all log files
+logs/*.log
+logs/*.log.*
 logs/.*.lock
 
 # For images
@@ -123,3 +132,4 @@ restore/*
 steel_and_tube_products.csv
 steel_and_tube_products.json
 cookies.txt
+.env.uat

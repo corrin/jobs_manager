@@ -9,7 +9,7 @@
 |-------------|------|------|-------------|
 | `/api/staff/` | `staff_api.StaffListCreateAPIView` | `accounts:api_staff_list_create` | API endpoint for listing and creating staff members. |
 | `/api/staff/<uuid:pk>/` | `staff_api.StaffRetrieveUpdateDestroyAPIView` | `accounts:api_staff_detail` | API endpoint for retrieving, updating, and deleting individual staff members. |
-| `/api/staff/all/` | `staff_views.StaffListAPIView` | `accounts:api_staff_list` | API endpoint for retrieving list of staff members for Kanban board. |
+| `/api/staff/all/` | `staff_views.StaffListAPIView` | `accounts:api_staff_all_list` | API endpoint for retrieving list of staff members for Kanban board. |
 | `/api/staff/rates/<uuid:staff_id>/` | `staff_views.get_staff_rates` | `accounts:get_staff_rates` | Retrieve wage rates for a specific staff member. |
 
 #### Token Management

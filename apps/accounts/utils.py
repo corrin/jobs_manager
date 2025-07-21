@@ -1,17 +1,15 @@
-import logging
 import uuid
 from typing import Any, List, Optional
 
 from django.contrib.auth import get_user_model
-
-logger = logging.getLogger(__name__)
 
 
 def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
     """
     Returns a list of staff IDs that should be excluded from the UI.
 
-    This typically includes system users or other special accounts.
+    This typically includes system users, staff with invalid IMS payroll IDs,
+    or staff with no working hours configured at all (completely inactive).
     """
     excluded = []
 
@@ -21,19 +19,40 @@ def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
         else:
             Staff = get_user_model()
 
-        # Exclude staff members with no valid IMS payroll ID
+        # Exclude staff members with no valid IMS payroll ID or no working hours at all
         staff_with_ids = Staff.objects.filter(is_active=True).values_list(
-            "id", "ims_payroll_id"
+            "id",
+            "ims_payroll_id",
+            "first_name",
+            "last_name",
+            "hours_mon",
+            "hours_tue",
+            "hours_wed",
+            "hours_thu",
+            "hours_fri",
+            "hours_sat",
+            "hours_sun",
         )
 
-        for staff_id, ims_payroll_id in staff_with_ids:
-            if not is_valid_uuid(str(ims_payroll_id)):
-                excluded.append(str(staff_id))
+        for staff_id, ims_payroll_id, first_name, last_name, *hours in staff_with_ids:
+            # Check for null/empty first_name
+            if not first_name or first_name.strip() == "":
+                pass  # No logging
 
-        logger.info(f"Successfully retrieved {len(excluded)} excluded staff.")
-    except Exception as e:
-        logger.warning(f"Unable to access Staff model: {e}. No staff will be excluded.")
+            is_valid = is_valid_uuid(str(ims_payroll_id))
+
+            # Check if staff has ANY working hours configured (at least one day > 0)
+            total_weekly_hours = sum(hours) if all(h is not None for h in hours) else 0
+            has_any_working_hours = total_weekly_hours > 0
+
+            if not is_valid or not has_any_working_hours:
+                excluded.append(str(staff_id))
+            else:
+                pass  # No logging
+
+    except Exception:
         # Return empty list when Staff model can't be accessed
+        pass
 
     return excluded
 

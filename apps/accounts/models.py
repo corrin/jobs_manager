@@ -118,12 +118,15 @@ class Staff(AbstractBaseUser, PermissionsMixin):
 
     def get_display_name(self) -> str:
         display = self.preferred_name or self.first_name
+
         display = display.split()[0] if display else ""
+
         return display
 
     def get_display_full_name(self) -> str:
-        display = self.get_display_name() + " " + self.last_name
-        return display
+        display_name = self.get_display_name()
+        full_name = f"{display_name} {self.last_name}"
+        return full_name
 
     def is_staff_manager(self):
         return self.groups.filter(name="StaffManager").exists() or self.is_superuser

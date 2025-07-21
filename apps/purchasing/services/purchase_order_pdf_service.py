@@ -71,12 +71,22 @@ class PurchaseOrderPDFGenerator:
 
     def add_logo(self, y_position):
         """Add company logo to the PDF."""
-        logo_path = os.path.join(settings.BASE_DIR, "workflow/static/logo_msm.png")
+        # Use the specific logo path within jobs_manager
+        logo_path = os.path.join(settings.BASE_DIR, "jobs_manager", "logo_msm.png")
+
         if not os.path.exists(logo_path):
-            logger.warning(f"Logo file not found at {logo_path}")
-            return y_position
+            logger.warning(f"Logo file not found at: {logo_path}")
+            # Add company name as text instead of logo
+            self.pdf.setFont("Helvetica-Bold", 16)
+            self.pdf.setFillColor(PRIMARY_COLOR)
+            self.pdf.drawString(
+                PAGE_WIDTH - MARGIN - 150, y_position - 20, "MSM Company"
+            )
+            self.pdf.setFillColor(colors.black)
+            return y_position - 30
 
         try:
+            logger.info(f"Using logo at: {logo_path}")
             logo = ImageReader(logo_path)
             # Position logo in top right corner
             self.pdf.drawImage(
@@ -85,13 +95,20 @@ class PurchaseOrderPDFGenerator:
                 y_position - 80,  # Y position
                 width=120,
                 height=80,
-                mask="auto",
                 preserveAspectRatio=True,
+                mask="auto",
             )
-            return y_position - 20  # Return updated position with less space used
+            return y_position - 90
         except Exception as e:
-            logger.warning(f"Failed to add logo: {str(e)}")
-            return y_position
+            logger.warning(f"Failed to load logo from {logo_path}: {str(e)}")
+            # Fallback to company name
+            self.pdf.setFont("Helvetica-Bold", 16)
+            self.pdf.setFillColor(PRIMARY_COLOR)
+            self.pdf.drawString(
+                PAGE_WIDTH - MARGIN - 150, y_position - 20, "MSM Company"
+            )
+            self.pdf.setFillColor(colors.black)
+            return y_position - 30
 
     def add_header_info(self, y_position):
         """Add purchase order header and details to the PDF."""
@@ -199,10 +216,47 @@ class PurchaseOrderPDFGenerator:
             self.pdf.drawString(MARGIN, y_position, "No items in this purchase order.")
             return y_position - 20
 
-        # Prepare table data
-        table_data = [
-            ["Description", "Qty", "Unit Cost", "Total"],
-        ]
+        # Check if any line items have additional fields to determine table structure
+        has_additional_fields = any(
+            item.metal_type
+            or item.alloy
+            or item.specifics
+            or item.location
+            or item.dimensions
+            for item in line_items
+        )
+
+        # Prepare table headers based on available data
+        if has_additional_fields:
+            table_data = [
+                [
+                    "Item Code",
+                    "Description",
+                    "Additional Info",
+                    "Qty",
+                    "Unit Cost",
+                    "Total",
+                ],
+            ]
+            col_widths = [
+                CONTENT_WIDTH * 0.15,  # Item Code
+                CONTENT_WIDTH * 0.35,  # Description
+                CONTENT_WIDTH * 0.25,  # Additional Info
+                CONTENT_WIDTH * 0.1,  # Qty
+                CONTENT_WIDTH * 0.075,  # Unit Cost
+                CONTENT_WIDTH * 0.075,  # Total
+            ]
+        else:
+            table_data = [
+                ["Item Code", "Description", "Qty", "Unit Cost", "Total"],
+            ]
+            col_widths = [
+                CONTENT_WIDTH * 0.2,  # Item Code
+                CONTENT_WIDTH * 0.5,  # Description
+                CONTENT_WIDTH * 0.1,  # Qty
+                CONTENT_WIDTH * 0.1,  # Unit Cost
+                CONTENT_WIDTH * 0.1,  # Total
+            ]
 
         total_amount = 0
 
@@ -214,29 +268,64 @@ class PurchaseOrderPDFGenerator:
             )
             total_amount += line_total
 
-            table_data.append(
-                [
-                    str(item.description)[:50]
-                    + ("..." if len(str(item.description)) > 50 else ""),
-                    f"{float(item.quantity):.2f}" if item.quantity else "0.00",
-                    f"${float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
-                    f"${line_total:.2f}" if not item.price_tbc else "TBC",
-                ]
+            # Build additional info only if fields are present
+            additional_info_parts = []
+            if item.metal_type:
+                additional_info_parts.append(f"Metal: {item.metal_type}")
+            if item.alloy:
+                additional_info_parts.append(f"Alloy: {item.alloy}")
+            if item.specifics:
+                additional_info_parts.append(f"Specs: {item.specifics}")
+            if item.location:
+                additional_info_parts.append(f"Location: {item.location}")
+            if item.dimensions:
+                additional_info_parts.append(f"Dimensions: {item.dimensions}")
+
+            additional_info = (
+                "\n".join(additional_info_parts) if additional_info_parts else ""
             )
 
-        # Add total row
-        table_data.append(["", "", "TOTAL:", f"${total_amount:.2f}"])
+            # Truncate long descriptions
+            description = str(item.description or "")[:50] + (
+                "..." if len(str(item.description or "")) > 50 else ""
+            )
+            item_code = str(item.item_code or "")[:20] + (
+                "..." if len(str(item.item_code or "")) > 20 else ""
+            )
 
-        # Create table
-        lines_table = Table(
-            table_data,
-            colWidths=[
-                CONTENT_WIDTH * 0.5,
-                CONTENT_WIDTH * 0.15,
-                CONTENT_WIDTH * 0.15,
-                CONTENT_WIDTH * 0.2,
-            ],
-        )
+            if has_additional_fields:
+                table_data.append(
+                    [
+                        item_code,
+                        description,
+                        additional_info[:60]
+                        + (
+                            "..." if len(additional_info) > 60 else ""
+                        ),  # Truncate additional info
+                        f"{float(item.quantity):.2f}" if item.quantity else "0.00",
+                        f"${float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
+                        f"${line_total:.2f}" if not item.price_tbc else "TBC",
+                    ]
+                )
+            else:
+                table_data.append(
+                    [
+                        item_code,
+                        description,
+                        f"{float(item.quantity):.2f}" if item.quantity else "0.00",
+                        f"${float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
+                        f"${line_total:.2f}" if not item.price_tbc else "TBC",
+                    ]
+                )
+
+        # Add total row
+        if has_additional_fields:
+            table_data.append(["", "", "", "", "TOTAL:", f"${total_amount:.2f}"])
+        else:
+            table_data.append(["", "", "", "TOTAL:", f"${total_amount:.2f}"])
+
+        # Create table with dynamic column widths
+        lines_table = Table(table_data, colWidths=col_widths)
 
         # Style the table
         table_style = TableStyle(
@@ -245,13 +334,19 @@ class PurchaseOrderPDFGenerator:
                 ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, 0), 10),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 # Data rows
                 ("FONTNAME", (0, 1), (-1, -2), "Helvetica"),
-                ("FONTSIZE", (0, 1), (-1, -2), 9),
-                ("ALIGN", (1, 1), (-1, -1), "RIGHT"),  # Right align numbers
-                ("ALIGN", (0, 1), (0, -1), "LEFT"),  # Left align descriptions
+                ("FONTSIZE", (0, 1), (-1, -2), 8),
+                (
+                    "ALIGN",
+                    (-3, 1),
+                    (-1, -1),
+                    "RIGHT",
+                ),  # Right align quantity, cost, total columns
+                ("ALIGN", (0, 1), (-4, -1), "LEFT"),  # Left align text columns
+                ("VALIGN", (0, 1), (-1, -1), "TOP"),  # Top align for multi-line content
                 # Total row styling
                 ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
                 ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
@@ -259,8 +354,10 @@ class PurchaseOrderPDFGenerator:
                 # Borders
                 ("GRID", (0, 0), (-1, -2), 0.5, colors.grey),
                 # Padding
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 3),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3),
             ]
         )
         lines_table.setStyle(table_style)

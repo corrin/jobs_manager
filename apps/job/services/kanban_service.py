@@ -13,6 +13,7 @@ from django.http import HttpRequest
 
 from apps.job.models import Job
 from apps.job.services.kanban_categorization_service import KanbanCategorizationService
+from apps.workflow.utils import is_valid_invoice_number, is_valid_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ class KanbanService:
         # Get all kanban columns instead of individual statuses
         columns = categorization_service.get_all_columns()
 
-        # Create status choices based on columns (for backward compatibility)
+        # Create status choices based on columns (simplified kanban structure)
         status_choices = {}
         status_tooltips = {}
 
@@ -90,9 +91,10 @@ class KanbanService:
             # Use column as the main "status" for the kanban view
             status_choices[column.column_id] = column.column_title
 
-            # Create tooltip that shows sub-categories
-            sub_cat_labels = [sub_cat.badge_label for sub_cat in column.sub_categories]
-            status_tooltips[column.column_id] = f"Includes: {', '.join(sub_cat_labels)}"
+            # Create tooltip based on column's status key
+            status_tooltips[
+                column.column_id
+            ] = f"Status: {column.status_key.replace('_', ' ').title()}"
 
         return {"statuses": status_choices, "tooltips": status_tooltips}
 
@@ -129,6 +131,7 @@ class KanbanService:
             ],
             "status": job.get_status_display(),
             "status_key": job.status,
+            "rejected_flag": job.rejected_flag,
             "paid": job.paid,
             "created_by_id": job.created_by.id if job.created_by else None,
             "created_at": (
@@ -364,6 +367,13 @@ class KanbanService:
         if statuses := filters.get("status", []):
             jobs_query = jobs_query.filter(status__in=statuses)
 
+        if xero_invoice_params := filters.get("xero_invoice_params", "").strip():
+            match xero_invoice_params:
+                case param if is_valid_uuid(param):
+                    jobs_query = jobs_query.filter(invoice__xero_id=param)
+                case param if is_valid_invoice_number(param):
+                    jobs_query = jobs_query.filter(invoice__number=param)
+
         # Handle paid filter with match-case
         paid_filter = filters.get("paid", "")
         match paid_filter:
@@ -405,10 +415,8 @@ class KanbanService:
                     "filtered_count": 0,
                 }
 
-            # Get valid statuses for this column
-            valid_statuses = [
-                sub_cat.status_key for sub_cat in column.sub_categories
-            ]  # Build base query and filter out 'special' jobs
+            # Get valid statuses for this column (simplified approach - column = status)
+            valid_statuses = [column.status_key]  # Only the column's main status
             jobs_query = Job.objects.filter(status__in=valid_statuses).select_related(
                 "client"
             )

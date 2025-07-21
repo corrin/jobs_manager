@@ -36,8 +36,29 @@ def get_scheduler() -> BackgroundScheduler:
 def should_start_scheduler() -> bool:
     """
     Determine if the scheduler should be started in the current context.
+
+    Checks:
+    1. DJANGO_RUN_SCHEDULER must be "1" (existing requirement)
+    2. USE_EXTERNAL_SCHEDULER must be explicitly set (required configuration)
     """
-    return os.getenv("DJANGO_RUN_SCHEDULER") == "1"
+    # Primary control - must be enabled
+    if os.getenv("DJANGO_RUN_SCHEDULER") != "1":
+        return False
+
+    # External scheduler control - must be explicitly configured
+    external_scheduler = os.getenv("USE_EXTERNAL_SCHEDULER")
+    if external_scheduler is None:
+        raise ValueError(
+            "USE_EXTERNAL_SCHEDULER environment variable must be set to 'true' or 'false'"
+        )
+
+    if external_scheduler.lower() == "true":
+        logger.info(
+            "Using external scheduler - local scheduler disabled via USE_EXTERNAL_SCHEDULER environment variable"
+        )
+        return False
+
+    return True
 
 
 def start_scheduler() -> bool:

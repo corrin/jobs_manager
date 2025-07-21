@@ -38,6 +38,17 @@ def is_valid_uuid(value: str) -> bool:
         return False
 
 
+def is_valid_invoice_number(value: str) -> bool:
+    """
+    Check if the given string is a valid invoice number.
+    """
+    if "INV-" in value:
+        parts = value.split("-")
+        if len(parts) == 2 and parts[1].isdigit():
+            return True
+    return False
+
+
 def get_machine_id(path: str = "/etc/machine-id") -> Optional[str]:
     """
     Reads the machine ID from the specified path.

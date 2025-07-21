@@ -1,10 +1,7 @@
 from django.urls import path
 
-from apps.accounting.views import (
-    JobAgingAPIView,
-    KPICalendarAPIView,
-    KPICalendarTemplateView,
-)
+from apps.accounting.views import JobAgingAPIView
+from apps.accounting.views.kpi_view import KPICalendarAPIView, KPICalendarTemplateView
 from apps.accounting.views.staff_performance_views import (
     StaffPerformanceDetailAPIView,
     StaffPerformanceSummaryAPIView,

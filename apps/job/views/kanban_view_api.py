@@ -290,6 +290,7 @@ class AdvancedSearchAPIView(APIView):
                 "created_before": request.GET.get("created_before", ""),
                 "status": request.GET.getlist("status"),
                 "paid": request.GET.get("paid", ""),
+                "xero_invoice_params": request.GET.get("xero_invoice_params", ""),
             }
 
             jobs = KanbanService.perform_advanced_search(filters)

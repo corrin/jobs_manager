@@ -75,11 +75,7 @@ class Command(BaseCommand):
             job = Job(
                 name=job_details["name"],
                 client=shop_client,
-                contact_person="Corrin Lakeland",
                 description="",
-                material_gauge_quantity=job_details[
-                    "description"
-                ],  # We put description here, so Kanban doesn't show it
                 status="special",
                 shop_job=True,  # Changed from shop_job to is_shop_job
                 job_is_valid=True,

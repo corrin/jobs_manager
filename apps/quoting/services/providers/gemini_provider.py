@@ -61,12 +61,7 @@ class GeminiPriceExtractionProvider:
             # Prepare the content for Gemini
             contents = [
                 {"text": prompt},
-                {
-                    "inline_data": {
-                        "mime_type": "application/pdf",
-                        "data": file_b64
-                    }
-                }
+                {"inline_data": {"mime_type": "application/pdf", "data": file_b64}},
             ]
 
             # Call Gemini API
@@ -85,62 +80,76 @@ class GeminiPriceExtractionProvider:
                 log_token_usage(response.usage, "Gemini")
 
             # Check for any errors or issues in the response
-            logger.info(f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}")
-            if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+            logger.info(
+                f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}"
+            )
+            if hasattr(response, "prompt_feedback") and response.prompt_feedback:
                 logger.info(f"Prompt feedback: {response.prompt_feedback}")
-            
+
             # Check if there are any safety issues or blocks
             logger.info(f"Response has candidates: {hasattr(response, 'candidates')}")
-            logger.info(f"Candidates length: {len(response.candidates) if hasattr(response, 'candidates') and response.candidates else 0}")
-            
-            if hasattr(response, 'candidates') and response.candidates:
+            logger.info(
+                f"Candidates length: {len(response.candidates) if hasattr(response, 'candidates') and response.candidates else 0}"
+            )
+
+            if hasattr(response, "candidates") and response.candidates:
                 candidate = response.candidates[0]
-                logger.info(f"Candidate has finish_reason: {hasattr(candidate, 'finish_reason')}")
-                if hasattr(candidate, 'finish_reason'):
+                logger.info(
+                    f"Candidate has finish_reason: {hasattr(candidate, 'finish_reason')}"
+                )
+                if hasattr(candidate, "finish_reason"):
                     logger.info(f"Finish reason: {candidate.finish_reason}")
-                
-                logger.info(f"Candidate has safety_ratings: {hasattr(candidate, 'safety_ratings')}")
-                if hasattr(candidate, 'safety_ratings'):
+
+                logger.info(
+                    f"Candidate has safety_ratings: {hasattr(candidate, 'safety_ratings')}"
+                )
+                if hasattr(candidate, "safety_ratings"):
                     logger.info(f"Safety ratings: {candidate.safety_ratings}")
-                
+
                 # Also check if candidate is blocked
-                if hasattr(candidate, 'blocked'):
+                if hasattr(candidate, "blocked"):
                     logger.info(f"Candidate blocked: {candidate.blocked}")
-                
+
                 # Check citation metadata
-                if hasattr(candidate, 'citation_metadata'):
+                if hasattr(candidate, "citation_metadata"):
                     logger.info(f"Citation metadata: {candidate.citation_metadata}")
-                
+
                 # Log all candidate attributes for debugging
-                logger.info(f"All candidate attributes: {[attr for attr in dir(candidate) if not attr.startswith('_')]}")
+                logger.info(
+                    f"All candidate attributes: {[attr for attr in dir(candidate) if not attr.startswith('_')]}"
+                )
 
             # Extract text content from the response
             result_text = None
-            
+
             # Try different ways to get the text content
-            if hasattr(response, 'candidates') and response.candidates:
+            if hasattr(response, "candidates") and response.candidates:
                 # Get the first candidate
                 candidate = response.candidates[0]
                 logger.info(f"Candidate type: {type(candidate)}")
                 logger.info(f"Candidate attributes: {dir(candidate)}")
-                
-                if hasattr(candidate, 'content') and candidate.content:
+
+                if hasattr(candidate, "content") and candidate.content:
                     content = candidate.content
                     logger.info(f"Content type: {type(content)}")
                     logger.info(f"Content attributes: {dir(content)}")
-                    
-                    if hasattr(content, 'parts'):
+
+                    if hasattr(content, "parts"):
                         logger.info(f"Content parts: {content.parts}")
-                        logger.info(f"Content parts length: {len(content.parts) if content.parts else 0}")
-                        
+                        logger.info(
+                            f"Content parts length: {len(content.parts) if content.parts else 0}"
+                        )
+
                         if content.parts:
                             part = content.parts[0]
                             logger.info(f"Part type: {type(part)}")
                             logger.info(f"Part attributes: {dir(part)}")
-                            
-                            if hasattr(part, 'text'):
+
+                            if hasattr(part, "text"):
                                 result_text = part.text
-                                logger.info(f"Successfully extracted text from part.text")
+                                logger.info(
+                                    f"Successfully extracted text from part.text"
+                                )
                             else:
                                 logger.warning("Part has no text attribute")
                         else:
@@ -149,15 +158,19 @@ class GeminiPriceExtractionProvider:
                         logger.warning("Content has no parts attribute")
                 else:
                     logger.warning("Candidate has no content")
-            elif hasattr(response, 'text') and response.text is not None:
+            elif hasattr(response, "text") and response.text is not None:
                 result_text = response.text
                 logger.info(f"Successfully extracted text from response.text")
             else:
                 logger.error("No text content found in response")
-            
-            logger.info(f"Final result_text length: {len(result_text) if result_text else 0}")
-            logger.info(f"Result text preview: {result_text[:200] if result_text else 'None'}...")
-            
+
+            logger.info(
+                f"Final result_text length: {len(result_text) if result_text else 0}"
+            )
+            logger.info(
+                f"Result text preview: {result_text[:200] if result_text else 'None'}..."
+            )
+
             if not result_text:
                 return None, "Empty or no text content in Gemini API response"
 
@@ -181,7 +194,9 @@ class GeminiPriceExtractionProvider:
             # Process and normalize the extracted data
             processed_data = self._process_extracted_data(extracted_data, file_path)
 
-            logger.info(f"Successfully extracted {len(processed_data.get('items', []))} products using Gemini")
+            logger.info(
+                f"Successfully extracted {len(processed_data.get('items', []))} products using Gemini"
+            )
 
             return processed_data, None
 
@@ -189,7 +204,9 @@ class GeminiPriceExtractionProvider:
             logger.exception(f"Error during Gemini PDF extraction: {e}")
             return None, str(e)
 
-    def _process_extracted_data(self, raw_data: Dict[str, Any], file_path: str) -> Dict[str, Any]:
+    def _process_extracted_data(
+        self, raw_data: Dict[str, Any], file_path: str
+    ) -> Dict[str, Any]:
         """
         Process and normalize the extracted data from Gemini.
 
@@ -236,7 +253,10 @@ class GeminiPriceExtractionProvider:
                 processed_item["variant_id"] = self._generate_variant_id(processed_item)
 
             # Only add items with valid data
-            if processed_item["product_name"] and processed_item["unit_price"] is not None:
+            if (
+                processed_item["product_name"]
+                and processed_item["unit_price"] is not None
+            ):
                 processed_items.append(processed_item)
 
         # Create the final structured data
@@ -244,11 +264,11 @@ class GeminiPriceExtractionProvider:
             "supplier": supplier_info,
             "items": processed_items,
             "parsing_stats": {
-                "total_lines": len(str(raw_data).split('\n')),
+                "total_lines": len(str(raw_data).split("\n")),
                 "items_found": len(processed_items),
                 "pages_processed": 1,  # Gemini processes the entire PDF at once
-                "extraction_method": "Gemini 2.5 Flash"
-            }
+                "extraction_method": "Gemini 2.5 Flash",
+            },
         }
 
         return structured_data
@@ -263,7 +283,9 @@ class GeminiPriceExtractionProvider:
 
         if isinstance(price_value, str):
             # Remove currency symbols and whitespace
-            cleaned = price_value.replace("$", "").replace("£", "").replace("€", "").strip()
+            cleaned = (
+                price_value.replace("$", "").replace("£", "").replace("€", "").strip()
+            )
             try:
                 return float(cleaned)
             except ValueError:
@@ -275,26 +297,28 @@ class GeminiPriceExtractionProvider:
     def _generate_variant_id(self, item: Dict[str, Any]) -> str:
         """Generate a variant ID from item data."""
         parts = []
-        
+
         # Use item code if available
         if item.get("item_no"):
             parts.append(item["item_no"])
-        
+
         # Add key dimensions or specifications
         if item.get("dimensions"):
             # Extract key dimensions
-            dims = item["dimensions"].replace("mm", "").replace("m", "").replace(" ", "")
+            dims = (
+                item["dimensions"].replace("mm", "").replace("m", "").replace(" ", "")
+            )
             parts.append(dims[:20])  # Limit length
-        
+
         # Use description as fallback
         if not parts and item.get("description"):
             desc_clean = item["description"].replace(" ", "_").replace("/", "_")[:30]
             parts.append(desc_clean)
-        
+
         # Join parts and ensure it's not empty
         variant_id = "_".join(parts) if parts else "unknown"
-        
+
         # Clean up the variant ID
         variant_id = "".join(c for c in variant_id if c.isalnum() or c in "_-")
-        
+
         return variant_id[:100]  # Limit length

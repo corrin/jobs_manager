@@ -88,6 +88,7 @@ class KanbanJobSerializer(serializers.Serializer):
     # Status info
     status = serializers.CharField()  # Display name
     status_key = serializers.CharField()  # Actual status key
+    rejected_flag = serializers.BooleanField()  # Indicates if job was rejected
 
     # Financial
     paid = serializers.BooleanField()

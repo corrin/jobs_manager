@@ -170,7 +170,7 @@ class XeroItemList(APIView):
     def get(self, request):
         try:
             items = PurchasingRestService.list_xero_items()
-            return Response(items)
+            return Response({"items": items, "total_count": len(items)})
         except Exception as e:
             logger.error("Error fetching Xero items: %s", e)
             return Response(
@@ -250,7 +250,7 @@ class PurchaseOrderDetailRestView(APIView):
         return PurchaseOrderDetailSerializer
 
     @extend_schema(operation_id="retrievePurchaseOrder")
-    def get(self, request, pk):
+    def get(self, request, id):
         """Get purchase order details including lines."""
         # Allow fetching PO details regardless of status (including deleted)
         # to match the list endpoint behavior and allow viewing deleted POs
@@ -259,11 +259,11 @@ class PurchaseOrderDetailRestView(APIView):
             .select_related("supplier")
             .prefetch_related("po_lines")
         )
-        po = get_object_or_404(queryset, id=pk)
+        po = get_object_or_404(queryset, id=id)
         serializer = PurchaseOrderDetailSerializer(po)
         return Response(serializer.data)
 
-    def patch(self, request, pk):
+    def patch(self, request, id):
         """Update purchase order."""
         serializer = PurchaseOrderUpdateSerializer(data=request.data)
 
@@ -276,7 +276,7 @@ class PurchaseOrderDetailRestView(APIView):
         try:
             # Update PO using service
             po = PurchasingRestService.update_purchase_order(
-                pk, serializer.validated_data
+                id, serializer.validated_data
             )
 
             # Return response
@@ -288,7 +288,7 @@ class PurchaseOrderDetailRestView(APIView):
             return Response(response_serializer.data)
 
         except Exception as e:
-            logger.error(f"Error updating purchase order {pk}: {str(e)}")
+            logger.error(f"Error updating purchase order {id}: {str(e)}")
             return Response(
                 {"error": "Failed to update purchase order", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

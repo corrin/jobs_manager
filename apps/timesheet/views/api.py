@@ -44,6 +44,7 @@ class StaffListAPIView(APIView):
         """Get filtered list of staff members."""
         try:
             excluded_staff_ids = get_excluded_staff()
+            # get_excluded_staff() now includes staff with no working hours
             staff = Staff.objects.exclude(
                 Q(is_staff=True) | Q(id__in=excluded_staff_ids)
             ).order_by("last_name", "first_name")
@@ -57,11 +58,14 @@ class StaffListAPIView(APIView):
                         "firstName": member.first_name or "",
                         "lastName": member.last_name or "",
                         "email": member.email or "",
+                        "wageRate": float(member.wage_rate)
+                        if member.wage_rate
+                        else 0.0,
                         "avatarUrl": None,  # Add avatar logic if needed
                     }
                 )
 
-            return Response({"staff": staff_data})
+            return Response({"staff": staff_data, "total_count": len(staff_data)})
 
         except Exception as e:
             logger.error(f"Error fetching staff list: {e}")
@@ -80,20 +84,19 @@ class JobsAPIView(APIView):
     def get(self, request):
         """Get list of active jobs for timesheet entries using CostSet system."""
         try:
-            # Get active jobs - exclude archived, completed, and rejected jobs
-            excluded_statuses = ["archived", "completed", "rejected"]
+            # Get active jobs - exclude archived only
             jobs = (
                 Job.objects.filter(
                     status__in=[
-                        "quoting",
-                        "accepted_quote",
-                        "awaiting_materials",
+                        "draft",
+                        "awaiting_approval",
+                        "approved",
                         "in_progress",
-                        "on_hold",
+                        "unusual",
+                        "recently_completed",
                         "special",
                     ]
                 )
-                .exclude(status__in=excluded_statuses)
                 .select_related("client")
                 .prefetch_related("cost_sets")  # Prefetch cost sets for efficiency
                 .order_by("job_number")
@@ -103,23 +106,18 @@ class JobsAPIView(APIView):
             # We create actual CostSet on-demand when needed
             jobs_with_actual_costset = []
             for job in jobs:
-                # Ensure job has at least an actual cost set or can create one
-                actual_cost_set = job.get_latest("actual")
-                if actual_cost_set or job.status in [
-                    "in_progress",
-                    "on_hold",
-                    "special",
-                ]:
-                    # Include jobs that either have actual cost sets or are in progress
-                    jobs_with_actual_costset.append(job)
+                # Temporarily include all jobs to debug the issue
+                jobs_with_actual_costset.append(job)
 
             if not jobs_with_actual_costset:
-                return Response({"jobs": []})
+                return Response({"jobs": [], "total_count": 0})
 
             serializer = ModernTimesheetJobSerializer(
                 jobs_with_actual_costset, many=True
             )
-            return Response({"jobs": serializer.data})
+            return Response(
+                {"jobs": serializer.data, "total_count": len(serializer.data)}
+            )
 
         except Exception as e:
             logger.error(f"Error fetching jobs: {e}")

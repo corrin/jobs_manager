@@ -6,15 +6,18 @@ All business logic for Job REST operations should be implemented here.
 """
 
 import logging
+from datetime import date, timedelta
 from typing import Any, Dict
 from uuid import UUID
 
-from django.db import transaction
+from django.db import models, transaction
+from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
-from apps.job.models import Job, JobEvent
+from apps.job.models import CostSet, Job, JobEvent
+from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
 
 logger = logging.getLogger(__name__)
@@ -281,16 +284,11 @@ class JobRestService:
         """
         job = get_object_or_404(Job, id=job_id)
 
-        # Guard clause - check if can delete using CostSet system
-        # Check if job has any actual costs via CostSet
-        from apps.workflow.models import CostSet
-
-        actual_cost_set = CostSet.objects.filter(
-            job=job, kind="actual", is_current=True
-        ).first()
+        actual_cost_set = job.latest_actual
 
         if actual_cost_set and (
-            actual_cost_set.total_cost > 0 or actual_cost_set.total_price > 0
+            actual_cost_set.summary.get("cost", 0) > 0
+            or actual_cost_set.summary.get("rev", 0) > 0
         ):
             raise ValueError(
                 "Cannot delete this job because it has real costs or revenue."
@@ -304,6 +302,140 @@ class JobRestService:
             logger.info(f"Job {job_number} '{job_name}' deleted by {user.email}")
 
         return {"success": True, "message": f"Job {job_number} deleted successfully"}
+
+    @staticmethod
+    def accept_quote(job_id: UUID, user: Staff) -> Dict[str, Any]:
+        """
+        Accept a quote for a job by setting the quote_acceptance_date.
+
+        Args:
+            job_id: Job UUID
+            user: User accepting the quote
+
+        Returns:
+            Dict with operation result
+        """
+        from datetime import datetime
+
+        job = get_object_or_404(Job, id=job_id)
+
+        # Guard clause - check if job has a quote
+        if not job.latest_quote:
+            raise ValueError("No quote found for this job")
+
+        # Guard clause - check if quote is already accepted
+        if job.quote_acceptance_date:
+            raise ValueError("Quote has already been accepted")
+
+        with transaction.atomic():
+            job.quote_acceptance_date = datetime.now()
+            job.save()
+
+            # Log the acceptance
+            JobEvent.objects.create(
+                job=job,
+                staff=user,
+                event_type="quote_accepted",
+                description="Quote accepted",
+            )
+
+        logger.info(f"Quote accepted for job {job.job_number} by {user.email}")
+
+        return {
+            "success": True,
+            "job_id": str(job_id),
+            "quote_acceptance_date": job.quote_acceptance_date.isoformat(),
+            "message": "Quote accepted successfully",
+        }
+
+    @staticmethod
+    def get_weekly_metrics(week: date = None) -> list[Dict[str, Any]]:
+        """
+        Fetches weekly metrics for all active jobs.
+
+        Args:
+            week: Optional date parameter (ignored for now, but can be used for calculations)
+
+        Returns:
+            List of dicts with weekly metrics data, including:
+                - Job information
+                - Estimated hours
+                - Actual hours
+                - Total profit
+        """
+        # NOTE: Previous time entries filter (commented out for future reference):
+        # if week is None:
+        #     week = date.today()
+        # week_start = week - timedelta(days=week.weekday())
+        # week_end = week_start + timedelta(days=6)
+        # job_ids_with_time_entries = (
+        #     CostLine.objects.annotate(
+        #         date_meta=RawSQL(
+        #             "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+        #             (),
+        #             output_field=models.CharField(),
+        #         )
+        #     )
+        #     .filter(
+        #         cost_set__kind="actual",
+        #         kind="time",
+        #         date_meta__gte=week_start.strftime('%Y-%m-%d'),
+        #         date_meta__lte=week_end.strftime('%Y-%m-%d'),
+        #     )
+        #     .values_list('cost_set__job_id', flat=True)
+        #     .distinct()
+        # )
+        # jobs = Job.objects.filter(id__in=job_ids_with_time_entries, ...)
+
+        # Get all active jobs (including draft and recently completed), ordered by priority
+        jobs = (
+            Job.objects.filter(
+                status__in=[
+                    "awaiting_approval",
+                    "approved",
+                    "in_progress",
+                    "unusual",
+                    "draft",
+                    "recently_completed",
+                ]
+            )
+            .select_related("client")
+            .prefetch_related("people")
+            .order_by("-priority")
+        )
+
+        metrics = []
+        for job in jobs:
+            # Direct access to summary data
+            estimated_hours = job.latest_estimate.summary["hours"]
+
+            actual_hours = job.latest_actual.summary["hours"]
+            actual_rev = job.latest_actual.summary["rev"]
+            actual_cost = job.latest_actual.summary["cost"]
+
+            profit = actual_rev - actual_cost
+
+            job_metrics = {
+                "job_id": str(job.id),
+                "name": job.name,
+                "job_number": job.job_number,
+                "client": job.client,
+                "description": job.description,
+                "status": job.status,
+                "people": [
+                    {"name": person.get_display_full_name(), "id": str(person.id)}
+                    for person in job.people.all()
+                ],
+                "estimated_hours": estimated_hours,
+                "actual_hours": actual_hours,
+                "profit": profit,
+            }
+            metrics.append(job_metrics)
+
+        from pprint import pprint
+
+        pprint(metrics)
+        return metrics
 
     @staticmethod
     def _validate_can_disable_complex_mode(job: Job) -> Dict[str, Any]:

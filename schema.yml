@@ -769,12 +769,19 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ClientCreateRequest'
+                $ref: '#/components/schemas/ClientCreateResponse'
           description: ''
   /clients/search/:
     get:
       operationId: clients_search_retrieve
       description: Searches clients by name following early return pattern.
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Search query for client name
+        required: true
       tags:
       - clients
       security:
@@ -1079,10 +1086,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobFile'
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobFile'
             '*/*':
               schema:
-                $ref: '#/components/schemas/JobFile'
+                type: array
+                items:
+                  $ref: '#/components/schemas/JobFile'
           description: ''
     post:
       operationId: uploadJobFilesApi_3
@@ -1212,13 +1223,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssignJobResponse'
+              $ref: '#/components/schemas/AssignJobRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AssignJobResponse'
+              $ref: '#/components/schemas/AssignJobRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AssignJobResponse'
+              $ref: '#/components/schemas/AssignJobRequest'
         required: true
       security:
       - cookieAuth: []
@@ -1770,13 +1781,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobDetailResponse'
+              $ref: '#/components/schemas/JobUpdateRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobDetailResponse'
+              $ref: '#/components/schemas/JobUpdateRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobDetailResponse'
+              $ref: '#/components/schemas/JobUpdateRequest'
         required: true
       security:
       - cookieAuth: []
@@ -1900,22 +1911,22 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
         required: true
       security:
       - cookieAuth: []
       responses:
-        '200':
+        '201':
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobRestErrorResponse'
+                $ref: '#/components/schemas/JobEventCreateResponse'
           description: ''
   /job/rest/jobs/{job_id}/quote/status/:
     get:
@@ -1995,6 +2006,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CostSet'
+          description: ''
+  /job/rest/jobs/{id}/cost_sets/quote/revise/:
+    post:
+      operationId: job_rest_jobs_cost_sets_quote_revise_create
+      description: |-
+        Create a new quote revision by archiving current quote data and clearing cost lines.
+
+        This endpoint:
+        1. Archives current quote cost lines and summary in the existing CostSet summary
+        2. Clears all current cost lines from the quote CostSet
+        3. Increments the revision number
+        4. Allows starting fresh quote while preserving historical data
+
+        Only works with kind='quote' CostSets.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - job
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRevisionRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/QuoteRevisionRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/QuoteRevisionRequest'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRevisionResponse'
           description: ''
   /job/rest/jobs/{id}/quote/apply/:
     post:
@@ -2544,6 +2597,41 @@ paths:
       responses:
         '204':
           description: No response body
+  /job/rest/jobs/weekly-metrics/:
+    get:
+      operationId: job_rest_jobs_weekly_metrics_retrieve
+      summary: Get weekly metrics for jobs
+      parameters:
+        - in: query
+          name: week
+          schema:
+            type: string
+            format: date
+          required: false
+          description: Week date (YYYY-MM-DD) to calculate metrics for. Defaults to current week.
+      responses:
+        '200':
+          description: Weekly metrics data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyMetricsResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRestErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRestErrorResponse'
+      tags:
+      - job
+      security:
+      - cookieAuth: []
   /job/rest/jobs/files/upload/:
     post:
       operationId: uploadJobFilesRest
@@ -3565,38 +3653,46 @@ paths:
 components:
   schemas:
     AIProvider:
+    WeeklyMetrics:
       type: object
-      description: |-
-        Serializer for reading AIProvider instances.
-        This serializer is read-only and excludes the `api_key` for security.
       properties:
-        id:
-          type: integer
-          readOnly: true
+        job_id:
+          type: string
+          format: uuid
         name:
           type: string
-          description: Friendly name for this provider
-          maxLength: 100
-        provider_type:
-          allOf:
-          - $ref: '#/components/schemas/ProviderTypeEnum'
-          description: |-
-            Type of AI provider
-
-            * `Claude` - Anthropic
-            * `Gemini` - Google
-            * `Mistral` - Mistral
-        model_name:
+        client:
           type: string
-          description: Specific model name (e.g., gemini-2.5-flash-lite-preview-06-17)
-          maxLength: 100
-        default:
-          type: boolean
-          description: Use this provider as the default
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        status:
+          type: string
+        people:
+          type: array
+          items:
+            type: object
+        estimated_hours:
+          type: number
+        actual_hours:
+          type: number
+        profit:
+          type: number
       required:
-      - id
-      - name
-      - provider_type
+        - job_id
+        - name
+        - client
+        - description
+        - status
+        - people
+        - estimated_hours
+        - actual_hours
+        - profit
+    WeeklyMetricsResponse:
+      type: array
+      items:
+        $ref: '#/components/schemas/WeeklyMetrics'
     AIProviderCreateUpdate:
       type: object
       description: |-
@@ -3735,6 +3831,19 @@ components:
           description: List of job IDs to archive
       required:
       - ids
+    AssignJobRequest:
+      type: object
+      description: Serialiser for job assignment request
+      properties:
+        job_id:
+          type: string
+          description: Job ID
+        staff_id:
+          type: string
+          description: Staff ID
+      required:
+      - job_id
+      - staff_id
     AssignJobResponse:
       type: object
       description: Serialiser for job assignment response
@@ -4766,6 +4875,35 @@ components:
       required:
       - client_id
       - name
+    JobUpdateRequest:
+      type: object
+      description: Schema for updating job data.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        client_id:
+          type: string
+          format: uuid
+        contact_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        order_number:
+          type: string
+          nullable: true
+          maxLength: 100
+        pricing_methodology:
+          type: string
+          enum:
+          - time_materials
+          - fixed_price
     JobDetailResponse:
       type: object
       description: Serializer for job detail response.
@@ -7084,6 +7222,11 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           readOnly: true
+        wage_rate:
+          type: number
+          format: double
+          description: Get staff wage rate from metadata staff_id
+          readOnly: true
       required:
       - charge_out_rate
       - client_name
@@ -7309,6 +7452,127 @@ components:
           type: integer
       required:
       - items
+    JobEventCreateRequest:
+      type: object
+      description: Serializer for job event creation request
+      properties:
+        description:
+          type: string
+          maxLength: 500
+      required:
+      - description
+    JobEventCreateResponse:
+      type: object
+      description: Serializer for job event creation response
+      properties:
+        success:
+          type: boolean
+        event:
+          type: object
+      required:
+      - success
+      - event
+    QuoteRevisionRequest:
+      type: object
+      description: Serializer for quote revision request - validates input data
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Optional reason for creating a new quote revision
+    QuoteRevisionResponse:
+      type: object
+      description: Serializer for quote revision response
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        previous_revision:
+          type: integer
+        new_revision:
+          type: integer
+        archived_cost_lines_count:
+          type: integer
+        job_id:
+          type: string
+        error:
+          type: string
+          description: Optional error details
+      required:
+      - success
+      - message
+      - previous_revision
+      - new_revision
+      - archived_cost_lines_count
+      - job_id
+    ClientCreateRequest:
+      type: object
+      description: Serializer for client creation request
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          maxLength: 50
+        address:
+          type: string
+        is_account_customer:
+          type: boolean
+          default: true
+      required:
+      - name
+    ClientSearchResult:
+      type: object
+      description: Serializer for client search results
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        is_account_customer:
+          type: boolean
+        xero_contact_id:
+          type: string
+        last_invoice_date:
+          type: string
+        total_spend:
+          type: string
+      required:
+      - id
+      - name
+      - email
+      - phone
+      - address
+      - is_account_customer
+      - xero_contact_id
+      - last_invoice_date
+      - total_spend
+    ClientCreateResponse:
+      type: object
+      description: Serializer for client creation response
+      properties:
+        success:
+          type: boolean
+        client:
+          $ref: '#/components/schemas/ClientSearchResult'
+        message:
+          type: string
+      required:
+      - success
+      - client
+      - message
   securitySchemes:
     cookieAuth:
       type: apiKey

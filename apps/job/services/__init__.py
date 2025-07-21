@@ -30,7 +30,6 @@ try:
         from .kanban_categorization_service import (
             KanbanCategorizationService,
             KanbanColumn,
-            KanbanSubCategory,
         )
         from .kanban_service import KanbanService
         from .mcp_chat_service import MCPChatService
@@ -63,7 +62,6 @@ __all__ = [
     "KanbanCategorizationService",
     "KanbanColumn",
     "KanbanService",
-    "KanbanSubCategory",
     "MCPChatService",
     "MonthEndService",
     "PaidFlagResult",
