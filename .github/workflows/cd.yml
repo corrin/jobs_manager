@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - develop
 
 jobs:
   deploy:
@@ -22,15 +21,54 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Deploy Application to EC2
+      - name: Deploy to Scheduler Machine
         env:
-            AWS_HOST: ${{ secrets.AWS_HOST }}
-            AWS_USER: ${{ secrets.AWS_USER }}
+            SCHEDULER_HOST: ${{ secrets.SCHEDULER_HOST }}
+            SCHEDULER_USER: ${{ secrets.SCHEDULER_USER }}
+            PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
         run: |
             BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-            echo "Deploying branch: $BRANCH_NAME"
-            ssh -T -o StrictHostKeyChecking=no $AWS_USER@$AWS_HOST << EOF
-              cd ${{ secrets.PROJECT_PATH }}
+            echo "🔄 Deploying to Scheduler Machine: $SCHEDULER_HOST"
+
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $SCHEDULER_USER@$SCHEDULER_HOST << EOF
+              cd $PROJECT_PATH
+              if git branch | grep -q "$BRANCH_NAME"; then
+                git switch $BRANCH_NAME
+              else
+                git switch -c $BRANCH_NAME
+              fi
+              git pull -f origin $BRANCH_NAME
+              source venv/bin/activate
+
+              poetry install
+              npm install
+
+              python manage.py migrate
+              python manage.py collectstatic --noinput
+
+              sudo systemctl restart workflow
+              sudo systemctl restart scheduler
+              sudo systemctl reload nginx
+            EOF
+            then
+              echo "✅ Scheduler machine deployment successful"
+            else
+              echo "❌ Scheduler machine deployment failed"
+              exit 1
+            fi
+
+      - name: Deploy to Frontend/Backend Machine
+        continue-on-error: true
+        env:
+            FRONTEND_HOST: ${{ secrets.FRONTEND_HOST }}
+            FRONTEND_USER: ${{ secrets.FRONTEND_USER }}
+            PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+        run: |
+            BRANCH_NAME=${{ github.head_ref || github.ref_name }}
+            echo "🔄 Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
+
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $FRONTEND_USER@$FRONTEND_HOST << EOF
+              cd $PROJECT_PATH
               if git branch | grep -q "$BRANCH_NAME"; then
                 git switch $BRANCH_NAME
               else
@@ -48,6 +86,15 @@ jobs:
               sudo systemctl restart workflow
               sudo systemctl reload nginx
             EOF
+            then
+              echo "✅ Frontend/Backend machine deployment successful"
+            else
+              echo "⚠️ Frontend/Backend machine deployment failed or machine offline"
+            fi
 
-      - name: Notify Deployment Success
-        run: echo "✅ Deployment to AWS EC2 completed successfully!"
+      - name: Deployment Summary
+        run: |
+          echo "🎯 Deployment Summary:"
+          echo "- Scheduler machine: Required (deployment failed if this failed)"
+          echo "- Frontend/Backend machine: Optional (may be offline)"
+          echo "✅ Deployment process completed!"
