@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -11,6 +12,39 @@ load_dotenv(BASE_DIR / ".env")
 
 # Load DEBUG from environment - should be False in production
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+
+def get_cookie_domain():
+    """Extract the root domain from TUNNEL_URL for cookie sharing between subdomains."""
+    tunnel_url = os.getenv("TUNNEL_URL")
+    if not tunnel_url:
+        return None
+
+    parsed = urlparse(tunnel_url)
+    domain_parts = parsed.hostname.split(".")
+
+    # For domains like msm-corrin.loca.lt, return .loca.lt
+    if len(domain_parts) >= 2:
+        return "." + ".".join(domain_parts[-2:])
+
+    return None
+
+
+def use_secure_cookies():
+    """
+    Determine if cookies should be secure (HTTPS only).
+    Returns True for:
+    - Production (DEBUG=False)
+    - UAT/tunnels (any TUNNEL_URL set)
+    Returns False for:
+    - Local development (DEBUG=True and no TUNNEL_URL)
+    """
+    if not DEBUG:  # Production
+        return True
+    if os.getenv("TUNNEL_URL"):  # Development with tunnel (ngrok/localtunnel)
+        return True
+    return False  # Local development (localhost)
+
 
 # Control scheduler registration - used to skip scheduler setup for commands like dbshell
 RUN_SCHEDULER = not os.getenv("DJANGO_SKIP_SCHEDULER_INIT")
@@ -216,12 +250,12 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIMS": "token_type",
     "AUTH_COOKIE": "access_token",
-    "AUTH_COOKIE_SECURE": not DEBUG,  # Allow non-HTTPS cookies in development
+    "AUTH_COOKIE_SECURE": use_secure_cookies(),  # Secure cookies for production, UAT, and tunnels
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_SAMESITE": "Lax",
-    "AUTH_COOKIE_DOMAIN": None,  # Allow localhost domains in development
+    "AUTH_COOKIE_DOMAIN": get_cookie_domain(),  # Allow shared cookies for tunnel subdomains
     "REFRESH_COOKIE": "refresh_token",
-    "REFRESH_COOKIE_SECURE": not DEBUG,  # Allow non-HTTPS refresh cookies in development
+    "REFRESH_COOKIE_SECURE": use_secure_cookies(),  # Secure cookies for production, UAT, and tunnels
     "REFRESH_COOKIE_HTTP_ONLY": True,
     "REFRESH_COOKIE_SAMESITE": "Lax",
 }
