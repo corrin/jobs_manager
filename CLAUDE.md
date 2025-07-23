@@ -16,7 +16,7 @@ npm install
 # Start development server
 python manage.py runserver 0.0.0.0:8000
 
-# Start with ngrok tunnel (for Xero integration)
+# Start with tunnel (ngrok/localtunnel for Xero integration)
 python manage.py runserver_with_ngrok
 ```
 
