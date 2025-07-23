@@ -13,7 +13,7 @@ set -e  # Exit on any error
 BRANCH_NAME=${1:-main}
 MACHINE_TYPE=${2:-"auto"}
 PROJECT_PATH="/opt/workflow_app/jobs_manager"
-LOG_FILE="/var/log/deploy_machine.log"
+LOG_FILE="$PROJECT_PATH/logs/deploy_machine.log"
 
 # Colors for output
 RED='\033[0;31m'

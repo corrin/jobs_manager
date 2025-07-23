@@ -1,3 +1,0 @@
-# Add this to ubuntu user's crontab with: crontab -e
-# Run deployment script on boot to catch up if machine was offline
-@reboot /opt/workflow_app/jobs_manager/scripts/deploy_machine.sh main auto >> /var/log/startup-deploy.log 2>&1
