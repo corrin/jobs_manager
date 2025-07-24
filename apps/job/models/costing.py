@@ -1,3 +1,4 @@
+import uuid
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
@@ -18,6 +19,7 @@ class CostSet(models.Model):
         ("actual", "Actual"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="cost_sets")
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
@@ -52,6 +54,7 @@ class CostLine(models.Model):
         ("adjust", "Adjustment"),
     ]
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cost_set = models.ForeignKey(
         CostSet, on_delete=models.CASCADE, related_name="cost_lines"
     )
