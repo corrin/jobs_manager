@@ -9,6 +9,18 @@ Example: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_
 
 Note! Important! Do not EVER use fake or fake-initial
 We need to create a flawless process so we are 100% certain that it will apply without issues on production
+YOU MUST RUN EVERY SINGLE STEP IN THE RESTORE.  No step can be skipped, including manual steps where you need to get the user to do things
+
+Make sure you create an audit log of any run of this script in logs, e.g restore_log_20250711.txt
+Write to this log each step, and the outcome from running that step (e.g. test results).  Do this after each step, don't wait until the end.
+
+
+## Common mistakes to avoid
+
+1. Always avoid using < to pass SQL scripts.  It works for small scripts but not big ones.  You MUST stick to  --execute="source scripts/file.sql"
+2. ALways immediate stop on errors.  We are fixing a process here, not hacking past issues
+3. If anything goes wrong, at all... even a little bit.  THen stop.  NEVER work around issues or surprises.  As an example, this is illegal: "Perfect! Now I need to check if we have production backup files or if we need to load demo data instead. Let me check the restore directory:".  This document never gave the option to load demo data.
+
 
 ### PRODUCTION STEPS
 
@@ -82,8 +94,10 @@ Note.  If you're using Claude or similar, you need to specify these explicitly o
 **Run as:** System root (for MySQL admin operations)
 **Command:**
 ```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source scripts/reset_database.sql"
+sudo mysql -u root --execute="source scripts/reset_database.sql"
 ```
+**Note:** Adjust for your MySQL setup - add password (`MYSQL_PWD=password`), host (`-h host`), or port (`-P port`) as needed.
+
 **Check:**
 ```bash
 MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"

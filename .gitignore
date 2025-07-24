@@ -116,6 +116,7 @@ Dockerfile
 logs/*.log
 logs/*.log.*
 logs/.*.lock
+logs/restore_log_*.txt
 
 # For images
 **/*.png
