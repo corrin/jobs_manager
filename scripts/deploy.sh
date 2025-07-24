@@ -33,7 +33,16 @@ create_backup() {
 deploy_application() {
     echo "=== Deploying application ==="
     cd "$PROJECT_DIR"
-    source .venv/bin/activate
+
+    # Determine virtual environment path based on environment
+    if [ -d ".venv" ]; then
+        source .venv/bin/activate
+    elif [ -d "venv" ]; then
+        source venv/bin/activate
+    else
+        echo "ERROR: No virtual environment found (.venv or venv)"
+        exit 1
+    fi
     git pull
     npm install
     poetry install
