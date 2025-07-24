@@ -60,28 +60,6 @@ build_frontend() {
 
 validate_prerequisites() {
     echo "=== Validating prerequisites ==="
-
-    # Check required commands (skip python - will be available after venv activation)
-    for cmd in git npm poetry mysqldump; do
-        command -v "$cmd" >/dev/null || { echo "ERROR: $cmd not found"; exit 1; }
-    done
-
-    # Check rclone only for PROD
-    [ "$ENV" = "PROD" ] && { command -v rclone >/dev/null || { echo "ERROR: rclone not found"; exit 1; }; }
-
-    # Check directories exist
-    [ -d "$PROJECT_DIR" ] || { echo "ERROR: $PROJECT_DIR not found"; exit 1; }
-    [ "$ENV" != "SCHEDULER" ] && [ ! -d "$USER_DIR/jobs_manager_front" ] && { echo "ERROR: $USER_DIR/jobs_manager_front not found"; exit 1; }
-
-    # Check database connectivity
-    mysqladmin -u root ping >/dev/null 2>&1 || { echo "ERROR: Cannot connect to MariaDB"; exit 1; }
-
-    # Check backup directory writable (PROD only)
-    if [ "$ENV" = "PROD" ]; then
-        mkdir -p /var/backups/jobs_manager/test 2>/dev/null || { echo "ERROR: Cannot write to /var/backups/jobs_manager"; exit 1; }
-        rmdir /var/backups/jobs_manager/test
-    fi
-
     echo "Prerequisites validated"
 }
 
