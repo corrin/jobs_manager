@@ -61,8 +61,8 @@ build_frontend() {
 validate_prerequisites() {
     echo "=== Validating prerequisites ==="
 
-    # Check required commands
-    for cmd in git npm poetry python mysqldump; do
+    # Check required commands (skip python - will be available after venv activation)
+    for cmd in git npm poetry mysqldump; do
         command -v "$cmd" >/dev/null || { echo "ERROR: $cmd not found"; exit 1; }
     done
 
