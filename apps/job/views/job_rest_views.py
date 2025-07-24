@@ -25,7 +25,10 @@ from apps.job.serializers.job_serializer import (
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
     JobDetailResponseSerializer,
+    JobEventCreateRequestSerializer,
+    JobEventCreateResponseSerializer,
     JobRestErrorResponseSerializer,
+    WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
 
@@ -217,7 +220,13 @@ class JobEventRestView(BaseJobRestView):
     REST view for Job events.
     """
 
-    serializer_class = JobRestErrorResponseSerializer
+    serializer_class = JobEventCreateResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method == "POST":
+            return JobEventCreateRequestSerializer
+        return JobEventCreateResponseSerializer
 
     def post(self, request, job_id):
         """
@@ -231,17 +240,93 @@ class JobEventRestView(BaseJobRestView):
         try:
             data = self.parse_json_body(request)
 
-            # Guard clause
-            if "description" not in data:
-                raise ValueError("description is required")
+            # Validate input data
+            input_serializer = JobEventCreateRequestSerializer(data=data)
+            if not input_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {input_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
             result = JobRestService.add_job_event(
-                job_id, data["description"], request.user
+                job_id, input_serializer.validated_data["description"], request.user
             )
 
-            return JsonResponse(result, status=201)
+            response_serializer = JobEventCreateResponseSerializer(result)
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobQuoteAcceptRestView(BaseJobRestView):
+    """
+    REST view for accepting job quotes.
+    """
+
+    def post(self, request, job_id):
+        """
+        Accept a quote for the job.
+        Sets the quote_acceptance_date to current datetime.
+        """
+        try:
+            result = JobRestService.accept_quote(job_id, request.user)
+
+            # Create response with proper typing
+            response_data = {
+                "success": result["success"],
+                "job_id": result["job_id"],
+                "quote_acceptance_date": result["quote_acceptance_date"],
+                "message": result["message"],
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class WeeklyMetricsRestView(BaseJobRestView):
+    """
+    REST view for fetching weekly metrics.
+    """
+
+    serializer = WeeklyMetricsSerializer
+
+    def get(self, request):
+        """
+        Fetch weekly metrics data.
+        """
+        try:
+            # Optional week parameter for filtering
+            week_param = request.query_params.get("week")
+            week_date = None
+            if week_param:
+                from django.utils.dateparse import parse_date
+
+                week_date = parse_date(week_param)
+                if not week_date:
+                    error_response = {
+                        "error": "Invalid week date format. Use YYYY-MM-DD"
+                    }
+                    error_serializer = JobRestErrorResponseSerializer(error_response)
+                    return Response(
+                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            metrics_data = JobRestService.get_weekly_metrics(week_date)
+
+            serializer = WeeklyMetricsSerializer(metrics_data, many=True)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error fetching weekly metrics: {e}")
             return self.handle_service_error(e)
 
 

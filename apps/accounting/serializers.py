@@ -17,12 +17,15 @@ class KPIJobBreakdownSerializer(serializers.Serializer[Any]):
     """Serializer for job breakdown data in KPI calendar"""
 
     job_id = serializers.CharField()
-    job_number = serializers.IntegerField()
-    job_display_name = serializers.CharField()
-    labour_profit = serializers.FloatField()
-    material_profit = serializers.FloatField()
-    adjustment_profit = serializers.FloatField()
-    total_profit = serializers.FloatField()
+    job_number = (
+        serializers.CharField()
+    )  # Changed to CharField to match frontend schema
+    job_name = serializers.CharField()  # Changed from job_display_name
+    client_name = serializers.CharField()  # Added client_name field
+    billable_hours = serializers.FloatField()  # Added billable_hours field
+    revenue = serializers.FloatField()  # Added revenue field
+    cost = serializers.FloatField()  # Added cost field
+    profit = serializers.FloatField()  # Changed from total_profit
 
 
 class KPIProfitBreakdownSerializer(serializers.Serializer[Any]):

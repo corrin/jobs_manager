@@ -12,6 +12,9 @@ try:
             CostLineSerializer,
             CostSetSerializer,
             QuoteImportStatusResponseSerializer,
+            QuoteRevisionRequestSerializer,
+            QuoteRevisionResponseSerializer,
+            QuoteRevisionsListSerializer,
             TimesheetCostLineSerializer,
         )
         from .job_file_serializer import (
@@ -47,6 +50,8 @@ try:
             JobCreateResponseSerializer,
             JobDeleteResponseSerializer,
             JobDetailResponseSerializer,
+            JobEventCreateRequestSerializer,
+            JobEventCreateResponseSerializer,
             JobRestErrorResponseSerializer,
             JobSerializer,
             ModernTimesheetDayGetResponseSerializer,
@@ -66,6 +71,7 @@ try:
             MonthEndStockHistorySerializer,
             MonthEndStockJobSerializer,
             QuoteSerializer,
+            WeeklyMetricsSerializer,
             WorkshopPDFResponseSerializer,
         )
         from .kanban_serializer import (
@@ -122,6 +128,8 @@ __all__ = [
     "JobCreateResponseSerializer",
     "JobDeleteResponseSerializer",
     "JobDetailResponseSerializer",
+    "JobEventCreateRequestSerializer",
+    "JobEventCreateResponseSerializer",
     "JobFileErrorResponseSerializer",
     "JobFileSerializer",
     "JobFileThumbnailErrorResponseSerializer",
@@ -170,10 +178,14 @@ __all__ = [
     "PreviewQuoteResponseSerializer",
     "QuoteChangesSerializer",
     "QuoteImportStatusResponseSerializer",
+    "QuoteRevisionRequestSerializer",
+    "QuoteRevisionResponseSerializer",
+    "QuoteRevisionsListSerializer",
     "QuoteSerializer",
     "QuoteSpreadsheetSerializer",
     "QuoteSyncErrorResponseSerializer",
     "TimesheetCostLineSerializer",
     "UploadedFileSerializer",
+    "WeeklyMetricsSerializer",
     "WorkshopPDFResponseSerializer",
 ]

@@ -5,7 +5,7 @@ from .archive_completed_jobs_view import (
     StandardResultsSetPagination,
 )
 from .assign_job_view import AssignJobView
-from .job_costing_views import JobCostSetView
+from .job_costing_views import JobCostSetView, JobQuoteRevisionView
 from .job_costline_views import (
     CostLineCreateView,
     CostLineDeleteView,
@@ -22,6 +22,8 @@ from .job_rest_views import (
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
+    JobQuoteAcceptRestView,
+    WeeklyMetricsRestView,
     get_company_defaults_api,
 )
 from .modern_timesheet_views import (
@@ -84,9 +86,11 @@ __all__ = [
     "JobFileThumbnailView",
     "JobFileUploadView",
     "JobFileView",
+    "JobQuoteAcceptRestView",
     "JobQuoteChatHistoryView",
     "JobQuoteChatInteractionView",
     "JobQuoteChatMessageView",
+    "JobQuoteRevisionView",
     "LinkQuoteSheetAPIView",
     "ModernTimesheetDayView",
     "ModernTimesheetEntryView",
@@ -99,6 +103,7 @@ __all__ = [
     "ReorderJobAPIView",
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
+    "WeeklyMetricsRestView",
     "WorkshopPDFView",
     "get_company_defaults_api",
 ]

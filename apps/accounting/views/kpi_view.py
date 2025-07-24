@@ -36,8 +36,12 @@ class KPICalendarAPIView(APIView):
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
+            print(f"🔍 KPI request received - all params: {dict(request.query_params)}")
+
             year_str = str(request.query_params.get("year", date.today().year))
             month_str = str(request.query_params.get("month", date.today().month))
+
+            print(f"📅 KPI request - year_str: {year_str}, month_str: {month_str}")
 
             if not year_str.isdigit() or not month_str.isdigit():
                 error_serializer = StandardErrorSerializer(
@@ -53,6 +57,8 @@ class KPICalendarAPIView(APIView):
 
             year = int(year_str)
             month = int(month_str)
+
+            print(f"📅 Parsed KPI request - year: {year}, month: {month}")
 
             if not 1 <= month <= 12 or not 2000 <= year <= 2100:
                 error_serializer = StandardErrorSerializer(

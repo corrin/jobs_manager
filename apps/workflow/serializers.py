@@ -46,16 +46,34 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
     def update(
         self, instance: CompanyDefaults, validated_data: Dict[str, Any]
     ) -> CompanyDefaults:
+        print(f"DEBUG: CompanyDefaultsSerializer.update called")
+        print(f"DEBUG: instance = {instance}")
+        print(f"DEBUG: validated_data = {validated_data}")
+
         # Handle ai_providers from request data since it's read_only in the serializer
         request = self.context.get("request") if self.context else None
 
         if request and hasattr(request, "data"):
-            ai_providers_data = request.data.get("ai_providers")
+            print(f"DEBUG: request.data = {request.data}")
+
+            # Extract data from 'body' wrapper if it exists (Zodios sends data wrapped in 'body')
+            request_data = (
+                request.data.get("body", request.data)
+                if isinstance(request.data, dict) and "body" in request.data
+                else request.data
+            )
+            print(f"DEBUG: extracted request_data = {request_data}")
+
+            ai_providers_data = request_data.get("ai_providers")
             if ai_providers_data is not None:
                 self._update_ai_providers(instance, ai_providers_data)
 
         # Update the rest of the fields
-        return super().update(instance, validated_data)
+        print(f"DEBUG: Calling super().update with validated_data = {validated_data}")
+        result = super().update(instance, validated_data)
+        print(f"DEBUG: super().update returned = {result}")
+        print(f"DEBUG: Final instance shop_client_name = {result.shop_client_name}")
+        return result
 
     def _update_ai_providers(
         self, instance: CompanyDefaults, ai_providers_data: List[Dict[str, Any]]

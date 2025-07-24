@@ -25,7 +25,8 @@ paths:
         Get job aging data.
 
         Query Parameters:
-            include_archived (bool): Whether to include archived jobs. Defaults to False.
+            include_archived (bool): Whether to include archived jobs.
+                Defaults to False.
 
         Returns:
             JSON response with job aging data structure
@@ -40,6 +41,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/JobAgingResponse'
           description: ''
+  /accounting/api/reports/staff-performance-summary/:
+    get:
+      operationId: accounting_api_reports_staff_performance_summary_retrieve
+      description: API endpoint for staff performance summary (all staff)
+      tags:
+      - accounting
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /accounting/api/reports/staff-performance/{staff_id}/:
+    get:
+      operationId: accounting_api_reports_staff_performance_retrieve
+      description: API endpoint for individual staff performance detail
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - accounting
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /accounts/api/staff/:
     get:
       operationId: accounts_api_staff_list
@@ -349,6 +379,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserProfile'
           description: ''
+  /api/aws/instance/reboot/:
+    post:
+      operationId: api_aws_instance_reboot_create
+      description: Reboot the UAT instance
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/aws/instance/start/:
+    post:
+      operationId: api_aws_instance_start_create
+      description: Start the UAT instance
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/aws/instance/status/:
+    get:
+      operationId: api_aws_instance_status_retrieve
+      description: Get current status of the UAT instance
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+  /api/aws/instance/stop/:
+    post:
+      operationId: api_aws_instance_stop_create
+      description: Stop the UAT instance
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /api/company-defaults/:
     get:
       operationId: api_company_defaults_retrieve
@@ -668,6 +742,299 @@ paths:
               schema:
                 $ref: '#/components/schemas/AIProvider'
           description: ''
+  /api/workflow/app-errors/:
+    get:
+      operationId: api_workflow_app_errors_list
+      description: |-
+        ViewSet for AppError with filtering capabilities and resolution actions.
+
+        Provides list, retrieve, and resolution management for application errors.
+        Includes comprehensive filtering and search capabilities for error analysis.
+
+        Endpoints:
+        - GET /api/app-errors/
+        - GET /api/app-errors/<id>/
+        - POST /api/app-errors/<id>/mark_resolved/
+        - POST /api/app-errors/<id>/mark_unresolved/
+      parameters:
+      - in: query
+        name: app
+        schema:
+          type: string
+      - in: query
+        name: app__icontains
+        schema:
+          type: string
+      - in: query
+        name: file
+        schema:
+          type: string
+      - in: query
+        name: file__icontains
+        schema:
+          type: string
+      - in: query
+        name: function
+        schema:
+          type: string
+      - in: query
+        name: function__icontains
+        schema:
+          type: string
+      - in: query
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: resolved
+        schema:
+          type: boolean
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: severity
+        schema:
+          type: integer
+      - in: query
+        name: severity__gte
+        schema:
+          type: integer
+      - in: query
+        name: severity__lte
+        schema:
+          type: integer
+      - in: query
+        name: timestamp__gte
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: timestamp__lte
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAppErrorList'
+          description: ''
+  /api/workflow/app-errors/{id}/:
+    get:
+      operationId: api_workflow_app_errors_retrieve
+      description: |-
+        ViewSet for AppError with filtering capabilities and resolution actions.
+
+        Provides list, retrieve, and resolution management for application errors.
+        Includes comprehensive filtering and search capabilities for error analysis.
+
+        Endpoints:
+        - GET /api/app-errors/
+        - GET /api/app-errors/<id>/
+        - POST /api/app-errors/<id>/mark_resolved/
+        - POST /api/app-errors/<id>/mark_unresolved/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Application Error.
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppError'
+          description: ''
+  /api/workflow/app-errors/{id}/mark_resolved/:
+    post:
+      operationId: api_workflow_app_errors_mark_resolved_create
+      description: Mark an error as resolved.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Application Error.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppError'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppError'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppError'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppError'
+          description: ''
+  /api/workflow/app-errors/{id}/mark_unresolved/:
+    post:
+      operationId: api_workflow_app_errors_mark_unresolved_create
+      description: Mark an error as unresolved.
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Application Error.
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppError'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppError'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppError'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppError'
+          description: ''
+  /app-errors/:
+    get:
+      operationId: app_errors_list
+      description: |-
+        API view for listing application errors.
+
+        Returns a paginated list of all AppError records ordered by timestamp
+        (most recent first). Includes filtering capabilities for debugging and
+        monitoring application issues.
+
+        Endpoint: /api/app-errors/
+      parameters:
+      - in: query
+        name: app
+        schema:
+          type: string
+      - in: query
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: resolved
+        schema:
+          type: boolean
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      - in: query
+        name: severity
+        schema:
+          type: integer
+      - in: query
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+      tags:
+      - app-errors
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAppErrorList'
+          description: ''
+  /app-errors/{id}/:
+    get:
+      operationId: app_errors_retrieve
+      description: |-
+        API view for retrieving a single application error.
+
+        Returns detailed information about a specific AppError record
+        including error message, context, location, and resolution status.
+        Used for investigating specific application failures.
+
+        Endpoint: /api/app-errors/<id>/
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - app-errors
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppError'
+          description: ''
   /clients/{client_id}/contacts/:
     get:
       operationId: clients_contacts_retrieve
@@ -775,13 +1142,6 @@ paths:
     get:
       operationId: clients_search_retrieve
       description: Searches clients by name following early return pattern.
-      parameters:
-      - in: query
-        name: q
-        schema:
-          type: string
-        description: Search query for client name
-        required: true
       tags:
       - clients
       security:
@@ -1219,13 +1579,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssignJobRequest'
+              $ref: '#/components/schemas/AssignJobResponse'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AssignJobRequest'
+              $ref: '#/components/schemas/AssignJobResponse'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AssignJobRequest'
+              $ref: '#/components/schemas/AssignJobResponse'
         required: true
       security:
       - cookieAuth: []
@@ -1884,6 +2244,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/CostLineCreateUpdate'
           description: ''
+  /job/rest/jobs/{job_id}/cost_sets/quote/revise/:
+    get:
+      operationId: job_rest_jobs_cost_sets_quote_revise_retrieve
+      description: |-
+        Get the list of archived quote revisions for the specified job.
+
+        Args:
+            job_id: Job primary key (UUID)
+
+        Returns:
+            Response: List of archived quote revisions or empty list
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - job
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
+    post:
+      operationId: job_rest_jobs_cost_sets_quote_revise_create
+      description: |-
+        Create a new quote revision for the specified job.
+
+        Args:
+            job_id: Job primary key (UUID)
+
+        Request Body:
+            reason (optional): String reason for the revision
+
+        Returns:
+            Response: Success/error details and revision information
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - job
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /job/rest/jobs/{job_id}/events/:
     post:
       operationId: job_rest_jobs_events_create
@@ -1907,13 +2319,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/JobRestErrorResponse'
+              $ref: '#/components/schemas/JobEventCreateRequest'
         required: true
       security:
       - cookieAuth: []
@@ -1922,8 +2334,28 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobRestErrorResponse'
+                $ref: '#/components/schemas/JobEventCreateRequest'
           description: ''
+  /job/rest/jobs/{job_id}/quote/accept/:
+    post:
+      operationId: job_rest_jobs_quote_accept_create
+      description: |-
+        Accept a quote for the job.
+        Sets the quote_acceptance_date to current datetime.
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - job
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /job/rest/jobs/{job_id}/quote/status/:
     get:
       operationId: job_rest_jobs_quote_status_retrieve
@@ -2579,6 +3011,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/JobFileUploadViewResponse'
           description: ''
+  /job/rest/jobs/weekly-metrics/:
+    get:
+      operationId: job_rest_jobs_weekly_metrics_retrieve
+      description: Fetch weekly metrics data.
+      tags:
+      - job
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          description: No response body
   /job/rest/month-end/:
     get:
       operationId: job_rest_month_end_retrieve
@@ -3711,6 +4154,60 @@ components:
       - job_name
       - quantity
       - type
+    AppError:
+      type: object
+      description: Basic serializer for AppError instances.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        timestamp:
+          type: string
+          format: date-time
+          readOnly: true
+        message:
+          type: string
+        data:
+          nullable: true
+        app:
+          type: string
+          nullable: true
+          maxLength: 50
+        file:
+          type: string
+          nullable: true
+          maxLength: 200
+        function:
+          type: string
+          nullable: true
+          maxLength: 100
+        severity:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        job_id:
+          type: string
+          format: uuid
+          nullable: true
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        resolved:
+          type: boolean
+        resolved_timestamp:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - id
+      - message
+      - timestamp
     ApplyQuoteResponse:
       type: object
       description: Serializer for apply quote response.
@@ -3742,19 +4239,6 @@ components:
           description: List of job IDs to archive
       required:
       - ids
-    AssignJobRequest:
-      type: object
-      description: Serialiser for job assignment request
-      properties:
-        job_id:
-          type: string
-          description: Job ID
-        staff_id:
-          type: string
-          description: Staff ID
-      required:
-      - job_id
-      - staff_id
     AssignJobResponse:
       type: object
       description: Serialiser for job assignment response
@@ -3763,9 +4247,8 @@ components:
           type: boolean
         message:
           type: string
-        error:
-          type: string
       required:
+      - message
       - success
     BlankEnum:
       enum:
@@ -4628,6 +5111,10 @@ components:
           additionalProperties: {}
           nullable: true
           readOnly: true
+        shop_job:
+          type: boolean
+          description: Indicates if this is a shop job (no client).
+          readOnly: true
       required:
       - charge_out_rate
       - client_id
@@ -4646,6 +5133,7 @@ components:
       - quote
       - quote_sheet
       - quoted
+      - shop_job
       - updated_at
     JobAgingFinancialData:
       type: object
@@ -4671,7 +5159,7 @@ components:
         id:
           type: string
         job_number:
-          type: string
+          type: integer
         name:
           type: string
         client_name:
@@ -4799,6 +5287,15 @@ components:
           $ref: '#/components/schemas/Job'
       required:
       - data
+    JobEventCreateRequest:
+      type: object
+      description: Serializer for job event creation request
+      properties:
+        description:
+          type: string
+          maxLength: 500
+      required:
+      - description
     JobFile:
       type: object
       properties:
@@ -4923,7 +5420,7 @@ components:
           type: string
           readOnly: true
         status:
-          $ref: '#/components/schemas/StatusE5cEnum'
+          $ref: '#/components/schemas/Status7b9Enum'
         is_stock_holding:
           type: boolean
           readOnly: true
@@ -5012,14 +5509,6 @@ components:
           type: string
           nullable: true
           description: New status if moving between columns
-    JobRestErrorResponse:
-      type: object
-      description: Serializer for job REST error responses.
-      properties:
-        error:
-          type: string
-      required:
-      - error
     JobStatusUpdateRequest:
       type: object
       description: Serializer for job status update request data.
@@ -5363,16 +5852,19 @@ components:
       - shop_hours_target
     KanbanColumnJob:
       type: object
-      description: Serializer for job data in kanban column context (from get_jobs_by_kanban_column).
+      description: |-
+        Serializer for job data in kanban column context
+        (from get_jobs_by_kanban_column).
       properties:
         id:
           type: string
         job_number:
-          type: string
+          type: integer
         name:
           type: string
         description:
           type: string
+          nullable: true
         client_name:
           type: string
         contact_person:
@@ -5395,7 +5887,8 @@ components:
           type: string
           nullable: true
         priority:
-          type: integer
+          type: number
+          format: double
         badge_label:
           type: string
         badge_color:
@@ -5418,7 +5911,9 @@ components:
       - status_key
     KanbanJob:
       type: object
-      description: Serializer for job data in kanban context (matches KanbanService.serialize_job_for_api).
+      description: |-
+        Serializer for job data in kanban context
+        (matches KanbanService.serialize_job_for_api).
       properties:
         id:
           type: string
@@ -5427,8 +5922,9 @@ components:
           type: string
         description:
           type: string
+          nullable: true
         job_number:
-          type: string
+          type: integer
         client_name:
           type: string
         contact_person:
@@ -5441,6 +5937,8 @@ components:
           type: string
         status_key:
           type: string
+        rejected_flag:
+          type: boolean
         paid:
           type: boolean
         created_by_id:
@@ -5451,7 +5949,8 @@ components:
           type: string
           nullable: true
         priority:
-          type: integer
+          type: number
+          format: double
       required:
       - client_name
       - contact_person
@@ -5464,6 +5963,7 @@ components:
       - paid
       - people
       - priority
+      - rejected_flag
       - status
       - status_key
     KanbanJobPerson:
@@ -5567,6 +6067,10 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        wageRate:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
       required:
       - avatarUrl
       - email
@@ -5574,6 +6078,7 @@ components:
       - id
       - lastName
       - name
+      - wageRate
     ModernTimesheetDayGetResponse:
       type: object
       description: Serializer for timesheet day GET response
@@ -5598,7 +6103,8 @@ components:
         cost_lines:
           type: array
           items:
-            $ref: '#/components/schemas/TimesheetCostLine'
+            type: object
+            additionalProperties: {}
         staff:
           $ref: '#/components/schemas/ModernTimesheetStaff'
         date:
@@ -5643,7 +6149,7 @@ components:
           type: string
           readOnly: true
         status:
-          $ref: '#/components/schemas/StatusE5cEnum'
+          $ref: '#/components/schemas/Status7b9Enum'
         charge_out_rate:
           type: string
           format: decimal
@@ -5836,6 +6342,29 @@ components:
     NullEnum:
       enum:
       - null
+    PaginatedAppErrorList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppError'
     PaginatedCompleteJobList:
       type: object
       required:
@@ -6150,7 +6679,7 @@ components:
         lines:
           type: array
           items:
-            $ref: '#/components/schemas/PurchaseOrderLineCreate'
+            $ref: '#/components/schemas/PurchaseOrderLineUpdate'
     PatchedStaff:
       type: object
       properties:
@@ -6519,6 +7048,55 @@ components:
         location:
           type: string
           maxLength: 255
+        dimensions:
+          type: string
+          maxLength: 255
+    PurchaseOrderLineUpdate:
+      type: object
+      description: Serializer for updating purchase order lines (includes ID).
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+        job_id:
+          type: string
+          format: uuid
+          nullable: true
+        description:
+          type: string
+          maxLength: 255
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          default: '0.00'
+        unit_cost:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          nullable: true
+        price_tbc:
+          type: boolean
+          default: false
+        item_code:
+          type: string
+          maxLength: 100
+        metal_type:
+          type: string
+          maxLength: 100
+        alloy:
+          type: string
+          maxLength: 100
+        specifics:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 255
+        dimensions:
+          type: string
+          maxLength: 255
     PurchaseOrderList:
       type: object
       description: Serializer for listing purchase orders from service data.
@@ -6581,7 +7159,7 @@ components:
         lines:
           type: array
           items:
-            $ref: '#/components/schemas/PurchaseOrderLineCreate'
+            $ref: '#/components/schemas/PurchaseOrderLineUpdate'
     PurchasingJobsResponse:
       type: object
       description: Serializer for PurchasingJobsAPIView response
@@ -6882,33 +7460,25 @@ components:
       required:
       - staff
       - total_count
-    StatusE5cEnum:
+    Status7b9Enum:
       enum:
-      - quoting
-      - accepted_quote
-      - awaiting_materials
-      - awaiting_staff
-      - awaiting_site_availability
+      - draft
+      - awaiting_approval
+      - approved
       - in_progress
-      - on_hold
-      - special
+      - unusual
       - recently_completed
-      - completed
-      - rejected
+      - special
       - archived
       type: string
       description: |-
-        * `quoting` - Quoting
-        * `accepted_quote` - Accepted Quote
-        * `awaiting_materials` - Awaiting Materials
-        * `awaiting_staff` - Awaiting Staff
-        * `awaiting_site_availability` - Awaiting Site Availability
+        * `draft` - Draft
+        * `awaiting_approval` - Awaiting Approval
+        * `approved` - Approved
         * `in_progress` - In Progress
-        * `on_hold` - On Hold
-        * `special` - Special
+        * `unusual` - Unusual
         * `recently_completed` - Recently Completed
-        * `completed` - Completed
-        * `rejected` - Rejected
+        * `special` - Special
         * `archived` - Archived
     StockConsumeRequest:
       type: object
@@ -6955,6 +7525,9 @@ components:
           type: string
           maxLength: 255
         location:
+          type: string
+          maxLength: 255
+        dimensions:
           type: string
           maxLength: 255
       required:
@@ -7047,7 +7620,8 @@ components:
         - Simplified queries and maintenance
       properties:
         id:
-          type: integer
+          type: string
+          format: uuid
           readOnly: true
         kind:
           allOf:
@@ -7106,6 +7680,11 @@ components:
           format: decimal
           pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
           readOnly: true
+        wage_rate:
+          type: number
+          format: double
+          description: Get staff wage rate from metadata staff_id
+          readOnly: true
       required:
       - charge_out_rate
       - client_name
@@ -7122,6 +7701,7 @@ components:
       - total_rev
       - unit_cost
       - unit_rev
+      - wage_rate
     TokenRefresh:
       type: object
       properties:
@@ -7284,6 +7864,36 @@ components:
           type: string
         data:
           nullable: true
+        app:
+          type: string
+          nullable: true
+          maxLength: 50
+        file:
+          type: string
+          nullable: true
+          maxLength: 200
+        function:
+          type: string
+          nullable: true
+          maxLength: 100
+        severity:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+        job_id:
+          type: string
+          format: uuid
+          nullable: true
+        user_id:
+          type: string
+          format: uuid
+          nullable: true
+        resolved:
+          type: boolean
+        resolved_timestamp:
+          type: string
+          format: date-time
+          nullable: true
         entity:
           type: string
           maxLength: 100
@@ -7293,6 +7903,10 @@ components:
         kind:
           type: string
           maxLength: 50
+        resolved_by:
+          type: string
+          format: uuid
+          nullable: true
       required:
       - entity
       - id

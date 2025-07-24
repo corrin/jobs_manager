@@ -71,19 +71,39 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
     # Client name with null handling
     client_name = serializers.SerializerMethodField()
 
+    # Staff wage rate for frontend cost calculations
+    wage_rate = serializers.SerializerMethodField()
+
     def get_total_cost(self, obj) -> float:
         """Get total cost (quantity * unit_cost)"""
-        return float(obj.total_cost)
+        return float(obj.quantity * obj.unit_cost) if obj.unit_cost else 0.0
 
     def get_total_rev(self, obj) -> float:
         """Get total revenue (quantity * unit_rev)"""
-        return float(obj.total_rev)
+        return float(obj.quantity * obj.unit_rev) if obj.unit_rev else 0.0
 
     def get_client_name(self, obj) -> str:
         """Get client name with safe null handling"""
         if obj.cost_set and obj.cost_set.job and obj.cost_set.job.client:
             return obj.cost_set.job.client.name
         return ""
+
+    def get_wage_rate(self, obj) -> float:
+        """Get staff wage rate from metadata staff_id"""
+        try:
+            from apps.accounts.models import Staff
+
+            # Get staff_id from metadata
+            staff_id = obj.meta.get("staff_id") if obj.meta else None
+            if not staff_id:
+                return 0.0
+
+            # Get staff and return wage_rate
+            staff = Staff.objects.get(id=staff_id)
+            return float(staff.wage_rate) if staff.wage_rate else 0.0
+
+        except (Staff.DoesNotExist, ValueError, AttributeError):
+            return 0.0
 
     class Meta:
         model = CostLine
@@ -103,6 +123,7 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
             "job_name",
             "client_name",
             "charge_out_rate",
+            "wage_rate",
         ]
         read_only_fields = fields
 
@@ -149,6 +170,51 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Unit revenue must be non-negative")
         return value
+
+    def save(self, **kwargs):
+        """Override save to auto-calculate unit_cost and unit_rev for timesheet entries"""
+        # Check if this is a timesheet entry (kind='time' and has created_from_timesheet meta)
+        meta = self.validated_data.get("meta", {})
+        kind = self.validated_data.get("kind")
+
+        if kind == "time" and meta.get("created_from_timesheet"):
+            # Auto-calculate unit_cost from staff wage_rate
+            staff_id = meta.get("staff_id")
+            if staff_id:
+                try:
+                    from apps.accounts.models import Staff
+                    from apps.workflow.models import CompanyDefaults
+
+                    staff = Staff.objects.get(id=staff_id)
+                    company_defaults = CompanyDefaults.objects.first()
+
+                    # Use staff wage_rate or company default
+                    wage_rate = (
+                        staff.wage_rate
+                        if staff.wage_rate
+                        else (company_defaults.wage_rate if company_defaults else 32.0)
+                    )
+
+                    self.validated_data["unit_cost"] = wage_rate
+                    logger.info(
+                        f"Auto-calculated unit_cost: {wage_rate} for staff {staff_id}"
+                    )
+
+                except Staff.DoesNotExist:
+                    logger.warning(f"Staff not found: {staff_id}")
+                except Exception as e:
+                    logger.error(f"Error calculating unit_cost: {e}")
+
+            # Auto-calculate unit_rev from job charge_out_rate
+            if hasattr(self, "instance") and self.instance and self.instance.cost_set:
+                job = self.instance.cost_set.job
+                if job and job.charge_out_rate:
+                    self.validated_data["unit_rev"] = job.charge_out_rate
+                    logger.info(
+                        f"Auto-calculated unit_rev: {job.charge_out_rate} from job {job.job_number}"
+                    )
+
+        return super().save(**kwargs)
 
 
 class CostSetSerializer(serializers.ModelSerializer):
@@ -207,3 +273,39 @@ class QuoteImportStatusResponseSerializer(serializers.Serializer):
     revision = serializers.IntegerField(required=False)
     created = serializers.DateTimeField(required=False)
     summary = serializers.JSONField(required=False)
+
+
+class QuoteRevisionRequestSerializer(serializers.Serializer):
+    """Serializer for quote revision request - validates input data"""
+
+    reason = serializers.CharField(
+        max_length=500,
+        required=False,
+        help_text="Optional reason for creating a new quote revision",
+    )
+
+
+class QuoteRevisionResponseSerializer(serializers.Serializer):
+    """Serializer for quote revision response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    quote_revision = serializers.IntegerField()
+    archived_cost_lines_count = serializers.IntegerField()
+    job_id = serializers.CharField()
+
+    # Optional error details
+    error = serializers.CharField(required=False)
+
+
+class QuoteRevisionsListSerializer(serializers.Serializer):
+    """Serializer for listing quote revisions"""
+
+    job_id = serializers.CharField()
+    job_number = serializers.CharField()
+    current_cost_set_rev = serializers.IntegerField()
+    total_revisions = serializers.IntegerField()
+    revisions = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="List of archived quote revisions with their data",
+    )

@@ -210,6 +210,27 @@ class XeroInvoiceManager(XeroDocumentManager):
                     f"Invoice {invoice.id} created successfully for job {self.job.id}"
                 )
 
+                # Create a job event for invoice creation
+                from apps.job.models import JobEvent
+
+                try:
+                    JobEvent.objects.create(
+                        job=self.job,
+                        event_type="invoice_created",
+                        description=f"Invoice {invoice.number} created in Xero",
+                        details={
+                            "invoice_id": str(invoice.id),
+                            "xero_id": str(xero_invoice_id),
+                            "invoice_number": invoice.number,
+                            "total_incl_tax": str(invoice.total_incl_tax),
+                            "invoice_url": invoice_url,
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create job event for invoice creation: {e}"
+                    )
+
                 # Return success details for the view
                 return JsonResponse(
                     {
@@ -316,6 +337,25 @@ class XeroInvoiceManager(XeroDocumentManager):
                     logger.info(
                         f"Invoice {xero_invoice_id} deleted in Xero and {deleted_count} local record(s) removed."
                     )
+
+                    # Create a job event for invoice deletion
+                    from apps.job.models import JobEvent
+
+                    try:
+                        JobEvent.objects.create(
+                            job=self.job,
+                            event_type="invoice_deleted",
+                            description=f"Invoice deleted from Xero",
+                            details={
+                                "xero_id": str(xero_invoice_id),
+                                "deleted_count": deleted_count,
+                            },
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create job event for invoice deletion: {e}"
+                        )
+
                     return JsonResponse(
                         {
                             "success": True,

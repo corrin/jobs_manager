@@ -101,8 +101,10 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
             all_job_ids = set()
             for line_data in line_allocations.values():
                 for alloc in line_data.get("allocations", []):
-                    if alloc.get("jobId"):
-                        all_job_ids.add(alloc["jobId"])
+                    if alloc.get("job_id"):
+                        all_job_ids.add(
+                            str(alloc["job_id"])
+                        )  # Ensure string conversion
 
             jobs = {str(job.id): job for job in Job.objects.filter(id__in=all_job_ids)}
             if len(jobs) != len(all_job_ids):
@@ -139,19 +141,22 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                 for alloc in allocations:
                     try:
                         alloc_qty = Decimal(str(alloc.get("quantity", 0)))
-                        job_id = alloc.get("jobId")
+                        job_id = str(alloc.get("job_id"))  # Ensure string conversion
                         if alloc_qty < 0:
                             raise DeliveryReceiptValidationError(
                                 f"Negative allocation quantity not allowed for "
                                 f"line {line.id}."
                             )
                         if alloc_qty > 0:  # Only process non-zero allocations
-                            if not job_id:
+                            if not job_id or job_id == "None":
                                 raise DeliveryReceiptValidationError(
                                     f"Missing job ID for non-zero allocation quantity "
                                     f"on line {line.id}."
                                 )
                             if job_id not in jobs:
+                                logger.error(
+                                    f"Job ID validation failed: '{job_id}' not in {list(jobs.keys())}"
+                                )
                                 raise DeliveryReceiptValidationError(
                                     f"Invalid job ID '{job_id}' in allocation "
                                     f"for line {line.id}."
@@ -173,7 +178,7 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
 
                             valid_allocations.append(
                                 {
-                                    "jobId": job_id,
+                                    "job_id": job_id,
                                     "quantity": alloc_qty,
                                     "metadata": alloc.get("metadata", {}),
                                     "retailRate": alloc.get(
@@ -219,7 +224,7 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
 
                 # Create new Stock entries
                 for alloc_data in valid_allocations:
-                    job_id = alloc_data["jobId"]
+                    job_id = alloc_data["job_id"]
                     target_job = Job.objects.get(id=job_id)
                     alloc_qty = alloc_data["quantity"]
 
