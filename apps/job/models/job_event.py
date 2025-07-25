@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils.timezone import now
 
@@ -5,6 +7,7 @@ from apps.accounts.models import Staff
 
 
 class JobEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(
         "Job", on_delete=models.CASCADE, related_name="events", null=True, blank=True
     )

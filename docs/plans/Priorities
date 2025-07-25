@@ -8,5 +8,7 @@ Priorities:
     7. Get a mistral API key
     8. Quote Report: quoting: quote accuracy, quote acceptance rate, etc.,
     9. Xero Reconciliation report: sales in app vs xero, and costs in app vs xero
+    10. DELETE ALL 'legacy' fields, e.g. job statusesTo
     11. Rewrite the Google Sheets importer
     12. Simplify settings - local, base, production_like.  Move more stuff to base
+    13. Invalid data. Job 95739 has a time entry with no staff or date.

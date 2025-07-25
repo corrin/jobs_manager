@@ -47,15 +47,6 @@ class Job(models.Model):
         # Hidden statuses
         "special": "Shop jobs, upcoming shutdowns, etc. (not visible on kanban without advanced search)",
         "archived": "The job has been paid for and picked up",
-        # Legacy tooltips for migration compatibility - remove after migration is complete
-        "quoting": "The quote is currently being prepared (legacy - will become draft)",
-        "accepted_quote": "The quote has been approved (legacy - will become approved)",
-        "awaiting_materials": "Job is ready to start but waiting for materials (legacy - will become unusual)",
-        "awaiting_staff": "Job is waiting for available staff (legacy - will become unusual)",
-        "awaiting_site_availability": "Job is waiting for site access (legacy - will become unusual)",
-        "on_hold": "The job is on hold for other reasons (legacy - will become unusual)",
-        "completed": "Work finished and job is completed (legacy - will become recently_completed)",
-        "rejected": "The quote was declined (legacy - will become recently_completed with rejected_flag=True)",
     }
 
     client = models.ForeignKey(

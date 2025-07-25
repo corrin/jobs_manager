@@ -550,6 +550,20 @@ def sync_clients(xero_contacts):
     for contact in xero_contacts:
         raw_json = process_xero_data(contact)
 
+        # Check for existing client by name if no Xero ID match exists
+        if not Client.objects.filter(xero_contact_id=contact.contact_id).exists():
+            contact_name = raw_json.get("_name", "").strip()
+            if contact_name:
+                existing_by_name = Client.objects.filter(
+                    name=contact_name, xero_contact_id__isnull=True
+                ).first()
+                if existing_by_name:
+                    existing_by_name.xero_contact_id = contact.contact_id
+                    existing_by_name.save()
+                    logger.info(
+                        f"Linked existing client '{contact_name}' (ID: {existing_by_name.id}) to Xero contact {contact.contact_id}"
+                    )
+
         client, created = Client.objects.update_or_create(
             xero_contact_id=contact.contact_id,
             defaults={
