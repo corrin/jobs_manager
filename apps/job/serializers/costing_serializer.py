@@ -1,5 +1,6 @@
 import logging
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.job.models import CostLine, CostSet
@@ -217,22 +218,65 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         return super().save(**kwargs)
 
 
+class CostSetSummarySerializer(serializers.Serializer):
+    """
+    Serializer for CostSet summary data - used in cost analysis
+    """
+
+    cost = serializers.FloatField(help_text="Total cost for this cost set")
+    rev = serializers.FloatField(help_text="Total revenue for this cost set")
+    hours = serializers.FloatField(help_text="Total hours for this cost set")
+    profitMargin = serializers.SerializerMethodField(
+        help_text="Calculated profit margin percentage"
+    )
+
+    def get_profitMargin(self, obj) -> float:
+        """Calculate profit margin as a percentage"""
+        rev = obj.get("rev", 0)
+        cost = obj.get("cost", 0)
+        if rev > 0:
+            return ((rev - cost) / rev) * 100
+        return 0.0
+
+
 class CostSetSerializer(serializers.ModelSerializer):
     """
     Serializer for CostSet model - includes nested cost lines
     """
 
     cost_lines = CostLineSerializer(many=True, read_only=True)
+    summary = serializers.SerializerMethodField()
+    id = serializers.CharField(read_only=True)  # UUID as string
+
+    @extend_schema_field(CostSetSummarySerializer)
+    def get_summary(self, obj):
+        """Get summary data for this cost set"""
+        return obj.summary
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        # Ensures that summary always contains the required fields
-        summary = data.get("summary") or {}
-        data["summary"] = {
-            "cost": summary.get("cost", 0),
-            "rev": summary.get("rev", 0),
-            "hours": summary.get("hours", 0),
-        }
+
+        # Check for missing summary data - log error but don't crash frontend
+        summary = data.get("summary")
+        if not summary:
+            from apps.workflow.services.error_persistence import persist_app_error
+
+            error = ValueError(f"CostSet {instance.id} missing required summary data")
+            persist_app_error(error)
+            logger.error(f"CostSet {instance.id} missing summary data")
+            # Return minimal safe structure
+            data["summary"] = {"cost": 0, "rev": 0, "hours": 0, "profitMargin": 0.0}
+            return data
+
+        # Calculate profit margin
+        rev = summary.get("rev", 0)
+        cost = summary.get("cost", 0)
+        if rev > 0:
+            summary["profitMargin"] = ((rev - cost) / rev) * 100
+        else:
+            summary["profitMargin"] = 0.0
+
+        data["summary"] = summary
         return data
 
     class Meta:

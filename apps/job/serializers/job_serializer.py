@@ -1,11 +1,12 @@
 import logging
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.accounting.models.invoice import Invoice
 from apps.accounting.models.quote import Quote
 from apps.client.models import Client, ClientContact
-from apps.job.models import Job, JobFile
+from apps.job.models import Job, JobEvent, JobFile
 
 from .costing_serializer import CostSetSerializer, TimesheetCostLineSerializer
 from .job_file_serializer import JobFileSerializer
@@ -89,16 +90,19 @@ class JobSerializer(serializers.ModelSerializer):
     # Quote spreadsheet relationship
     quote_sheet = QuoteSpreadsheetSerializer(read_only=True, required=False)
 
+    @extend_schema_field(CostSetSerializer)
     def get_latest_estimate(self, obj) -> dict | None:
         """Get the latest estimate CostSet"""
         cost_set = obj.get_latest("estimate")
         return CostSetSerializer(cost_set).data if cost_set else None
 
+    @extend_schema_field(CostSetSerializer)
     def get_latest_quote(self, obj) -> dict | None:
         """Get the latest quote CostSet"""
         cost_set = obj.get_latest("quote")
         return CostSetSerializer(cost_set).data if cost_set else None
 
+    @extend_schema_field(CostSetSerializer)
     def get_latest_actual(self, obj) -> dict | None:
         """Get the latest actual CostSet"""
         cost_set = obj.get_latest("actual")
@@ -477,6 +481,18 @@ class JobEventCreateRequestSerializer(serializers.Serializer):
     """Serializer for job event creation request"""
 
     description = serializers.CharField(max_length=500)
+
+
+class JobEventSerializer(serializers.ModelSerializer):
+    """Serializer for JobEvent model - read-only for frontend consumption"""
+
+    staff = serializers.CharField(source="staff.name", read_only=True)
+    timestamp = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = JobEvent
+        fields = ["id", "description", "timestamp", "staff", "event_type"]
+        read_only_fields = fields
 
 
 class JobEventCreateResponseSerializer(serializers.Serializer):
