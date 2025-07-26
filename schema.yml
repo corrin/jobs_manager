@@ -4654,7 +4654,6 @@ components:
       properties:
         id:
           type: string
-          format: uuid
           readOnly: true
         kind:
           allOf:
@@ -4664,8 +4663,22 @@ components:
           type: integer
           readOnly: true
         summary:
+          type: object
+          properties:
+            cost:
+              type: number
+              format: float
+            rev:
+              type: number
+              format: float
+            hours:
+              type: number
+              format: float
+          required:
+          - cost
+          - rev
+          - hours
           readOnly: true
-          description: Summary data for this cost set
         created:
           type: string
           format: date-time
@@ -5044,22 +5057,16 @@ components:
           nullable: true
           description: This becomes the first line item on the invoice
         latest_estimate:
-          type: object
-          additionalProperties: {}
-          nullable: true
-          description: Get the latest estimate CostSet
+          allOf:
+          - $ref: '#/components/schemas/CostSet'
           readOnly: true
         latest_quote:
-          type: object
-          additionalProperties: {}
-          nullable: true
-          description: Get the latest quote CostSet
+          allOf:
+          - $ref: '#/components/schemas/CostSet'
           readOnly: true
         latest_actual:
-          type: object
-          additionalProperties: {}
-          nullable: true
-          description: Get the latest actual CostSet
+          allOf:
+          - $ref: '#/components/schemas/CostSet'
           readOnly: true
         job_status:
           type: string
