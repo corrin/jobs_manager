@@ -58,9 +58,9 @@ class StaffListAPIView(APIView):
                         "firstName": member.first_name or "",
                         "lastName": member.last_name or "",
                         "email": member.email or "",
-                        "wageRate": float(member.wage_rate)
-                        if member.wage_rate
-                        else 0.0,
+                        "wageRate": (
+                            float(member.wage_rate) if member.wage_rate else 0.0
+                        ),
                         "avatarUrl": None,  # Add avatar logic if needed
                     }
                 )
