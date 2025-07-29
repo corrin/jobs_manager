@@ -29,6 +29,13 @@ class JWTAuthentication(BaseJWTAuthentication):
                     user = self.get_user(validated_token)
                     result = (user, validated_token)
             if result is None:
+                cookie_name = getattr(settings, "SIMPLE_JWT", {}).get(
+                    "AUTH_COOKIE", "access_token"
+                )
+                has_cookie = cookie_name in request.COOKIES
+                logger.info(
+                    f"JWT authentication failed: no valid token found (cookie '{cookie_name}' present: {has_cookie})"
+                )
                 return None
             user, token = result
             if not user.is_active:
@@ -41,6 +48,7 @@ class JWTAuthentication(BaseJWTAuthentication):
                 )
             return result
         except (InvalidToken, TokenError) as e:
+            logger.info(f"JWT authentication failed: {str(e)}")
             if settings.DEBUG:
                 return None
             raise exceptions.AuthenticationFailed(str(e))

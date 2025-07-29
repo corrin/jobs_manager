@@ -80,7 +80,8 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
         # Set access token cookie
         if "access" in data:
-            logger.debug("Setting access token cookie")
+            cookie_domain = simple_jwt_settings.get("AUTH_COOKIE_DOMAIN")
+            logger.info(f"Setting access token cookie with domain: {cookie_domain}")
             response.set_cookie(
                 simple_jwt_settings.get("AUTH_COOKIE", "access_token"),
                 data["access"],

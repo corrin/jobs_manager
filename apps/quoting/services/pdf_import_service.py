@@ -369,9 +369,11 @@ class PDFImportService:
                             "id": existing.id,
                             "product_name": existing.product_name,
                             "item_no": existing.item_no,
-                            "price": float(existing.variant_price)
-                            if existing.variant_price
-                            else None,
+                            "price": (
+                                float(existing.variant_price)
+                                if existing.variant_price
+                                else None
+                            ),
                             "updated_at": existing.updated_at.isoformat(),
                         },
                     }

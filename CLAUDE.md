@@ -16,7 +16,7 @@ npm install
 # Start development server
 python manage.py runserver 0.0.0.0:8000
 
-# Start with ngrok tunnel (for Xero integration)
+# Start with tunnel (ngrok/localtunnel for Xero integration)
 python manage.py runserver_with_ngrok
 ```
 
@@ -199,6 +199,36 @@ See `.env.example` for required environment variables. Key integrations: Xero AP
 - **IMPORTANT**: Legacy model migrations should be for data migration only
 
 ## Critical Architecture Guidelines
+
+### MAINTAIN ABSOLUTELY STRICT SEPARATION OF CONCERNS BETWEEN FRONTEND AND BACKEND
+
+**NEVER PUT FRONTEND LOGIC IN THE BACKEND. NEVER PUT BACKEND LOGIC IN THE FRONTEND.**
+
+**Backend responsibilities ONLY:**
+- Data persistence and retrieval
+- Business logic and calculations
+- Data validation and integrity
+- API contracts and serialization of actual data
+- Authentication and authorization
+- External system integrations
+
+**Frontend responsibilities ONLY:**
+- User interface and presentation logic
+- User interactions and form handling
+- Client-side validation for UX (never security)
+- Routing and navigation
+- Static constants and configuration
+- Display formatting and styling
+
+**Forbidden cross-contamination:**
+- ❌ Backend serializers for static UI constants (dropdown choices, labels, etc.)
+- ❌ Backend views that return HTML or UI-specific data structures
+- ❌ Frontend making business logic decisions or calculations
+- ❌ Frontend bypassing backend validation
+- ❌ Frontend defining data structures for backend data
+- ❌ Shared code between frontend and backend (except API contracts)
+
+**Rule**: If it doesn't involve the database, business rules, or external systems, it belongs in the frontend. If it involves data integrity, calculations, or persistence, it belongs in the backend.
 
 ### For ALL New Development
 3. **Job Creation**: Create initial CostSet with kind='estimate'
