@@ -15,6 +15,7 @@ from typing import Any, Dict
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -165,6 +166,10 @@ class JobDetailRestView(BaseJobRestView):
             return JobDeleteResponseSerializer
         return JobDetailResponseSerializer
 
+    @extend_schema(
+        responses={200: JobDetailResponseSerializer},
+        description="Fetch complete job data including financial information",
+    )
     def get(self, request, job_id):
         """
         Fetch complete Job data for editing.

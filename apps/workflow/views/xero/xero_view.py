@@ -13,6 +13,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import TemplateView
+from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import api_view
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from xero_python.identity import IdentityApi
 
@@ -335,7 +337,16 @@ def _handle_creator_response(
         return JsonResponse(error_serializer.data, status=500)
 
 
+@extend_schema(
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Creates an invoice in Xero for the specified job",
+)
 @csrf_exempt
+@api_view(["POST"])
 def create_xero_invoice(request, job_id):
     """Creates an Invoice in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -374,7 +385,16 @@ def create_xero_invoice(request, job_id):
         return JsonResponse(error_serializer.data, status=500)
 
 
+@extend_schema(
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Creates a purchase order in Xero for the specified purchase order",
+)
 @csrf_exempt
+@api_view(["POST"])
 def create_xero_purchase_order(request, purchase_order_id):
     """Creates a Purchase Order in Xero for a given purchase order."""
     tenant_id = ensure_xero_authentication()
@@ -418,7 +438,16 @@ def create_xero_purchase_order(request, purchase_order_id):
         )
 
 
+@extend_schema(
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Creates a quote in Xero for the specified job",
+)
 @csrf_exempt
+@api_view(["POST"])
 def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
     """Creates a quote in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -453,7 +482,16 @@ def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
         )
 
 
+@extend_schema(
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Deletes an invoice in Xero for the specified job",
+)
 @csrf_exempt
+@api_view(["DELETE"])
 def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
     """Deletes an invoice in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -490,7 +528,16 @@ def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
         )
 
 
+@extend_schema(
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Deletes a quote in Xero for the specified job",
+)
 @csrf_exempt
+@api_view(["DELETE"])
 def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
     """Deletes a quote in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -525,7 +572,16 @@ def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
         )
 
 
+@extend_schema(
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Deletes a purchase order in Xero for the specified purchase order",
+)
 @csrf_exempt
+@api_view(["DELETE"])
 def delete_xero_purchase_order(
     request: HttpRequest, purchase_order_id: uuid.UUID
 ) -> HttpResponse:
