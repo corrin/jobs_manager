@@ -73,10 +73,11 @@ ls -la restore/
 **Run as:** Development system user
 **Check:**
 ```bash
-grep -E "^(MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
+grep -E "^(MYSQL_ROOT_PASSWORD|MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
 export DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2)
 export MYSQL_DATABASE=$(grep MYSQL_DATABASE .env | cut -d= -f2)
 export MYSQL_DB_USER=$(grep MYSQL_DB_USER .env | cut -d= -f2)
+export MYSQL_ROOT_PASSWORD=$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2)
 ```
 **Must show:**
 ```
@@ -91,12 +92,19 @@ DB_PORT=3306
 Note.  If you're using Claude or similar, you need to specify these explicitly on all subsequent command lines rather than use environment variables
 
 #### Step 4: Reset Database
-**Run as:** System root (for MySQL admin operations)
-**Command:**
+
+STEPS CAN ONLY BE DONE ONE AT A TIME.
+
 ```bash
 sudo mysql -u root --execute="source scripts/reset_database.sql"
 ```
 **Note:** Adjust for your MySQL setup - add password (`MYSQL_PWD=password`), host (`-h host`), or port (`-P port`) as needed.
+
+If that returns any permission errors immediately try this letting the user know you have it handled.
+
+```bash
+sudo mysql -h "$DB_HOST" -P "$DB_PORT" -u root  -p "$MYSQL_DATABASE" --execute="source scripts/reset_database.sql"
+```
 
 **Check:**
 ```bash
