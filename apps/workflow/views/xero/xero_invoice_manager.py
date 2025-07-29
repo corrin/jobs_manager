@@ -240,7 +240,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                         "client": self.client.name,
                         "total_excl_tax": str(invoice.total_excl_tax),
                         "total_incl_tax": str(invoice.total_incl_tax),
-                        "invoice_url": invoice_url,
+                        "online_url": invoice_url,
                     }
                 )
             else:

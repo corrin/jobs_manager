@@ -7,6 +7,24 @@ from rest_framework import serializers
 from apps.job.serializers.costing_serializer import CostSetSerializer
 
 
+class ValidationReportSerializer(serializers.Serializer):
+    """Serializer for validation report data."""
+
+    warnings = serializers.ListField(child=serializers.CharField(), required=False)
+    errors = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class DiffPreviewSerializer(serializers.Serializer):
+    """Serializer for a summary of changes in a quote sync."""
+
+    additions_count = serializers.IntegerField()
+    updates_count = serializers.IntegerField()
+    deletions_count = serializers.IntegerField()
+    total_changes = serializers.IntegerField()
+    next_revision = serializers.IntegerField(required=False)
+    current_revision = serializers.IntegerField(required=False, allow_null=True)
+
+
 class QuoteSyncErrorResponseSerializer(serializers.Serializer):
     """Serializer for quote sync error responses."""
 
@@ -50,12 +68,13 @@ class QuoteChangesSerializer(serializers.Serializer):
 class PreviewQuoteResponseSerializer(serializers.Serializer):
     """Serializer for preview quote response."""
 
-    # This will be flexible to accommodate the actual structure
-    # from quote_sync_service.preview_quote()
     success = serializers.BooleanField(required=False)
     draft_lines = DraftLineSerializer(many=True, required=False)
     changes = QuoteChangesSerializer(required=False)
     message = serializers.CharField(required=False)
+    can_proceed = serializers.BooleanField(default=False)
+    validation_report = ValidationReportSerializer(required=False, allow_null=True)
+    diff_preview = DiffPreviewSerializer(required=False, allow_null=True)
 
     # Allow additional fields that might come from the service
     class Meta:

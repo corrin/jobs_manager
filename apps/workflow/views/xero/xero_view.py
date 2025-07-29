@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import TemplateView
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.decorators import api_view
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from xero_python.identity import IdentityApi
@@ -37,6 +37,7 @@ from apps.workflow.serializers import (
     XeroErrorSerializer,
     XeroOperationResponseSerializer,
     XeroPingResponseSerializer,
+    XeroSseEventSerializer,
     XeroSyncInfoResponseSerializer,
     XeroSyncStartResponseSerializer,
     XeroTriggerSyncResponseSerializer,
@@ -244,6 +245,11 @@ def generate_xero_sync_events():
 
 @csrf_exempt
 @require_GET
+@extend_schema(
+    description="Xero Sync Event Stream",
+    responses={200: XeroSseEventSerializer(many=True)},
+)
+@api_view(["GET"])
 def stream_xero_sync(request: HttpRequest) -> StreamingHttpResponse:
     """
     HTTP endpoint to serve an EventSource stream of Xero sync events.
@@ -395,6 +401,25 @@ def create_xero_invoice(request, job_id):
 )
 @csrf_exempt
 @api_view(["POST"])
+@extend_schema(
+    operation_id="create_xero_purchase_order",
+    tags=["Xero", "Purchase Orders"],
+    responses={
+        200: XeroOperationResponseSerializer,
+        404: XeroOperationResponseSerializer,
+        500: XeroOperationResponseSerializer,
+    },
+    description="Creates a purchase order in Xero for the specified purchase order",
+    parameters=[
+        OpenApiParameter(
+            name="purchase_order_id",
+            location=OpenApiParameter.PATH,
+            type={"type": "string", "format": "uuid"},
+            required=True,
+            description="The UUID of the purchase order to create in Xero",
+        )
+    ],
+)
 def create_xero_purchase_order(request, purchase_order_id):
     """Creates a Purchase Order in Xero for a given purchase order."""
     tenant_id = ensure_xero_authentication()

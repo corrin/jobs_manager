@@ -8,6 +8,7 @@ import traceback
 from datetime import datetime, timedelta
 
 from django.db.models import Q
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,6 +23,9 @@ from apps.timesheet.serializers import (
     ModernTimesheetJobSerializer,
     StaffListResponseSerializer,
     WeeklyTimesheetDataSerializer,
+)
+from apps.timesheet.serializers.modern_timesheet_serializers import (
+    IMSWeeklyTimesheetDataSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
@@ -268,8 +272,21 @@ class WeeklyTimesheetAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
-    serializer_class = WeeklyTimesheetDataSerializer
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "export_to_ims",
+                OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description="Export data in IMS format for integration with IMS systems. Defaults to false.",
+            )
+        ],
+        responses={
+            "application/json": WeeklyTimesheetDataSerializer,
+            "application/json; ?export_to_ims=true": IMSWeeklyTimesheetDataSerializer,
+        },
+    )
     def get(self, request):
         """
         Get comprehensive weekly timesheet data.
@@ -328,7 +345,15 @@ class WeeklyTimesheetAPIView(APIView):
                 }
             )
 
-            return Response(weekly_data, status=status.HTTP_200_OK)
+            Serializer = (
+                IMSWeeklyTimesheetDataSerializer
+                if export_to_ims
+                else WeeklyTimesheetDataSerializer
+            )
+
+            serializer = Serializer(weekly_data)
+
+            return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
             logger.error(f"Error in WeeklyTimesheetAPIView: {e}")

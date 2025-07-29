@@ -14,11 +14,18 @@ try:
             TimesheetErrorResponseSerializer,
         )
         from .modern_timesheet_serializers import (
+            IMSWeeklyStaffDataSerializer,
+            IMSWeeklyStaffDataWeeklyHoursSerializer,
+            IMSWeeklyTimesheetDataSerializer,
+            JobMetricsSerializer,
             JobsListResponseSerializer,
             ModernStaffSerializer,
             ModernTimesheetJobSerializer,
             PaidAbsenceRequestSerializer,
             StaffListResponseSerializer,
+            WeeklyStaffDataSerializer,
+            WeeklyStaffDataWeeklyHoursSerializer,
+            WeeklySummarySerializer,
             WeeklyTimesheetDataSerializer,
         )
 except (ImportError, RuntimeError):
@@ -28,7 +35,11 @@ except (ImportError, RuntimeError):
 __all__ = [
     "DailyTimesheetSummarySerializer",
     "DailyTotalsSerializer",
+    "IMSWeeklyStaffDataSerializer",
+    "IMSWeeklyStaffDataWeeklyHoursSerializer",
+    "IMSWeeklyTimesheetDataSerializer",
     "JobBreakdownSerializer",
+    "JobMetricsSerializer",
     "JobsListResponseSerializer",
     "ModernStaffSerializer",
     "ModernTimesheetJobSerializer",
@@ -37,5 +48,8 @@ __all__ = [
     "StaffListResponseSerializer",
     "SummaryStatsSerializer",
     "TimesheetErrorResponseSerializer",
+    "WeeklyStaffDataSerializer",
+    "WeeklyStaffDataWeeklyHoursSerializer",
+    "WeeklySummarySerializer",
     "WeeklyTimesheetDataSerializer",
 ]

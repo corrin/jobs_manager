@@ -96,12 +96,14 @@ try:
         from .quote_sync_serializer import (
             ApplyQuoteErrorResponseSerializer,
             ApplyQuoteResponseSerializer,
+            DiffPreviewSerializer,
             DraftLineSerializer,
             LinkQuoteSheetRequestSerializer,
             LinkQuoteSheetResponseSerializer,
             PreviewQuoteResponseSerializer,
             QuoteChangesSerializer,
             QuoteSyncErrorResponseSerializer,
+            ValidationReportSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -122,6 +124,7 @@ __all__ = [
     "CostLineSerializer",
     "CostSetSerializer",
     "CostSetSummarySerializer",
+    "DiffPreviewSerializer",
     "DraftLineSerializer",
     "FetchAllJobsResponseSerializer",
     "FetchJobsByColumnResponseSerializer",
@@ -192,6 +195,7 @@ __all__ = [
     "QuoteSyncErrorResponseSerializer",
     "TimesheetCostLineSerializer",
     "UploadedFileSerializer",
+    "ValidationReportSerializer",
     "WeeklyMetricsSerializer",
     "WorkshopPDFResponseSerializer",
 ]
