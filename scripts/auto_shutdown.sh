@@ -10,10 +10,10 @@ log_message() {
 
 log_message "Auto shutdown script started"
 
-# Only run on scheduler hostname
+# Only run on uat hostname
 HOSTNAME=$(hostname)
-if [ "$HOSTNAME" != "scheduler" ]; then
-    log_message "Not shutting down because hostname is '$HOSTNAME', not 'scheduler'"
+if [ "$HOSTNAME" != "uat" ]; then
+    log_message "Not shutting down because hostname is '$HOSTNAME', not 'uat'"
     exit 0
 fi
 
