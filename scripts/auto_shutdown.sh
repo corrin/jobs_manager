@@ -1,9 +1,19 @@
 #!/bin/bash
 
+# Log file for auto shutdown script
+LOG_FILE="/opt/workflow_app/jobs_manager/logs/auto_shutdown.log"
+
+# Function to log with timestamp
+log_message() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
+log_message "Auto shutdown script started"
+
 # Only run on scheduler hostname
 HOSTNAME=$(hostname)
 if [ "$HOSTNAME" != "scheduler" ]; then
-    echo "Not shutting down because hostname is '$HOSTNAME', not 'scheduler'"
+    log_message "Not shutting down because hostname is '$HOSTNAME', not 'scheduler'"
     exit 0
 fi
 
@@ -11,7 +21,7 @@ fi
 UPTIME_SECONDS=$(awk '{print int($1)}' /proc/uptime)
 if [ $UPTIME_SECONDS -lt 1800 ]; then
     UPTIME_MINUTES=$((UPTIME_SECONDS / 60))
-    echo "Not shutting down because machine was recently started ($UPTIME_MINUTES minutes ago, need 30+ minutes)"
+    log_message "Not shutting down because machine was recently started ($UPTIME_MINUTES minutes ago, need 30+ minutes)"
     exit 0
 fi
 
@@ -23,8 +33,10 @@ IDLE_MINUTES=$((IDLE_TIME / 60))
 
 # If idle for more than 30 minutes (1800 seconds), schedule shutdown
 if [ $IDLE_TIME -gt 1800 ]; then
-    echo "Scheduling shutdown - website was last accessed $IDLE_MINUTES minutes ago"
+    log_message "Scheduling shutdown - website was last accessed $IDLE_MINUTES minutes ago"
     /sbin/shutdown -h 5
 else
-    echo "Not shutting down because website was last accessed $IDLE_MINUTES minutes ago (need 30+ minutes idle)"
+    log_message "Not shutting down because website was last accessed $IDLE_MINUTES minutes ago (need 30+ minutes idle)"
 fi
+
+log_message "Auto shutdown script completed"
