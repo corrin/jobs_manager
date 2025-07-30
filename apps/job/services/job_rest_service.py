@@ -19,6 +19,7 @@ from apps.client.models import Client, ClientContact
 from apps.job.models import CostSet, Job, JobEvent
 from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
+from apps.job.serializers.job_serializer import JobEventSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -106,22 +107,11 @@ class JobRestService:
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
 
-        # instead of embedding pricing data here
+        events = JobEvent.objects.filter(job=job).order_by("-timestamp")
+        events_data = JobEventSerializer(
+            events, many=True, context={"request": request}
+        ).data
 
-        # Fetch job events
-        events = JobEvent.objects.filter(job=job).order_by("-timestamp")[:10]
-        events_data = [
-            {
-                "id": str(event.id),
-                "timestamp": event.timestamp.isoformat(),
-                "event_type": event.event_type,
-                "description": event.description,
-                "staff": (
-                    event.staff.get_display_full_name() if event.staff else "System"
-                ),
-            }
-            for event in events
-        ]
         company_defaults = JobRestService._get_company_defaults()
         return {
             "job": job_data,

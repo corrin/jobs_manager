@@ -233,6 +233,28 @@ class JobSerializer(serializers.ModelSerializer):
         return instance
 
 
+class JobEventSerializer(serializers.ModelSerializer):
+    staff = serializers.CharField(source="staff.get_display_full_name", read_only=True)
+
+    class Meta:
+        model = JobEvent
+        fields = [
+            "id",
+            "timestamp",
+            "event_type",
+            "description",
+            "staff",
+        ]
+
+
+class JobDataSerializer(serializers.Serializer):
+    job = JobSerializer()
+    events = JobEventSerializer(many=True, read_only=True)
+    company_defaults = serializers.DictField(
+        help_text="materials_markup, time_markup, charge_out_rate, wage_rate"
+    )
+
+
 class CompleteJobSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True)
     job_status = serializers.CharField(source="status")
@@ -266,7 +288,7 @@ class JobDetailResponseSerializer(serializers.Serializer):
     """Serializer for job detail response."""
 
     success = serializers.BooleanField(default=True)
-    data = JobSerializer()
+    data = JobDataSerializer()
 
 
 class JobRestErrorResponseSerializer(serializers.Serializer):

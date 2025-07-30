@@ -220,7 +220,7 @@ class XeroQuoteManager(XeroDocumentManager):
                         "success": True,
                         "xero_id": str(xero_quote_id),
                         "client": self.client.name,
-                        "quote_url": quote_url,
+                        "online_url": quote_url,
                     }
                 )
             else:

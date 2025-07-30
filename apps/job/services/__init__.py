@@ -35,7 +35,6 @@ try:
         from .mcp_chat_service import MCPChatService
         from .month_end_service import MonthEndService
         from .paid_flag_service import PaidFlagResult, PaidFlagService
-        from .quote_sync_service import apply_quote, link_quote_sheet, preview_quote
         from .workshop_pdf_service import (
             add_job_details_table,
             add_logo,
@@ -72,7 +71,6 @@ __all__ = [
     "add_logo",
     "add_materials_table",
     "add_title",
-    "apply_quote",
     "archive_complete_jobs",
     "convert_html_to_reportlab",
     "create_image_document",
@@ -85,9 +83,7 @@ __all__ = [
     "get_thumbnail_folder",
     "import_quote_from_drafts",
     "import_quote_from_file",
-    "link_quote_sheet",
     "merge_pdfs",
-    "preview_quote",
     "preview_quote_import",
     "preview_quote_import_from_drafts",
     "process_attachments",
