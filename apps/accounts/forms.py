@@ -26,7 +26,7 @@ class StaffCreationForm(_UserCreationFormBase):
             "wage_rate",
             "ims_payroll_id",
             "is_staff",
-            "is_active",
+            "date_left",
         )
 
     # Override to provide more helpful error messages
@@ -69,7 +69,7 @@ class StaffChangeForm(_UserChangeFormBase):
             "wage_rate",
             "ims_payroll_id",
             "is_staff",
-            "is_active",
+            "date_left",
             "is_superuser",
             "groups",
             "user_permissions",

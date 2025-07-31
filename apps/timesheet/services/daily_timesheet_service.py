@@ -75,7 +75,7 @@ class DailyTimesheetService:
         # Get active staff excluding those in EXCLUDED_STAFF_IDS
         # EXCLUDED_STAFF_IDS now includes staff with no working hours
         active_staff = (
-            Staff.objects.filter(is_active=True)
+            Staff.objects.active_on_date(target_date)
             .exclude(id__in=cls.EXCLUDED_STAFF_IDS)
             .order_by("first_name", "last_name")
         )

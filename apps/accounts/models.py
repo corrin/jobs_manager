@@ -26,7 +26,11 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         max_length=100, unique=True, null=True, blank=True
     )
     raw_ims_data = models.JSONField(null=True, blank=True, default=dict)
-    is_active: bool = models.BooleanField(default=True)
+    date_left = models.DateField(
+        null=True,
+        blank=True,
+        help_text="Date staff member left employment (null for current employees)",
+    )
     is_staff: bool = models.BooleanField(default=False)
     date_joined: datetime = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(default=timezone.now)
@@ -130,6 +134,11 @@ class Staff(AbstractBaseUser, PermissionsMixin):
 
     def is_staff_manager(self):
         return self.groups.filter(name="StaffManager").exists() or self.is_superuser
+
+    @property
+    def is_currently_active(self) -> bool:
+        """Check if staff member is currently active"""
+        return self.date_left is None or self.date_left > timezone.now().date()
 
     @property
     def name(self) -> str:

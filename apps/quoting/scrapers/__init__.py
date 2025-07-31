@@ -6,10 +6,12 @@ try:
 
     if apps.ready:
         from .base import BaseScraper
+        from .steel_and_tube import SteelAndTubeScraper
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
 __all__ = [
     "BaseScraper",
+    "SteelAndTubeScraper",
 ]
