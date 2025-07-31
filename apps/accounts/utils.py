@@ -20,7 +20,7 @@ def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
             Staff = get_user_model()
 
         # Exclude staff members with no valid IMS payroll ID or no working hours at all
-        staff_with_ids = Staff.objects.filter(is_active=True).values_list(
+        staff_with_ids = Staff.objects.currently_active().values_list(
             "id",
             "ims_payroll_id",
             "first_name",

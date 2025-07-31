@@ -18,11 +18,11 @@ class StaffAdmin(UserAdmin, SimpleHistoryAdmin):  # type: ignore[type-arg]
         "first_name",
         "last_name",
         "is_staff",
-        "is_active",
+        "is_currently_active",
     )
     list_filter = (
         "is_staff",
-        "is_active",
+        "date_left",
     )
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -60,7 +60,7 @@ class StaffAdmin(UserAdmin, SimpleHistoryAdmin):  # type: ignore[type-arg]
             {
                 "fields": (
                     "is_staff",
-                    "is_active",
+                    "date_left",
                     "is_superuser",
                     "groups",
                     "user_permissions",
@@ -84,7 +84,7 @@ class StaffAdmin(UserAdmin, SimpleHistoryAdmin):  # type: ignore[type-arg]
                     "password1",
                     "password2",
                     "is_staff",
-                    "is_active",
+                    "date_left",
                 ),
             },
         ),

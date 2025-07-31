@@ -13,7 +13,6 @@ from rest_framework.permissions import IsAuthenticated
 from apps.accounts.forms import StaffChangeForm, StaffCreationForm
 from apps.accounts.models import Staff
 from apps.accounts.serializers import KanbanStaffSerializer
-from apps.accounts.utils import get_excluded_staff
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +31,17 @@ class StaffListAPIView(generics.ListAPIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(
-                name="actual_users",
+                name="date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Filter staff active on specific date (YYYY-MM-DD format).",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="include_inactive",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='Filter to return only actual users (excluding system/test accounts). Pass "true" to filter.',
+                description='Include inactive staff. Pass "true" to include.',
                 required=False,
                 enum=["true", "false"],
                 default="false",
@@ -48,19 +54,27 @@ class StaffListAPIView(generics.ListAPIView):
         return JsonResponse(serializer.data, safe=False)
 
     def get_queryset(self):
-        actual_users_param = self.request.GET.get("actual_users", "false").lower()
-        actual_users = actual_users_param == "true"
+        date_param = self.request.GET.get("date")
+        include_inactive = (
+            self.request.GET.get("include_inactive", "false").lower() == "true"
+        )
 
-        if actual_users:
-            excluded_ids_str = get_excluded_staff()
-            # Convert string IDs to UUIDs for proper filtering
-            from uuid import UUID
+        if date_param:
+            try:
+                from datetime import datetime
 
-            excluded_ids = [UUID(id_str) for id_str in excluded_ids_str]
-            queryset = Staff.objects.exclude(id__in=excluded_ids)
-            return queryset
-        else:
+                target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+                return Staff.objects.active_on_date(target_date)
+            except ValueError:
+                from rest_framework.exceptions import ValidationError
+
+                raise ValidationError("Invalid date format. Use YYYY-MM-DD")
+
+        if include_inactive:
             return Staff.objects.all()
+
+        # Default: currently active staff only
+        return Staff.objects.currently_active()
 
     def get_serializer_context(self):
         return {"request": self.request}
