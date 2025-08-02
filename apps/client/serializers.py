@@ -99,7 +99,7 @@ class ClientContactResultSerializer(serializers.Serializer):
     is_primary = serializers.BooleanField()
 
 
-class ClientContactsResponseSerializer(serializers.Serializer):
+class ClientContactResponseSerializer(serializers.Serializer):
     """Serializer for client contacts response"""
 
     results = ClientContactResultSerializer(many=True)

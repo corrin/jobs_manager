@@ -4,6 +4,7 @@ Modern Timesheet Serializers
 DRF serializers for modern timesheet API endpoints using CostSet/CostLine system
 """
 
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from apps.job.models import Job
@@ -77,6 +78,7 @@ class JobMetricsSerializer(serializers.Serializer):
     total_profit = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
+@extend_schema_serializer(component_name="WeeklyTimesheetData")
 class WeeklyTimesheetDataSerializer(serializers.Serializer):
     """Serializer for comprehensive weekly timesheet data"""
 
@@ -134,6 +136,7 @@ class IMSWeeklyStaffDataSerializer(serializers.Serializer):
     total_overtime = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
+@extend_schema_serializer(component_name="IMSWeeklyTimesheetData")
 class IMSWeeklyTimesheetDataSerializer(WeeklyTimesheetDataSerializer):
     """Same structure of WeeklyTimesheetDataSerializer but for IMS context
     (substitutes staff_data for the IMS-specific serializer above)

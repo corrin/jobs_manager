@@ -56,6 +56,19 @@ class QuoteSerializer(serializers.ModelSerializer):
         ]
 
 
+class CompanyDefaultsJobDetailSerializer(serializers.Serializer):
+    """Serializer for company defaults in job detail response"""
+
+    materials_markup = serializers.FloatField(
+        help_text="Default markup percentage for materials"
+    )
+    time_markup = serializers.FloatField(help_text="Default markup percentage for time")
+    charge_out_rate = serializers.FloatField(
+        help_text="Default charge-out rate for staff"
+    )
+    wage_rate = serializers.FloatField(help_text="Default wage rate for staff")
+
+
 class JobSerializer(serializers.ModelSerializer):
     # New CostSet fields (current system)
     latest_estimate = serializers.SerializerMethodField()
@@ -80,7 +93,7 @@ class JobSerializer(serializers.ModelSerializer):
         allow_null=True,
     )
     contact_name = serializers.CharField(
-        source="contact.name", read_only=True, required=False
+        source="contact.name", read_only=True, required=False, allow_null=True
     )
     job_status = serializers.CharField(source="status")
     job_files = JobFileSerializer(
@@ -88,7 +101,9 @@ class JobSerializer(serializers.ModelSerializer):
     )  # To prevent conflicts with PUTTING only one file
 
     # Quote spreadsheet relationship
-    quote_sheet = QuoteSpreadsheetSerializer(read_only=True, required=False)
+    quote_sheet = QuoteSpreadsheetSerializer(
+        read_only=True, required=False, allow_null=True
+    )
 
     @extend_schema_field(CostSetSerializer)
     def get_latest_estimate(self, obj) -> dict | None:
@@ -169,6 +184,29 @@ class JobSerializer(serializers.ModelSerializer):
         if DEBUG_SERIALIZER:
             logger.debug(f"JobSerializer validate called with attrs: {attrs}")
 
+        # Validate contact belongs to client
+        contact = attrs.get("contact")
+        client = attrs.get("client")
+
+        # If we're updating and no client is provided, use the existing client
+        if not client and self.instance:
+            client = self.instance.client
+
+        if contact and client:
+            logger.debug(
+                f"JobSerializer validate - Checking if contact {contact.id} belongs to client {client.id}"
+            )
+            if contact.client != client:
+                logger.error(
+                    f"JobSerializer validate - Contact {contact.id} does not belong to client {client.id}"
+                )
+                raise serializers.ValidationError(
+                    {
+                        "contact_id": f"Contact does not belong to the selected client. Contact belongs to {contact.client.name}, but job is for {client.name}."
+                    }
+                )
+            logger.debug(f"JobSerializer validate - Contact validation passed")
+
         # No longer validating pricing data - use CostSet/CostLine instead
 
         validated = super().validate(attrs)
@@ -180,6 +218,13 @@ class JobSerializer(serializers.ModelSerializer):
         logger.debug(f"JobSerializer update called for instance {instance.id}")
         logger.debug(f"Validated data received: {validated_data}")
 
+        # DEBUG: Log contact-related data specifically
+        contact_obj = validated_data.get("contact")
+        logger.debug(f"JobSerializer update - contact in validated_data: {contact_obj}")
+        logger.debug(
+            f"JobSerializer update - current instance contact: {instance.contact}"
+        )
+
         # Remove read-only/computed fields to avoid AttributeError
         validated_data.pop("quoted", None)
         validated_data.pop("invoiced", None)
@@ -189,7 +234,24 @@ class JobSerializer(serializers.ModelSerializer):
         if files_data:
             for file_data in files_data:
                 try:
-                    job_file = JobFile.objects.get(id=file_data["id"], job=instance)
+                    # Check if file_data has an 'id' key for existing file updates
+                    if "id" not in file_data:
+                        logger.warning(
+                            f"JobFile data missing 'id' field for job {instance.id}. "
+                            f"File data: {file_data}. Skipping file update."
+                        )
+                        continue
+
+                    # Validate that the ID is not None or empty
+                    file_id = file_data["id"]
+                    if not file_id:
+                        logger.warning(
+                            f"JobFile 'id' field is empty for job {instance.id}. "
+                            f"File data: {file_data}. Skipping file update."
+                        )
+                        continue
+
+                    job_file = JobFile.objects.get(id=file_id, job=instance)
                     file_serializer = JobFileSerializer(
                         instance=job_file,
                         data=file_data,
@@ -198,23 +260,41 @@ class JobSerializer(serializers.ModelSerializer):
                     )
                     if file_serializer.is_valid():
                         file_serializer.save()
+                        logger.debug(f"Successfully updated JobFile {file_id}")
                     else:
                         logger.error(
-                            f"JobFile validation failed: {file_serializer.errors}"
+                            f"JobFile validation failed for file {file_id}: {file_serializer.errors}"
                         )
                         raise serializers.ValidationError(
-                            {"job_files": file_serializer.errors}
+                            {
+                                "job_files": f"File {file_id} validation failed: {file_serializer.errors}"
+                            }
                         )
+                except KeyError as e:
+                    logger.error(
+                        f"Missing required key in file_data for job {instance.id}: {str(e)}. "
+                        f"File data: {file_data}"
+                    )
+                    raise serializers.ValidationError(
+                        {"job_files": f"Missing required file data field: {str(e)}"}
+                    )
                 except JobFile.DoesNotExist:
                     logger.warning(
-                        (
-                            f"JobFile with id {file_data.get('id')} "
-                            f"not found for job {instance.id}"
-                        )
+                        f"JobFile with id {file_data.get('id')} "
+                        f"not found for job {instance.id}. File may have been deleted."
                     )
+                    # Don't raise an error for missing files, just log and continue
+                    continue
                 except Exception as e:
-                    logger.error(f"Error updating JobFile: {str(e)}")
-                    raise serializers.ValidationError(f"Error updating file: {str(e)}")
+                    logger.error(
+                        f"Unexpected error updating JobFile {file_data.get('id', 'unknown')} "
+                        f"for job {instance.id}: {str(e)}"
+                    )
+                    raise serializers.ValidationError(
+                        {
+                            "job_files": f"Error updating file {file_data.get('id', 'unknown')}: {str(e)}"
+                        }
+                    )
 
         # Handle basic job fields
         for attr, value in validated_data.items():
@@ -224,12 +304,35 @@ class JobSerializer(serializers.ModelSerializer):
                 "latest_quote_pricing",
                 "latest_reality_pricing",
             ]:
+                logger.debug(f"JobSerializer update - Setting {attr} = {value}")
                 setattr(instance, attr, value)
+
+        # DEBUG: Log contact after setting attributes
+        logger.debug(
+            f"JobSerializer update - instance contact after setattr: {instance.contact}"
+        )
+
+        # Special handling for contact field to ensure it's properly set
+        if "contact" in validated_data:
+            contact_value = validated_data["contact"]
+            logger.debug(
+                f"JobSerializer update - Explicitly setting contact to: {contact_value}"
+            )
+            instance.contact = contact_value
+            logger.debug(
+                f"JobSerializer update - Contact after explicit set: {instance.contact}"
+            )
 
         # No longer processing pricing data - use CostSet/CostLine endpoints instead
 
         staff = self.context["request"].user if "request" in self.context else None
         instance.save(staff=staff)
+
+        # DEBUG: Log contact after save
+        logger.debug(
+            f"JobSerializer update - instance contact after save: {instance.contact}"
+        )
+
         return instance
 
 
@@ -250,9 +353,7 @@ class JobEventSerializer(serializers.ModelSerializer):
 class JobDataSerializer(serializers.Serializer):
     job = JobSerializer()
     events = JobEventSerializer(many=True, read_only=True)
-    company_defaults = serializers.DictField(
-        help_text="materials_markup, time_markup, charge_out_rate, wage_rate"
-    )
+    company_defaults = CompanyDefaultsJobDetailSerializer(read_only=True)
 
 
 class CompleteJobSerializer(serializers.ModelSerializer):
@@ -450,9 +551,7 @@ class ModernTimesheetSummarySerializer(serializers.Serializer):
 class ModernTimesheetEntryGetResponseSerializer(serializers.Serializer):
     """Serializer for timesheet entry GET response"""
 
-    cost_lines = serializers.ListField(
-        child=serializers.DictField()
-    )  # Accept list of dicts
+    cost_lines = TimesheetCostLineSerializer(many=True)
     staff = ModernTimesheetStaffSerializer()
     date = serializers.DateField()
     summary = ModernTimesheetSummarySerializer()

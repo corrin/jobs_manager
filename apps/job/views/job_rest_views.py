@@ -29,6 +29,7 @@ from apps.job.serializers.job_serializer import (
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
     JobRestErrorResponseSerializer,
+    JobSerializer,
     WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
@@ -106,6 +107,20 @@ class JobCreateRestView(BaseJobRestView):
             return JobCreateRequestSerializer
         return JobCreateResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        request=JobCreateRequestSerializer,
+        responses={
+            201: JobCreateResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Create a new Job.",
+        tags=["Jobs"],
+    )
     def post(self, request):
         """
         Create a new Job.
@@ -166,9 +181,15 @@ class JobDetailRestView(BaseJobRestView):
             return JobDeleteResponseSerializer
         return JobDetailResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
     @extend_schema(
         responses={200: JobDetailResponseSerializer},
         description="Fetch complete job data including financial information",
+        tags=["Jobs"],
     )
     def get(self, request, job_id):
         """
@@ -184,6 +205,15 @@ class JobDetailRestView(BaseJobRestView):
         except Exception as e:
             return self.handle_service_error(e)
 
+    @extend_schema(
+        request=JobDetailResponseSerializer,
+        responses={
+            200: JobDetailResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Update Job data (autosave).",
+        tags=["Jobs"],
+    )
     def put(self, request, job_id):
         """
         Update Job data (autosave).
@@ -197,13 +227,21 @@ class JobDetailRestView(BaseJobRestView):
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
 
-            # The service returns already-serialized data
+            # The service returns already-serialized data, so wrap it properly
             response_data = {"success": True, "data": job_data}
             return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)
 
+    @extend_schema(
+        responses={
+            200: JobDeleteResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Delete a Job if permitted.",
+        tags=["Jobs"],
+    )
     def delete(self, request, job_id):
         """
         Delete a Job if permitted.
@@ -303,6 +341,11 @@ class WeeklyMetricsRestView(BaseJobRestView):
 
     serializer = WeeklyMetricsSerializer
 
+    @extend_schema(
+        responses={200: WeeklyMetricsSerializer(many=True)},
+        description="Fetch weekly metrics data.",
+        tags=["Jobs"],
+    )
     def get(self, request):
         """
         Fetch weekly metrics data.

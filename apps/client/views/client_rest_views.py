@@ -15,6 +15,7 @@ from typing import Any, Dict
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -27,7 +28,7 @@ from apps.client.models import Client, ClientContact
 from apps.client.serializers import (
     ClientContactCreateRequestSerializer,
     ClientContactCreateResponseSerializer,
-    ClientContactsResponseSerializer,
+    ClientContactResponseSerializer,
     ClientCreateRequestSerializer,
     ClientCreateResponseSerializer,
     ClientDuplicateErrorResponseSerializer,
@@ -156,7 +157,7 @@ class ClientContactsRestView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
-    serializer_class = ClientContactsResponseSerializer
+    serializer_class = ClientContactResponseSerializer
 
     def get(self, request: Request, client_id: str) -> Response:
         """
@@ -188,7 +189,7 @@ class ClientContactsRestView(APIView):
             results = self._format_contact_results(contacts)
 
             response_data = {"results": results}
-            serializer = ClientContactsResponseSerializer(data=response_data)
+            serializer = ClientContactResponseSerializer(data=response_data)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data)
 
@@ -225,6 +226,17 @@ class ClientContactsRestView(APIView):
         ]
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Create a new client contact",
+        request=ClientContactCreateRequestSerializer,
+        responses={
+            201: ClientContactCreateResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+)
 class ClientContactCreateRestView(APIView):
     """
     REST view for creating client contacts.
@@ -239,6 +251,11 @@ class ClientContactCreateRestView(APIView):
         if self.request.method == "POST":
             return ClientContactCreateRequestSerializer
         return ClientContactCreateResponseSerializer
+
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
 
     def post(self, request: Request) -> Response:
         """
