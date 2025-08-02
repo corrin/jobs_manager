@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 
 from django.db import transaction
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -94,7 +95,13 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
     """
 
     lookup_url_kwarg = "job_id"
+    serializer_class = QuoteRevisionRequestSerializer
 
+    @extend_schema(
+        summary="List archived quote revisions",
+        description="Returns a list of archived quote revisions for the specified job. Each revision contains summary and cost line data as archived at the time of revision.",
+        responses={200: QuoteRevisionsListSerializer},
+    )
     def get(self, request, job_id):
         """
         Get the list of archived quote revisions for the specified job.
@@ -134,6 +141,16 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
         serializer = QuoteRevisionsListSerializer(response_data)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        summary="Create a new quote revision",
+        description=(
+            "Archives the current quote cost lines and summary for the specified job, "
+            "clears all current cost lines from the quote CostSet, and starts a new quote revision. "
+            "Returns details of the archived revision and status."
+        ),
+        request=QuoteRevisionRequestSerializer,
+        responses={200: QuoteRevisionResponseSerializer},
+    )
     def post(self, request, job_id):
         """
         Create a new quote revision for the specified job.

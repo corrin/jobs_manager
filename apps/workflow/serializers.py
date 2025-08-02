@@ -234,6 +234,37 @@ class XeroOperationResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     error = serializers.CharField(required=False)
     messages = serializers.ListField(child=serializers.CharField(), required=False)
+    online_url = serializers.URLField(required=False, allow_blank=True)
+    xero_id = serializers.UUIDField(required=True)
+
+
+class XeroSseEventSerializer(serializers.Serializer):
+    """Serializer for Xero SSE event data."""
+
+    datetime = serializers.DateTimeField()
+    message = serializers.CharField()
+    severity = serializers.ChoiceField(
+        choices=[("info", "info"), ("warning", "warning"), ("error", "error")],
+        required=False,
+        allow_null=True,
+    )
+    entity = serializers.CharField(required=False, allow_null=True)
+    progress = serializers.FloatField(required=False, allow_null=True)
+    overall_progress = serializers.FloatField(required=False, allow_null=True)
+    entity_progress = serializers.FloatField(required=False, allow_null=True)
+    records_updated = serializers.IntegerField(required=False, allow_null=True)
+    status = serializers.CharField(required=False, allow_null=True)
+    sync_status = serializers.ChoiceField(
+        choices=[("success", "success"), ("error", "error"), ("running", "running")],
+        required=False,
+        allow_null=True,
+    )
+    error_messages = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
+    missing_fields = serializers.ListField(
+        child=serializers.CharField(), required=False
+    )
 
 
 class XeroSyncInfoResponseSerializer(serializers.Serializer):

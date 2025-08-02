@@ -3,15 +3,34 @@ import logging
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from apps.accounts.serializers import CustomTokenObtainPairSerializer
+from apps.accounts.serializers import (
+    CustomTokenObtainPairSerializer,
+    EmptySerializer,
+    TokenObtainPairResponseSerializer,
+    TokenRefreshResponseSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    responses={
+        200: [TokenObtainPairResponseSerializer, EmptySerializer],
+        401: {"description": "Authentication failed due to invalid credentials"},
+    },
+    description=(
+        "Obtains JWT tokens for authentication. "
+        "When ENABLE_JWT_AUTH=True, tokens are set as httpOnly cookies, "
+        "and the response body will be an empty object (schema: EmptySerializer). "
+        "Otherwise, the response body will contain the tokens (schema: TokenObtainPairResponseSerializer). "
+        "Also checks if the user needs to reset their password."
+    ),
+)
 class CustomTokenObtainPairView(TokenObtainPairView):
     """
     Customized token obtain view that handles password reset requirement
@@ -112,6 +131,18 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             del data["refresh"]
 
 
+@extend_schema(
+    responses={
+        200: [TokenRefreshResponseSerializer, EmptySerializer],
+        401: {"description": "Authentication failed due to invalid refresh token"},
+    },
+    description=(
+        "Refreshes the JWT access token using a refresh token. "
+        "When ENABLE_JWT_AUTH=True, the new access token is set as an "
+        "httpOnly cookie and removed from the JSON response (schema: EmptySerializer). "
+        "Otherwise, the response contains the new access token (schema: TokenRefreshResponseSerializer)."
+    ),
+)
 class CustomTokenRefreshView(TokenRefreshView):
     """
     Customized token refresh view that uses httpOnly cookies

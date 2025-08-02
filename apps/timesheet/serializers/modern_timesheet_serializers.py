@@ -4,6 +4,7 @@ Modern Timesheet Serializers
 DRF serializers for modern timesheet API endpoints using CostSet/CostLine system
 """
 
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from apps.job.models import Job
@@ -44,19 +45,104 @@ class ModernStaffSerializer(serializers.Serializer):
     wageRate = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
+class WeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
+    """Serializer for weekly hours data of staff"""
+
+    date = serializers.DateField()
+    hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+
+
+class WeeklyStaffDataSerializer(serializers.Serializer):
+    """Serializer for staff data in weekly timesheet context"""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    weekly_hours = WeeklyStaffDataWeeklyHoursSerializer(many=True)
+
+
+class WeeklySummarySerializer(serializers.Serializer):
+    """Serializer for weekly summary data"""
+
+    total_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    staff_count = serializers.IntegerField()
+    billable_percentage = serializers.DecimalField(
+        max_digits=5, decimal_places=2, required=False, allow_null=True
+    )
+
+
+class JobMetricsSerializer(serializers.Serializer):
+    """Serializer for job metrics in weekly timesheet context"""
+
+    total_estimated_profit = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_actual_profit = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_profit = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+@extend_schema_serializer(component_name="WeeklyTimesheetData")
 class WeeklyTimesheetDataSerializer(serializers.Serializer):
     """Serializer for comprehensive weekly timesheet data"""
 
     start_date = serializers.DateField()
     end_date = serializers.DateField()
     week_days = serializers.ListField(child=serializers.DateField())
-    staff_data = serializers.ListField()  # Complex nested data
-    weekly_summary = serializers.DictField()
-    job_metrics = serializers.DictField()
+    week_start = serializers.CharField()
+    staff_data = WeeklyStaffDataSerializer(many=True)
+    weekly_summary = WeeklySummarySerializer()
+    job_metrics = JobMetricsSerializer()
     summary_stats = serializers.DictField()
     export_mode = serializers.CharField()
     is_current_week = serializers.BooleanField()
     navigation = serializers.DictField(required=False)
+
+
+class IMSWeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
+    """Serializer for weekly hours data of staff in IMS context"""
+
+    day = serializers.CharField()
+    hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+    billable_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+    scheduled_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+    status = serializers.CharField()
+    leave_type = serializers.CharField(allow_blank=True, required=False)
+    has_leave = serializers.BooleanField(default=False)
+
+    # IMS-specific fields
+    standard_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    time_and_half_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    double_time_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unpaid_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    overtime = serializers.DecimalField(max_digits=10, decimal_places=2)
+    leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+class IMSWeeklyStaffDataSerializer(serializers.Serializer):
+    """Serializer for staff data in IMS weekly timesheet context"""
+
+    staff_id = serializers.UUIDField()
+    name = serializers.CharField()
+    weekly_hours = IMSWeeklyStaffDataWeeklyHoursSerializer(many=True)
+
+    total_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_billable_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    billable_percentage = serializers.DecimalField(max_digits=5, decimal_places=2)
+    status = serializers.CharField()
+
+    # IMS-specific fields
+    total_standard_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_time_and_half_hours = serializers.DecimalField(
+        max_digits=10, decimal_places=2
+    )
+    total_double_time_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_overtime = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
+@extend_schema_serializer(component_name="IMSWeeklyTimesheetData")
+class IMSWeeklyTimesheetDataSerializer(WeeklyTimesheetDataSerializer):
+    """Same structure of WeeklyTimesheetDataSerializer but for IMS context
+    (substitutes staff_data for the IMS-specific serializer above)
+    """
+
+    staff_data = IMSWeeklyStaffDataSerializer(many=True)
 
 
 class PaidAbsenceRequestSerializer(serializers.Serializer):

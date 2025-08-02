@@ -19,6 +19,10 @@ from apps.client.models import Client, ClientContact
 from apps.job.models import CostSet, Job, JobEvent
 from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
+from apps.job.serializers.job_serializer import (
+    CompanyDefaultsJobDetailSerializer,
+    JobEventSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -106,27 +110,20 @@ class JobRestService:
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
 
-        # instead of embedding pricing data here
+        events = JobEvent.objects.filter(job=job).order_by("-timestamp")
+        events_data = JobEventSerializer(
+            events, many=True, context={"request": request}
+        ).data
 
-        # Fetch job events
-        events = JobEvent.objects.filter(job=job).order_by("-timestamp")[:10]
-        events_data = [
-            {
-                "id": str(event.id),
-                "timestamp": event.timestamp.isoformat(),
-                "event_type": event.event_type,
-                "description": event.description,
-                "staff": (
-                    event.staff.get_display_full_name() if event.staff else "System"
-                ),
-            }
-            for event in events
-        ]
         company_defaults = JobRestService._get_company_defaults()
+        company_data = CompanyDefaultsJobDetailSerializer(
+            company_defaults, context={"request": request}
+        ).data
+
         return {
             "job": job_data,
             "events": events_data,
-            "company_defaults": company_defaults,
+            "company_defaults": company_data,
         }
 
     @staticmethod
@@ -143,6 +140,22 @@ class JobRestService:
             Job: Updated instance
         """
         job = get_object_or_404(Job, id=job_id)
+
+        # DEBUG: Log incoming data
+        logger.debug(f"JobRestService.update_job - Incoming data: {data}")
+        logger.debug(f"JobRestService.update_job - Current job contact: {job.contact}")
+        logger.debug(
+            f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
+        )
+
+        # CRITICAL FIX: Extract job data from nested structure
+        job_data = data
+        if "data" in data and "job" in data["data"]:
+            job_data = data["data"]["job"]
+            logger.debug(
+                f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
+            )
+
         # Store original values for comparison
         original_values = {
             "name": job.name,
@@ -159,19 +172,37 @@ class JobRestService:
             "contact_phone": job.contact.phone if job.contact else None,
         }
 
+        logger.debug(f"JobRestService.update_job - Original values: {original_values}")
+
         # Use serialiser for validation and updating
         serializer = JobSerializer(
             instance=job,
-            data=data,
+            data=job_data,  # Use extracted job_data instead of raw data
             partial=True,
             context={"request": type("MockRequest", (), {"user": user})()},
         )
 
         if not serializer.is_valid():
+            logger.error(
+                f"JobRestService.update_job - Serializer validation failed: {serializer.errors}"
+            )
             raise ValueError(f"Invalid data: {serializer.errors}")
+
+        logger.debug(
+            f"JobRestService.update_job - Validated data: {serializer.validated_data}"
+        )
 
         with transaction.atomic():
             job = serializer.save(staff=user)
+
+            # DEBUG: Log job state after save
+            logger.debug(
+                f"JobRestService.update_job - After save contact: {job.contact}"
+            )
+            logger.debug(
+                f"JobRestService.update_job - After save contact_id: {job.contact.id if job.contact else None}"
+            )
+
             # Generate descriptive update message
             description = JobRestService._generate_update_description(
                 original_values, serializer.validated_data

@@ -4,6 +4,7 @@ All business logic delegated to KanbanService.
 """
 
 import logging
+import traceback
 from uuid import UUID
 
 from rest_framework import status
@@ -65,12 +66,14 @@ class FetchAllJobsAPIView(APIView):
             success_serializer = FetchAllJobsResponseSerializer(data=response_data)
             success_serializer.is_valid(raise_exception=True)
             return Response(success_serializer.data)
-
         except Exception as e:
-            logger.error(f"Error fetching all jobs: {e}")
+            tb = traceback.format_exc()
+            logger.error(f"Error fetching all jobs: {e}\n{tb}")
+
             error_response = {
                 "success": False,
                 "error": str(e),
+                "traceback": tb,
                 "active_jobs": [],
                 "archived_jobs": [],
                 "total_archived": 0,

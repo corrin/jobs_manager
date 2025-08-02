@@ -13,6 +13,7 @@ from django.db import models, transaction
 from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -47,12 +48,29 @@ class ModernTimesheetEntryView(APIView):
 
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
-        if self.request.method == "GET":
-            return ModernTimesheetEntryGetResponseSerializer
-        elif self.request.method == "POST":
-            return ModernTimesheetEntryPostResponseSerializer
-        return ModernTimesheetEntryGetResponseSerializer
+        match self.request.method:
+            case "GET":
+                return ModernTimesheetEntryGetResponseSerializer
+            case "POST":
+                return ModernTimesheetEntryPostResponseSerializer
+            case _:
+                return ModernTimesheetEntryGetResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Get the serializer instance for the current request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        summary="Get timesheet entries for a staff member on a specific date",
+        description="Fetches all timesheet entries (CostLines) for a specific staff member and date.",
+        responses={
+            status.HTTP_200_OK: ModernTimesheetEntryGetResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: ModernTimesheetErrorResponseSerializer,
+            status.HTTP_404_NOT_FOUND: ModernTimesheetErrorResponseSerializer,
+            status.HTTP_500_INTERNAL_SERVER_ERROR: ModernTimesheetErrorResponseSerializer,
+        },
+    )
     def get(self, request):
         """Get timesheet entries (CostLines) for a specific staff member and date"""
         staff_id = request.query_params.get("staff_id")
@@ -253,6 +271,17 @@ class ModernTimesheetEntryView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    @extend_schema(
+        summary="Create a timesheet entry as a CostLine",
+        description="Creates a new timesheet entry for a staff member on a specific date.",
+        request=ModernTimesheetEntryPostRequestSerializer,
+        responses={
+            status.HTTP_201_CREATED: ModernTimesheetEntryPostResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: ModernTimesheetErrorResponseSerializer,
+            status.HTTP_404_NOT_FOUND: ModernTimesheetErrorResponseSerializer,
+            status.HTTP_500_INTERNAL_SERVER_ERROR: ModernTimesheetErrorResponseSerializer,
+        },
+    )
     def post(self, request):
         """Create a timesheet entry as a CostLine in the actual CostSet"""
         try:
