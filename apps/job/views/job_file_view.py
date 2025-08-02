@@ -134,7 +134,14 @@ class JobFileView(JobNumberLookupMixin, APIView):
             logger.exception("Error processing file %s: %s", file_obj.name, str(e))
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
 
-    @extend_schema(operation_id="uploadJobFilesApi")
+    @extend_schema(
+        operation_id="uploadJobFilesApi",
+        responses={
+            201: JobFileUploadSuccessResponseSerializer,
+            207: JobFileUploadPartialResponseSerializer,
+            400: JobFileErrorResponseSerializer,
+        },
+    )
     def post(self, request, job_number=None):
         """
         Handle file uploads. Creates new files or updates existing ones with POST.
@@ -249,7 +256,14 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @extend_schema(operation_id="retrieveJobFilesApi")
+    @extend_schema(
+        operation_id="retrieveJobFilesApi",
+        responses={
+            200: JobFileSerializer(many=True),
+            404: JobFileErrorResponseSerializer,
+            400: JobFileErrorResponseSerializer,
+        },
+    )
     def get(self, request, file_path=None, job_number=None):
         """
         Based on the request, serve a file for download or return the file list of the job.
@@ -266,7 +280,15 @@ class JobFileView(JobNumberLookupMixin, APIView):
             error_serializer = JobFileErrorResponseSerializer(error_response)
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(operation_id="updateJobFilesApi")
+    @extend_schema(
+        operation_id="updateJobFilesApi",
+        responses={
+            200: JobFileUpdateSuccessResponseSerializer,
+            400: JobFileErrorResponseSerializer,
+            404: JobFileErrorResponseSerializer,
+            500: JobFileErrorResponseSerializer,
+        },
+    )
     def put(self, request, job_number=None):
         """
         Update an existing job file:
@@ -424,7 +446,14 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @extend_schema(operation_id="deleteJobFilesApi")
+    @extend_schema(
+        operation_id="deleteJobFilesApi",
+        responses={
+            204: None,
+            404: JobFileErrorResponseSerializer,
+            500: JobFileErrorResponseSerializer,
+        },
+    )
     def delete(self, request, file_path=None):
         """Delete a job file by its ID. (file_path param is actually the job_file.id)"""
         try:
