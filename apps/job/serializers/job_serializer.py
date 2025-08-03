@@ -235,28 +235,29 @@ class JobSerializer(serializers.ModelSerializer):
 
         # Handle job files data first
         files_data = validated_data.pop("files", None)
-        if files_data is not None:
+        if files_data:
             existing = {f.id: f for f in instance.files.all()}
             for file_data in files_data:
                 file_id = file_data[
                     "id"
                 ]  # No need for double validation, DRF ensures this already
-                if file_id in existing:
-                    job_file = existing[file_id]
-                    serializer = JobFileSerializer(
-                        instance=job_file,
-                        data=file_data,
-                        partial=True,
-                        context=self.context,
-                    )
-                    serializer.is_valid(raise_exception=True)
-                    serializer.save()
-                else:
-                    # If the file doesn't exist, create a new one
+
+                if file_id not in existing:
                     JobFile.objects.create(
                         job=instance,
                         **file_data,
                     )
+                    continue
+
+                job_file = existing[file_id]
+                serializer = JobFileSerializer(
+                    instance=job_file,
+                    data=file_data,
+                    partial=True,
+                    context=self.context,
+                )
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
 
         # Handle basic job fields
         for attr, value in validated_data.items():
