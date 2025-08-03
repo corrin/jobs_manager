@@ -266,7 +266,60 @@ class DailyTimesheetAPIView(APIView):
             )
 
 
-class WeeklyTimesheetAPIView(APIView):
+class TimesheetResponseMixin:
+    def build_timesheet_response(self, request, *, export_to_ims: bool = False):
+        """Builds the weekly timesheet response data."""
+        try:
+            start_str = request.query_params.get("start_date")
+            if start_str:
+                try:
+                    start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+                except ValueError:
+                    return Response(
+                        {"error": "Invalid start_date format. Use YYYY-MM-DD"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                # Default to current week
+                today = datetime.today().date()
+                start_date = today - timedelta(days=today.weekday())
+
+            weekly_data = WeeklyTimesheetService.get_weekly_overview(
+                start_date, export_to_ims=export_to_ims
+            )
+
+            prev_week = start_date - timedelta(days=7)
+            next_week = start_date + timedelta(days=7)
+            weekly_data["navigation"] = {
+                "prev_week_date": prev_week.isoformat(),
+                "next_week_date": next_week.isoformat(),
+                "current_week_date": start_date.isoformat(),
+            }
+
+            serializer_cls = (
+                IMSWeeklyTimesheetDataSerializer
+                if export_to_ims
+                else WeeklyTimesheetDataSerializer
+            )
+            return Response(
+                serializer_cls(weekly_data).data,
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            logger.info(f"Error building weekly timesheet response: {e}")
+            return Response(
+                {
+                    "error": "Failed to build weekly timesheet response",
+                    "details": str(e)
+                    if request.user.is_staff
+                    else "Internal server error",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
     """
     Comprehensive weekly timesheet API endpoint using WeeklyTimesheetService.
     Provides complete weekly overview data for the modern Vue.js frontend.
@@ -293,7 +346,7 @@ class WeeklyTimesheetAPIView(APIView):
     )
     def get(self, request):
         """Return Monday-to-Friday weekly timesheet data."""
-        return self._build_response(request, export_to_ims=False)
+        return self.build_timesheet_response(request, export_to_ims=False)
 
     @extend_schema(
         summary="Submit paid absence",
@@ -382,59 +435,8 @@ class WeeklyTimesheetAPIView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    def _build_response(self, request, *, export_to_ims=False):
-        """Builds the weekly timesheet response data."""
-        try:
-            start_str = request.query_params.get("start_date")
-            if start_str:
-                try:
-                    start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
-                except ValueError:
-                    return Response(
-                        {"error": "Invalid start_date format. Use YYYY-MM-DD"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-            else:
-                # Default to current week
-                today = datetime.today().date()
-                start_date = today - timedelta(days=today.weekday())
 
-            weekly_data = WeeklyTimesheetService.get_weekly_overview(
-                start_date, export_to_ims=export_to_ims
-            )
-
-            prev_week = start_date - timedelta(days=7)
-            next_week = start_date + timedelta(days=7)
-            weekly_data["navigation"] = {
-                "prev_week_date": prev_week.isoformat(),
-                "next_week_date": next_week.isoformat(),
-                "current_week_date": start_date.isoformat(),
-            }
-
-            serializer_cls = (
-                IMSWeeklyTimesheetDataSerializer
-                if export_to_ims
-                else WeeklyTimesheetDataSerializer
-            )
-            return Response(
-                serializer_cls(weekly_data).data,
-                status=status.HTTP_200_OK,
-            )
-
-        except Exception as e:
-            logger.info(f"Error building weekly timesheet response: {e}")
-            return Response(
-                {
-                    "error": "Failed to build weekly timesheet response",
-                    "details": str(e)
-                    if request.user.is_staff
-                    else "Internal server error",
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class IMSWeeklyTimesheetAPIView(APIView):
+class IMSWeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
     """
     Weekly overview in IMS format (Tue-Fri plus following Mon).
 
@@ -467,4 +469,4 @@ class IMSWeeklyTimesheetAPIView(APIView):
     def get(self, request):
         """Return IMS-formatted weekly timesheet data."""
         # Re-use helper from the standard view but with export_to_ims=True
-        return WeeklyTimesheetAPIView()._build_response(request, export_to_ims=True)
+        return self.build_timesheet_response(request, export_to_ims=True)
