@@ -7,6 +7,12 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from apps.accounts.models import Staff
 
 
+class EmptySerializer(serializers.Serializer):
+    """An empty serializer for schema generation. Helper serializer for CustomTokenObtainPairView."""
+
+    pass
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Custom serializer that accepts username and maps it to email
@@ -115,7 +121,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     username = serializers.CharField(source="email", read_only=True)
     fullName = serializers.SerializerMethodField()
-    preferred_name = serializers.CharField(read_only=True)
+    preferred_name = serializers.CharField(
+        read_only=True,
+        required=False,
+        allow_null=True,  # <-- To DRF-Spectacular that null is allowed
+        help_text="Preferred name (may be null)",
+    )
 
     def get_fullName(self, obj: Staff) -> str:
         return f"{obj.first_name} {obj.last_name}".strip()
@@ -144,3 +155,48 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "is_active",
             "is_staff",
         ]
+
+
+class TokenObtainPairResponseSerializer(serializers.Serializer):
+    """
+    Serializer for the response of the token obtain pair view.
+    This is used to properly document the API response schema.
+
+    All fields are optional because when ENABLE_JWT_AUTH=True,
+    tokens are set as httpOnly cookies and removed from the JSON response.
+    """
+
+    access = serializers.CharField(
+        read_only=True,
+        required=False,
+        help_text="JWT access token (only present when not using httpOnly cookies)",
+    )
+    refresh = serializers.CharField(
+        read_only=True,
+        required=False,
+        help_text="JWT refresh token (only present when not using httpOnly cookies)",
+    )
+    password_needs_reset = serializers.BooleanField(
+        read_only=True,
+        required=False,
+        help_text="Indicates if the user needs to reset their password",
+    )
+    password_reset_url = serializers.URLField(
+        read_only=True, required=False, help_text="URL to reset password if needed"
+    )
+
+
+class TokenRefreshResponseSerializer(serializers.Serializer):
+    """
+    Serializer for the response of the token refresh view.
+    This is used to properly document the API response schema.
+
+    The access field is optional because when ENABLE_JWT_AUTH=True,
+    the token is set as an httpOnly cookie and removed from the JSON response.
+    """
+
+    access = serializers.CharField(
+        read_only=True,
+        required=False,
+        help_text="New JWT access token (only present when not using httpOnly cookies)",
+    )

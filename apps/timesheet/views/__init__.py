@@ -7,6 +7,7 @@ try:
     if apps.ready:
         from .api import (
             DailyTimesheetAPIView,
+            IMSWeeklyTimesheetAPIView,
             JobsAPIView,
             StaffListAPIView,
             WeeklyTimesheetAPIView,
@@ -17,6 +18,7 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "DailyTimesheetAPIView",
+    "IMSWeeklyTimesheetAPIView",
     "JobsAPIView",
     "StaffListAPIView",
     "WeeklyTimesheetAPIView",
