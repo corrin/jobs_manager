@@ -222,7 +222,7 @@ class SteelAndTubeScraper(BaseScraper):
         try:
             element = self.driver.find_element(By.CSS_SELECTOR, selector)
             return element.text.strip() if element else default
-        except:
+        except Exception:
             return default
 
     def extract_description(self):
@@ -235,9 +235,9 @@ class SteelAndTubeScraper(BaseScraper):
                 try:
                     inner_div = description_div.find_element(By.CLASS_NAME, "fr-view")
                     return inner_div.text.strip()
-                except:
+                except Exception:
                     return description_div.text.strip()
-        except:
+        except Exception:
             pass
         return "N/A"
 
@@ -255,10 +255,10 @@ class SteelAndTubeScraper(BaseScraper):
                     spec_parts.append(
                         f"{name_cell.text.strip()}: {value_cell.text.strip()}"
                     )
-                except:
+                except Exception:
                     continue
             return "; ".join(spec_parts) if spec_parts else "N/A"
-        except:
+        except Exception:
             return "N/A"
 
     def extract_price_unit(self):
@@ -268,11 +268,11 @@ class SteelAndTubeScraper(BaseScraper):
                 By.CSS_SELECTOR, ".after-prices .lbl-price-per"
             )
             return price_unit_element.text.strip()
-        except:
+        except Exception:
             try:
                 after_prices = self.driver.find_element(By.CLASS_NAME, "after-prices")
                 return after_prices.text.strip()
-            except:
+            except Exception:
                 return "N/A"
 
     def extract_all_variants(

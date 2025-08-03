@@ -56,7 +56,6 @@ try:
             JobEventCreateRequestSerializer,
             JobEventCreateResponseSerializer,
             JobEventSerializer,
-            JobEventSerializer,
             JobRestErrorResponseSerializer,
             JobSerializer,
             ModernTimesheetDayGetResponseSerializer,

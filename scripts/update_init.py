@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import sys
-import time
 
 
 def get_import_type(module_path: str, module_name: str) -> str:
@@ -89,7 +88,6 @@ def get_import_type(module_path: str, module_name: str) -> str:
             logging.warning(
                 f"Could not read {module_path} to check for problematic imports"
             )
-            pass
 
         # Safe views go in __init__.py as non-conditional
         return "safe"
@@ -179,7 +177,7 @@ def generate_django_safe_imports(import_data):
 
     for module_name, exports, import_type in import_data:
         # Sort exports within each module
-        sorted_exports = sorted(exports)
+        sorted_exports = sorted(set(exports)) # Remove duplicates and sort
         if import_type == "safe":
             safe_imports.append((module_name, sorted_exports))
         elif import_type == "conditional":
@@ -336,7 +334,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
     if os.path.basename(target_dir) == "jobs_manager" and target_dir.endswith(
         "jobs_manager"
     ):
-        parent_dir = os.path.dirname(target_dir)
+        os.path.dirname(target_dir)
         # Check if this is the main project directory (not an app named jobs_manager)
         if os.path.exists(os.path.join(target_dir, "settings")) and os.path.exists(
             os.path.join(target_dir, "wsgi.py")
@@ -407,6 +405,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         ]
 
         exports = classes + functions
+        exports = list(dict.fromkeys(exports))  # Remove duplicates while preserving order
         logger.debug(
             f"Module {module_name}: classes={classes}, functions={functions}, import_type={import_type}"
         )

@@ -18,7 +18,7 @@ import argparse
 import os
 import sys
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 # Setup Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")

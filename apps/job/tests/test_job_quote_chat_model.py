@@ -301,14 +301,16 @@ class JobQuoteChatModelTests(TestCase):
     def test_cascade_delete_with_job(self):
         """Test that chat messages are deleted when job is deleted"""
         # Create messages for the job
-        message1 = JobQuoteChat.objects.create(
+
+        # WARNING: removed variable declaration since they weren't being used
+        JobQuoteChat.objects.create(
             job=self.job,
             message_id="cascade-test-1",
             role="user",
             content="First message",
         )
 
-        message2 = JobQuoteChat.objects.create(
+        JobQuoteChat.objects.create(
             job=self.job,
             message_id="cascade-test-2",
             role="assistant",
