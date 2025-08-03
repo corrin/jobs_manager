@@ -180,5 +180,11 @@ line-ending = "auto"
 max-line-length = 88
 exclude = ["migrations", "__pycache__", ".tox", "venv", ".venv", "mediafiles", "adhoc", ".git"]
 
+# This is to ensure compatibility with Black and Flake8
+extend-ignore = [
+    "E203",  # Whitespace before ':'
+    "W503",  # Line break before binary operator
+]
+
 [tool.django-stubs]
 django_settings_module = "jobs_manager.settings"

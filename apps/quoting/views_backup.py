@@ -2,7 +2,6 @@ import logging
 import os
 import tempfile
 
-from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
@@ -11,12 +10,11 @@ from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView
 
-from apps.client.models import Client
 from apps.job.models import Job
 from apps.purchasing.models import Stock
 from apps.workflow.authentication import service_api_key_required
 
-from .models import SupplierPriceList, SupplierProduct
+from .models import SupplierProduct
 
 # Temporarily commented out to debug import issues
 # from .services.ai_price_extraction import extract_price_data
@@ -73,7 +71,7 @@ def extract_supplier_price_list_data_view(request):
                 temp_file.write(chunk)
             temp_file_path = temp_file.name
 
-        content_type = price_list_file.content_type
+        price_list_file.content_type
 
         # extracted_data, error = extract_price_data(temp_file_path, content_type)
         # Temporary placeholder for debugging

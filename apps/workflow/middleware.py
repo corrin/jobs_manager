@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Callable, Optional, Tuple
+from typing import Callable
 
 from django.conf import settings
 from django.contrib import messages
@@ -8,7 +8,6 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from apps.accounts.models import Staff
 from apps.workflow.services.error_persistence import persist_app_error
 from jobs_manager.authentication import JWTAuthentication
 

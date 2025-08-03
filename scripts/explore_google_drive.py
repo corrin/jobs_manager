@@ -212,7 +212,7 @@ def main():
         with open("drive_structure.json", "w", encoding="utf-8") as f:
             json.dump(drive_info, f, indent=2, ensure_ascii=False)
 
-        print(f"\n✅ Information saved to 'drive_structure.json'")
+        print("\n✅ Information saved to 'drive_structure.json'")
         print(f"📁 Root folder ID: {root_id}")
 
 

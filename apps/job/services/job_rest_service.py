@@ -6,18 +6,16 @@ All business logic for Job REST operations should be implemented here.
 """
 
 import logging
-from datetime import date, timedelta
+from datetime import date
 from typing import Any, Dict
 from uuid import UUID
 
-from django.db import models, transaction
-from django.db.models.expressions import RawSQL
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
-from apps.job.models import CostSet, Job, JobEvent
-from apps.job.models.costing import CostLine
+from apps.job.models import Job, JobEvent
 from apps.job.serializers import JobSerializer
 from apps.job.serializers.job_serializer import (
     CompanyDefaultsJobDetailSerializer,

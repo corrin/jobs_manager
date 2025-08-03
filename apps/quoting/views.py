@@ -2,26 +2,19 @@ import json
 import logging
 import os
 import tempfile
-from typing import Dict, List, Optional
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 from django.views.generic import TemplateView
 
-from apps.client.models import Client
-from apps.quoting.models import SupplierPriceList, SupplierProduct
+from apps.quoting.models import SupplierPriceList
 from apps.quoting.services.ai_price_extraction import extract_price_data
 from apps.quoting.services.pdf_data_validation import PDFDataValidationService
 from apps.quoting.services.pdf_import_service import PDFImportService
-from apps.quoting.services.product_parser import (
-    create_mapping_record,
-    populate_all_mappings_with_llm,
-)
+from apps.quoting.services.product_parser import populate_all_mappings_with_llm
 from apps.workflow.authentication import service_api_key_required
 
 logger = logging.getLogger(__name__)

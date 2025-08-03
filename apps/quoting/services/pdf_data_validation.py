@@ -1,6 +1,5 @@
 import logging
 import re
-from decimal import Decimal, InvalidOperation
 from typing import Any, Dict, List, Optional, Tuple
 
 from apps.client.models import Client

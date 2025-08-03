@@ -9,12 +9,9 @@ Tests cover:
 - Relationships with other models
 """
 
-import json
-import uuid
 from datetime import datetime, timezone
 
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.test import TestCase
 
 from apps.client.models import Client

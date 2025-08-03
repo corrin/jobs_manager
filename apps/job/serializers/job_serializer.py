@@ -209,7 +209,7 @@ class JobSerializer(serializers.ModelSerializer):
                 logger.debug(
                     f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"
                 )
-                logger.debug(f"JobSerializer validate - Contact validation passed")
+                logger.debug("JobSerializer validate - Contact validation passed")
 
         # No longer validating pricing data - use CostSet/CostLine instead
 

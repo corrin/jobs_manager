@@ -309,12 +309,11 @@ class Job(models.Model):
 
         is_new = self._state.adding
         original_job = None
-        original_status = None
 
         # Track original values for change detection
         if not is_new:
             original_job = Job.objects.get(pk=self.pk)
-            original_status = original_job.status
+            original_job.status
 
         create_creation_event = False
         if (staff and is_new) or (not self.created_by and staff):
@@ -501,7 +500,7 @@ class Job(models.Model):
                 from apps.client.models import Client
 
                 old_client = Client.objects.get(id=old_client_id).name
-            except:
+            except Exception:
                 old_client = "Unknown Client"
 
         if new_client_id:
@@ -522,7 +521,7 @@ class Job(models.Model):
                 from apps.client.models import ClientContact
 
                 old_contact = ClientContact.objects.get(id=old_contact_id).name
-            except:
+            except Exception:
                 old_contact = "Unknown Contact"
 
         if new_contact_id:

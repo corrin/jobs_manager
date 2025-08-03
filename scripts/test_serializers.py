@@ -288,7 +288,7 @@ class SerializerTester:
             if failed > 0:
                 failed_serializers.append(test_name)
                 if self.verbose and "failures" in result:
-                    print(f"  First few failures:")
+                    print("  First few failures:")
                     for failure in result["failures"][:3]:
                         print(f"    {failure['item_str']}: {failure['error']}")
 

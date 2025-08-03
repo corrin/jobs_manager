@@ -29,7 +29,6 @@ from apps.job.serializers.job_serializer import (
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
     JobRestErrorResponseSerializer,
-    JobSerializer,
     WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
