@@ -35,3 +35,7 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black"]
+        exclude: |
+          (?x)^(
+              .*__init__\.py$        # any __init__.py file
+          )

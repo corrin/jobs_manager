@@ -31,6 +31,7 @@ try:
             StaffPerformanceTeamAveragesSerializer,
             StandardErrorSerializer,
         )
+        from .services import JobAgingService, KPIService, StaffPerformanceService
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -42,6 +43,7 @@ __all__ = [
     "JobAgingJobDataSerializer",
     "JobAgingQuerySerializer",
     "JobAgingResponseSerializer",
+    "JobAgingService",
     "JobAgingTimingDataSerializer",
     "KPICalendarDataSerializer",
     "KPICalendarErrorResponseSerializer",
@@ -50,12 +52,14 @@ __all__ = [
     "KPIJobBreakdownSerializer",
     "KPIMonthlyTotalsSerializer",
     "KPIProfitBreakdownSerializer",
+    "KPIService",
     "KPIThresholdsSerializer",
     "QuoteStatus",
     "StaffPerformanceErrorResponseSerializer",
     "StaffPerformanceJobBreakdownSerializer",
     "StaffPerformancePeriodSummarySerializer",
     "StaffPerformanceResponseSerializer",
+    "StaffPerformanceService",
     "StaffPerformanceStaffDataSerializer",
     "StaffPerformanceTeamAveragesSerializer",
     "StandardErrorSerializer",

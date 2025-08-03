@@ -18,9 +18,10 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django_asgi_app = get_asgi_application()
 
 try:
-    from apps.chatbot import routing
     from channels.auth import AuthMiddlewareStack
     from channels.routing import ProtocolTypeRouter, URLRouter
+
+    from apps.chatbot import routing
 
     application = ProtocolTypeRouter(
         {
