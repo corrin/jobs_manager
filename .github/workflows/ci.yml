@@ -23,6 +23,9 @@ jobs:
           pip install poetry pre-commit
           poetry install --with dev
 
+      - name: Setup dummy .env
+        run: cp .env.precommit .env
+
       # Now instead of running tox, we run pre-commit directly, which enforces validation even if --no-verify flag is used for pushs or commits
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
