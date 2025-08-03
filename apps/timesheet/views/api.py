@@ -8,13 +8,7 @@ import traceback
 from datetime import datetime, timedelta
 
 from django.db.models import Q
-from drf_spectacular.utils import (
-    OpenApiParameter,
-    OpenApiResponse,
-    OpenApiTypes,
-    PolymorphicProxySerializer,
-    extend_schema,
-)
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -392,19 +386,18 @@ class WeeklyTimesheetAPIView(APIView):
         """Builds the weekly timesheet response data."""
         try:
             start_str = request.query_params.get("start_date")
-            match start_str:
-                case start_str if start_str:
-                    try:
-                        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
-                    except ValueError:
-                        return Response(
-                            {"error": "Invalid start_date format. Use YYYY-MM-DD"},
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
-                case start_str if not start_str:
-                    # Default to current week
-                    today = datetime.today().date()
-                    start_date = today - timedelta(days=today.weekday())
+            if start_str:
+                try:
+                    start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+                except ValueError:
+                    return Response(
+                        {"error": "Invalid start_date format. Use YYYY-MM-DD"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
+                # Default to current week
+                today = datetime.today().date()
+                start_date = today - timedelta(days=today.weekday())
 
             weekly_data = WeeklyTimesheetService.get_weekly_overview(
                 start_date, export_to_ims=export_to_ims

@@ -5,6 +5,9 @@ from apps.job.models import JobFile
 
 
 class JobFileSerializer(serializers.ModelSerializer):
+    # force DRF to treat `id` as an input field, and require it
+    id = serializers.UUIDField(required=True, allow_null=False)
+
     download_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     size = serializers.SerializerMethodField()

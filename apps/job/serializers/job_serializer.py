@@ -205,7 +205,11 @@ class JobSerializer(serializers.ModelSerializer):
                         "contact_id": f"Contact does not belong to the selected client. Contact belongs to {contact.client.name}, but job is for {client.name}."
                     }
                 )
-            logger.debug(f"JobSerializer validate - Contact validation passed")
+            if DEBUG_SERIALIZER:
+                logger.debug(
+                    f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"
+                )
+                logger.debug(f"JobSerializer validate - Contact validation passed")
 
         # No longer validating pricing data - use CostSet/CostLine instead
 
@@ -231,69 +235,27 @@ class JobSerializer(serializers.ModelSerializer):
 
         # Handle job files data first
         files_data = validated_data.pop("files", None)
-        if files_data:
+        if files_data is not None:
+            existing = {f.id: f for f in instance.files.all()}
             for file_data in files_data:
-                try:
-                    # Check if file_data has an 'id' key for existing file updates
-                    if "id" not in file_data:
-                        logger.warning(
-                            f"JobFile data missing 'id' field for job {instance.id}. "
-                            f"File data: {file_data}. Skipping file update."
-                        )
-                        continue
-
-                    # Validate that the ID is not None or empty
-                    file_id = file_data["id"]
-                    if not file_id:
-                        logger.warning(
-                            f"JobFile 'id' field is empty for job {instance.id}. "
-                            f"File data: {file_data}. Skipping file update."
-                        )
-                        continue
-
-                    job_file = JobFile.objects.get(id=file_id, job=instance)
-                    file_serializer = JobFileSerializer(
+                file_id = file_data[
+                    "id"
+                ]  # No need for double validation, DRF ensures this already
+                if file_id in existing:
+                    job_file = existing[file_id]
+                    serializer = JobFileSerializer(
                         instance=job_file,
                         data=file_data,
                         partial=True,
                         context=self.context,
                     )
-                    if file_serializer.is_valid():
-                        file_serializer.save()
-                        logger.debug(f"Successfully updated JobFile {file_id}")
-                    else:
-                        logger.error(
-                            f"JobFile validation failed for file {file_id}: {file_serializer.errors}"
-                        )
-                        raise serializers.ValidationError(
-                            {
-                                "job_files": f"File {file_id} validation failed: {file_serializer.errors}"
-                            }
-                        )
-                except KeyError as e:
-                    logger.error(
-                        f"Missing required key in file_data for job {instance.id}: {str(e)}. "
-                        f"File data: {file_data}"
-                    )
-                    raise serializers.ValidationError(
-                        {"job_files": f"Missing required file data field: {str(e)}"}
-                    )
-                except JobFile.DoesNotExist:
-                    logger.warning(
-                        f"JobFile with id {file_data.get('id')} "
-                        f"not found for job {instance.id}. File may have been deleted."
-                    )
-                    # Don't raise an error for missing files, just log and continue
-                    continue
-                except Exception as e:
-                    logger.error(
-                        f"Unexpected error updating JobFile {file_data.get('id', 'unknown')} "
-                        f"for job {instance.id}: {str(e)}"
-                    )
-                    raise serializers.ValidationError(
-                        {
-                            "job_files": f"Error updating file {file_data.get('id', 'unknown')}: {str(e)}"
-                        }
+                    serializer.is_valid(raise_exception=True)
+                    serializer.save()
+                else:
+                    # If the file doesn't exist, create a new one
+                    JobFile.objects.create(
+                        job=instance,
+                        **file_data,
                     )
 
         # Handle basic job fields

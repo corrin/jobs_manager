@@ -73,7 +73,6 @@ class FetchAllJobsAPIView(APIView):
             error_response = {
                 "success": False,
                 "error": str(e),
-                "traceback": tb,
                 "active_jobs": [],
                 "archived_jobs": [],
                 "total_archived": 0,
