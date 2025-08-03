@@ -300,17 +300,19 @@ class JobSerializer(serializers.ModelSerializer):
 
 
 class JobEventSerializer(serializers.ModelSerializer):
+    """Serializer for JobEvent model - read-only for frontend consumption
+
+    Merged from duplicate definition - uses get_display_full_name for better
+    staff display (respects preferred names vs just first_name)
+    """
+
     staff = serializers.CharField(source="staff.get_display_full_name", read_only=True)
+    timestamp = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = JobEvent
-        fields = [
-            "id",
-            "timestamp",
-            "event_type",
-            "description",
-            "staff",
-        ]
+        fields = ["id", "description", "timestamp", "staff", "event_type"]
+        read_only_fields = fields
 
 
 class JobDataSerializer(serializers.Serializer):
@@ -565,18 +567,6 @@ class JobEventCreateRequestSerializer(serializers.Serializer):
     """Serializer for job event creation request"""
 
     description = serializers.CharField(max_length=500)
-
-
-class JobEventSerializer(serializers.ModelSerializer):
-    """Serializer for JobEvent model - read-only for frontend consumption"""
-
-    staff = serializers.CharField(source="staff.name", read_only=True)
-    timestamp = serializers.DateTimeField(read_only=True)
-
-    class Meta:
-        model = JobEvent
-        fields = ["id", "description", "timestamp", "staff", "event_type"]
-        read_only_fields = fields
 
 
 class JobEventCreateResponseSerializer(serializers.Serializer):

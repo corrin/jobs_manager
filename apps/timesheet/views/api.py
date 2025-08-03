@@ -46,13 +46,31 @@ class StaffListAPIView(APIView):
     serializer_class = StaffListResponseSerializer
 
     def get(self, request):
-        """Get filtered list of staff members."""
+        """Get filtered list of staff members for a specific date."""
         try:
+            # Add required date parameter
+            date_param = request.query_params.get("date")
+            if not date_param:
+                return Response(
+                    {"error": "date parameter is required (YYYY-MM-DD format)"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Use date-based filtering
             excluded_staff_ids = get_excluded_staff()
-            # get_excluded_staff() now includes staff with no working hours
-            staff = Staff.objects.exclude(
-                Q(is_staff=True) | Q(id__in=excluded_staff_ids)
-            ).order_by("last_name", "first_name")
+            staff = (
+                Staff.objects.active_on_date(target_date)
+                .exclude(Q(is_staff=True) | Q(id__in=excluded_staff_ids))
+                .order_by("last_name", "first_name")
+            )
 
             staff_data = []
             for member in staff:
