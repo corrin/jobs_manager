@@ -729,7 +729,7 @@ class KPIService:
             "month": month,
         }
         print(
-            f"✅ KPIService returning data for year={response_data['year']}, month={response_data['month']}"
+            f"✅ KPIService returning data for year={response_data['year']}, month={response_data['month']}"  # noqa: E501
         )
         logger.debug(f"Calendar data generated with {len(calendar_data)} days")
         return response_data

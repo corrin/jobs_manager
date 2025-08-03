@@ -173,8 +173,8 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def save(self, **kwargs):
-        """Override save to auto-calculate unit_cost and unit_rev for timesheet entries"""
-        # Check if this is a timesheet entry (kind='time' and has created_from_timesheet meta)
+        """Override save to auto-calculate unit_cost and unit_rev for timesheet entries"""  # noqa: E501
+        # Check if this is a timesheet entry
         meta = self.validated_data.get("meta", {})
         kind = self.validated_data.get("kind")
 
@@ -212,7 +212,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 if job and job.charge_out_rate:
                     self.validated_data["unit_rev"] = job.charge_out_rate
                     logger.info(
-                        f"Auto-calculated unit_rev: {job.charge_out_rate} from job {job.job_number}"
+                        f"Auto-calculated unit_rev: {job.charge_out_rate} from job {job.job_number}"  # noqa: E501
                     )
 
         return super().save(**kwargs)

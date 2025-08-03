@@ -35,7 +35,7 @@ class StaffListAPIView(generics.ListAPIView):
                 name="actual_users",
                 type=OpenApiTypes.STR,
                 location=OpenApiParameter.QUERY,
-                description='Filter to return only actual users (excluding system/test accounts). Pass "true" to filter.',
+                description='Filter to return only actual users (excluding system/test accounts). Pass "true" to filter.',  # noqa: E501
                 required=False,
                 enum=["true", "false"],
                 default="false",

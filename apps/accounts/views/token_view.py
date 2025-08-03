@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
         "Obtains JWT tokens for authentication. "
         "When ENABLE_JWT_AUTH=True, tokens are set as httpOnly cookies, "
         "and the response body will be an empty object (schema: EmptySerializer). "
-        "Otherwise, the response body will contain the tokens (schema: TokenObtainPairResponseSerializer). "
+        "Otherwise, the response body will contain the tokens (schema: TokenObtainPairResponseSerializer). "  # noqa: E501
         "Also checks if the user needs to reset their password."
     ),
 )
@@ -140,7 +140,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         "Refreshes the JWT access token using a refresh token. "
         "When ENABLE_JWT_AUTH=True, the new access token is set as an "
         "httpOnly cookie and removed from the JSON response (schema: EmptySerializer). "
-        "Otherwise, the response contains the new access token (schema: TokenRefreshResponseSerializer)."
+        "Otherwise, the response contains the new access token (schema: TokenRefreshResponseSerializer)."  # noqa: E501
     ),
 )
 class CustomTokenRefreshView(TokenRefreshView):

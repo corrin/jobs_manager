@@ -8,7 +8,7 @@ from apps.accounts.models import Staff
 
 
 class EmptySerializer(serializers.Serializer):
-    """An empty serializer for schema generation. Helper serializer for CustomTokenObtainPairView."""
+    """An empty serializer for schema generation. Helper serializer for CustomTokenObtainPairView."""  # noqa: E501
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

@@ -194,20 +194,20 @@ class JobSerializer(serializers.ModelSerializer):
 
         if contact and client:
             logger.debug(
-                f"JobSerializer validate - Checking if contact {contact.id} belongs to client {client.id}"
+                f"JobSerializer validate - Checking if contact {contact.id} belongs to client {client.id}"  # noqa: E501
             )
             if contact.client != client:
                 logger.error(
-                    f"JobSerializer validate - Contact {contact.id} does not belong to client {client.id}"
+                    f"JobSerializer validate - Contact {contact.id} does not belong to client {client.id}"  # noqa: E501
                 )
                 raise serializers.ValidationError(
                     {
-                        "contact_id": f"Contact does not belong to the selected client. Contact belongs to {contact.client.name}, but job is for {client.name}."
+                        "contact_id": f"Contact does not belong to the selected client. Contact belongs to {contact.client.name}, but job is for {client.name}."  # noqa: E501
                     }
                 )
             if DEBUG_SERIALIZER:
                 logger.debug(
-                    f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"
+                    f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"  # noqa: E501
                 )
                 logger.debug("JobSerializer validate - Contact validation passed")
 

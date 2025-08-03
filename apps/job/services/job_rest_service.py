@@ -143,7 +143,7 @@ class JobRestService:
         logger.debug(f"JobRestService.update_job - Incoming data: {data}")
         logger.debug(f"JobRestService.update_job - Current job contact: {job.contact}")
         logger.debug(
-            f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
+            f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"  # noqa: E501
         )
 
         # CRITICAL FIX: Extract job data from nested structure
@@ -151,7 +151,7 @@ class JobRestService:
         if "data" in data and "job" in data["data"]:
             job_data = data["data"]["job"]
             logger.debug(
-                f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
+                f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"  # noqa: E501
             )
 
         # Store original values for comparison
@@ -182,7 +182,7 @@ class JobRestService:
 
         if not serializer.is_valid():
             logger.error(
-                f"JobRestService.update_job - Serializer validation failed: {serializer.errors}"
+                f"JobRestService.update_job - Serializer validation failed: {serializer.errors}"  # noqa: E501
             )
             raise ValueError(f"Invalid data: {serializer.errors}")
 
