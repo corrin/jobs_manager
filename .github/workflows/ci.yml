@@ -25,6 +25,6 @@ jobs:
 
       # Now instead of running tox, we run pre-commit directly, which enforces validation even if --no-verify flag is used for pushs or commits
       - name: Run pre-commit
-        uses: pre-commit/action@v4.3.0
+        uses: pre-commit/action@v3.0.1
         with:
           extra_args: --all-files
