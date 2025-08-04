@@ -55,6 +55,13 @@ class StaffListAPIView(generics.ListAPIView):
         return JsonResponse(serializer.data, safe=False)
 
     def get_queryset(self):
+        staff_log = (
+            f"Fetching staff list with filters:"
+            f" actual_users={self.request.GET.get('actual_users', 'false')}"
+            f" date={self.request.GET.get('date', 'not specified')}"
+            f" include_inactive={self.request.GET.get('include_inactive', 'false')}"
+        )
+        logger.info(staff_log)
         actual_users_param = self.request.GET.get("actual_users", "false").lower()
         actual_users = actual_users_param == "true"
         date_param = self.request.GET.get("date")
@@ -63,6 +70,9 @@ class StaffListAPIView(generics.ListAPIView):
         )
 
         queryset = Staff.objects.all()
+
+        if not include_inactive:
+            queryset = Staff.objects.currently_active()
 
         if actual_users:
             excluded_ids_str = get_excluded_staff()
@@ -81,9 +91,6 @@ class StaffListAPIView(generics.ListAPIView):
                 from rest_framework.exceptions import ValidationError
 
                 raise ValidationError("Invalid date format. Use YYYY-MM-DD")
-
-        if not include_inactive:
-            queryset = queryset.currently_active()
 
         return queryset
 
