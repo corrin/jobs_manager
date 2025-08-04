@@ -1219,9 +1219,9 @@ class StaffPerformanceService:
 
             # Get all active staff
             excluded_staff_ids = get_excluded_staff()
-            all_staff = Staff.objects.filter(is_active=True).exclude(
-                id__in=excluded_staff_ids
-            )
+            all_staff = Staff.objects.active_between_dates(
+                start_date, end_date
+            ).exclude(id__in=excluded_staff_ids)
 
             # Filter to specific staff if requested
             if staff_id:
