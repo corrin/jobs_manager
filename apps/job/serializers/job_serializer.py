@@ -82,9 +82,14 @@ class JobSerializer(serializers.ModelSerializer):
     client_id = serializers.PrimaryKeyRelatedField(
         queryset=Client.objects.all(),
         source="client",
-        write_only=False,  # Allow read access
+        write_only=False,  # Allow read access,
+        allow_null=True,
+        required=False,
     )
-    client_name = serializers.CharField(source="client.name", read_only=True)
+    # Some clients might not exist in old production data, so for compatibility we allow null values for it (unrequired, allow_null=True)
+    client_name = serializers.CharField(
+        source="client.name", read_only=True, allow_null=True, required=False
+    )
     contact_id = serializers.PrimaryKeyRelatedField(
         queryset=ClientContact.objects.all(),
         source="contact",
@@ -194,20 +199,20 @@ class JobSerializer(serializers.ModelSerializer):
 
         if contact and client:
             logger.debug(
-                f"JobSerializer validate - Checking if contact {contact.id} belongs to client {client.id}"  # noqa: E501
+                f"JobSerializer validate - Checking if contact {contact.id} belongs to client {client.id}"
             )
             if contact.client != client:
                 logger.error(
-                    f"JobSerializer validate - Contact {contact.id} does not belong to client {client.id}"  # noqa: E501
+                    f"JobSerializer validate - Contact {contact.id} does not belong to client {client.id}"
                 )
                 raise serializers.ValidationError(
                     {
-                        "contact_id": f"Contact does not belong to the selected client. Contact belongs to {contact.client.name}, but job is for {client.name}."  # noqa: E501
+                        "contact_id": f"Contact does not belong to the selected client. Contact belongs to {contact.client.name}, but job is for {client.name}."
                     }
                 )
             if DEBUG_SERIALIZER:
                 logger.debug(
-                    f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"  # noqa: E501
+                    f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"
                 )
                 logger.debug("JobSerializer validate - Contact validation passed")
 

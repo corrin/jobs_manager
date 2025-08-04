@@ -42,10 +42,10 @@ class Job(models.Model):
         "awaiting_approval": "Quote submitted and waiting for customer approval",
         "approved": "Quote approved and ready to start work",
         "in_progress": "Work has started on this job",
-        "unusual": "Jobs requiring special attention - on hold, waiting for materials/staff/site",  # noqa: E501
-        "recently_completed": "Work has just finished on this job (including rejected jobs)",  # noqa: E501
+        "unusual": "Jobs requiring special attention - on hold, waiting for materials/staff/site",
+        "recently_completed": "Work has just finished on this job (including rejected jobs)",
         # Hidden statuses
-        "special": "Shop jobs, upcoming shutdowns, etc. (not visible on kanban without advanced search)",  # noqa: E501
+        "special": "Shop jobs, upcoming shutdowns, etc. (not visible on kanban without advanced search)",
         "archived": "The job has been paid for and picked up",
     }
 
@@ -85,7 +85,7 @@ class Job(models.Model):
     # Flag to track jobs that were rejected
     rejected_flag = models.BooleanField(
         default=False,
-        help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",  # noqa: E501
+        help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
     )  # type: ignore
 
     PRICING_METHODOLOGY_CHOICES = [
@@ -377,9 +377,9 @@ class Job(models.Model):
                     JobEvent.objects.create(
                         job=self,
                         event_type="job_created",
-                        description=f"New job '{self.name}' created for client {client_name}{contact_info}."  # noqa: E501
+                        description=f"New job '{self.name}' created for client {client_name}{contact_info}."
                         f" Initial status: {self.get_status_display()}."
-                        f" Pricing methodology: {self.get_pricing_methodology_display()}.",  # noqa: E501
+                        f" Pricing methodology: {self.get_pricing_methodology_display()}.",
                         staff=staff,
                     )
 
@@ -426,7 +426,7 @@ class Job(models.Model):
             ),
             "priority": lambda old, new: (
                 "priority_changed",
-                f"Job priority changed from {old} to {new}. This affects the job's position in the workflow queue",  # noqa: E501
+                f"Job priority changed from {old} to {new}. This affects the job's position in the workflow queue",
             ),
             "paid": self._handle_boolean_change(
                 "payment_received",
@@ -443,7 +443,7 @@ class Job(models.Model):
             "complex_job": self._handle_boolean_change(
                 "job_updated",
                 "job_updated",
-                "Job marked as COMPLEX JOB. This job requires special attention or has complex requirements",  # noqa: E501
+                "Job marked as COMPLEX JOB. This job requires special attention or has complex requirements",
                 "Job no longer marked as complex job",
             ),
         }
@@ -473,7 +473,7 @@ class Job(models.Model):
         JobEvent.objects.create(
             job=self,
             event_type="status_changed",
-            description=f"Status changed from '{old_display}' to '{new_display}'. Job moved to new workflow stage.",  # noqa: E501
+            description=f"Status changed from '{old_display}' to '{new_display}'. Job moved to new workflow stage.",
             staff=self._current_staff,
         )
 
@@ -586,7 +586,7 @@ class Job(models.Model):
         elif old_date and not new_date:
             return (
                 "job_updated",
-                f"Quote acceptance date removed. Was previously accepted on {old_date.strftime('%Y-%m-%d')}",  # noqa: E501
+                f"Quote acceptance date removed. Was previously accepted on {old_date.strftime('%Y-%m-%d')}",
             )
         return None
 

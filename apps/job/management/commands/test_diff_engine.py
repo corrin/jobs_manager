@@ -228,7 +228,7 @@ class Command(BaseCommand):
             for i, draft in enumerate(diff_result.to_add, 1):
                 self.stdout.write(
                     f"  {i}. [{draft.kind}] {draft.desc} "
-                    f"qty={draft.quantity} cost=${draft.unit_cost} rev=${draft.unit_rev}"  # noqa: E501
+                    f"qty={draft.quantity} cost=${draft.unit_cost} rev=${draft.unit_rev}"
                 )
 
         if diff_result.to_update:
@@ -236,10 +236,10 @@ class Command(BaseCommand):
             for i, (old_line, draft) in enumerate(diff_result.to_update, 1):
                 self.stdout.write(f"  {i}. [{old_line.kind}] {old_line.desc}")
                 self.stdout.write(
-                    f"     OLD: qty={old_line.quantity} cost=${old_line.unit_cost} rev=${old_line.unit_rev}"  # noqa: E501
+                    f"     OLD: qty={old_line.quantity} cost=${old_line.unit_cost} rev=${old_line.unit_rev}"
                 )
                 self.stdout.write(
-                    f"     NEW: qty={draft.quantity} cost=${draft.unit_cost} rev=${draft.unit_rev}"  # noqa: E501
+                    f"     NEW: qty={draft.quantity} cost=${draft.unit_cost} rev=${draft.unit_rev}"
                 )
 
         if diff_result.to_delete:

@@ -209,7 +209,7 @@ class Command(BaseCommand):
         elif model == "job.adjustmententry":
             if "description" not in fields:
                 raise KeyError(
-                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"  # noqa: E501
+                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
                 )
             if fields["description"]:
                 fields["description"] = fake.sentence(nb_words=8)
@@ -217,7 +217,7 @@ class Command(BaseCommand):
         elif model == "job.jobevent":
             if "description" not in fields:
                 raise KeyError(
-                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"  # noqa: E501
+                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
                 )
             if fields["description"]:
                 fields["description"] = fake.sentence(nb_words=8)
@@ -225,11 +225,11 @@ class Command(BaseCommand):
         elif model == "timesheet.timeentry":
             if "description" not in fields:
                 raise KeyError(
-                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"  # noqa: E501
+                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
                 )
             if "note" not in fields:
                 raise KeyError(
-                    f"Model {model} missing expected field 'note'. Available fields: {list(fields.keys())}"  # noqa: E501
+                    f"Model {model} missing expected field 'note'. Available fields: {list(fields.keys())}"
                 )
             if fields["description"]:
                 fields["description"] = fake.sentence(nb_words=6)
