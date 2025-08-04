@@ -10,6 +10,7 @@ try:
             IMSWeeklyTimesheetAPIView,
             JobsAPIView,
             StaffListAPIView,
+            TimesheetResponseMixin,
             WeeklyTimesheetAPIView,
         )
 except (ImportError, RuntimeError):
@@ -21,5 +22,6 @@ __all__ = [
     "IMSWeeklyTimesheetAPIView",
     "JobsAPIView",
     "StaffListAPIView",
+    "TimesheetResponseMixin",
     "WeeklyTimesheetAPIView",
 ]

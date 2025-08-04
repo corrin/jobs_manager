@@ -201,7 +201,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     JobEvent.objects.create(
                         job=self.job,
                         event_type="quote_created",
-                        description=f"Quote created in Xero",
+                        description="Quote created in Xero",
                         details={
                             "quote_id": str(quote.id),
                             "xero_id": str(xero_quote_id),
@@ -349,7 +349,7 @@ class XeroQuoteManager(XeroDocumentManager):
                 JobEvent.objects.create(
                     job=self.job,
                     event_type="quote_deleted",
-                    description=f"Quote deleted from Xero",
+                    description="Quote deleted from Xero",
                     details={
                         "quote_id": str(local_quote_id),
                     },

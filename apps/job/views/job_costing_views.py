@@ -203,7 +203,7 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
                 )
 
                 # Clear current cost lines
-                deleted_count = current_quote.cost_lines.all().delete()[0]
+                current_quote.cost_lines.all().delete()[0]
 
                 # Reset quote acceptance date to allow accepting the new quote revision
                 job.quote_acceptance_date = None
@@ -222,7 +222,7 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
                 # Prepare response
                 response_data = {
                     "success": True,
-                    "message": f"Quote revision created successfully. Ready for new quote.",
+                    "message": "Quote revision created successfully. Ready for new quote.",
                     "quote_revision": archived_data["quote_revision"],
                     "archived_cost_lines_count": len(cost_lines),
                     "job_id": str(job.id),

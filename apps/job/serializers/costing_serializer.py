@@ -174,7 +174,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
 
     def save(self, **kwargs):
         """Override save to auto-calculate unit_cost and unit_rev for timesheet entries"""
-        # Check if this is a timesheet entry (kind='time' and has created_from_timesheet meta)
+        # Check if this is a timesheet entry
         meta = self.validated_data.get("meta", {})
         kind = self.validated_data.get("kind")
 

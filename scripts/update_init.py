@@ -5,7 +5,6 @@ import logging
 import os
 import re
 import sys
-import time
 
 
 def get_import_type(module_path: str, module_name: str) -> str:
@@ -69,7 +68,9 @@ def get_import_type(module_path: str, module_name: str) -> str:
     ):
         # Check if this view file imports problematic auth components
         try:
-            with open(module_path, "r") as file:
+            # encoding="utf-8" tells Python “assume the file is UTF-8” (which our repo is).
+            # errors="ignore" (or "replace") silently drops (or replaces) any byte sequences that don’t make sense under UTF-8, so we still get roughly the right AST structure without the parser bombing out.
+            with open(module_path, "r", encoding="utf-8", errors="ignore") as file:
                 content = file.read()
 
             # Check for problematic auth imports that cause circular imports
@@ -87,7 +88,6 @@ def get_import_type(module_path: str, module_name: str) -> str:
             logging.warning(
                 f"Could not read {module_path} to check for problematic imports"
             )
-            pass
 
         # Safe views go in __init__.py as non-conditional
         return "safe"
@@ -97,7 +97,7 @@ def get_import_type(module_path: str, module_name: str) -> str:
 
     # For other modules, analyze their imports
     try:
-        with open(module_path, "r") as file:
+        with open(module_path, "r", encoding="utf-8", errors="ignore") as file:
             content = file.read()
 
         # Parse imports to detect problematic patterns
@@ -177,7 +177,7 @@ def generate_django_safe_imports(import_data):
 
     for module_name, exports, import_type in import_data:
         # Sort exports within each module
-        sorted_exports = sorted(exports)
+        sorted_exports = sorted(set(exports)) # Remove duplicates and sort
         if import_type == "safe":
             safe_imports.append((module_name, sorted_exports))
         elif import_type == "conditional":
@@ -334,7 +334,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
     if os.path.basename(target_dir) == "jobs_manager" and target_dir.endswith(
         "jobs_manager"
     ):
-        parent_dir = os.path.dirname(target_dir)
+        os.path.dirname(target_dir)
         # Check if this is the main project directory (not an app named jobs_manager)
         if os.path.exists(os.path.join(target_dir, "settings")) and os.path.exists(
             os.path.join(target_dir, "wsgi.py")
@@ -378,7 +378,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
 
         # Parse the file to find class and function definitions
         try:
-            with open(module_path, "r") as file:
+            with open(module_path, "r", encoding="utf-8", errors="ignore") as file:
                 content = file.read()
                 logger.debug(f"Successfully read {module_path}, length: {len(content)}")
                 # Parse with explicit feature version to ensure match statement support
@@ -405,6 +405,7 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         ]
 
         exports = classes + functions
+        exports = list(dict.fromkeys(exports))  # Remove duplicates while preserving order
         logger.debug(
             f"Module {module_name}: classes={classes}, functions={functions}, import_type={import_type}"
         )
@@ -432,15 +433,36 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
     else:
         import_lines.append("__all__ = []")
 
-    # Write to __init__.py
+    # Prepare new text (LF-based)
+    new_text = "\n".join(import_lines) + "\n"
+
+    # Read existing bytes (if any)
     try:
-        with open(init_file, "w") as init_f:
-            init_f.write("\n".join(import_lines) + "\n")
+        with open(init_file, "rb") as f:
+            existing = f.read()
+    except FileNotFoundError:
+        existing = None
+
+    # Detect existing newline style and re-encode new_text to bytes
+    if existing and b"\r\n" in existing:
+        new_bytes = new_text.replace("\n", "\r\n").encode("utf-8")
+    else:
+        new_bytes = new_text.encode("utf-8")
+
+    # If nothing changed, skip writing
+    if existing == new_bytes:
+        logger.debug(f"No changes in {init_file}; skipping write")
+        return 0
+
+    # Otherwise write the updated file
+    try:
+        with open(init_file, "wb") as init_f:
+            init_f.write(new_bytes)
         logger.info(f"Successfully updated {init_file}")
         return 0  # Success
     except IOError as e:
         logger.error(f"Failed to write to {init_file}: {e}")
-        return 4  # Error Code 4: IOError during file writing
+        return 4
 
 
 def find_all_init_directories() -> list[str]:

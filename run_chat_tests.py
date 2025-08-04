@@ -7,12 +7,9 @@ Runs unit tests, integration tests, and performance tests.
 """
 
 import os
-import sys
 
 import django
-from django.conf import settings
 from django.core.management import execute_from_command_line
-from django.test.utils import get_runner
 
 
 def run_chat_tests():

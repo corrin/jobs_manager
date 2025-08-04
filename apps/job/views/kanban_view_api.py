@@ -7,6 +7,7 @@ import logging
 import traceback
 from uuid import UUID
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -278,6 +279,89 @@ class AdvancedSearchAPIView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AdvancedSearchResponseSerializer
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="job_number",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by job number",
+            ),
+            OpenApiParameter(
+                name="name",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by job name",
+            ),
+            OpenApiParameter(
+                name="description",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by job description",
+            ),
+            OpenApiParameter(
+                name="client_name",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by client name",
+            ),
+            OpenApiParameter(
+                name="contact_person",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by contact person",
+            ),
+            OpenApiParameter(
+                name="created_by",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by creator",
+            ),
+            OpenApiParameter(
+                name="created_after",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter jobs created after this date (YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="created_before",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter jobs created before this date (YYYY-MM-DD)",
+            ),
+            OpenApiParameter(
+                name="status",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                many=True,
+                description="Filter by job status (can be multiple)",
+            ),
+            OpenApiParameter(
+                name="paid",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by paid status",
+            ),
+            OpenApiParameter(
+                name="xero_invoice_params",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by Xero invoice parameters",
+            ),
+        ],
+        responses={200: AdvancedSearchResponseSerializer},
+    )
     def get(self, request: Request) -> Response:
         try:
             # Extract filters from GET parameters

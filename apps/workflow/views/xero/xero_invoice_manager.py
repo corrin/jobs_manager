@@ -345,7 +345,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                         JobEvent.objects.create(
                             job=self.job,
                             event_type="invoice_deleted",
-                            description=f"Invoice deleted from Xero",
+                            description="Invoice deleted from Xero",
                             details={
                                 "xero_id": str(xero_invoice_id),
                                 "deleted_count": deleted_count,

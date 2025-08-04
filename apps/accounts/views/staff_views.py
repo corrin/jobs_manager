@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from apps.accounts.forms import StaffChangeForm, StaffCreationForm
 from apps.accounts.models import Staff
 from apps.accounts.serializers import KanbanStaffSerializer
+from apps.accounts.utils import get_excluded_staff
 
 logger = logging.getLogger(__name__)
 
@@ -54,27 +55,44 @@ class StaffListAPIView(generics.ListAPIView):
         return JsonResponse(serializer.data, safe=False)
 
     def get_queryset(self):
+        staff_log = (
+            f"Fetching staff list with filters:"
+            f" actual_users={self.request.GET.get('actual_users', 'false')}"
+            f" date={self.request.GET.get('date', 'not specified')}"
+            f" include_inactive={self.request.GET.get('include_inactive', 'false')}"
+        )
+        logger.info(staff_log)
+        actual_users_param = self.request.GET.get("actual_users", "false").lower()
+        actual_users = actual_users_param == "true"
         date_param = self.request.GET.get("date")
         include_inactive = (
             self.request.GET.get("include_inactive", "false").lower() == "true"
         )
+
+        queryset = Staff.objects.all()
+
+        if not include_inactive:
+            queryset = Staff.objects.currently_active()
+
+        if actual_users:
+            excluded_ids_str = get_excluded_staff()
+            from uuid import UUID
+
+            excluded_ids = [UUID(id_str) for id_str in excluded_ids_str]
+            queryset = queryset.exclude(id__in=excluded_ids)
 
         if date_param:
             try:
                 from datetime import datetime
 
                 target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
-                return Staff.objects.active_on_date(target_date)
+                queryset = queryset.active_on_date(target_date)
             except ValueError:
                 from rest_framework.exceptions import ValidationError
 
                 raise ValidationError("Invalid date format. Use YYYY-MM-DD")
 
-        if include_inactive:
-            return Staff.objects.all()
-
-        # Default: currently active staff only
-        return Staff.objects.currently_active()
+        return queryset
 
     def get_serializer_context(self):
         return {"request": self.request}

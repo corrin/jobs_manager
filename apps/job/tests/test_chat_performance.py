@@ -11,13 +11,9 @@ Tests cover:
 
 import threading
 import time
-import uuid
 from unittest.mock import Mock, patch
 
-from django.db import connection
-from django.db.models import Count
 from django.test import TestCase, TransactionTestCase
-from django.test.utils import override_settings
 
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat

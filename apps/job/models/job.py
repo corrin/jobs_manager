@@ -82,7 +82,7 @@ class Job(models.Model):
         max_length=30, choices=JOB_STATUS_CHOICES, default="draft"
     )  # type: ignore
 
-    # Flag to track jobs that were rejected (displayed in Recently Completed with different styling)
+    # Flag to track jobs that were rejected
     rejected_flag = models.BooleanField(
         default=False,
         help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
@@ -309,12 +309,11 @@ class Job(models.Model):
 
         is_new = self._state.adding
         original_job = None
-        original_status = None
 
         # Track original values for change detection
         if not is_new:
             original_job = Job.objects.get(pk=self.pk)
-            original_status = original_job.status
+            original_job.status
 
         create_creation_event = False
         if (staff and is_new) or (not self.created_by and staff):
@@ -378,7 +377,9 @@ class Job(models.Model):
                     JobEvent.objects.create(
                         job=self,
                         event_type="job_created",
-                        description=f"New job '{self.name}' created for client {client_name}{contact_info}. Initial status: {self.get_status_display()}. Pricing methodology: {self.get_pricing_methodology_display()}.",
+                        description=f"New job '{self.name}' created for client {client_name}{contact_info}."
+                        f" Initial status: {self.get_status_display()}."
+                        f" Pricing methodology: {self.get_pricing_methodology_display()}.",
                         staff=staff,
                     )
 
@@ -501,7 +502,7 @@ class Job(models.Model):
                 from apps.client.models import Client
 
                 old_client = Client.objects.get(id=old_client_id).name
-            except:
+            except Exception:
                 old_client = "Unknown Client"
 
         if new_client_id:
@@ -522,7 +523,7 @@ class Job(models.Model):
                 from apps.client.models import ClientContact
 
                 old_contact = ClientContact.objects.get(id=old_contact_id).name
-            except:
+            except Exception:
                 old_contact = "Unknown Contact"
 
         if new_contact_id:

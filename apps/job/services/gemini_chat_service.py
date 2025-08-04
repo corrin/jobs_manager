@@ -17,7 +17,6 @@ import google.generativeai as genai
 from django.db import transaction
 
 # Correct import path for Part helper used to send function responses
-from google.generativeai.protos import Part  # For building function responses
 from google.generativeai.types import FunctionDeclaration
 
 from apps.job.models import Job, JobQuoteChat

@@ -329,9 +329,9 @@ class TimesheetResponseMixin:
             return Response(
                 {
                     "error": "Failed to build weekly timesheet response",
-                    "details": str(e)
-                    if request.user.is_staff
-                    else "Internal server error",
+                    "details": (
+                        str(e) if request.user.is_staff else "Internal server error"
+                    ),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

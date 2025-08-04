@@ -107,13 +107,13 @@ exclude = '\.git|\.hg|\.mypy_cache|\.tox|\.venv|_build|buck-out|build|dist|migra
 [tool.isort]
 profile = "black"  # This ensures compatibility if you're also using the Black formatter
 line_length = 88
-known_first_party = "your_project"
+known_first_party = ["apps", "jobs_manager"]
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
-skip_glob = ["migrations/*", "mediafiles/*", ".git/*"]
+skip_glob = ["**/__init__.py" ,"migrations/*", "mediafiles/*", ".git/*"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -179,6 +179,16 @@ line-ending = "auto"
 [tool.flake8]
 max-line-length = 88
 exclude = ["migrations", "__pycache__", ".tox", "venv", ".venv", "mediafiles", "adhoc", ".git"]
+
+# The reason for the following is: black is running properly and ensuring lines are not too long.
+# But, even with that, it skips string literals and comments, which can lead to long lines.
+# Flake8's E501 rule conflicts with Black in this sense, so we ignore it.
+# This is to ensure compatibility with Black and Flake8
+extend-ignore = [
+    "E501",  # Line too long
+    "E203",  # Whitespace before ':'
+    "W503",  # Line break before binary operator
+]
 
 [tool.django-stubs]
 django_settings_module = "jobs_manager.settings"

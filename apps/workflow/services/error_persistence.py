@@ -2,7 +2,7 @@ import inspect
 import logging
 import traceback
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from django.http import HttpRequest
 

@@ -9,15 +9,11 @@ Tests cover:
 - Message persistence and metadata
 """
 
-import json
 import uuid
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import pytest
-from django.db import transaction
 from django.test import TestCase, TransactionTestCase
 
-from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.job.services.gemini_chat_service import GeminiChatService

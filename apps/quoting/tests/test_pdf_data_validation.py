@@ -1,6 +1,3 @@
-import unittest
-from decimal import Decimal
-
 from django.test import TestCase
 
 from apps.client.models import Client
@@ -180,7 +177,7 @@ class PDFDataValidationServiceTest(TestCase):
     def test_check_duplicates_with_existing_products(self):
         """Test duplicate checking with existing products."""
         # Create existing product
-        existing_product = SupplierProduct.objects.create(
+        SupplierProduct.objects.create(
             supplier=self.supplier,
             price_list=self.price_list,
             product_name="Existing Product",

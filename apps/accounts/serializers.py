@@ -10,8 +10,6 @@ from apps.accounts.models import Staff
 class EmptySerializer(serializers.Serializer):
     """An empty serializer for schema generation. Helper serializer for CustomTokenObtainPairView."""
 
-    pass
-
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """

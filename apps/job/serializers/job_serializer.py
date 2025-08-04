@@ -82,9 +82,14 @@ class JobSerializer(serializers.ModelSerializer):
     client_id = serializers.PrimaryKeyRelatedField(
         queryset=Client.objects.all(),
         source="client",
-        write_only=False,  # Allow read access
+        write_only=False,  # Allow read access,
+        allow_null=True,
+        required=False,
     )
-    client_name = serializers.CharField(source="client.name", read_only=True)
+    # Some clients might not exist in old production data, so for compatibility we allow null values for it (unrequired, allow_null=True)
+    client_name = serializers.CharField(
+        source="client.name", read_only=True, allow_null=True, required=False
+    )
     contact_id = serializers.PrimaryKeyRelatedField(
         queryset=ClientContact.objects.all(),
         source="contact",
@@ -209,7 +214,7 @@ class JobSerializer(serializers.ModelSerializer):
                 logger.debug(
                     f"JobSerializer validate - Contact {contact.id} belongs to client {client.id}"
                 )
-                logger.debug(f"JobSerializer validate - Contact validation passed")
+                logger.debug("JobSerializer validate - Contact validation passed")
 
         # No longer validating pricing data - use CostSet/CostLine instead
 

@@ -10,7 +10,7 @@ Tests cover:
 """
 
 import json
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 from django.test import TestCase
 
@@ -352,7 +352,6 @@ class MCPToolIntegrationTests(TestCase):
     def test_concurrent_tool_execution(self):
         """Test concurrent tool execution"""
         import threading
-        import time
 
         tool = QuotingTool()
         results = []

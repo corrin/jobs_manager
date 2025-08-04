@@ -18,7 +18,7 @@ import argparse
 import os
 import sys
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict
 
 # Setup Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
@@ -288,7 +288,7 @@ class SerializerTester:
             if failed > 0:
                 failed_serializers.append(test_name)
                 if self.verbose and "failures" in result:
-                    print(f"  First few failures:")
+                    print("  First few failures:")
                     for failure in result["failures"][:3]:
                         print(f"    {failure['item_str']}: {failure['error']}")
 

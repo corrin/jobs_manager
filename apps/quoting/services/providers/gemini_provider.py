@@ -2,8 +2,7 @@ import base64
 import json
 import logging
 import os
-import tempfile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from google import genai
 
@@ -148,7 +147,7 @@ class GeminiPriceExtractionProvider:
                             if hasattr(part, "text"):
                                 result_text = part.text
                                 logger.info(
-                                    f"Successfully extracted text from part.text"
+                                    "Successfully extracted text from part.text"
                                 )
                             else:
                                 logger.warning("Part has no text attribute")
@@ -160,7 +159,7 @@ class GeminiPriceExtractionProvider:
                     logger.warning("Candidate has no content")
             elif hasattr(response, "text") and response.text is not None:
                 result_text = response.text
-                logger.info(f"Successfully extracted text from response.text")
+                logger.info("Successfully extracted text from response.text")
             else:
                 logger.error("No text content found in response")
 

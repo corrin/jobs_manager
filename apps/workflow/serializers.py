@@ -46,7 +46,7 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
     def update(
         self, instance: CompanyDefaults, validated_data: Dict[str, Any]
     ) -> CompanyDefaults:
-        print(f"DEBUG: CompanyDefaultsSerializer.update called")
+        print("DEBUG: CompanyDefaultsSerializer.update called")
         print(f"DEBUG: instance = {instance}")
         print(f"DEBUG: validated_data = {validated_data}")
 

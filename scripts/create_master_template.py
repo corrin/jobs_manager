@@ -1,6 +1,6 @@
 """
-Script inteligente para criar/gerenciar templates do Google Sheets.
-Busca templates existentes e cria novos se necessário.
+Smart script to create/manage Google Sheets templates.
+Searches for existing templates and creates new ones if necessary.
 """
 
 import json
@@ -11,12 +11,12 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-SERVICE_ACCOUNT_FILE = "C:\\Users\\florz\\dev\\workflow_app\\jobs_manager\\django-integrations-77c2e7c6fbfb.json"
+SERVICE_ACCOUNT_FILE = "service_account.json"
 SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 
 def get_drive_service():
-    """Inicializa o serviço do Google Drive."""
+    """Initializes the Google Drive service."""
     creds = service_account.Credentials.from_service_account_file(
         SERVICE_ACCOUNT_FILE, scopes=SCOPES
     )
@@ -24,9 +24,9 @@ def get_drive_service():
 
 
 def find_or_create_templates_folder(service):
-    """Busca ou cria a pasta 'Templates' no root do drive."""
+    """Searches for or creates the 'Templates' folder in the root of the drive."""
     try:
-        # Busca pasta Templates existente
+        # Search for existing Templates folder
         query = "name='Templates' and mimeType='application/vnd.google-apps.folder' and trashed=false"
         results = (
             service.files()
@@ -38,13 +38,13 @@ def find_or_create_templates_folder(service):
 
         if folders:
             folder = folders[0]
-            print(f"📁 Pasta Templates encontrada: {folder['name']}")
+            print(f"📁 Templates folder found: {folder['name']}")
             print(f"   ID: {folder['id']}")
             print(f"   Link: {folder.get('webViewLink', 'N/A')}")
             return folder
 
-        # Cria pasta Templates se não existir
-        print("📁 Criando pasta 'Templates'...")
+        # Create Templates folder if it doesn't exist
+        print("📁 Creating 'Templates' folder...")
         folder_metadata = {
             "name": "Templates",
             "mimeType": "application/vnd.google-apps.folder",
@@ -57,18 +57,18 @@ def find_or_create_templates_folder(service):
             .execute()
         )
 
-        print(f"✅ Pasta Templates criada: {folder['name']}")
+        print(f"✅ Templates folder created: {folder['name']}")
         print(f"   ID: {folder['id']}")
         print(f"   Link: {folder.get('webViewLink', 'N/A')}")
         return folder
 
     except Exception as e:
-        print(f"❌ Erro ao buscar/criar pasta Templates: {e}")
+        print(f"❌ Error searching/creating Templates folder: {e}")
         return None
 
 
 def search_existing_template(service, template_name):
-    """Busca template existente por nome."""
+    """Searches for existing template by name."""
     try:
         query = f"name contains '{template_name}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
 
@@ -84,24 +84,24 @@ def search_existing_template(service, template_name):
         templates = results.get("files", [])
 
         if templates:
-            print(f"📋 Templates encontrados com '{template_name}':")
+            print(f"📋 Templates found with '{template_name}':")
             for template in templates:
-                print(f"   Nome: {template['name']}")
+                print(f"   Name: {template['name']}")
                 print(f"   ID: {template['id']}")
                 print(f"   Link: {template.get('webViewLink', 'N/A')}")
-                print(f"   Criado: {template.get('createdTime', 'N/A')}")
-                print(f"   Modificado: {template.get('modifiedTime', 'N/A')}")
+                print(f"   Created: {template.get('createdTime', 'N/A')}")
+                print(f"   Modified: {template.get('modifiedTime', 'N/A')}")
                 print("-" * 50)
 
         return templates
 
     except Exception as e:
-        print(f"❌ Erro ao buscar templates: {e}")
+        print(f"❌ Error searching for templates: {e}")
         return []
 
 
 def create_template(service, folder_id, template_name, source_file_path):
-    """Cria um novo template no Google Sheets."""
+    """Creates a new template in Google Sheets."""
     try:
         print(f"📤 Uploading template '{template_name}'...")
 
@@ -125,20 +125,20 @@ def create_template(service, folder_id, template_name, source_file_path):
             .execute()
         )
 
-        print(f"✅ Template criado com sucesso!")
-        print(f"   Nome: {file.get('name')}")
+        print("✅ Template created successfully!")
+        print(f"   Name: {file.get('name')}")
         print(f"   ID: {file.get('id')}")
         print(f"   Link: {file.get('webViewLink')}")
 
         return file
 
     except Exception as e:
-        print(f"❌ Erro ao criar template: {e}")
+        print(f"❌ Error creating template: {e}")
         return None
 
 
 def save_template_info(template_data, templates_folder, existing_templates):
-    """Salva informações dos templates em arquivo JSON."""
+    """Saves template information to a JSON file."""
     try:
         template_info = {
             "timestamp": datetime.now().isoformat(),
@@ -155,64 +155,62 @@ def save_template_info(template_data, templates_folder, existing_templates):
         with open(info_file, "w", encoding="utf-8") as f:
             json.dump(template_info, f, indent=2, ensure_ascii=False)
 
-        print(f"💾 Informações salvas em '{info_file}'")
+        print(f"💾 Information saved in '{info_file}'")
 
     except Exception as e:
-        print(f"❌ Erro ao salvar informações: {e}")
+        print(f"❌ Error saving information: {e}")
 
 
 def main():
-    """Função principal."""
-    print("🚀 Gerenciador de Templates do Google Sheets")
+    """Main function."""
+    print("🚀 Google Sheets Template Manager")
     print("=" * 60)
 
-    # Configurações
+    # Settings
     template_name = "Quote Spreadsheet Template 2025 - Master"
-    source_file = (
-        "C:\\Users\\florz\\dev\\workflow_app\\jobs_manager\\quote_template.xlsx"
-    )
+    source_file = "quote_template.xlsx"
 
-    # Verifica se arquivo fonte existe
+    # Check if source file exists
     if not os.path.exists(source_file):
-        print(f"❌ Arquivo fonte não encontrado: {source_file}")
+        print(f"❌ Source file not found: {source_file}")
         return
 
     service = get_drive_service()
 
-    # 1. Busca/cria pasta Templates
+    # 1. Search/create Templates folder
     templates_folder = find_or_create_templates_folder(service)
     if not templates_folder:
         return
 
-    # 2. Busca templates existentes
-    print("\n🔍 Buscando templates existentes...")
+    # 2. Search for existing templates
+    print("\n🔍 Searching for existing templates...")
     existing_templates = search_existing_template(service, "Quote")
 
-    # 3. Pergunta se deve criar novo template se já existem
+    # 3. Ask if should create new template if there are existing ones
     if existing_templates:
         response = input(
-            f"\n❓ Foram encontrados {len(existing_templates)} templates existentes. Criar novo mesmo assim? (y/n): "
+            f"\n❓ {len(existing_templates)} existing templates found. Create new anyway? (y/n): "
         )
         if response.lower() != "y":
-            print("⏹️  Operação cancelada pelo usuário.")
+            print("⏹️  Operation cancelled by user.")
             save_template_info(None, templates_folder, existing_templates)
             return
 
-    # 4. Cria novo template
-    print(f"\n📋 Criando novo template...")
+    # 4. Create new template
+    print("\n📋 Creating new template...")
     new_template = create_template(
         service, templates_folder["id"], template_name, source_file
     )
 
     if new_template:
-        # 5. Salva informações
+        # 5. Save information
         save_template_info(new_template, templates_folder, existing_templates)
 
         print("\n" + "=" * 60)
-        print("✅ RESUMO DA OPERAÇÃO")
-        print(f"📁 Pasta Templates: {templates_folder['id']}")
-        print(f"📋 Novo Template: {new_template['id']}")
-        print(f"🔗 Link do Template: {new_template['webViewLink']}")
+        print("✅ OPERATION SUMMARY")
+        print(f"📁 Templates Folder: {templates_folder['id']}")
+        print(f"📋 New Template: {new_template['id']}")
+        print(f"🔗 Template Link: {new_template['webViewLink']}")
         print("=" * 60)
 
 

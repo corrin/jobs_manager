@@ -65,12 +65,12 @@ class CompanyDefaultsAPIView(APIView):
         serializer = CompanyDefaultsSerializer(
             instance, data=request_data, partial=True, context={"request": request}
         )
-        print(f"DEBUG: Serializer created, calling is_valid()")
+        print("DEBUG: Serializer created, calling is_valid()")
         serializer.is_valid(raise_exception=True)
         print(
             f"DEBUG: Serializer is valid, validated_data = {serializer.validated_data}"
         )
-        print(f"DEBUG: Calling serializer.save()")
+        print("DEBUG: Calling serializer.save()")
         result = serializer.save()
         print(
             f"DEBUG: serializer.save() returned, shop_client_name = {result.shop_client_name}"

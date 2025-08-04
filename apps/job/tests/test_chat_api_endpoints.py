@@ -7,7 +7,7 @@ including authentication, validation, and error handling.
 
 import json
 import uuid
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.urls import reverse
@@ -17,7 +17,6 @@ from rest_framework.test import APIClient
 from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
-from apps.job.services.gemini_chat_service import GeminiChatService
 from apps.workflow.enums import AIProviderTypes
 from apps.workflow.models import AIProvider, CompanyDefaults
 
@@ -84,8 +83,9 @@ class ChatAPIEndpointTests(TestCase):
 
     def test_chat_history_get_with_messages(self):
         """Test getting chat history with existing messages"""
-        # Create test messages
-        messages = [
+
+        # Removed variable declaration since it was not used
+        [
             JobQuoteChat.objects.create(
                 job=self.job,
                 message_id="user-1",
