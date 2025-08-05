@@ -29,6 +29,7 @@ from apps.job.serializers.job_serializer import (
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
+    JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     WeeklyMetricsSerializer,
 )
@@ -403,6 +404,14 @@ class JobQuoteAcceptRestView(BaseJobRestView):
     REST view for accepting job quotes.
     """
 
+    @extend_schema(
+        responses={
+            200: JobQuoteAcceptanceSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Accept a quote for the job. Sets the quote_acceptance_date to current datetime.",
+        tags=["Jobs"],
+    )
     def post(self, request, job_id):
         """
         Accept a quote for the job.
@@ -419,7 +428,9 @@ class JobQuoteAcceptRestView(BaseJobRestView):
                 "message": result["message"],
             }
 
-            return Response(response_data, status=status.HTTP_200_OK)
+            payload = JobQuoteAcceptanceSerializer(response_data).data
+
+            return Response(payload, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)

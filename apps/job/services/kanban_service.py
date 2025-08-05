@@ -349,6 +349,7 @@ class KanbanService:
             QuerySet of filtered jobs
         """
         jobs_query = Job.objects.all()
+        logger.info(f"Performing advanced search with filters: {filters}")
 
         # Apply filters with early returns for invalid data
         if number := filters.get("job_number", "").strip():

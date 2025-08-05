@@ -2506,9 +2506,7 @@ paths:
       - in: query
         name: status
         schema:
-          type: array
-          items:
-            type: string
+          type: string
         description: Filter by job status (can be multiple)
       - in: query
         name: xero_invoice_params
@@ -2992,9 +2990,8 @@ paths:
   /job/rest/jobs/{job_id}/quote/accept/:
     post:
       operationId: job_rest_jobs_quote_accept_create
-      description: |-
-        Accept a quote for the job.
-        Sets the quote_acceptance_date to current datetime.
+      description: Accept a quote for the job. Sets the quote_acceptance_date to current
+        datetime.
       parameters:
       - in: path
         name: job_id
@@ -3003,12 +3000,22 @@ paths:
           format: uuid
         required: true
       tags:
-      - job
+      - Jobs
       security:
       - cookieAuth: []
       responses:
         '200':
-          description: No response body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobQuoteAcceptance'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRestErrorResponse'
+          description: ''
   /job/rest/jobs/{job_id}/quote/status/:
     get:
       operationId: job_rest_jobs_quote_status_retrieve
@@ -4458,11 +4465,8 @@ paths:
           description: No response body
   /purchasing/rest/stock/{stock_id}/consume/:
     post:
-      operationId: purchasing_rest_stock_consume_create
-      description: |-
-        REST API view for consuming stock items for jobs.
-
-        POST: Records stock consumption for a specific job, reducing available quantity
+      operationId: consumeStock
+      description: Consume stock for a job, reducing available quantity.
       parameters:
       - in: path
         name: stock_id
@@ -4491,7 +4495,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StockConsumeRequest'
+                $ref: '#/components/schemas/StockConsumeResponse'
           description: ''
   /purchasing/rest/xero-items/:
     get:
@@ -6867,6 +6871,24 @@ components:
       - total_actual_profit
       - total_estimated_profit
       - total_profit
+    JobQuoteAcceptance:
+      type: object
+      description: Serializer for job quote acceptance data.
+      properties:
+        success:
+          type: boolean
+        job_id:
+          type: string
+          format: uuid
+        quote_acceptance_date:
+          type: string
+        message:
+          type: string
+      required:
+      - job_id
+      - message
+      - quote_acceptance_date
+      - success
     JobQuoteChat:
       type: object
       description: |-
@@ -9079,6 +9101,20 @@ components:
       required:
       - job_id
       - quantity
+    StockConsumeResponse:
+      type: object
+      description: Serializer for stock consumption response
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        remaining_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+      required:
+      - success
     StockCreate:
       type: object
       description: Serializer for creating stock items.
@@ -9120,31 +9156,40 @@ components:
       - quantity
       - source
       - unit_cost
-    StockList:
+    StockItem:
       type: object
-      description: Serializer for listing stock items from service data.
+      description: Serializer for individual stock items.
       properties:
         id:
           type: string
           format: uuid
+          nullable: true
         description:
           type: string
+          nullable: true
         quantity:
           type: number
           format: double
+          nullable: true
         unit_cost:
           type: number
           format: double
+          nullable: true
         metal_type:
           type: string
+          nullable: true
         alloy:
           type: string
+          nullable: true
         specifics:
           type: string
+          nullable: true
         location:
           type: string
+          nullable: true
         source:
           type: string
+          nullable: true
         date:
           type: string
           format: date-time
@@ -9155,19 +9200,20 @@ components:
           nullable: true
         notes:
           type: string
+          nullable: true
+    StockList:
+      type: object
+      description: Serializer for listing stock items from service data.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockItem'
+        total_count:
+          type: integer
       required:
-      - alloy
-      - date
-      - description
-      - id
-      - job_id
-      - location
-      - metal_type
-      - notes
-      - quantity
-      - source
-      - specifics
-      - unit_cost
+      - items
+      - total_count
     SummaryStats:
       type: object
       description: Serializer for summary statistics

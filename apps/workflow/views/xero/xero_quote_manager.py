@@ -360,9 +360,8 @@ class XeroQuoteManager(XeroDocumentManager):
             return JsonResponse(
                 {
                     "success": True,
-                    "messages": [
-                        {"level": "success", "message": "Quote deleted successfully."}
-                    ],
+                    "messages": ["Quote deleted successfully."],
+                    "xero_id": str(xero_quote_data.quote_id),
                 }
             )
         except AccountingBadRequestException as e:

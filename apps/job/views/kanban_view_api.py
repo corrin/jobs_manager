@@ -372,7 +372,6 @@ class AdvancedSearchAPIView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 required=False,
-                many=True,
                 description="Filter by job status (can be multiple)",
             ),
             OpenApiParameter(
@@ -404,10 +403,13 @@ class AdvancedSearchAPIView(APIView):
                 "created_by": request.GET.get("created_by", ""),
                 "created_after": request.GET.get("created_after", ""),
                 "created_before": request.GET.get("created_before", ""),
-                "status": request.GET.getlist("status"),
                 "paid": request.GET.get("paid", ""),
                 "xero_invoice_params": request.GET.get("xero_invoice_params", ""),
             }
+
+            # Handle multiple status values
+            raw = request.GET.get("status", "")
+            filters["status"] = raw.split(",") if raw else []
 
             jobs = KanbanService.perform_advanced_search(filters)
 

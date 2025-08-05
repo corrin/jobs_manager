@@ -304,6 +304,15 @@ class JobSerializer(serializers.ModelSerializer):
         return instance
 
 
+class JobQuoteAcceptanceSerializer(serializers.Serializer):
+    """Serializer for job quote acceptance data."""
+
+    success = serializers.BooleanField()
+    job_id = serializers.UUIDField()
+    quote_acceptance_date = serializers.CharField()
+    message = serializers.CharField()
+
+
 class JobEventSerializer(serializers.ModelSerializer):
     """Serializer for JobEvent model - read-only for frontend consumption
 

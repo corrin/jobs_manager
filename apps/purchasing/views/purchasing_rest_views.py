@@ -352,10 +352,15 @@ class StockListRestView(APIView):
     def get(self, request):
         """Get list of all active stock items."""
         # Get data from service (returns list of dictionaries)
-        data = PurchasingRestService.list_stock()
+        items = PurchasingRestService.list_stock()
+
+        payload = {
+            "items": items,
+            "total_count": len(items),
+        }
 
         # Serialize the data from service using the serializer
-        serializer = StockListSerializer(data, many=True)
+        serializer = StockListSerializer(payload)
         return Response(serializer.data)
 
     def post(self, request):
@@ -425,6 +430,12 @@ class StockConsumeRestView(APIView):
             return StockConsumeRequestSerializer
         return StockConsumeResponseSerializer
 
+    @extend_schema(
+        request=StockConsumeRequestSerializer,
+        responses=StockConsumeResponseSerializer,
+        operation_id="consumeStock",
+        description="Consume stock for a job, reducing available quantity.",
+    )
     def post(self, request, stock_id):
         job_id = request.data.get("job_id")
         qty = request.data.get("quantity")
@@ -447,7 +458,14 @@ class StockConsumeRestView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({"success": True})
+        payload = {
+            "success": True,
+            "message": "Stock consumed successfully",
+            "remaining_quantity": item.quantity - qty_dec,
+        }
+        return Response(
+            StockConsumeResponseSerializer(payload).data, status=status.HTTP_200_OK
+        )
 
 
 class PurchaseOrderAllocationsAPIView(APIView):

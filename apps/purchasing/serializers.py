@@ -251,21 +251,30 @@ class PurchaseOrderAllocationsResponseSerializer(serializers.Serializer):
     )
 
 
+class StockItemSerializer(serializers.Serializer):
+    """Serializer for individual stock items."""
+
+    id = serializers.UUIDField(required=False, allow_null=True)
+    description = serializers.CharField(required=False, allow_null=True)
+    quantity = serializers.FloatField(required=False, allow_null=True)
+    unit_cost = serializers.FloatField(required=False, allow_null=True)
+    metal_type = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
+    alloy = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    specifics = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    location = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    source = serializers.CharField(required=False, allow_null=True)
+    date = serializers.DateTimeField(required=False, allow_null=True)
+    job_id = serializers.UUIDField(required=False, allow_null=True)
+    notes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+
+
 class StockListSerializer(serializers.Serializer):
     """Serializer for listing stock items from service data."""
 
-    id = serializers.UUIDField()
-    description = serializers.CharField()
-    quantity = serializers.FloatField()
-    unit_cost = serializers.FloatField()
-    metal_type = serializers.CharField(allow_blank=True)
-    alloy = serializers.CharField(allow_blank=True)
-    specifics = serializers.CharField(allow_blank=True)
-    location = serializers.CharField(allow_blank=True)
-    source = serializers.CharField()
-    date = serializers.DateTimeField(allow_null=True)
-    job_id = serializers.UUIDField(allow_null=True)
-    notes = serializers.CharField(allow_blank=True)
+    items = StockItemSerializer(many=True)
+    total_count = serializers.IntegerField()
 
 
 class StockCreateSerializer(serializers.Serializer):
