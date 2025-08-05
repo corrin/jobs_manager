@@ -311,7 +311,12 @@ class JobEventSerializer(serializers.ModelSerializer):
     staff display (respects preferred names vs just first_name)
     """
 
-    staff = serializers.CharField(source="staff.get_display_full_name", read_only=True)
+    staff = serializers.CharField(
+        source="staff.get_display_full_name",
+        read_only=True,
+        allow_null=True,
+        required=False,
+    )
     timestamp = serializers.DateTimeField(read_only=True)
 
     class Meta:
@@ -578,7 +583,7 @@ class JobEventCreateResponseSerializer(serializers.Serializer):
     """Serializer for job event creation response"""
 
     success = serializers.BooleanField()
-    event = serializers.DictField()
+    event = JobEventSerializer()
 
 
 class WeeklyMetricsSerializer(serializers.Serializer):

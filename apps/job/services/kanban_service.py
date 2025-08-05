@@ -52,6 +52,9 @@ class KanbanService:
             jobs_query = jobs_query.filter(query)
 
         jobs = jobs_query.order_by("-priority", "-created_at")
+        logger.info(
+            f"Jobs fetched by status '{status}' (ordered by priority desc): {[f'#{job.job_number}(p:{job.priority})' for job in jobs[:10]]}"
+        )
 
         # Apply different limits based on status
         match status:
@@ -68,7 +71,11 @@ class KanbanService:
         """
         # Get non-archived jobs and filter out special jobs for kanban
         active_jobs = Job.objects.exclude(status="archived").order_by("-priority")
-        return KanbanService.filter_kanban_jobs(active_jobs)
+        filtered_jobs = KanbanService.filter_kanban_jobs(active_jobs)
+        logger.info(
+            f"Active jobs fetched (ordered by priority desc): {[f'#{job.job_number}(p:{job.priority})' for job in filtered_jobs[:10]]}"
+        )
+        return filtered_jobs
 
     @staticmethod
     def get_archived_jobs(limit: int = 50) -> QuerySet[Job]:
@@ -194,39 +201,35 @@ class KanbanService:
     @staticmethod
     def rebalance_column(status: str) -> None:
         """
-        Rebalance priorities in a status column.
-
-        Args:
-            status: Status column to rebalance
+        Re-number priorities so that the top card keeps the highest value
+        and values step down by Job.PRIORITY_INCREMENT.
         """
         increment = Job.PRIORITY_INCREMENT
         jobs = list(Job.objects.filter(status=status).order_by("-priority"))
+        logger.info(f"Rebalancing column '{status}' with {len(jobs)} jobs")
 
         with transaction.atomic():
+            total = len(jobs)
             for index, job in enumerate(jobs, start=1):
-                job.priority = index * increment
+                old_priority = job.priority
+                # highest card gets total*increment, next gets (total-1)*increment, …
+                job.priority = (total - index + 1) * increment
                 job.save(update_fields=["priority"])
+                logger.info(
+                    f"Job #{job.job_number} priority updated: {old_priority} -> {job.priority}"
+                )
 
     @staticmethod
     def calculate_priority(
-        before_prio: Optional[int], after_prio: Optional[int], status: str
+        before_prio: Optional[int],
+        after_prio: Optional[int],
+        status: str,
+        before_id: Optional[str] = None,
+        after_id: Optional[str] = None,
     ) -> int:
-        """
-        Calculate new priority for job positioning.
-
-        Args:
-            before_prio: Priority of job before target position
-            after_prio: Priority of job after target position
-            status: Status column for the job
-
-        Returns:
-            Calculated priority value
-        """
         increment = Job.PRIORITY_INCREMENT
-
         match (before_prio, after_prio):
             case (None, None):
-                # No adjacent jobs; place at end
                 max_prio = (
                     Job.objects.filter(status=status).aggregate(Max("priority"))[
                         "priority__max"
@@ -236,13 +239,8 @@ class KanbanService:
                 return max_prio + increment
 
             case (None, after) if after is not None:
-                # Insert at top: place just above the 'after' job
-                new_prio = after - increment
-                if new_prio <= 0:
-                    KanbanService.rebalance_column(status)
-                    # Re-fetch after_prio after rebalance
-                    after = Job.objects.get(priority=after, status=status).priority
-                    return after - increment
+                # Insert at top: place above the current highest-priority job
+                new_prio = after + increment
                 return new_prio
 
             case (before, None) if before is not None:
@@ -250,18 +248,18 @@ class KanbanService:
                 return before + increment
 
             case (before, after) if before is not None and after is not None:
-                # Internal insertion: try to take the average
                 gap = after - before
                 if gap > 1:
                     return (before + after) // 2
+
                 # Gap too small → rebalance first, then recompute
                 KanbanService.rebalance_column(status)
-                before = Job.objects.get(priority=before, status=status).priority
-                after = Job.objects.get(priority=after, status=status).priority
-                return (before + after) // 2
+
+                new_before_prio = Job.objects.get(pk=before_id).priority
+                new_after_prio = Job.objects.get(pk=after_id).priority
+                return (new_before_prio + new_after_prio) // 2
 
             case _:
-                # Fallback: push to end if anything unexpected happens
                 max_prio = (
                     Job.objects.filter(status=status).aggregate(Max("priority"))[
                         "priority__max"
@@ -294,6 +292,9 @@ class KanbanService:
         """
         try:
             job = Job.objects.get(pk=job_id)
+            logger.info(
+                f"Reordering job {job.job_number} (current priority: {job.priority})"
+            )
         except Job.DoesNotExist:
             logger.error(f"Job {job_id} not found for reordering")
             raise
@@ -301,6 +302,9 @@ class KanbanService:
         try:
             before_prio, after_prio = KanbanService.get_adjacent_priorities(
                 before_id, after_id
+            )
+            logger.info(
+                f"Adjacent priorities - before: {before_prio}, after: {after_prio}"
             )
         except Job.DoesNotExist:
             logger.error(f"Adjacent job not found for reordering job {job_id}")
@@ -311,7 +315,10 @@ class KanbanService:
 
         # Calculate new priority
         new_priority = KanbanService.calculate_priority(
-            before_prio, after_prio, target_status
+            before_prio, after_prio, target_status, before_id, after_id
+        )
+        logger.info(
+            f"Calculated new priority for job {job.job_number}: {new_priority} (was {job.priority})"
         )
         job.priority = new_priority
 
@@ -322,8 +329,12 @@ class KanbanService:
         if new_status and new_status != old_status:
             job.status = new_status
             update_fields.insert(0, "status")
+            logger.info(
+                f"Job {job.job_number} status changed from {old_status} to {new_status}"
+            )
 
         job.save(update_fields=update_fields)
+        logger.info(f"Job {job.job_number} reordering completed successfully")
         return True
 
     @staticmethod
@@ -437,6 +448,9 @@ class KanbanService:
 
             # Apply limit and ordering
             jobs = jobs_query.order_by("-priority")[:max_jobs]
+            logger.info(
+                f"Jobs fetched for column {column_id} (ordered by priority): {[job.job_number for job in jobs]}"
+            )
 
             # Format jobs with badge information
             formatted_jobs = []
@@ -467,6 +481,9 @@ class KanbanService:
                     "badge_color": badge_info["color_class"],
                 }
                 formatted_jobs.append(job_data)
+            logger.info(
+                f"Formatted jobs for column {column_id}: {[job['job_number'] for job in formatted_jobs]}"
+            )
 
             return {
                 "success": True,

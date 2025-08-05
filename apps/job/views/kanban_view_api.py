@@ -97,6 +97,21 @@ class UpdateJobStatusAPIView(APIView):
             return JobStatusUpdateRequestSerializer
         return KanbanSuccessResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        request=JobStatusUpdateRequestSerializer,
+        responses={
+            200: KanbanSuccessResponseSerializer,
+            400: KanbanErrorResponseSerializer,
+            404: KanbanErrorResponseSerializer,
+            500: KanbanErrorResponseSerializer,
+        },
+        description="Update the status of a job on the Kanban board.",
+    )
     def post(self, request: Request, job_id: UUID) -> Response:
         try:
             # Validate input data
@@ -153,6 +168,21 @@ class ReorderJobAPIView(APIView):
             return JobReorderRequestSerializer
         return KanbanSuccessResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        request=JobReorderRequestSerializer,
+        responses={
+            200: KanbanSuccessResponseSerializer,
+            400: KanbanErrorResponseSerializer,
+            404: KanbanErrorResponseSerializer,
+            500: KanbanErrorResponseSerializer,
+        },
+        description="Reorder a job within or between kanban columns.",
+    )
     def post(self, request: Request, job_id: UUID) -> Response:
         try:
             # Validate input data
@@ -428,6 +458,9 @@ class FetchJobsByColumnAPIView(APIView):
             # Serialize the response
             response_serializer = FetchJobsByColumnResponseSerializer(data=result)
             response_serializer.is_valid(raise_exception=True)
+            logger.debug(
+                f"Response data for column {column_id}: jobs order = {[job['job_number'] for job in response_serializer.data.get('jobs', [])]}"
+            )
             return Response(response_serializer.data)
 
         except ValueError as e:

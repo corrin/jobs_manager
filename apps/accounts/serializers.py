@@ -125,9 +125,13 @@ class UserProfileSerializer(serializers.ModelSerializer):
         allow_null=True,  # <-- To DRF-Spectacular that null is allowed
         help_text="Preferred name (may be null)",
     )
+    is_active = serializers.SerializerMethodField()
 
     def get_fullName(self, obj: Staff) -> str:
         return f"{obj.first_name} {obj.last_name}".strip()
+
+    def get_is_active(self, obj: Staff) -> bool:
+        return obj.is_currently_active
 
     class Meta:
         model = Staff
