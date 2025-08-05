@@ -359,25 +359,6 @@ class JobRestService:
                 f"Duplicate event constraint violation for job {job_id} by user {user.email}: {e}"
             )
 
-            # Try to find the existing event
-            existing_event = (
-                JobEvent.objects.filter(
-                    job_id=job_id,
-                    staff=user,
-                    description=description_clean,
-                    event_type="manual_note",
-                )
-                .order_by("-timestamp")
-                .first()
-            )
-
-            if existing_event:
-                return {
-                    "success": True,
-                    "event": existing_event,
-                    "duplicate_prevented": True,
-                }
-
             # If we can't find existing event, re-raise
             raise ValueError("Unable to create event due to duplicate constraint")
 
