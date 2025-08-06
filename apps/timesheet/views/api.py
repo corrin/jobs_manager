@@ -113,7 +113,6 @@ class StaffListAPIView(APIView):
 
             logger.error(f"Error fetching staff list: {e}")
 
-            # MANDATORY: Persist error to database
             persist_app_error(e)
 
             return Response(
@@ -171,7 +170,6 @@ class JobsAPIView(APIView):
 
             logger.error(f"Error fetching jobs: {e}")
 
-            # MANDATORY: Persist error to database
             persist_app_error(e)
 
             return Response(
@@ -245,7 +243,6 @@ class DailyTimesheetAPIView(APIView):
             logger.error(f"Error in DailyTimesheetAPIView: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
-            # MANDATORY: Persist error to database
             persist_app_error(e)
 
             return Response(
@@ -312,7 +309,6 @@ class DailyTimesheetAPIView(APIView):
             logger.error(f"Error getting staff daily detail: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
-            # MANDATORY: Persist error to database
             persist_app_error(e)
 
             return Response(
@@ -371,7 +367,6 @@ class TimesheetResponseMixin:
 
             logger.error(f"Error building weekly timesheet response: {e}")
 
-            # MANDATORY: Persist error to database
             persist_app_error(e)
 
             return Response(
@@ -493,7 +488,6 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
             logger.error(f"Error submitting paid absence: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
-            # MANDATORY: Persist error to database
             persist_app_error(e)
 
             return Response(

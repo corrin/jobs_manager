@@ -42,6 +42,7 @@ def consume_stock(
         # Save the new quantity (negative quantities are allowed)
         item.save(update_fields=["quantity"])
 
+        # If no unit cost or revenue is provided, this means the staff didn't override the default values from stock
         if unit_cost is None:
             unit_cost = item.unit_cost
 

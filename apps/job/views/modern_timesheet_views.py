@@ -222,7 +222,7 @@ class ModernTimesheetEntryView(APIView):
             logger.info("Creating response data...")
 
             response_data = {
-                "cost_lines": cost_lines,  # No need for extra serialization, the GetResponseSerializer will do it
+                "cost_lines": cost_lines,
                 "staff": {
                     "id": str(staff.id),
                     "name": f"{staff.first_name} {staff.last_name}",
@@ -242,7 +242,6 @@ class ModernTimesheetEntryView(APIView):
 
             logger.info("Validating response with serializer...")
 
-            # No need for extra validation with 'data='
             response_serializer = ModernTimesheetEntryGetResponseSerializer(
                 response_data
             )

@@ -382,7 +382,6 @@ def create_xero_invoice(request, job_id):
 
         logger.error(f"Error in create_xero_invoice view: {str(e)}", exc_info=True)
 
-        # MANDATORY: Persist error to database
         persist_app_error(e, job_id=job_id)
 
         messages.error(
@@ -509,7 +508,6 @@ def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
 
         logger.error(f"Error in create_xero_quote view: {str(e)}", exc_info=True)
 
-        # MANDATORY: Persist error to database
         persist_app_error(e, job_id=job_id)
 
         messages.error(request, f"An error occurred while creating the quote: {str(e)}")
@@ -559,7 +557,6 @@ def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
 
         logger.error(f"Error in delete_xero_invoice view: {str(e)}", exc_info=True)
 
-        # MANDATORY: Persist error to database
         persist_app_error(e, job_id=job_id)
 
         messages.error(
@@ -611,7 +608,6 @@ def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
 
         logger.error(f"Error in delete_xero_quote view: {str(e)}", exc_info=True)
 
-        # MANDATORY: Persist error to database
         persist_app_error(e, job_id=job_id)
 
         messages.error(request, f"An error occurred while deleting the quote: {str(e)}")
