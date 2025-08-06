@@ -1,3 +1,4 @@
+import logging
 from typing import Any, Dict, Optional
 
 from django.contrib.auth import authenticate
@@ -5,6 +6,8 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from apps.accounts.models import Staff
+
+logger = logging.getLogger(__name__)
 
 
 class EmptySerializer(serializers.Serializer):
@@ -131,6 +134,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return f"{obj.first_name} {obj.last_name}".strip()
 
     def get_is_active(self, obj: Staff) -> bool:
+        logger.warning(
+            "get_is_active method in UserProfileSerializer is deprecated.  You must pass a date"
+        )
         return obj.is_currently_active
 
     class Meta:
