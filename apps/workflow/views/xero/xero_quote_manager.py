@@ -252,6 +252,8 @@ class XeroQuoteManager(XeroDocumentManager):
                     status=400,
                 )
         except AccountingBadRequestException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(
                 (
                     f"Xero API BadRequest during quote creation for job "
@@ -259,6 +261,10 @@ class XeroQuoteManager(XeroDocumentManager):
                 ),
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
                 default_message=(
@@ -270,18 +276,30 @@ class XeroQuoteManager(XeroDocumentManager):
                 {"success": False, "message": error_message}, status=e.status
             )
         except ApiException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(
                 f"Xero API Exception during quote creation for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {"success": False, "message": f"Xero API Error: {e.reason}"},
                 status=e.status,
             )
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.exception(
                 f"Unexpected error during quote creation for job {self.job.id if self.job else 'Unknown'}"
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {
                     "success": False,
@@ -365,10 +383,16 @@ class XeroQuoteManager(XeroDocumentManager):
                 }
             )
         except AccountingBadRequestException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(
                 f"Xero API BadRequest during quote deletion for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
                 default_message=f"Xero validation error ({e.status}): {e.reason} during quote deletion. Please contact support.",
@@ -377,18 +401,30 @@ class XeroQuoteManager(XeroDocumentManager):
                 {"success": False, "message": error_message}, status=e.status
             )
         except ApiException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(
                 f"Xero API Exception during quote deletion for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {"success": False, "message": f"Xero API Error: {e.reason}"},
                 status=e.status,
             )
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.exception(
                 f"Unexpected error during quote deletion for job {self.job.id if self.job else 'Unknown'}"
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {
                     "success": False,

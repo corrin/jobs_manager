@@ -1,6 +1,7 @@
 """REST views for purchasing module."""
 
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
@@ -450,8 +451,29 @@ class StockConsumeRestView(APIView):
         job = get_object_or_404(Job, id=job_id)
         item = get_object_or_404(Stock, id=stock_id)
 
+        # Validating because unit cost and revenue are optional in consumption
+        # (But stock alocation in JobActualTab might override default values for cost and revenue)
+        unit_cost = request.data.get("unit_cost", None)
+        unit_rev = request.data.get("unit_rev", None)
+
         try:
-            consume_stock(item, job, qty_dec, request.user)
+            if unit_cost is not None:
+                cost_dec = Decimal(str(unit_cost))
+            if unit_rev is not None:
+                revenue_dec = Decimal(str(unit_rev))
+        except (InvalidOperation, TypeError):
+            return Response(
+                {
+                    "error": "Invalid state detected: unit cost or unit revenue are not valid decimals"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            if cost_dec and revenue_dec:
+                consume_stock(item, job, qty_dec, request.user, cost_dec, revenue_dec)
+            else:
+                consume_stock(item, job, qty_dec, request.user)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

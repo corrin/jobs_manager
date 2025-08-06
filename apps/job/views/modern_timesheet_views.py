@@ -221,16 +221,8 @@ class ModernTimesheetEntryView(APIView):
                 raise
             logger.info("Creating response data...")
 
-            # First: Serialize each CostLine using TimesheetCostLineSerializer
-            logger.info("Serializing cost lines with TimesheetCostLineSerializer...")
-            cost_line_serializer = TimesheetCostLineSerializer(cost_lines, many=True)
-            serialized_cost_lines = cost_line_serializer.data
-            logger.info(
-                f"Successfully serialized {len(serialized_cost_lines)} cost lines"
-            )
-
             response_data = {
-                "cost_lines": serialized_cost_lines,  # Pass serialized dictionaries
+                "cost_lines": cost_lines,
                 "staff": {
                     "id": str(staff.id),
                     "name": f"{staff.first_name} {staff.last_name}",
@@ -249,10 +241,10 @@ class ModernTimesheetEntryView(APIView):
             }
 
             logger.info("Validating response with serializer...")
+
             response_serializer = ModernTimesheetEntryGetResponseSerializer(
-                data=response_data
+                response_data
             )
-            response_serializer.is_valid(raise_exception=True)
             logger.info("Response validation successful")
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 

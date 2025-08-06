@@ -1,9 +1,12 @@
 import logging
+from decimal import Decimal
+from pprint import pprint
 
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.job.models import CostLine, CostSet
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -179,32 +182,58 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         kind = self.validated_data.get("kind")
 
         if kind == "time" and meta.get("created_from_timesheet"):
-            # Auto-calculate unit_cost from staff wage_rate
+            line_id = self.validated_data.get("id")
+            logger.info(f"Starting to autocalculate unit cost for cost line {line_id}")
+            pprint(self.validated_data)
+            # Auto-calculate unit_cost from staff wage_rate and rate multiplier
             staff_id = meta.get("staff_id")
-            if staff_id:
-                try:
-                    from apps.accounts.models import Staff
-                    from apps.workflow.models import CompanyDefaults
 
-                    staff = Staff.objects.get(id=staff_id)
-                    company_defaults = CompanyDefaults.objects.first()
+            if not staff_id:
+                exception = serializers.ValidationError(
+                    "Staff id must be provided when creating a new timesheet entry."
+                )
+                persist_app_error(
+                    exception=exception,
+                    job_id=self.validated_data.get("job_id"),
+                    user_id=staff_id,
+                )
+                raise exception
 
-                    # Use staff wage_rate or company default
-                    wage_rate = (
-                        staff.wage_rate
-                        if staff.wage_rate
-                        else (company_defaults.wage_rate if company_defaults else 32.0)
+            try:
+                from apps.accounts.models import Staff
+                from apps.workflow.models import CompanyDefaults
+
+                staff = Staff.objects.get(id=staff_id)
+                company_defaults = CompanyDefaults.objects.first()
+
+                # Use staff wage_rate or company default
+                wage_rate = (
+                    staff.wage_rate if staff.wage_rate else company_defaults.wage_rate
+                )
+
+                rate_multiplier = Decimal(meta.get("rate_multiplier", None))
+                if rate_multiplier is None:
+                    exception = serializers.ValidationError(
+                        "Rate multiplier must be provided when creating a new timesheet entry."
                     )
-
-                    self.validated_data["unit_cost"] = wage_rate
-                    logger.info(
-                        f"Auto-calculated unit_cost: {wage_rate} for staff {staff_id}"
+                    persist_app_error(
+                        exception=exception,
+                        job_id=self.validated_data.get("job_id"),
+                        user_id=staff_id,
                     )
+                    raise exception
 
-                except Staff.DoesNotExist:
-                    logger.warning(f"Staff not found: {staff_id}")
-                except Exception as e:
-                    logger.error(f"Error calculating unit_cost: {e}")
+                final_wage = wage_rate * rate_multiplier
+
+                self.validated_data["unit_cost"] = final_wage
+                logger.info(
+                    f"Auto-calculated unit_cost: {final_wage} for staff {staff_id}"
+                )
+
+            except Staff.DoesNotExist:
+                logger.warning(f"Staff not found: {staff_id}")
+            except Exception as e:
+                logger.error(f"Error calculating unit_cost: {e}")
 
             # Auto-calculate unit_rev from job charge_out_rate
             if hasattr(self, "instance") and self.instance and self.instance.cost_set:

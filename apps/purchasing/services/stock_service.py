@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 
 from django.db import transaction
 
@@ -11,7 +11,14 @@ from apps.workflow.models import CompanyDefaults
 logger = logging.getLogger(__name__)
 
 
-def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
+def consume_stock(
+    item: Stock,
+    job: Job,
+    qty: Decimal,
+    user: Any,
+    unit_cost: Optional[Decimal] = None,
+    unit_rev: Optional[Decimal] = None,
+) -> CostLine:
     if qty <= 0:
         raise ValueError("Quantity must be positive")
 
@@ -35,8 +42,13 @@ def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
         # Save the new quantity (negative quantities are allowed)
         item.save(update_fields=["quantity"])
 
-        materials_markup = CompanyDefaults.get_instance().materials_markup
-        unit_rev = item.unit_cost * (1 + materials_markup)
+        # If no unit cost or revenue is provided, this means the staff didn't override the default values from stock
+        if unit_cost is None:
+            unit_cost = item.unit_cost
+
+        if unit_rev is None:
+            materials_markup = CompanyDefaults.get_instance().materials_markup
+            unit_rev = item.unit_cost * (1 + materials_markup)
 
         # Ensure job has an actual cost set
         if not job.latest_actual:
@@ -53,7 +65,7 @@ def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
             kind="material",
             desc=f"Consumed: {item.description}",
             quantity=qty,
-            unit_cost=item.unit_cost,
+            unit_cost=unit_cost,
             unit_rev=unit_rev,
             ext_refs={"stock_id": str(item.id)},
             meta={

@@ -271,6 +271,8 @@ class XeroInvoiceManager(XeroDocumentManager):
                     status=400,
                 )
         except AccountingBadRequestException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(
                 (
                     f"Xero API BadRequest during invoice creation for job "
@@ -278,6 +280,10 @@ class XeroInvoiceManager(XeroDocumentManager):
                 ),
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             default_message = (
                 f"Xero validation error ({e.status}): {e.reason}. "
                 "Please contact Corrin to check the data sent."
@@ -290,6 +296,8 @@ class XeroInvoiceManager(XeroDocumentManager):
                 {"success": False, "message": error_message}, status=e.status
             )
         except ApiException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
                 f"""
@@ -298,15 +306,25 @@ class XeroInvoiceManager(XeroDocumentManager):
                 """.strip(),
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {"success": False, "message": f"Xero API Error: {e.reason}"},
                 status=e.status,
             )
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             job_id = self.job.id if self.job else "Unknown"
             logger.exception(
                 f"Unexpected error during invoice creation for job {job_id}"
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {
                     "success": False,
@@ -378,6 +396,8 @@ class XeroInvoiceManager(XeroDocumentManager):
                     {"success": False, "message": error_msg}, status=400
                 )
         except AccountingBadRequestException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
                 f"""
@@ -386,6 +406,10 @@ class XeroInvoiceManager(XeroDocumentManager):
                 """.strip(),
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
                 default_message=f"""
@@ -397,6 +421,8 @@ class XeroInvoiceManager(XeroDocumentManager):
                 {"success": False, "message": error_message}, status=e.status
             )
         except ApiException as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
                 f"""
@@ -405,15 +431,25 @@ class XeroInvoiceManager(XeroDocumentManager):
                 """.strip(),
                 exc_info=True,
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {"success": False, "message": f"Xero API Error: {e.reason}"},
                 status=e.status,
             )
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             job_id = self.job.id if self.job else "Unknown"
             logger.exception(
                 f"Unexpected error during invoice deletion for job {job_id}"
             )
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
+
             return JsonResponse(
                 {
                     "success": False,
@@ -430,11 +466,15 @@ class XeroInvoiceManager(XeroDocumentManager):
         Searches for an existing Xero contact by client name. If found, returns the Contact object with ContactID.
         If not found, creates a new contact and returns the created Contact object.
         """
+        from apps.workflow.services.error_persistence import persist_app_error
+
         client_name = (
             self.client.name.strip() if self.client and self.client.name else None
         )
         if not client_name:
-            raise ValueError("Client name is required to sync with Xero.")
+            error = ValueError("Client name is required to sync with Xero.")
+            persist_app_error(error, job_id=str(self.job.id) if self.job else None)
+            raise error
 
         try:
             # Search for existing contacts in Xero by name (case-insensitive)
@@ -449,25 +489,51 @@ class XeroInvoiceManager(XeroDocumentManager):
                 return contacts[0]  # Return the first found contact
         except Exception as e:
             logger.warning(f"Error searching for existing Xero contact: {str(e)}")
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
             # Do not interrupt the flow, try to create contact below
 
         # If not found, create new contact
         logger.info(
             f"No existing Xero contact found for '{client_name}', creating new contact."
         )
+
+        # Prepare contact data with defensive validation
         contact_data = {
-            "name": client_name,
-            "email_address": getattr(self.client, "email", None),
-            "first_name": getattr(self.client, "first_name", None),
-            "last_name": getattr(self.client, "last_name", None),
-            # Add other relevant fields if necessary
+            "name": client_name,  # Required field - must not be empty
         }
-        # Remove None fields
-        contact_data = {k: v for k, v in contact_data.items() if v}
+
+        # Add optional fields only if they have meaningful values
+        if hasattr(self.client, "email") and self.client.email:
+            contact_data["email_address"] = self.client.email
+        if hasattr(self.client, "first_name") and self.client.first_name:
+            contact_data["first_name"] = self.client.first_name
+        if hasattr(self.client, "last_name") and self.client.last_name:
+            contact_data["last_name"] = self.client.last_name
+
+        # Log the contact data being sent
+        logger.debug(f"Creating Xero contact with data: {contact_data}")
+
+        # Log the raw contact data before creating XeroContact
+        logger.debug(f"Raw contact_data before XeroContact creation: {contact_data}")
+
         new_contact = XeroContact(**contact_data)
+
+        # Log the XeroContact object after creation
+        logger.debug(f"XeroContact object created: {new_contact}")
+        logger.debug(f"XeroContact to_dict(): {new_contact.to_dict()}")
+
         try:
+            # The Xero API expects the contacts parameter to be a list of Contact objects
+            # But we need to ensure they're properly serialized
+            logger.debug(
+                f"Calling create_contacts with tenant_id: {self.xero_tenant_id}"
+            )
+            logger.debug(f"Contact list being sent: {[new_contact]}")
+
+            # The Xero API expects contacts in the format: {"contacts": [contact_data]}
+            # Not as a list of XeroContact objects directly
             create_response = self.xero_api.create_contacts(
-                self.xero_tenant_id, contacts=[new_contact]
+                self.xero_tenant_id, contacts={"contacts": [new_contact.to_dict()]}
             )
             created_contacts = getattr(create_response, "contacts", [])
             if created_contacts:
@@ -475,12 +541,18 @@ class XeroInvoiceManager(XeroDocumentManager):
                     f"Created new Xero contact for '{client_name}' (ContactID: {created_contacts[0].contact_id})"
                 )
                 return created_contacts[0]
+            else:
+                error = ValueError(
+                    f"Xero API returned empty contacts list for '{client_name}'"
+                )
+                persist_app_error(error, job_id=str(self.job.id) if self.job else None)
+                raise error
         except Exception as e:
             logger.error(f"Failed to create Xero contact for '{client_name}': {str(e)}")
+            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
             raise ValueError(
                 f"Could not create or find Xero contact for '{client_name}'. {str(e)}"
             )
-        raise ValueError(f"Could not create or find Xero contact for '{client_name}'.")
 
     def get_xero_contact(self):
         """

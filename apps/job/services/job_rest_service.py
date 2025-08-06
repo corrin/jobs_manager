@@ -515,12 +515,13 @@ class JobRestService:
 
         metrics = []
         for job in jobs:
-            # Direct access to summary data
-            estimated_hours = job.latest_estimate.summary["hours"]
+            summary = job.latest_actual.summary or {}
+            estimated_hours = job.latest_estimate.summary["hours"] or 0
 
-            actual_hours = job.latest_actual.summary["hours"]
-            actual_rev = job.latest_actual.summary["rev"]
-            actual_cost = job.latest_actual.summary["cost"]
+            # In case the actual cost set summary is empty for lack of entries
+            actual_hours = summary.get("hours", 0)
+            actual_rev = summary.get("rev", 0)
+            actual_cost = summary.get("cost", 0)
 
             profit = actual_rev - actual_cost
 

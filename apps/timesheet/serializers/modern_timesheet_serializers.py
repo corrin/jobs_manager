@@ -13,7 +13,9 @@ from apps.job.models import Job
 class ModernTimesheetJobSerializer(serializers.ModelSerializer):
     """Serializer for jobs in timesheet context using modern CostSet system"""
 
-    client_name = serializers.CharField(source="client.name", read_only=True)
+    client_name = serializers.CharField(
+        source="client.name", read_only=True, required=False, allow_null=True
+    )
     has_actual_costset = serializers.SerializerMethodField()
 
     class Meta:
@@ -48,16 +50,25 @@ class ModernStaffSerializer(serializers.Serializer):
 class WeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
     """Serializer for weekly hours data of staff"""
 
-    date = serializers.DateField()
+    day = serializers.DateField()
     hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+    billable_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+    scheduled_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
+    status = serializers.CharField()
+    leave_type = serializers.CharField(allow_null=True, required=False)
+    has_leave = serializers.BooleanField()
 
 
 class WeeklyStaffDataSerializer(serializers.Serializer):
     """Serializer for staff data in weekly timesheet context"""
 
-    id = serializers.UUIDField()
+    staff_id = serializers.UUIDField()
     name = serializers.CharField()
     weekly_hours = WeeklyStaffDataWeeklyHoursSerializer(many=True)
+    total_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_billable_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    billable_percentage = serializers.DecimalField(max_digits=5, decimal_places=2)
+    status = serializers.CharField()
 
 
 class WeeklySummarySerializer(serializers.Serializer):
@@ -85,7 +96,6 @@ class WeeklyTimesheetDataSerializer(serializers.Serializer):
     start_date = serializers.DateField()
     end_date = serializers.DateField()
     week_days = serializers.ListField(child=serializers.DateField())
-    week_start = serializers.CharField()
     staff_data = WeeklyStaffDataSerializer(many=True)
     weekly_summary = WeeklySummarySerializer()
     job_metrics = JobMetricsSerializer()
@@ -103,7 +113,9 @@ class IMSWeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
     billable_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
     scheduled_hours = serializers.DecimalField(max_digits=5, decimal_places=2)
     status = serializers.CharField()
-    leave_type = serializers.CharField(allow_blank=True, required=False)
+    leave_type = serializers.CharField(
+        allow_blank=True, required=False, allow_null=True
+    )
     has_leave = serializers.BooleanField(default=False)
 
     # IMS-specific fields
