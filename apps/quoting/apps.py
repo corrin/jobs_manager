@@ -13,8 +13,7 @@ class QuotingConfig(AppConfig):
     name = "apps.quoting"
 
     def ready(self) -> None:
-        # Import signals to ensure they're connected
-        import apps.quoting.signals  # noqa
+        # Signals removed - app uses explicit function calls instead
 
         # This app (quoting) is responsible for scheduling scraper jobs.
         # The 'workflow' app handles its own scheduled jobs (e.g., Xero syncs).
