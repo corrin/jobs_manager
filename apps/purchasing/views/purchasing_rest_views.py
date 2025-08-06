@@ -1,7 +1,7 @@
 """REST views for purchasing module."""
 
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
@@ -446,15 +446,28 @@ class StockConsumeRestView(APIView):
 
         job = get_object_or_404(Job, id=job_id)
         item = get_object_or_404(Stock, id=stock_id)
+        unit_cost = request.data.get("unit_cost", None)
+        unit_rev = request.data.get("unit_rev", None)
+
         try:
             qty_dec = Decimal(str(qty))
-        except Exception:
+            if unit_cost is not None:
+                cost_dec = Decimal(str(unit_cost))
+            if unit_rev is not None:
+                revenue_dec = Decimal(str(unit_rev))
+        except (InvalidOperation, TypeError):
             return Response(
-                {"error": "Invalid quantity"}, status=status.HTTP_400_BAD_REQUEST
+                {
+                    "error": "Invalid quantity, unit cost or unit revenue are not valid decimals"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         try:
-            consume_stock(item, job, qty_dec, request.user)
+            if cost_dec and revenue_dec:
+                consume_stock(item, job, qty_dec, request.user, cost_dec, revenue_dec)
+            else:
+                consume_stock(item, job, qty_dec, request.user)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 

@@ -72,6 +72,9 @@ class BaseJobRestView(APIView):
             from apps.workflow.services.error_persistence import persist_app_error
 
             persist_app_error(error)
+            logger.error(
+                f"[JOB-REST-VIEW] Handled and persisted error {str(error)} in database."
+            )
         except Exception as persist_error:
             logger.error(f"Failed to persist error: {persist_error}")
 
@@ -293,6 +296,14 @@ class JobDetailRestView(BaseJobRestView):
             # Serialize the result properly
             response_serializer = JobDeleteResponseSerializer(result)
             return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except ValueError as v:
+            logger.error("Error deleting job: valid data found.")
+            error = {"error": str(v)}
+            return Response(
+                JobRestErrorResponseSerializer(error).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         except Exception as e:
             return self.handle_service_error(e)

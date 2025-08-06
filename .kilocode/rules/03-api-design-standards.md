@@ -6,73 +6,41 @@
 
 ```python
 # Resources - plural nouns
-/rest/jobs/                                 # List/create jobs
-/rest/jobs/<uuid:job_id>/                   # Retrieve/update/delete a job
+/api/jobs/                    # List of jobs
+/api/jobs/{id}/               # Specific job
+/api/clients/                 # List of clients
+/api/purchase-orders/         # Purchase orders (kebab-case for compounds)
 
 # Nested sub-resources
-/rest/jobs/<uuid:job_id>/events/            # Events for a job
-/rest/jobs/<uuid:pk>/cost_sets/<str:kind>/  # Cost sets for a job (by kind)
-/rest/jobs/<uuid:job_id>/cost_sets/quote/revise/   # Revise quote cost set
+/api/jobs/{job_id}/cost-sets/           # Cost sets for a job
+/api/jobs/{job_id}/events/              # Events for a job
+/api/cost-sets/{id}/cost-lines/         # Cost lines for a cost set
 
-# Cost line operations
-/rest/jobs/<uuid:job_id>/cost_sets/actual/cost_lines/         # Create cost line (actual)
-/rest/jobs/<uuid:job_id>/cost_sets/<str:kind>/cost_lines/     # Create cost line (any kind)
-/rest/cost_lines/<int:cost_line_id>/                          # Update cost line
-/rest/cost_lines/<int:cost_line_id>/delete/                   # Delete cost line
-
-# Timesheet endpoints
-/rest/timesheet/entries/                                      # Create/list timesheet entries
-/rest/timesheet/staff/<uuid:staff_id>/date/<str:entry_date>/  # Timesheet for staff on date
-/rest/timesheet/jobs/<uuid:job_id>/                           # Timesheet for a job
-
-# Workshop PDF
-/rest/jobs/<uuid:job_id>/workshop-pdf/                        # Generate workshop PDF
-
-# Job files
-/rest/jobs/files/upload/                                      # Upload job file
-/rest/jobs/files/<int:job_number>/                            # List files for job
-/rest/jobs/files/                                             # List all files
-/rest/jobs/files/<path:file_path>/                            # Download file
-/rest/jobs/files/<int:file_path>/                             # Delete file
-/rest/jobs/files/<uuid:file_id>/thumbnail/                    # File thumbnail
-
-# Quote import and sync
-/rest/jobs/<uuid:pk>/quote/link/                              # Link quote sheet (Google Sheets)
-/rest/jobs/<uuid:pk>/quote/preview/                           # Preview quote sheet
-/rest/jobs/<uuid:pk>/quote/apply/                             # Apply quote sheet
-/rest/jobs/<uuid:job_id>/quote/import/preview/                # Deprecated: quote import preview
-/rest/jobs/<uuid:job_id>/quote/import/                        # Deprecated: quote import
-/rest/jobs/<uuid:job_id>/quote/status/                        # Quote import status
-
-# Quote acceptance
-/rest/jobs/<uuid:job_id>/quote/accept/                        # Accept quote
-
-# Weekly metrics
-/rest/jobs/weekly-metrics/                                    # Weekly metrics
-
-# Job quote chat APIs
-/api/jobs/<uuid:job_id>/quote-chat/                           # Quote chat history
-/api/jobs/<uuid:job_id>/quote-chat/interaction/               # AI-powered chat interaction
-/api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/          # Quote chat message
+# Specific actions - use verbs only when necessary
+/api/jobs/{id}/accept-quote/            # POST - accept quote
+/api/jobs/{id}/toggle-complex-mode/     # POST - toggle complex mode
+/api/xero/sync/                         # POST - start sync
 ```
 
 ### Standardized HTTP Methods
 
 ```python
 # GET - Retrieve data
-GET
+GET /api/jobs/                    # List all jobs
+GET /api/jobs/{id}/               # Get specific job
 
 # POST - Create new resources
-POST
+POST /api/jobs/                   # Create new job
+POST /api/jobs/{id}/events/       # Add event to job
 
 # PUT - Update entire resource
-PUT
+PUT /api/jobs/{id}/               # Update entire job
 
 # PATCH - Partial update
-PATCH
+PATCH /api/jobs/{id}/             # Update specific fields
 
 # DELETE - Remove resource
-DELETE
+DELETE /api/jobs/{id}/            # Delete job
 ```
 
 ## HTTP Status Codes
@@ -261,24 +229,18 @@ class CanModifyJob(BasePermission):
 
 ### Versioning Strategy
 
-### URL Versioning (preferred)
-
-Check `apps/job/urls_rest.py` and `urls.py` for actual routing details.
-
-Example:
 ```python
-# urls.py
-path('api/job/', include('apps.job.urls_rest')),
-```
+# URL versioning (preferred)
+# (Verifique apps/job/urls_rest.py e urls.py para detalhes reais de roteamento)
+# Exemplo:
+# path('api/job/', include('apps.job.urls_rest')),
 
-### Header Versioning (optional, not enabled by default)
-
-```python
-REST_FRAMEWORK = {
-    'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.AcceptHeaderVersioning',
-    'DEFAULT_VERSION': 'v1',
-    'ALLOWED_VERSIONS': ['v1', 'v2'],
-}
+# Header versioning (opcional, não habilitado por padrão)
+# REST_FRAMEWORK = {
+#     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.AcceptHeaderVersioning',
+#     'DEFAULT_VERSION': 'v1',
+#     'ALLOWED_VERSIONS': ['v1', 'v2'],
+# }
 ```
 
 ### Backward Compatibility

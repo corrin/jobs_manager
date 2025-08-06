@@ -6,6 +6,7 @@ Provides endpoints for the Vue.js frontend to interact with timesheet data.
 import logging
 import traceback
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
@@ -45,12 +46,26 @@ class StaffListAPIView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = StaffListResponseSerializer
 
+    @extend_schema(
+        summary="Returns staff members excluding system and users for a specific date",
+        parameters=[
+            OpenApiParameter(
+                "date",
+                OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="Date parameter in format YYYY-MM-DD",
+            )
+        ],
+    )
     def get(self, request):
         """Get filtered list of staff members for a specific date."""
         try:
             # Add required date parameter
-            date_param = request.query_params.get("date")
+            date_param = request.query_params.get("date") or datetime.now().strftime(
+                "%Y-%m-%d"
+            )
             if not date_param:
+                logger.error("Date parameter not received in StaffListAPIView")
                 return Response(
                     {"error": "date parameter is required (YYYY-MM-DD format)"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -59,6 +74,7 @@ class StaffListAPIView(APIView):
             try:
                 target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
             except ValueError:
+                logger.info(f"Invalid date format received: {date_param}")
                 return Response(
                     {"error": "Invalid date format. Use YYYY-MM-DD"},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -82,7 +98,9 @@ class StaffListAPIView(APIView):
                         "lastName": member.last_name or "",
                         "email": member.email or "",
                         "wageRate": (
-                            float(member.wage_rate) if member.wage_rate else 0.0
+                            str(Decimal(member.wage_rate))
+                            if member.wage_rate
+                            else str(Decimal(0))
                         ),
                         "avatarUrl": None,  # Add avatar logic if needed
                     }
@@ -91,7 +109,13 @@ class StaffListAPIView(APIView):
             return Response({"staff": staff_data, "total_count": len(staff_data)})
 
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(f"Error fetching staff list: {e}")
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e)
+
             return Response(
                 {"error": "Failed to fetch staff list", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -143,7 +167,13 @@ class JobsAPIView(APIView):
             )
 
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(f"Error fetching jobs: {e}")
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e)
+
             return Response(
                 {"error": "Failed to fetch jobs", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -210,8 +240,14 @@ class DailyTimesheetAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(f"Error in DailyTimesheetAPIView: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e)
+
             return Response(
                 {
                     "error": "Failed to get daily timesheet overview",
@@ -271,8 +307,14 @@ class DailyTimesheetAPIView(APIView):
             return Response(staff_data, status=status.HTTP_200_OK)
 
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(f"Error getting staff daily detail: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e)
+
             return Response(
                 {
                     "error": "Failed to get staff daily detail",
@@ -325,7 +367,13 @@ class TimesheetResponseMixin:
             )
 
         except Exception as e:
-            logger.info(f"Error building weekly timesheet response: {e}")
+            from apps.workflow.services.error_persistence import persist_app_error
+
+            logger.error(f"Error building weekly timesheet response: {e}")
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e)
+
             return Response(
                 {
                     "error": "Failed to build weekly timesheet response",
@@ -440,8 +488,13 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
             logger.error(f"Error submitting paid absence: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
+
+            # MANDATORY: Persist error to database
+            persist_app_error(e)
 
             return Response(
                 {

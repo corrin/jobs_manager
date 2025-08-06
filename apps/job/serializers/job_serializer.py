@@ -601,8 +601,10 @@ class WeeklyMetricsSerializer(serializers.Serializer):
     job_id = serializers.UUIDField()
     job_number = serializers.IntegerField()
     name = serializers.CharField()
-    client = serializers.CharField()
-    description = serializers.CharField()
+    client = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    description = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
     status = serializers.CharField()
     people = serializers.ListField(
         child=serializers.DictField(),

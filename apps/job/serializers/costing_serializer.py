@@ -1,9 +1,12 @@
 import logging
+from decimal import Decimal
+from pprint import pprint
 
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.job.models import CostLine, CostSet
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +182,10 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         kind = self.validated_data.get("kind")
 
         if kind == "time" and meta.get("created_from_timesheet"):
-            # Auto-calculate unit_cost from staff wage_rate
+            line_id = self.validated_data.get("id")
+            logger.info(f"Starting to autocalculate unit cost for cost line {line_id}")
+            pprint(self.validated_data)
+            # Auto-calculate unit_cost from staff wage_rate and rate multiplier
             staff_id = meta.get("staff_id")
             if staff_id:
                 try:
@@ -193,12 +199,26 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     wage_rate = (
                         staff.wage_rate
                         if staff.wage_rate
-                        else (company_defaults.wage_rate if company_defaults else 32.0)
+                        else company_defaults.wage_rate
                     )
 
-                    self.validated_data["unit_cost"] = wage_rate
+                    rate_multiplier = Decimal(meta.get("rate_multiplier", None))
+                    if rate_multiplier is None:
+                        exception = serializers.ValidationError(
+                            "Rate multiplier must be provided by front-end."
+                        )
+                        persist_app_error(
+                            exception=exception,
+                            job_id=self.validated_data.get("job_id"),
+                            user_id=staff_id,
+                        )
+                        raise exception
+
+                    final_wage = wage_rate * rate_multiplier
+
+                    self.validated_data["unit_cost"] = final_wage
                     logger.info(
-                        f"Auto-calculated unit_cost: {wage_rate} for staff {staff_id}"
+                        f"Auto-calculated unit_cost: {final_wage} for staff {staff_id}"
                     )
 
                 except Staff.DoesNotExist:

@@ -378,7 +378,13 @@ def create_xero_invoice(request, job_id):
         error_serializer = XeroOperationResponseSerializer(error_response)
         return JsonResponse(error_serializer.data, status=404)
     except Exception as e:
+        from apps.workflow.services.error_persistence import persist_app_error
+
         logger.error(f"Error in create_xero_invoice view: {str(e)}", exc_info=True)
+
+        # MANDATORY: Persist error to database
+        persist_app_error(e, job_id=job_id)
+
         messages.error(
             request, "An unexpected error occurred while creating the invoice."
         )
@@ -499,7 +505,13 @@ def create_xero_quote(request: HttpRequest, job_id) -> HttpResponse:
             status=404,
         )
     except Exception as e:
+        from apps.workflow.services.error_persistence import persist_app_error
+
         logger.error(f"Error in create_xero_quote view: {str(e)}", exc_info=True)
+
+        # MANDATORY: Persist error to database
+        persist_app_error(e, job_id=job_id)
+
         messages.error(request, f"An error occurred while creating the quote: {str(e)}")
         return JsonResponse(
             {"success": False, "error": str(e), "messages": extract_messages(request)},
@@ -543,7 +555,13 @@ def delete_xero_invoice(request: HttpRequest, job_id) -> HttpResponse:
             status=404,
         )
     except Exception as e:
+        from apps.workflow.services.error_persistence import persist_app_error
+
         logger.error(f"Error in delete_xero_invoice view: {str(e)}", exc_info=True)
+
+        # MANDATORY: Persist error to database
+        persist_app_error(e, job_id=job_id)
+
         messages.error(
             request, f"An error occurred while deleting the invoice: {str(e)}"
         )
@@ -589,7 +607,13 @@ def delete_xero_quote(request: HttpRequest, job_id: uuid) -> HttpResponse:
             status=404,
         )
     except Exception as e:
+        from apps.workflow.services.error_persistence import persist_app_error
+
         logger.error(f"Error in delete_xero_quote view: {str(e)}", exc_info=True)
+
+        # MANDATORY: Persist error to database
+        persist_app_error(e, job_id=job_id)
+
         messages.error(request, f"An error occurred while deleting the quote: {str(e)}")
         return JsonResponse(
             {"success": False, "error": str(e), "messages": extract_messages(request)},
