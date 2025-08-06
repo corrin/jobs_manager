@@ -205,24 +205,7 @@ class PurchasingRestService:
 
     @staticmethod
     def list_stock() -> List[Dict[str, Any]]:
-        items = Stock.objects.filter(is_active=True)
-        return [
-            {
-                "id": str(s.id),
-                "description": s.description,
-                "quantity": float(s.quantity),
-                "unit_cost": float(s.unit_cost),
-                "metal_type": s.metal_type,
-                "alloy": s.alloy,
-                "specifics": s.specifics,
-                "location": s.location,
-                "source": s.source,
-                "date": s.date.isoformat() if s.date else None,
-                "job_id": str(s.job.id) if s.job else None,
-                "notes": s.notes,
-            }
-            for s in items
-        ]
+        return Stock.objects.filter(is_active=True)
 
     @staticmethod
     def create_stock(data: dict) -> Stock:

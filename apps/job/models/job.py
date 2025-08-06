@@ -181,7 +181,7 @@ class Job(models.Model):
     class Meta:
         verbose_name = "Job"
         verbose_name_plural = "Jobs"
-        ordering = ["job_number"]
+        ordering = ["-priority", "-created_at"]
         db_table = "workflow_job"
         indexes = [
             Index(fields=["status", "priority"], name="job_priority_status_idx"),
@@ -315,9 +315,7 @@ class Job(models.Model):
             original_job = Job.objects.get(pk=self.pk)
             original_job.status
 
-        create_creation_event = False
         if (staff and is_new) or (not self.created_by and staff):
-            create_creation_event = True
             self.created_by = staff
 
         if self.charge_out_rate is None:
@@ -369,19 +367,8 @@ class Job(models.Model):
                     ]
                 )
 
-                if create_creation_event and staff:
-                    client_name = self.client.name if self.client else "Shop Job"
-                    contact_info = (
-                        f" (Contact: {self.contact.name})" if self.contact else ""
-                    )
-                    JobEvent.objects.create(
-                        job=self,
-                        event_type="job_created",
-                        description=f"New job '{self.name}' created for client {client_name}{contact_info}."
-                        f" Initial status: {self.get_status_display()}."
-                        f" Pricing methodology: {self.get_pricing_methodology_display()}.",
-                        staff=staff,
-                    )
+                # Note: Job creation event is now handled in JobRestService.create_job()
+                # to prevent duplicate event creation between model and service layers
 
         else:
             # Dynamic change detection for existing jobs

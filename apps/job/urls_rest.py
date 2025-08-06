@@ -82,12 +82,12 @@ rest_urlpatterns = [
         name="costline_create_any_rest",
     ),
     path(
-        "rest/cost_lines/<int:cost_line_id>/",
+        "rest/cost_lines/<str:cost_line_id>/",
         CostLineUpdateView.as_view(),
         name="costline_update_rest",
     ),
     path(
-        "rest/cost_lines/<int:cost_line_id>/delete/",
+        "rest/cost_lines/<str:cost_line_id>/delete/",
         CostLineDeleteView.as_view(),
         name="costline_delete_rest",
     ),

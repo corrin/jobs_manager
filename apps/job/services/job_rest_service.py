@@ -6,12 +6,14 @@ All business logic for Job REST operations should be implemented here.
 """
 
 import logging
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Dict
 from uuid import UUID
 
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
@@ -21,6 +23,7 @@ from apps.job.serializers.job_serializer import (
     CompanyDefaultsJobDetailSerializer,
     JobEventSerializer,
 )
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +85,17 @@ class JobRestService:
         with transaction.atomic():
             job = Job(**job_data)
             job.save(staff=user)
-            # Log creation
+
+            # Create job creation event (moved from Job.save() to prevent duplicates)
+            client_name = job.client.name if job.client else "Shop Job"
+            contact_info = f" (Contact: {job.contact.name})" if job.contact else ""
             JobEvent.objects.create(
                 job=job,
-                staff=user,
                 event_type="job_created",
-                description="New job created",
+                description=f"New job '{job.name}' created for client {client_name}{contact_info}. "
+                f"Initial status: {job.get_status_display()}. "
+                f"Pricing methodology: {job.get_pricing_methodology_display()}.",
+                staff=user,
             )
 
         return job
@@ -261,9 +269,10 @@ class JobRestService:
         }
 
     @staticmethod
+    @transaction.atomic
     def add_job_event(job_id: UUID, description: str, user: Staff) -> Dict[str, Any]:
         """
-        Adds a manual event to the Job.
+        Adds a manual event to the Job with duplicate prevention.
 
         Args:
             job_id: Job UUID
@@ -273,31 +282,102 @@ class JobRestService:
         Returns:
             Dict with created event data
         """
-        # Guard clause - input validation
-        if not description or not description.strip():
-            raise ValueError("Event description is required")
+        try:
+            # Guard clause - input validation
+            if not description or not description.strip():
+                raise ValueError("Event description is required")
 
-        job = get_object_or_404(Job, id=job_id)
+            # Lock the job to prevent race conditions
+            job = Job.objects.select_for_update().get(id=job_id)
 
-        event = JobEvent.objects.create(
-            job=job,
-            staff=user,
-            description=description.strip(),
-            event_type="manual_note",
-        )
+            description_clean = description.strip()
 
-        logger.info(f"Event {event.id} created for job {job_id} by {user.email}")
+            # Check for recent duplicates (last 5 seconds)
+            recent_threshold = timezone.now() - timedelta(seconds=5)
 
-        return {
-            "success": True,
-            "event": {
-                "id": str(event.id),
-                "timestamp": event.timestamp.isoformat(),
-                "event_type": event.event_type,
-                "description": event.description,
-                "staff": user.get_display_full_name() if user else "System",
-            },
-        }
+            existing_event = JobEvent.objects.filter(
+                job=job,
+                staff=user,
+                description=description_clean,
+                event_type="manual_note",
+                timestamp__gte=recent_threshold,
+            ).first()
+
+            if existing_event:
+                logger.warning(
+                    f"Duplicate event prevented for job {job_id} by user {user.email}. "
+                    f"Existing event: {existing_event.id}"
+                )
+                # Return existing event instead of creating duplicate
+                return {
+                    "success": True,
+                    "event": existing_event,
+                    "duplicate_prevented": True,
+                }
+
+            # Create new event using safe method
+            event, created = JobEvent.create_safe(
+                job=job,
+                staff=user,
+                description=description_clean,
+                event_type="manual_note",
+            )
+
+            if not created:
+                logger.warning(
+                    f"Event already exists for job {job_id} by user {user.email}. "
+                    f"Returning existing event: {event.id}"
+                )
+
+            logger.info(
+                f"Event {event.id} {'created' if created else 'found'} "
+                f"for job {job_id} by {user.email}",
+                extra={
+                    "job_id": str(job_id),
+                    "event_id": str(event.id),
+                    "user_id": str(user.id),
+                    # renamed this field so we don’t collide with LogRecord.created
+                    "was_created": created,
+                    "operation": "add_job_event",
+                },
+            )
+
+            return {
+                "success": True,
+                "event": event,
+                "duplicate_prevented": not created,
+            }
+
+        except Job.DoesNotExist:
+            error_msg = f"Job {job_id} not found"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+
+        except (ValidationError, IntegrityError) as e:
+            # Handle duplicate constraint violations
+            logger.warning(
+                f"Duplicate event constraint violation for job {job_id} by user {user.email}: {e}"
+            )
+
+            # If we can't find existing event, re-raise
+            raise ValueError("Unable to create event due to duplicate constraint")
+
+        except Exception as e:
+            # Persist error for debugging
+            persist_app_error(
+                exception=e,
+                app="JobRestService",
+                file=__file__,
+                function="add_job_event",
+                severity=logging.ERROR,
+                job_id=str(job_id),
+                user_id=str(user.id),
+                additional_context={
+                    "description": description,
+                    "operation": "add_job_event",
+                },
+            )
+            raise
 
     @staticmethod
     def delete_job(job_id: UUID, user: Staff) -> Dict[str, Any]:

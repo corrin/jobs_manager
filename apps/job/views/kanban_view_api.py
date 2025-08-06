@@ -97,6 +97,21 @@ class UpdateJobStatusAPIView(APIView):
             return JobStatusUpdateRequestSerializer
         return KanbanSuccessResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        request=JobStatusUpdateRequestSerializer,
+        responses={
+            200: KanbanSuccessResponseSerializer,
+            400: KanbanErrorResponseSerializer,
+            404: KanbanErrorResponseSerializer,
+            500: KanbanErrorResponseSerializer,
+        },
+        description="Update the status of a job on the Kanban board.",
+    )
     def post(self, request: Request, job_id: UUID) -> Response:
         try:
             # Validate input data
@@ -153,6 +168,21 @@ class ReorderJobAPIView(APIView):
             return JobReorderRequestSerializer
         return KanbanSuccessResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance for the request for OpenAPI compatibility"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        request=JobReorderRequestSerializer,
+        responses={
+            200: KanbanSuccessResponseSerializer,
+            400: KanbanErrorResponseSerializer,
+            404: KanbanErrorResponseSerializer,
+            500: KanbanErrorResponseSerializer,
+        },
+        description="Reorder a job within or between kanban columns.",
+    )
     def post(self, request: Request, job_id: UUID) -> Response:
         try:
             # Validate input data
@@ -342,7 +372,6 @@ class AdvancedSearchAPIView(APIView):
                 type=str,
                 location=OpenApiParameter.QUERY,
                 required=False,
-                many=True,
                 description="Filter by job status (can be multiple)",
             ),
             OpenApiParameter(
@@ -374,10 +403,13 @@ class AdvancedSearchAPIView(APIView):
                 "created_by": request.GET.get("created_by", ""),
                 "created_after": request.GET.get("created_after", ""),
                 "created_before": request.GET.get("created_before", ""),
-                "status": request.GET.getlist("status"),
                 "paid": request.GET.get("paid", ""),
                 "xero_invoice_params": request.GET.get("xero_invoice_params", ""),
             }
+
+            # Handle multiple status values
+            raw = request.GET.get("status", "")
+            filters["status"] = raw.split(",") if raw else []
 
             jobs = KanbanService.perform_advanced_search(filters)
 
@@ -428,6 +460,9 @@ class FetchJobsByColumnAPIView(APIView):
             # Serialize the response
             response_serializer = FetchJobsByColumnResponseSerializer(data=result)
             response_serializer.is_valid(raise_exception=True)
+            logger.debug(
+                f"Response data for column {column_id}: jobs order = {[job['job_number'] for job in response_serializer.data.get('jobs', [])]}"
+            )
             return Response(response_serializer.data)
 
         except ValueError as e:

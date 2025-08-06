@@ -2,6 +2,8 @@
 User profile views for JWT authentication
 """
 
+from logging import getLogger
+
 from django.conf import settings
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import status
@@ -11,6 +13,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.serializers import UserProfileSerializer
+
+logger = getLogger(__name__)
 
 
 class GetCurrentUserAPIView(APIView):
@@ -31,6 +35,7 @@ class GetCurrentUserAPIView(APIView):
             serializer = UserProfileSerializer(user, context={"request": request})
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
+            logger.error(f"Error retrieving user profile: {e}")
             return Response(
                 {"error": f"Error retrieving user profile: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

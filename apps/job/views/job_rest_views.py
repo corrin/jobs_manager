@@ -12,6 +12,7 @@ import json
 import logging
 from typing import Any, Dict
 
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -28,6 +29,7 @@ from apps.job.serializers.job_serializer import (
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
+    JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     WeeklyMetricsSerializer,
 )
@@ -63,8 +65,16 @@ class BaseJobRestView(APIView):
 
     def handle_service_error(self, error: Exception) -> Response:
         """
-        Centralise service layer error handling.
+        Centralise service layer error handling with error persistence.
         """
+        try:
+            # Persist error for debugging
+            from apps.workflow.services.error_persistence import persist_app_error
+
+            persist_app_error(error)
+        except Exception as persist_error:
+            logger.error(f"Failed to persist error: {persist_error}")
+
         error_message = str(error)
 
         match type(error).__name__:
@@ -78,6 +88,13 @@ class BaseJobRestView(APIView):
                 error_response = {"error": error_message}
                 error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(error_serializer.data, status=status.HTTP_403_FORBIDDEN)
+            case "IntegrityError":
+                # Handle database constraint violations (duplicates)
+                error_response = {
+                    "error": "Duplicate event prevented by database constraint"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(error_serializer.data, status=status.HTTP_409_CONFLICT)
             case "NotFound" | "Http404":
                 error_response = {"error": "Resource not found"}
                 error_serializer = JobRestErrorResponseSerializer(error_response)
@@ -89,6 +106,31 @@ class BaseJobRestView(APIView):
                 return Response(
                     error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
+
+    def check_request_debounce(
+        self, request, operation_key: str, debounce_seconds: int = 2
+    ) -> bool:
+        """
+        Check if request is within debounce period.
+
+        Args:
+            request: HTTP request
+            operation_key: Unique key for the operation
+            debounce_seconds: Seconds to debounce
+
+        Returns:
+            bool: True if should be blocked (within debounce period)
+        """
+        user_id = str(request.user.id) if request.user.is_authenticated else "anonymous"
+        cache_key = f"debounce:{operation_key}:{user_id}"
+
+        # Check if entry exists in cache
+        if cache.get(cache_key):
+            return True  # Block - within debounce period
+
+        # Set cache entry
+        cache.set(cache_key, True, debounce_seconds)
+        return False  # Allow - outside debounce period
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -270,9 +312,20 @@ class JobEventRestView(BaseJobRestView):
             return JobEventCreateRequestSerializer
         return JobEventCreateResponseSerializer
 
+    @extend_schema(
+        request=JobEventCreateRequestSerializer,
+        responses={
+            201: JobEventCreateResponseSerializer,
+            409: JobRestErrorResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+            429: JobRestErrorResponseSerializer,
+        },
+        description="Add a manual event to the Job with duplicate prevention.",
+        tags=["Jobs"],
+    )
     def post(self, request, job_id):
         """
-        Add a manual event to the Job.
+        Add a manual event to the Job with duplicate prevention.
 
         Expected JSON:
         {
@@ -280,6 +333,20 @@ class JobEventRestView(BaseJobRestView):
         }
         """
         try:
+            # Debounce check - prevent rapid requests
+            debounce_key = f"add_event:{job_id}"
+            if self.check_request_debounce(request, debounce_key, debounce_seconds=2):
+                logger.warning(
+                    f"Request debounced for user {request.user.email} on job {job_id}"
+                )
+                error_response = {
+                    "error": "Request too frequent. Please wait before adding another event."
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_429_TOO_MANY_REQUESTS
+                )
+
             data = self.parse_json_body(request)
 
             # Validate input data
@@ -293,12 +360,39 @@ class JobEventRestView(BaseJobRestView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            result = JobRestService.add_job_event(
-                job_id, input_serializer.validated_data["description"], request.user
+            # Additional duplicate check via cache
+            description = input_serializer.validated_data["description"].strip()
+            duplicate_check_key = (
+                f"event_duplicate:{job_id}:{request.user.id}:{hash(description)}"
             )
 
-            response_serializer = JobEventCreateResponseSerializer(result)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+            if cache.get(duplicate_check_key):
+                logger.warning(
+                    f"Duplicate event prevented via cache for user {request.user.email} on job {job_id}"
+                )
+                error_response = {
+                    "error": "Duplicate event detected. An identical event was recently created."
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(error_serializer.data, status=status.HTTP_409_CONFLICT)
+
+            # Create event via service
+            result = JobRestService.add_job_event(job_id, description, request.user)
+
+            # Set duplicate prevention cache (5 minutes)
+            cache.set(duplicate_check_key, True, 300)
+
+            # Return appropriate status based on whether duplicate was prevented
+            if result.get("duplicate_prevented"):
+                response_serializer = JobEventCreateResponseSerializer(result)
+                return Response(
+                    response_serializer.data, status=status.HTTP_409_CONFLICT
+                )
+            else:
+                response_serializer = JobEventCreateResponseSerializer(result)
+                return Response(
+                    response_serializer.data, status=status.HTTP_201_CREATED
+                )
 
         except Exception as e:
             return self.handle_service_error(e)
@@ -310,6 +404,14 @@ class JobQuoteAcceptRestView(BaseJobRestView):
     REST view for accepting job quotes.
     """
 
+    @extend_schema(
+        responses={
+            200: JobQuoteAcceptanceSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Accept a quote for the job. Sets the quote_acceptance_date to current datetime.",
+        tags=["Jobs"],
+    )
     def post(self, request, job_id):
         """
         Accept a quote for the job.
@@ -326,7 +428,9 @@ class JobQuoteAcceptRestView(BaseJobRestView):
                 "message": result["message"],
             }
 
-            return Response(response_data, status=status.HTTP_200_OK)
+            payload = JobQuoteAcceptanceSerializer(response_data).data
+
+            return Response(payload, status=status.HTTP_200_OK)
 
         except Exception as e:
             return self.handle_service_error(e)

@@ -12,6 +12,7 @@ import logging
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -148,6 +149,16 @@ class CostLineUpdateView(APIView):
             return CostLineCreateUpdateSerializer
         return CostLineSerializer
 
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cost_line_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="ID of the CostLine to update",
+            )
+        ]
+    )
     def patch(self, request, cost_line_id):
         """Update a cost line"""
         # Guard clause - validate cost line exists
@@ -211,7 +222,23 @@ class CostLineDeleteView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = CostLineErrorResponseSerializer
 
-    def delete(self, request, cost_line_id):
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cost_line_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="ID of the CostLine to delete",
+            )
+        ],
+        responses={
+            204: None,
+            400: CostLineErrorResponseSerializer,
+            500: CostLineErrorResponseSerializer,
+        },
+        description="Delete an existing CostLine by ID",
+    )
+    def delete(self, request, cost_line_id: str):
         """Delete a cost line"""
         # Guard clause - validate cost line exists
         cost_line = get_object_or_404(CostLine, id=cost_line_id)

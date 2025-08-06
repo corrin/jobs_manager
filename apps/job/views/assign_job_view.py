@@ -1,5 +1,6 @@
 import logging
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -23,6 +24,15 @@ class AssignJobView(APIView):
             return AssignJobRequestSerializer
         return AssignJobResponseSerializer
 
+    def get_serializer(self, *args, **kwargs):
+        """Return the serializer instance"""
+        serializer_class = self.get_serializer_class()
+        return serializer_class(*args, **kwargs)
+
+    @extend_schema(
+        request=AssignJobRequestSerializer,
+        responses={status.HTTP_200_OK: AssignJobResponseSerializer},
+    )
     def post(self, request, *args, **kwargs):
         try:
             # Validate request data
@@ -72,11 +82,16 @@ class AssignJobView(APIView):
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    def delete(self, request, *args, **kwargs):
+    @extend_schema(
+        request=AssignJobRequestSerializer,
+        responses={status.HTTP_200_OK: AssignJobResponseSerializer},
+    )
+    def delete(self, request, job_id):
         try:
             # Validate request data
             request_serializer = AssignJobRequestSerializer(data=request.data)
             if not request_serializer.is_valid():
+                logger.error(f"Invalid request data: {request_serializer.errors}")
                 response_serializer = AssignJobResponseSerializer(
                     data={"success": False, "error": "Invalid request data"}
                 )
@@ -86,7 +101,6 @@ class AssignJobView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            job_id = request_serializer.validated_data["job_id"]
             staff_id = request_serializer.validated_data["staff_id"]
 
             success, error = JobStaffService.remove_staff_from_job(job_id, staff_id)
@@ -112,6 +126,7 @@ class AssignJobView(APIView):
                 response_serializer.data, status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
+            logger.error(f"Error removing staff from job: {e}")
             response_serializer = AssignJobResponseSerializer(
                 data={"success": False, "error": str(e)}
             )
