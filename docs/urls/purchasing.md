@@ -24,9 +24,6 @@
 #### Stock Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/stock/<uuid:stock_id>/deactivate/` | `stock.deactivate_stock_api_view` | `purchasing:stock_deactivate_api` | API endpoint to deactivate a stock item (soft delete). |
-| `/api/stock/consume/` | `stock.consume_stock_api_view` | `purchasing:stock_consume_api` | API endpoint to consume stock. |
-| `/api/stock/create/` | `stock.create_stock_api_view` | `purchasing:stock_create_api` | API endpoint to create a new stock item. |
 | `/api/stock/search/` | `stock.search_available_stock_api` | `purchasing:stock_search_api` | API endpoint to search available stock items for autocomplete. |
 
 #### Supplier-Quotes Management

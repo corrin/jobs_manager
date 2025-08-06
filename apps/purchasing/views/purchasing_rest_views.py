@@ -437,20 +437,26 @@ class StockConsumeRestView(APIView):
         description="Consume stock for a job, reducing available quantity.",
     )
     def post(self, request, stock_id):
-        job_id = request.data.get("job_id")
-        qty = request.data.get("quantity")
-        if not all([job_id, qty]):
+        # Use serializer for proper validation
+        serializer = StockConsumeRequestSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response(
-                {"error": "Missing data"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid input data", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
             )
+
+        job_id = serializer.validated_data["job_id"]
+        qty_dec = serializer.validated_data["quantity"]
 
         job = get_object_or_404(Job, id=job_id)
         item = get_object_or_404(Stock, id=stock_id)
+
+        # Validating because unit cost and revenue are optional in consumption
+        # (But stock alocation in JobActualTab might override default values for cost and revenue)
         unit_cost = request.data.get("unit_cost", None)
         unit_rev = request.data.get("unit_rev", None)
 
         try:
-            qty_dec = Decimal(str(qty))
             if unit_cost is not None:
                 cost_dec = Decimal(str(unit_cost))
             if unit_rev is not None:
@@ -458,7 +464,7 @@ class StockConsumeRestView(APIView):
         except (InvalidOperation, TypeError):
             return Response(
                 {
-                    "error": "Invalid quantity, unit cost or unit revenue are not valid decimals"
+                    "error": "Invalid state detected: unit cost or unit revenue are not valid decimals"
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

@@ -426,12 +426,11 @@ class Stock(models.Model):
         """
         logger.debug(f"Saving stock item: {self.description}")
 
-        # Validate quantity is not negative
+        # Log negative quantities but allow them (backorders, emergency usage, etc.)
         if self.quantity < 0:
-            logger.warning(
-                f"Attempted to save stock item with negative quantity: {self.quantity}"
+            logger.info(
+                f"Stock item has negative quantity: {self.quantity} ({self.description})"
             )
-            raise ValueError("Stock quantity cannot be negative")
 
         # Validate unit cost is not negative
         if self.unit_cost < 0:

@@ -75,13 +75,6 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     path("use-stock/", views.use_stock_view, name="use_stock"),
     path("use-stock/<uuid:job_id>/", views.use_stock_view, name="use_stock_with_job"),
     # Stock Management - API endpoints
-    path("api/stock/create/", views.create_stock_api_view, name="stock_create_api"),
-    path("api/stock/consume/", views.consume_stock_api_view, name="stock_consume_api"),
-    path(
-        "api/stock/<uuid:stock_id>/deactivate/",
-        views.deactivate_stock_api_view,
-        name="stock_deactivate_api",
-    ),
     path(
         "api/stock/search/", views.search_available_stock_api, name="stock_search_api"
     ),

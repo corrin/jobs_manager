@@ -273,6 +273,12 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                             source_purchase_order_line=line,
                             notes=f"Received from PO {purchase_order.po_number}",
                         )
+
+                        # Parse the stock item to extract additional metadata
+                        from apps.quoting.signals import auto_parse_stock_item
+
+                        auto_parse_stock_item(stock_item)
+
                         logger.info(
                             f"""
                             Created Stock entry {stock_item.id} for line {line.id},
