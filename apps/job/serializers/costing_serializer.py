@@ -197,6 +197,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     job_id=self.validated_data.get("job_id"),
                     user_id=staff_id,
                 )
+                raise exception
 
             try:
                 from apps.accounts.models import Staff
