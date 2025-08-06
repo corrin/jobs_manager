@@ -29,13 +29,7 @@ try:
             delete_purchase_order_view,
             extract_supplier_quote_data_view,
         )
-        from .stock import (
-            consume_stock_api_view,
-            create_stock_api_view,
-            deactivate_stock_api_view,
-            search_available_stock_api,
-            use_stock_view,
-        )
+        from .stock import search_available_stock_api, use_stock_view
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -58,9 +52,6 @@ __all__ = [
     "StockListRestView",
     "XeroItemList",
     "autosave_purchase_order_view",
-    "consume_stock_api_view",
-    "create_stock_api_view",
-    "deactivate_stock_api_view",
     "delete_purchase_order_view",
     "extract_supplier_quote_data_view",
     "product_mapping_validation",

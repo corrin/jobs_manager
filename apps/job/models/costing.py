@@ -95,8 +95,16 @@ class CostLine(models.Model):
         return self.quantity * self.unit_rev
 
     def clean(self):
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # Log negative quantities but allow them (for adjustments, corrections, returns, etc.)
         if self.quantity < 0:
-            raise ValidationError("Quantity must be non-negative")
+            logger.warning(
+                f"CostLine has negative quantity: {self.quantity} for {self.desc}"
+            )
+
         if self.unit_cost < 0:
             raise ValidationError("Unit cost must be non-negative")
         if self.unit_rev < 0:

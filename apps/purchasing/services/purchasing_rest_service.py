@@ -213,7 +213,7 @@ class PurchasingRestService:
         if not all(k in data for k in required):
             raise ValueError("Missing required fields")
 
-        return Stock.objects.create(
+        stock_item = Stock.objects.create(
             job=Stock.get_stock_holding_job(),
             description=data["description"],
             quantity=Decimal(str(data["quantity"])),
@@ -226,6 +226,13 @@ class PurchasingRestService:
             location=data.get("location", ""),
             is_active=True,
         )
+
+        # Parse the stock item to extract additional metadata
+        from apps.quoting.signals import auto_parse_stock_item
+
+        auto_parse_stock_item(stock_item)
+
+        return stock_item
 
     @staticmethod
     def list_xero_items() -> list[dict]:

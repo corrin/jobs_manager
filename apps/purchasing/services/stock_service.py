@@ -19,22 +19,30 @@ def consume_stock(item: Stock, job: Job, qty: Decimal, user: Any) -> CostLine:
         # Reload with row-level lock to avoid race conditions
         item = Stock.objects.select_for_update().get(id=item.id)
 
-        if qty > item.quantity:
-            raise ValueError("Quantity used exceeds available stock")
-
+        original_quantity = item.quantity
         item.quantity -= qty
-        if item.quantity <= 0:
-            item.is_active = False
-            item.save(update_fields=["quantity", "is_active"])
-        else:
-            item.save(update_fields=["quantity"])
+
+        # Log warnings for negative stock but allow it
+        if item.quantity < 0:
+            logger.warning(
+                f"Stock item {item.id} ({item.description}) went negative: {original_quantity} -> {item.quantity} (consumed {qty})"
+            )
+        elif item.quantity == 0:
+            logger.info(
+                f"Stock item {item.id} ({item.description}) fully consumed: {original_quantity} -> 0 (consumed {qty})"
+            )
+
+        # Save the new quantity (negative quantities are allowed)
+        item.save(update_fields=["quantity"])
 
         materials_markup = CompanyDefaults.get_instance().materials_markup
         unit_rev = item.unit_cost * (1 + materials_markup)
 
         # Ensure job has an actual cost set
         if not job.latest_actual:
-            actual_cost_set = CostSet.objects.create(job=job, kind="actual", rev=1)
+            actual_cost_set = CostSet.objects.create(
+                job=job, kind="actual", rev=1, summary={"cost": 0, "rev": 0, "hours": 0}
+            )
             job.latest_actual = actual_cost_set
             job.save(update_fields=["latest_actual"])
             logger.info(f"Created missing actual CostSet for job {job.id}")
