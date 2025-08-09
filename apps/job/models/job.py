@@ -74,7 +74,7 @@ class Job(models.Model):
         help_text="This becomes the first line item on the invoice",
     )
 
-    quote_acceptance_date: datetime = models.DateTimeField(
+    quote_acceptance_date: Optional[datetime] = models.DateTimeField(
         null=True,
         blank=True,
     )
@@ -84,10 +84,10 @@ class Job(models.Model):
     )  # type: ignore
 
     # Flag to track jobs that were rejected
-    rejected_flag = models.BooleanField(
+    rejected_flag: bool = models.BooleanField(
         default=False,
         help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
-    )  # type: ignore
+    )
 
     PRICING_METHODOLOGY_CHOICES = [
         ("time_materials", "Time & Materials"),
@@ -226,9 +226,8 @@ class Job(models.Model):
 
     @property
     def quoted(self) -> bool:
-        if hasattr(self, "quote") and self.quote is not None:
-            return self.quote
-        return False
+        # BUG: TODO: This is supposed to be if the job is quoted in XERO, not if it's quoted here.
+        return self.latest_quote is not None
 
     def __str__(self) -> str:
         status_display = self.get_status_display()
