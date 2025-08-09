@@ -43,8 +43,12 @@ try:
             transform_stock,
         )
         from .xero import (
+            create_expense_entries,
+            create_project,
+            create_time_entries,
             exchange_code_for_token,
             get_authentication_url,
+            get_projects,
             get_tenant_id,
             get_tenant_id_from_connections,
             get_token,
@@ -53,6 +57,9 @@ try:
             pretty_print,
             refresh_token,
             store_token,
+            update_expense_entries,
+            update_project,
+            update_time_entries,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -60,11 +67,15 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "clean_json",
+    "create_expense_entries",
+    "create_project",
+    "create_time_entries",
     "deep_sync_xero_data",
     "exchange_code_for_token",
     "get_authentication_url",
     "get_last_modified_time",
     "get_or_fetch_client",
+    "get_projects",
     "get_tenant_id",
     "get_tenant_id_from_connections",
     "get_token",
@@ -102,4 +113,7 @@ __all__ = [
     "transform_purchase_order",
     "transform_quote",
     "transform_stock",
+    "update_expense_entries",
+    "update_project",
+    "update_time_entries",
 ]
