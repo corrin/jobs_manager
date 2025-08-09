@@ -26,6 +26,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         max_length=100, unique=True, null=True, blank=True
     )
     raw_ims_data = models.JSONField(null=True, blank=True, default=dict)
+    xero_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     date_left = models.DateField(
         null=True,
         blank=True,

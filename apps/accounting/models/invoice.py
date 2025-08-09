@@ -103,10 +103,10 @@ class BaseLineItem(models.Model):
 
 
 class Invoice(BaseXeroInvoiceDocument):
-    job = models.OneToOneField(
+    job = models.ForeignKey(
         "job.Job",
         on_delete=models.CASCADE,
-        related_name="invoice",
+        related_name="invoices",
         null=True,
         blank=True,
     )
