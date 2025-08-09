@@ -54,32 +54,32 @@ class PaidFlagService:
         missing_invoices = 0
 
         for job in completed_jobs:
-            try:
-                invoice = job.invoice
-                has_invoice = True
-            except Job.invoice.RelatedObjectDoesNotExist:
-                has_invoice = False
+            invoices = job.invoices.all()
 
-            if not has_invoice:
+            if not invoices.exists():
                 missing_invoices += 1
                 if verbose:
                     logger.info(
-                        f"Job {job.job_number} - {job.name} has no associate invoice"
+                        f"Job {job.job_number} - {job.name} has no associated invoices"
                     )
                 continue
 
-            if not invoice.paid:
-                unpaid_invoices += 1
+            # Check if all invoices are paid
+            paid_invoices = [invoice for invoice in invoices if invoice.paid]
+            unpaid_invoice_count = len(invoices) - len(paid_invoices)
+
+            if unpaid_invoice_count > 0:
+                unpaid_invoices += unpaid_invoice_count
                 if verbose:
                     logger.info(
-                        f"Job {job.job_number} - {job.name} has unpaid invoice "
-                        f"{invoice.number}"
+                        f"Job {job.job_number} - {job.name} has {unpaid_invoice_count} unpaid invoice(s)"
                     )
             else:
+                # All invoices are paid
                 if verbose:
                     logger.info(
-                        f"Job {job.job_number} - {job.name} has paid invoice "
-                        f"{invoice.number}"
+                        f"Job {job.job_number} - {job.name} has all invoices paid "
+                        f"({len(paid_invoices)} invoice(s))"
                     )
                 if dry_run:
                     logger.info(f"Would mark job {job.job_number} - {job.name} as paid")

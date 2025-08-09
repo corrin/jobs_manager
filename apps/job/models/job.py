@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.db import models, transaction
 from django.db.models import Index, Max
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Staff
@@ -117,6 +118,10 @@ class Job(models.Model):
     job_is_valid = models.BooleanField(default=False)
     collected: bool = models.BooleanField(default=False)
     paid: bool = models.BooleanField(default=False)
+    fully_invoiced: bool = models.BooleanField(
+        default=False,
+        help_text="The total value of invoices for this job matches the total value of the job.",
+    )
     charge_out_rate = (
         models.DecimalField(  # TODO: This needs to be added to the edit job form
             max_digits=10,
@@ -178,6 +183,13 @@ class Job(models.Model):
         help_text="Priority of the job, higher numbers are higher priority.",
     )
 
+    # Xero Projects sync fields
+    xero_project_id = models.CharField(
+        max_length=255, unique=True, null=True, blank=True
+    )
+    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+
     class Meta:
         verbose_name = "Job"
         verbose_name_plural = "Jobs"
@@ -216,12 +228,6 @@ class Job(models.Model):
     def quoted(self) -> bool:
         if hasattr(self, "quote") and self.quote is not None:
             return self.quote
-        return False
-
-    @property
-    def invoiced(self) -> bool:
-        if hasattr(self, "invoice") and self.invoice is not None:
-            return self.invoice
         return False
 
     def __str__(self) -> str:
