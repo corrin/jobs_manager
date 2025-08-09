@@ -1,7 +1,7 @@
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 
 import requests
@@ -11,6 +11,7 @@ from xero_python.accounting import AccountingApi
 from xero_python.api_client import ApiClient, Configuration
 from xero_python.api_client.oauth2 import OAuth2Token, TokenApi
 from xero_python.identity import IdentityApi
+from xero_python.project import ProjectApi
 
 from apps.workflow.models import CompanyDefaults, XeroToken
 
@@ -34,7 +35,7 @@ token_api = TokenApi(
 
 
 # Helper function for pretty printing JSON/dict objects
-def pretty_print(obj):
+def pretty_print(obj: Any) -> str:
     return json.dumps(obj, indent=2, sort_keys=True)
 
 
@@ -121,14 +122,15 @@ def store_token(token: Dict[str, Any]) -> None:
             xero_token = XeroToken()
 
         # Only update refresh token if one is provided
-        if token_data.get("refresh_token"):
-            xero_token.refresh_token = token_data["refresh_token"]
+        refresh_token = token_data.get("refresh_token")
+        if refresh_token:
+            xero_token.refresh_token = str(refresh_token)
             logger.info("Updated refresh token in database")
 
-        xero_token.access_token = token_data["access_token"]
-        xero_token.token_type = token_data["token_type"]
+        xero_token.access_token = str(token_data["access_token"])
+        xero_token.token_type = str(token_data["token_type"])
         xero_token.expires_at = expires_at
-        xero_token.scope = token_data["scope"]
+        xero_token.scope = str(token_data["scope"])
         if tenant_id:
             xero_token.tenant_id = tenant_id
         xero_token.save()
@@ -266,11 +268,15 @@ def get_tenant_id_from_connections() -> str:
     return company_defaults.xero_tenant_id
 
 
-def exchange_code_for_token(code, state, session_state):
+def exchange_code_for_token(
+    code: str, state: str, session_state: str
+) -> Dict[str, Any]:
     """
     Exchange authorization code for access and refresh tokens from Xero.
     """
-    logger.debug(f"Exchanging code for token. Code: {code}, State: {state}")
+    logger.debug(
+        f"Exchanging code for token. Code: {code}, State: {state}, Session State: {session_state}"
+    )
     url = "https://identity.xero.com/connect/token"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     data = {
@@ -376,4 +382,261 @@ def get_xero_items(if_modified_since: Optional[datetime] = None) -> Any:
         return items.items
     except Exception as e:
         logger.error(f"Error fetching Xero Items: {e}", exc_info=True)
+        raise
+
+
+def get_projects(if_modified_since: Optional[datetime] = None) -> Any:
+    """
+    Fetches Xero Projects using the Projects API.
+    Handles rate limiting and other API errors.
+    """
+    logger.info(f"Fetching Xero Projects. If modified since: {if_modified_since}")
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+    logger.info(f"Using tenant ID: {tenant_id}")
+
+    # Convert string to datetime if needed
+    if isinstance(if_modified_since, str):
+        if_modified_since = datetime.fromisoformat(
+            if_modified_since.replace("Z", "+00:00")
+        )
+
+    try:
+        match if_modified_since:
+            case None:
+                logger.info("No 'if_modified_since' provided, fetching all projects.")
+                projects = projects_api.get_projects(xero_tenant_id=tenant_id)
+            case datetime():
+                logger.info(
+                    f"'if_modified_since' provided: {if_modified_since.isoformat()}"
+                )
+                projects = projects_api.get_projects(
+                    xero_tenant_id=tenant_id, if_modified_since=if_modified_since
+                )
+            case _:
+                raise ValueError(
+                    f"Invalid type for 'if_modified_since': {type(if_modified_since)}. Expected datetime or None."
+                )
+        logger.info(f"Successfully fetched {len(projects.items)} Xero Projects.")
+        return projects.items
+    except Exception as e:
+        logger.error(f"Error fetching Xero Projects: {e}", exc_info=True)
+        raise
+
+
+def create_project(project_data: Dict[str, Any]) -> Any:
+    """
+    Creates a new Xero Project using the Projects API.
+
+    Args:
+        project_data: Dictionary containing project information including:
+            - name: Project name
+            - contact_id: Xero contact ID
+            - deadline: Project deadline (datetime)
+            - estimate_amount: Project estimate amount (optional)
+
+    Returns:
+        Created project object
+    """
+    logger.info(f"Creating Xero Project with data: {project_data}")
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    try:
+        # Create project using the Projects API
+        created_project = projects_api.create_project(
+            xero_tenant_id=tenant_id, project_create_or_update=project_data
+        )
+        logger.info(
+            f"Successfully created Xero Project with ID: {created_project.project_id}"
+        )
+        return created_project
+    except Exception as e:
+        logger.error(f"Error creating Xero Project: {e}", exc_info=True)
+        raise
+
+
+def update_project(project_id: str, project_data: Dict[str, Any]) -> Any:
+    """
+    Updates an existing Xero Project using the Projects API.
+
+    Args:
+        project_id: Xero project ID to update
+        project_data: Dictionary containing updated project information
+
+    Returns:
+        Updated project object
+    """
+    logger.info(f"Updating Xero Project {project_id} with data: {project_data}")
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    try:
+        # Update project using the Projects API
+        updated_project = projects_api.update_project(
+            xero_tenant_id=tenant_id,
+            project_id=project_id,
+            project_create_or_update=project_data,
+        )
+        logger.info(f"Successfully updated Xero Project with ID: {project_id}")
+        return updated_project
+    except Exception as e:
+        logger.error(f"Error updating Xero Project {project_id}: {e}", exc_info=True)
+        raise
+
+
+def create_time_entries(
+    project_id: str, time_entries_data: List[Dict[str, Any]]
+) -> Any:
+    """
+    Creates multiple time entries for a Xero Project.
+
+    Args:
+        project_id: Xero project ID
+        time_entries_data: List of dictionaries containing time entry information
+
+    Returns:
+        Created time entries
+    """
+    logger.info(
+        f"Creating {len(time_entries_data)} time entries for Xero Project {project_id}"
+    )
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    try:
+        # Create time entries using the Projects API
+        created_entries = projects_api.create_time_entries(
+            xero_tenant_id=tenant_id,
+            project_id=project_id,
+            time_create_or_update=time_entries_data,
+        )
+        logger.info(
+            f"Successfully created {len(created_entries.items)} time entries for Project {project_id}"
+        )
+        return created_entries.items
+    except Exception as e:
+        logger.error(
+            f"Error creating time entries for Project {project_id}: {e}", exc_info=True
+        )
+        raise
+
+
+def create_expense_entries(
+    project_id: str, expense_entries_data: List[Dict[str, Any]]
+) -> Any:
+    """
+    Creates multiple expense entries for a Xero Project.
+
+    Args:
+        project_id: Xero project ID
+        expense_entries_data: List of dictionaries containing expense entry information
+
+    Returns:
+        Created expense entries
+    """
+    logger.info(
+        f"Creating {len(expense_entries_data)} expense entries for Xero Project {project_id}"
+    )
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    try:
+        # Create expense entries using the Projects API
+        created_entries = projects_api.create_expense_entries(
+            xero_tenant_id=tenant_id,
+            project_id=project_id,
+            expense_create_or_update=expense_entries_data,
+        )
+        logger.info(
+            f"Successfully created {len(created_entries.items)} expense entries for Project {project_id}"
+        )
+        return created_entries.items
+    except Exception as e:
+        logger.error(
+            f"Error creating expense entries for Project {project_id}: {e}",
+            exc_info=True,
+        )
+        raise
+
+
+def update_time_entries(
+    project_id: str, time_entries_data: List[Dict[str, Any]]
+) -> Any:
+    """
+    Updates multiple time entries for a Xero Project.
+
+    Args:
+        project_id: Xero project ID
+        time_entries_data: List of dictionaries containing updated time entry information
+
+    Returns:
+        Updated time entries
+    """
+    logger.info(
+        f"Updating {len(time_entries_data)} time entries for Xero Project {project_id}"
+    )
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    try:
+        # Update time entries using the Projects API
+        updated_entries = projects_api.update_time_entries(
+            xero_tenant_id=tenant_id,
+            project_id=project_id,
+            time_create_or_update=time_entries_data,
+        )
+        logger.info(
+            f"Successfully updated {len(updated_entries.items)} time entries for Project {project_id}"
+        )
+        return updated_entries.items
+    except Exception as e:
+        logger.error(
+            f"Error updating time entries for Project {project_id}: {e}", exc_info=True
+        )
+        raise
+
+
+def update_expense_entries(
+    project_id: str, expense_entries_data: List[Dict[str, Any]]
+) -> Any:
+    """
+    Updates multiple expense entries for a Xero Project.
+
+    Args:
+        project_id: Xero project ID
+        expense_entries_data: List of dictionaries containing updated expense entry information
+
+    Returns:
+        Updated expense entries
+    """
+    logger.info(
+        f"Updating {len(expense_entries_data)} expense entries for Xero Project {project_id}"
+    )
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    try:
+        # Update expense entries using the Projects API
+        updated_entries = projects_api.update_expense_entries(
+            xero_tenant_id=tenant_id,
+            project_id=project_id,
+            expense_create_or_update=expense_entries_data,
+        )
+        logger.info(
+            f"Successfully updated {len(updated_entries.items)} expense entries for Project {project_id}"
+        )
+        return updated_entries.items
+    except Exception as e:
+        logger.error(
+            f"Error updating expense entries for Project {project_id}: {e}",
+            exc_info=True,
+        )
         raise

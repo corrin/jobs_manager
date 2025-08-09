@@ -11,4 +11,5 @@ XERO_SCOPES = [
     "accounting.settings",
     "accounting.journals.read",
     "accounting.inventory",
+    "projects",
 ]
