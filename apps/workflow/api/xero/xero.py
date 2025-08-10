@@ -2,7 +2,7 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import requests
 from django.conf import settings
@@ -12,6 +12,7 @@ from xero_python.api_client import ApiClient, Configuration
 from xero_python.api_client.oauth2 import OAuth2Token, TokenApi
 from xero_python.identity import IdentityApi
 from xero_python.project import ProjectApi
+from xero_python.project.models import ProjectCreateOrUpdate
 
 from apps.workflow.models import CompanyDefaults, XeroToken
 
@@ -232,11 +233,12 @@ def get_authentication_url(state: str) -> str:
         "response_type": "code",
         "client_id": settings.XERO_CLIENT_ID,
         "redirect_uri": settings.XERO_REDIRECT_URI,
-        "scope": " ".join(settings.XERO_SCOPES),
+        "scope": " ".join(settings.XERO_SCOPES),  # actual spaces
         "state": state,
     }
     logger.info(f"Generating authentication URL with params: \n{pretty_print(params)}")
-    url = f"https://login.xero.com/identity/connect/authorize?{urlencode(params)}"
+    # Use quote_via=quote to encode spaces as %20 instead of +
+    url = f"https://login.xero.com/identity/connect/authorize?{urlencode(params, quote_via=quote)}"
     logger.info(f"Generated URL: {url}")
     return url
 
@@ -445,9 +447,15 @@ def create_project(project_data: Dict[str, Any]) -> Any:
     projects_api = ProjectApi(api_client)
 
     try:
+        # Create ProjectCreateOrUpdate object from dictionary data
+        project_obj = ProjectCreateOrUpdate(**project_data)
+        logger.info(
+            f"ProjectCreateOrUpdate object: name={project_obj.name}, contact_id={project_obj.contact_id}"
+        )
+
         # Create project using the Projects API
         created_project = projects_api.create_project(
-            xero_tenant_id=tenant_id, project_create_or_update=project_data
+            xero_tenant_id=tenant_id, project_create_or_update=project_obj
         )
         logger.info(
             f"Successfully created Xero Project with ID: {created_project.project_id}"
