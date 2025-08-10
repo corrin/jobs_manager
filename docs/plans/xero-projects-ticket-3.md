@@ -29,10 +29,12 @@ Adding Projects API calls to the existing Xero API infrastructure to support pro
 
 ### 🔄 Tasks In Progress
 
-#### Task 5: Test with Xero sandbox
-- Ensure API calls work correctly with Xero sandbox environment
+#### Task 5: Test with Xero sandbox - BLOCKED
+- ❌ Ensure API calls work correctly with Xero sandbox environment - BLOCKED: missing "projects" scope in token
 - Note we are connected to a special safe Xero Demo Company so it should sync all our jobs into projects
-- Test error handling and edge cases
+- ❌ Test error handling and edge cases - BLOCKED: cannot test without proper token scope
+
+**CRITICAL: Cannot test API calls until Xero token is re-authenticated with "projects" scope**
 
 #### Task 6: Run MyPy on edited files
 - ✅ Fixed import issues (changed from xero_python.projects to xero_python.project)

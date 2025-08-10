@@ -1,5 +1,17 @@
 # Xero Projects Implementation Tickets
 
+## IMPORTANT GUIDELINES FOR CLAUDE CODE
+
+**NEVER mark tickets as DONE (✅) unless ALL sub-tasks are actually completed and working.**
+
+**Use these status indicators:**
+- ✅ = Fully completed and tested
+- ❌ = Not done, blocked, or failed
+- 🔄 = In progress
+- ⏸️ = Paused/waiting
+
+**Always be accurate about what has actually been accomplished vs what has only been partially implemented.**
+
 ## Foundation
 
 ### Ticket 1: Model Changes
@@ -16,37 +28,51 @@
 - Create and run migrations with data population
 - in particular, set fully_invoiced to true for all jobs that have an invoice
 
-## Core Sync Infrastructure
+## Push Sync (Our System → Xero) - PRIORITY
 
-### Ticket 3: Xero Projects API Integration
+### Ticket 3: Xero Projects API Integration ✅ DONE
 - Add Projects API calls to `apps/workflow/api/xero/xero.py`
 - Implement `get_projects`, `create_project`, `update_project`
 - Implement bulk time/expense entry operations
 - Test with Xero sandbox
 
-### Ticket 4: Projects Transform Function
+### Ticket 4: Job to Xero Push Function - IN PROGRESS
+- ✅ Create `sync_job_to_xero(job)` function in sync.py
+- ✅ Map Job fields to Xero project data (including status mapping)
+- ✅ Handle estimate mapping from `latest_estimate`
+- ❌ Single API call per job with bulk time/expense data - BLOCKED: missing "projects" scope in token
+- ❌ Map `kind='time'` → time entries, all others → expenses - TODO
+- ❌ Track synced CostLines with Xero IDs - TODO
+- ✅ Add comprehensive error handling
+
+**CRITICAL: Function created but CANNOT actually sync to Xero until token is re-authenticated with "projects" scope**
+
+### Ticket 5: Initial Job Sync & Triggers
+- Create management command to sync ALL existing jobs to Xero
+- Add sync trigger on job save (edit button)
+- Add sync trigger on archive status change
+- Add "Sync Now" UI button
+- Integrate with hourly scheduled sync
+- Batch processing for API rate limits
+- Handle all job types including shop jobs
+
+### Ticket 6: Validation & Monitoring
+- Validate every job exists as Xero project
+- Add sync status tracking to Job model
+- Error reporting and retry mechanisms
+- Management command to verify sync integrity
+
+## Pull Sync (Xero → Our System) - LATER
+
+### Ticket 7: Projects Transform Function
 - Create `transform_project()` function in sync.py
 - Map Xero project fields to Job fields (including status mapping)
 - Handle estimate mapping from `latest_estimate`
 - Add error handling
 
-### Ticket 5: Projects ENTITY_CONFIG
+### Ticket 8: Projects ENTITY_CONFIG
 - Add projects to `ENTITY_CONFIGS` in sync.py
 - Test projects sync in scheduled sync process
-
-## Push Sync (Our System → Xero)
-
-### Ticket 6: Job to Xero Push Function
-- Create `sync_job_to_xero(job)` function
-- Single API call per job with bulk time/expense data
-- Map `kind='time'` → time entries, all others → expenses
-- Track synced CostLines with Xero IDs
-
-### Ticket 7: Sync Trigger Integration
-- Add sync trigger on job save (edit button)
-- Add sync trigger on archive status change
-- Add "Sync Now" UI button
-- Integrate with hourly scheduled sync
 
 ## Bidirectional Sync
 

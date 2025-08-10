@@ -307,3 +307,4 @@ def sync_job_to_xero(job):
 - Required Xero API scopes and permissions
 - Error handling and recovery mechanisms
 - Performance considerations for large job volumes
+B

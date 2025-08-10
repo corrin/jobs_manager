@@ -10,6 +10,6 @@ XERO_SCOPES = [
     "accounting.reports.read",
     "accounting.settings",
     "accounting.journals.read",
-    "accounting.inventory",
+    # "accounting.inventory",  # REMOVED - invalid scope, use accounting.settings instead
     "projects",
 ]

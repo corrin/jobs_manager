@@ -42,6 +42,16 @@ class CostSet(models.Model):
         if self.rev < 0:
             raise ValidationError("Revision must be non-negative")
 
+    @property
+    def total_cost(self):
+        """Total internal cost for all cost lines in this set"""
+        return sum(cost_line.total_cost for cost_line in self.cost_lines.all())
+
+    @property
+    def total_revenue(self):
+        """Total revenue (charge amount) for all cost lines in this set"""
+        return sum(cost_line.total_rev for cost_line in self.cost_lines.all())
+
 
 class CostLine(models.Model):
     """
