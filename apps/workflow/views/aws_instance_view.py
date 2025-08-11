@@ -51,7 +51,7 @@ def get_instance_status(request):
         )
 
 
-@extend_schema(responses=AWSInstanceStatusResponseSerializer)
+@extend_schema(exclude=True)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def start_instance(request):
@@ -81,7 +81,7 @@ def start_instance(request):
         )
 
 
-@extend_schema(responses=AWSInstanceStatusResponseSerializer)
+@extend_schema(exclude=True)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def stop_instance(request):
@@ -111,7 +111,7 @@ def stop_instance(request):
         )
 
 
-@extend_schema(responses=AWSInstanceStatusResponseSerializer)
+@extend_schema(exclude=True)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reboot_instance(request):
