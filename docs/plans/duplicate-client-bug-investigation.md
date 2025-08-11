@@ -5,13 +5,13 @@
 **Problem:** After restore process, found 27 duplicate client names (54 total records).
 
 **What We Fixed:**
-- ✅ Fixed `sync_clients()` logic in `apps/workflow/api/xero/sync.py` 
+- ✅ Fixed `sync_clients()` logic in `apps/workflow/api/xero/sync.py`
 - ✅ Updated backup-restore process steps
 - ✅ Tested - sync logic works correctly, no new duplicates created
 
 **What We Know:**
 - ✅ No duplicates in production data (Step 8)
-- ✅ No duplicates after migrations (Step 9)  
+- ✅ No duplicates after migrations (Step 9)
 - ✅ No duplicates after fixtures (Step 10)
 - ❌ 27 duplicates found after Xero sync (Step 20)
 
@@ -23,7 +23,7 @@ The issue is that **Xero Demo Company has multiple contacts with the same names 
 
 Example with Hamilton Group:
 1. Our production client "Hamilton Group" exists (no xero_contact_id)
-2. Xero Demo Company has TWO contacts named "Hamilton Group" 
+2. Xero Demo Company has TWO contacts named "Hamilton Group"
 3. First Xero contact links to our existing client ✅
 4. Second Xero contact creates a NEW client record ❌
 
