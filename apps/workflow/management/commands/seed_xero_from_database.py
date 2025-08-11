@@ -23,22 +23,22 @@ class Command(BaseCommand):
             help="Show what would be synced without making changes",
         )
         parser.add_argument(
-            "--skip-clear-xero-ids",
+            "--clear-xero-ids",
             action="store_true",
-            help="Skip clearing production Xero IDs (if already done)",
+            help="Clear production Xero IDs before seeding",
         )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        skip_clear = options["skip_clear_xero_ids"]
+        clear_ids = options["clear_xero_ids"]
 
         mode_text = "DRY RUN - " if dry_run else ""
         self.stdout.write(f"🚀 {mode_text}Seeding Xero from Database")
         self.stdout.write("=" * 50)
 
         try:
-            # Phase 0: Clear production Xero IDs (unless skipped)
-            if not skip_clear:
+            # Phase 0: Clear production Xero IDs (if requested)
+            if clear_ids:
                 self.stdout.write("\n🧹 Phase 0: Clearing Production Xero IDs")
                 self.clear_production_xero_ids(dry_run)
 
@@ -47,11 +47,11 @@ class Command(BaseCommand):
             contacts_processed = self.process_contacts(dry_run)
 
             # Phase 2: Create projects
-            self.stdout.write(f"\n🏗️  Phase 2: Processing Projects")
+            self.stdout.write("\n🏗️  Phase 2: Processing Projects")
             projects_processed = self.process_projects(dry_run)
 
             # Summary
-            self.stdout.write(f"\n✅ COMPLETED")
+            self.stdout.write("\n✅ COMPLETED")
             self.stdout.write(f"Contacts processed: {contacts_processed}")
             self.stdout.write(f"Projects processed: {projects_processed}")
 
