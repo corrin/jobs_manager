@@ -365,7 +365,7 @@ class JobCreateResponseSerializer(serializers.Serializer):
 
     success = serializers.BooleanField(default=True)
     job_id = serializers.CharField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     message = serializers.CharField()
 
 
@@ -451,7 +451,7 @@ class MonthEndJobSerializer(serializers.Serializer):
     """Serializer for special jobs in month-end processing"""
 
     job_id = serializers.UUIDField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     job_name = serializers.CharField()
     client_name = serializers.CharField()
     history = MonthEndJobHistorySerializer(many=True)
@@ -471,7 +471,7 @@ class MonthEndStockJobSerializer(serializers.Serializer):
     """Serializer for stock job in month-end processing"""
 
     job_id = serializers.UUIDField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     job_name = serializers.CharField()
     history = MonthEndStockHistorySerializer(many=True)
 

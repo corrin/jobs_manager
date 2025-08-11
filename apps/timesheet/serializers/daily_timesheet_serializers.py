@@ -11,7 +11,7 @@ class JobBreakdownSerializer(serializers.Serializer):
     """Serializer for job breakdown data"""
 
     job_id = serializers.CharField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     job_name = serializers.CharField()
     client = serializers.CharField()
     hours = serializers.FloatField()
