@@ -553,8 +553,10 @@ def sync_clients(xero_contacts):
         raw_json = process_xero_data(contact)
 
         # Check if we already have a client with this xero_contact_id
-        existing_client = Client.objects.filter(xero_contact_id=contact.contact_id).first()
-        
+        existing_client = Client.objects.filter(
+            xero_contact_id=contact.contact_id
+        ).first()
+
         if existing_client:
             # Already linked - just update with latest Xero data
             client = existing_client
@@ -569,15 +571,19 @@ def sync_clients(xero_contacts):
             contact_name = raw_json.get("_name", "").strip()
             if contact_name:
                 matching_client = Client.objects.filter(name=contact_name).first()
-                
+
                 if matching_client:
                     if matching_client.xero_contact_id is None:
                         # Safe to link - no existing Xero ID
                         matching_client.xero_contact_id = contact.contact_id
                         matching_client.raw_json = raw_json
                         matching_client.xero_last_modified = timezone.now()
-                        matching_client.xero_archived = contact.contact_status == "ARCHIVED"
-                        matching_client.xero_merged_into_id = getattr(contact, "merged_to_contact_id", None)
+                        matching_client.xero_archived = (
+                            contact.contact_status == "ARCHIVED"
+                        )
+                        matching_client.xero_merged_into_id = getattr(
+                            contact, "merged_to_contact_id", None
+                        )
                         matching_client.save()
                         logger.info(
                             f"Linked existing client '{contact_name}' (ID: {matching_client.id}) to Xero contact {contact.contact_id}"
@@ -596,7 +602,9 @@ def sync_clients(xero_contacts):
                         raw_json=raw_json,
                         xero_last_modified=timezone.now(),
                         xero_archived=contact.contact_status == "ARCHIVED",
-                        xero_merged_into_id=getattr(contact, "merged_to_contact_id", None),
+                        xero_merged_into_id=getattr(
+                            contact, "merged_to_contact_id", None
+                        ),
                     )
                     created = True
             else:
@@ -1203,7 +1211,9 @@ def sync_job_to_xero(job):
         raise ValueError(f"Job {job.job_number} has no latest_estimate")
 
     estimate_total = job.latest_estimate.total_revenue
-    project_data["estimate_amount"] = float(estimate_total)
+    # Only set estimate_amount if greater than 0 (Xero requirement)
+    if estimate_total and float(estimate_total) > 0:
+        project_data["estimate_amount"] = float(estimate_total)
 
     try:
         if job.xero_project_id:
