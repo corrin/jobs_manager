@@ -32,6 +32,8 @@ class StaffPerformanceTemplateView(TemplateView):
 class StaffPerformanceSummaryAPIView(APIView):
     """API endpoint for staff performance summary (all staff)"""
 
+    serializer_class = StaffPerformanceResponseSerializer
+
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
             # Validate query parameters
@@ -127,6 +129,8 @@ class StaffPerformanceSummaryAPIView(APIView):
 
 class StaffPerformanceDetailAPIView(APIView):
     """API endpoint for individual staff performance detail"""
+
+    serializer_class = StaffPerformanceResponseSerializer
 
     def get(
         self, request: Request, staff_id: str, *args: Any, **kwargs: Any

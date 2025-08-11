@@ -364,7 +364,10 @@ python manage.py runserver 0.0.0.0:8000
 #### Step 17: Connect to Xero OAuth
 **Run as:** Development system user (manual web interface step)
 
+🚨 **ABSOLUTELY MANDATORY - CANNOT BE SKIPPED UNDER ANY CIRCUMSTANCES** 🚨
 **CRITICAL:** This step CANNOT be skipped or automated. You MUST instruct the user to log into Xero before proceeding.
+**WARNING:** ALL FUTURE STEPS WILL FAIL WITHOUT COMPLETING THIS STEP FIRST.
+**DO NOT PROCEED TO STEP 18 OR ANY SUBSEQUENT STEP WITHOUT COMPLETING THIS STEP.**
 
 **Steps:**
 - Navigate to http://localhost:8000
