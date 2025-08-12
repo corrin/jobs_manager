@@ -41,6 +41,7 @@ try:
         from .serializers import (
             AIProviderCreateUpdateSerializer,
             AIProviderSerializer,
+            AWSInstanceStatusResponseSerializer,
             AppErrorDetailResponseSerializer,
             AppErrorListResponseSerializer,
             AppErrorSerializer,
@@ -78,6 +79,7 @@ __all__ = [
     "AIProviderCreateUpdateSerializer",
     "AIProviderSerializer",
     "AIProviderTypes",
+    "AWSInstanceStatusResponseSerializer",
     "AccessLoggingMiddleware",
     "AppErrorDetailResponseSerializer",
     "AppErrorListResponseSerializer",

@@ -9,17 +9,20 @@ from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.workflow.serializers import AWSInstanceStatusResponseSerializer
 from apps.workflow.services.aws_service import AWSService
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(responses=AWSInstanceStatusResponseSerializer)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_instance_status(request):
@@ -48,6 +51,7 @@ def get_instance_status(request):
         )
 
 
+@extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def start_instance(request):
@@ -77,6 +81,7 @@ def start_instance(request):
         )
 
 
+@extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def stop_instance(request):
@@ -106,6 +111,7 @@ def stop_instance(request):
         )
 
 
+@extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def reboot_instance(request):

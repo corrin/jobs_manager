@@ -415,6 +415,8 @@ class JobQuoteAcceptRestView(BaseJobRestView):
     REST view for accepting job quotes.
     """
 
+    serializer_class = JobQuoteAcceptanceSerializer
+
     @extend_schema(
         responses={
             200: JobQuoteAcceptanceSerializer,

@@ -81,6 +81,11 @@ class Command(BaseCommand):
             data.extend(migrations_data)
             fake = Faker()
 
+            # Initialize uniqueness tracking sets for fields that must be unique
+            self._used_company_names = set()
+            self._used_staff_emails = set()
+            self._used_staff_preferred_names = set()
+
             self.stdout.write(
                 f"Anonymizing {len(data)} records "
                 f"(including {len(migrations_data)} migrations)..."
@@ -115,9 +120,21 @@ class Command(BaseCommand):
             fields["first_name"] = fake.first_name()
             fields["last_name"] = fake.last_name()
             if fields["preferred_name"]:
-                fields["preferred_name"] = fake.first_name()
+                # Ensure unique preferred names
+                while True:
+                    preferred_name = fake.first_name()
+                    if preferred_name not in self._used_staff_preferred_names:
+                        self._used_staff_preferred_names.add(preferred_name)
+                        fields["preferred_name"] = preferred_name
+                        break
             if fields["email"]:
-                fields["email"] = fake.email()
+                # Ensure unique emails
+                while True:
+                    email = fake.email()
+                    if email not in self._used_staff_emails:
+                        self._used_staff_emails.add(email)
+                        fields["email"] = email
+                        break
             if fields["raw_ims_data"]:
                 raw_data = fields["raw_ims_data"]
                 if "EmpNo" in raw_data:
@@ -160,8 +177,15 @@ class Command(BaseCommand):
             if item["pk"] == "00000000-0000-0000-0000-000000000001":
                 # Special handling of the shop client
                 fields["name"] = "Demo Company Shop"
+                self._used_company_names.add("Demo Company Shop")
             else:
-                fields["name"] = fake.company()
+                # Ensure unique company names
+                while True:
+                    company_name = fake.company()
+                    if company_name not in self._used_company_names:
+                        self._used_company_names.add(company_name)
+                        fields["name"] = company_name
+                        break
                 if fields["primary_contact_name"]:
                     fields["primary_contact_name"] = fake.name()
                 if fields["primary_contact_email"]:
