@@ -6,6 +6,9 @@ from urllib.parse import urlparse
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
+# Import scopes from constants to ensure consistency
+from apps.workflow.api.xero.constants import XERO_SCOPES as DEFAULT_XERO_SCOPES_LIST
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
@@ -605,10 +608,8 @@ LOGGING = {
 XERO_CLIENT_ID = os.getenv("XERO_CLIENT_ID", "")
 XERO_CLIENT_SECRET = os.getenv("XERO_CLIENT_SECRET", "")
 XERO_REDIRECT_URI = os.getenv("XERO_REDIRECT_URI", "")
+XERO_DEFAULT_USER_ID = os.getenv("XERO_DEFAULT_USER_ID", "")
 XERO_WEBHOOK_KEY = os.getenv("XERO_WEBHOOK_KEY", "")
-
-# Import scopes from constants to ensure consistency
-from apps.workflow.api.xero.constants import XERO_SCOPES as DEFAULT_XERO_SCOPES_LIST
 
 DEFAULT_XERO_SCOPES = " ".join(DEFAULT_XERO_SCOPES_LIST)
 XERO_SCOPES = os.getenv("XERO_SCOPES", DEFAULT_XERO_SCOPES).split()
@@ -680,6 +681,7 @@ def validate_required_settings() -> None:
         "XERO_CLIENT_ID",
         "XERO_CLIENT_SECRET",
         "XERO_REDIRECT_URI",
+        "XERO_DEFAULT_USER_ID",
         "EMAIL_HOST",
         "EMAIL_PORT",
         "EMAIL_USE_TLS",

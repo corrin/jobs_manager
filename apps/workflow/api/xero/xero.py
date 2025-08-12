@@ -12,7 +12,13 @@ from xero_python.api_client import ApiClient, Configuration
 from xero_python.api_client.oauth2 import OAuth2Token, TokenApi
 from xero_python.identity import IdentityApi
 from xero_python.project import ProjectApi
-from xero_python.project.models import ProjectCreateOrUpdate
+from xero_python.project.models import (
+    Amount,
+    ChargeType,
+    CurrencyCode,
+    ProjectCreateOrUpdate,
+    TaskCreateOrUpdate,
+)
 
 from apps.workflow.models import CompanyDefaults, XeroToken
 
@@ -517,19 +523,64 @@ def create_time_entries(
     projects_api = ProjectApi(api_client)
 
     try:
-        # Create time entries using the Projects API
-        created_entries = projects_api.create_time_entries(
-            xero_tenant_id=tenant_id,
-            project_id=project_id,
-            time_create_or_update=time_entries_data,
-        )
+        # Create time entries one by one using the Projects API
+        created_entries = []
+        for time_entry_data in time_entries_data:
+            created_entry = projects_api.create_time_entry(
+                xero_tenant_id=tenant_id,
+                project_id=project_id,
+                time_entry_create_or_update=time_entry_data,  # Single object, not list
+            )
+            created_entries.append(created_entry)
+
         logger.info(
-            f"Successfully created {len(created_entries.items)} time entries for Project {project_id}"
+            f"Successfully created {len(created_entries)} time entries for Project {project_id}"
         )
-        return created_entries.items
+        return created_entries
     except Exception as e:
         logger.error(
             f"Error creating time entries for Project {project_id}: {e}", exc_info=True
+        )
+        raise
+
+
+def create_default_task(project_id: str) -> Any:
+    """
+    Creates a default "Labor" task for time entries in a Xero Project.
+
+    Args:
+        project_id: Xero project ID
+
+    Returns:
+        Created task object with task_id
+    """
+    logger.info(f"Creating default Labor task for Xero Project {project_id}")
+
+    tenant_id = get_tenant_id()
+    projects_api = ProjectApi(api_client)
+
+    # Get charge out rate from company defaults
+    company_defaults = CompanyDefaults.get_instance()
+
+    rate_amount = Amount(
+        currency=CurrencyCode.NZD, value=float(company_defaults.charge_out_rate)
+    )
+
+    task_data = TaskCreateOrUpdate(
+        name="Labor", rate=rate_amount, charge_type=ChargeType.TIME
+    )
+
+    try:
+        created_task = projects_api.create_task(
+            xero_tenant_id=tenant_id,
+            project_id=project_id,
+            task_create_or_update=task_data,  # Single object, not list
+        )
+        logger.info(f"Successfully created default Labor task for Project {project_id}")
+        return created_task
+    except Exception as e:
+        logger.error(
+            f"Error creating default task for Project {project_id}: {e}", exc_info=True
         )
         raise
 
@@ -538,14 +589,14 @@ def create_expense_entries(
     project_id: str, expense_entries_data: List[Dict[str, Any]]
 ) -> Any:
     """
-    Creates multiple expense entries for a Xero Project.
+    Creates multiple expense entries for a Xero Project as tasks.
 
     Args:
         project_id: Xero project ID
         expense_entries_data: List of dictionaries containing expense entry information
 
     Returns:
-        Created expense entries
+        Created expense entries (as tasks)
     """
     logger.info(
         f"Creating {len(expense_entries_data)} expense entries for Xero Project {project_id}"
@@ -555,16 +606,32 @@ def create_expense_entries(
     projects_api = ProjectApi(api_client)
 
     try:
-        # Create expense entries using the Projects API
-        created_entries = projects_api.create_expense_entries(
-            xero_tenant_id=tenant_id,
-            project_id=project_id,
-            expense_create_or_update=expense_entries_data,
-        )
+        # Create expense entries as tasks using the Projects API
+        created_entries = []
+        for expense_entry_data in expense_entries_data:
+            # Convert dict data to proper TaskCreateOrUpdate object
+            rate_amount = Amount(
+                currency=CurrencyCode.NZD,
+                value=float(expense_entry_data["rate"]["value"]),
+            )
+
+            task_data = TaskCreateOrUpdate(
+                name=expense_entry_data["name"],
+                rate=rate_amount,
+                charge_type=ChargeType.FIXED,
+            )
+
+            created_entry = projects_api.create_task(
+                xero_tenant_id=tenant_id,
+                project_id=project_id,
+                task_create_or_update=task_data,  # Single object, not list
+            )
+            created_entries.append(created_entry)
+
         logger.info(
-            f"Successfully created {len(created_entries.items)} expense entries for Project {project_id}"
+            f"Successfully created {len(created_entries)} expense entries for Project {project_id}"
         )
-        return created_entries.items
+        return created_entries
     except Exception as e:
         logger.error(
             f"Error creating expense entries for Project {project_id}: {e}",
@@ -594,16 +661,27 @@ def update_time_entries(
     projects_api = ProjectApi(api_client)
 
     try:
-        # Update time entries using the Projects API
-        updated_entries = projects_api.update_time_entries(
-            xero_tenant_id=tenant_id,
-            project_id=project_id,
-            time_create_or_update=time_entries_data,
-        )
+        # Update time entries one by one using the Projects API
+        updated_entries = []
+        for time_entry_data in time_entries_data:
+            # Extract time_entry_id for the API call
+            time_entry_id = getattr(time_entry_data, "time_entry_id", None)
+            if not time_entry_id:
+                raise ValueError(
+                    f"time_entry_data missing time_entry_id: {time_entry_data}"
+                )
+
+            updated_entry = projects_api.update_time_entry(
+                xero_tenant_id=tenant_id,
+                project_id=project_id,
+                time_entry_id=time_entry_id,
+                time_entry_create_or_update=time_entry_data,
+            )
+            updated_entries.append(updated_entry)
         logger.info(
-            f"Successfully updated {len(updated_entries.items)} time entries for Project {project_id}"
+            f"Successfully updated {len(updated_entries)} time entries for Project {project_id}"
         )
-        return updated_entries.items
+        return updated_entries
     except Exception as e:
         logger.error(
             f"Error updating time entries for Project {project_id}: {e}", exc_info=True
@@ -615,14 +693,14 @@ def update_expense_entries(
     project_id: str, expense_entries_data: List[Dict[str, Any]]
 ) -> Any:
     """
-    Updates multiple expense entries for a Xero Project.
+    Updates multiple expense entries for a Xero Project as tasks.
 
     Args:
         project_id: Xero project ID
         expense_entries_data: List of dictionaries containing updated expense entry information
 
     Returns:
-        Updated expense entries
+        Updated expense entries (as tasks)
     """
     logger.info(
         f"Updating {len(expense_entries_data)} expense entries for Xero Project {project_id}"
@@ -632,16 +710,36 @@ def update_expense_entries(
     projects_api = ProjectApi(api_client)
 
     try:
-        # Update expense entries using the Projects API
-        updated_entries = projects_api.update_expense_entries(
-            xero_tenant_id=tenant_id,
-            project_id=project_id,
-            expense_create_or_update=expense_entries_data,
-        )
+        # Update expense entries as tasks using the Projects API
+        updated_entries = []
+        for expense_entry_data in expense_entries_data:
+            # Convert dict data to proper TaskCreateOrUpdate object
+            rate_amount = Amount(
+                currency=CurrencyCode.NZD,
+                value=float(expense_entry_data["rate"]["value"]),
+            )
+
+            task_data = TaskCreateOrUpdate(
+                name=expense_entry_data["name"],
+                rate=rate_amount,
+                charge_type=ChargeType.FIXED,
+            )
+
+            # Include task_id for updates
+            if "task_id" in expense_entry_data:
+                task_data.task_id = expense_entry_data["task_id"]
+
+            updated_entry = projects_api.update_task(
+                xero_tenant_id=tenant_id,
+                project_id=project_id,
+                task_id=expense_entry_data["task_id"],
+                task_create_or_update=task_data,  # Single object, not list
+            )
+            updated_entries.append(updated_entry)
         logger.info(
-            f"Successfully updated {len(updated_entries.items)} expense entries for Project {project_id}"
+            f"Successfully updated {len(updated_entries)} expense entries for Project {project_id}"
         )
-        return updated_entries.items
+        return updated_entries
     except Exception as e:
         logger.error(
             f"Error updating expense entries for Project {project_id}: {e}",

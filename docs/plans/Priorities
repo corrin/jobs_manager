@@ -12,3 +12,4 @@ Priorities:
     11. Rewrite the Google Sheets importer
     12. Simplify settings - local, base, production_like.  Move more stuff to base
     13. Invalid data. Job 95739 has a time entry with no staff or date.
+    14. Add currency field to CompanyDefaults model for internationalization (currently NZD hardcoded)
