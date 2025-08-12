@@ -2,6 +2,7 @@ import logging
 import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from typing import Any, Dict
 from uuid import UUID
 
 from django.conf import settings
@@ -9,9 +10,12 @@ from django.core.cache import cache
 from django.db import models
 from django.utils import timezone
 from xero_python.accounting import AccountingApi
+from xero_python.project.models import TimeEntryCreateOrUpdate
 
 from apps.accounting.models import Bill, CreditNote, Invoice, Quote
+from apps.accounts.models import Staff
 from apps.client.models import Client
+from apps.job.models.costing import CostLine
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 from apps.workflow.api.xero.reprocess_xero import (
     set_client_fields,
@@ -20,6 +24,7 @@ from apps.workflow.api.xero.reprocess_xero import (
 )
 from apps.workflow.api.xero.xero import (
     api_client,
+    create_default_task,
     create_project,
     get_tenant_id,
     get_token,
@@ -1237,8 +1242,21 @@ def sync_job_to_xero(job):
                 f"Created Job {job.job_number} in Xero with project ID {job.xero_project_id}"
             )
 
-        # TODO: Sync CostLine time/expense entries in bulk
-        # This will be implemented in the next part
+            # Create default Labor task for time entries
+            logger.info(f"Creating default Labor task for Job {job.job_number}")
+            default_task = create_default_task(job.xero_project_id)
+            time.sleep(SLEEP_TIME)
+
+            job.xero_default_task_id = default_task.task_id
+            job.save(update_fields=["xero_default_task_id"])
+
+            logger.info(
+                f"Created default Labor task for Job {job.job_number} with task ID {job.xero_default_task_id}"
+            )
+
+        # Sync CostLine time/expense entries in bulk
+        if job.xero_project_id:
+            sync_costlines_to_xero(job)
 
         return True
 
@@ -1254,6 +1272,312 @@ def sync_job_to_xero(job):
             },
         )
         return False
+
+
+def sync_costlines_to_xero(job) -> bool:
+    """
+    Sync job CostLines to Xero Projects as time entries and expense tasks.
+
+    Time CostLines (kind='time') -> Xero time entries with default task
+    Other CostLines (material/adjust) -> Xero tasks with FIXED charge type
+
+    Only syncs CostLines from 'actual' cost sets that have been modified
+    since last sync or never synced before.
+    """
+    logger.info(f"Syncing CostLines for Job {job.job_number} to Xero")
+
+    if not job.xero_project_id:
+        error = ValueError(f"Job {job.job_number} has no xero_project_id")
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "sync_costlines_to_xero",
+                "job_id": str(job.id),
+                "job_number": job.job_number,
+            },
+        )
+        raise error
+
+    # Get CostLines from actual cost sets only
+    actual_cost_sets = job.cost_sets.filter(kind="actual")
+    if not actual_cost_sets.exists():
+        logger.info(f"Job {job.job_number} has no actual cost sets - nothing to sync")
+        return True
+
+    costlines = CostLine.objects.filter(cost_set__in=actual_cost_sets).filter(
+        models.Q(xero_last_synced__isnull=True)
+        | models.Q(xero_last_modified__gt=models.F("xero_last_synced"))
+    )
+
+    if not costlines.exists():
+        logger.info(f"Job {job.job_number} has no CostLines needing sync")
+        return True
+
+    logger.info(f"Found {costlines.count()} CostLines to sync for Job {job.job_number}")
+
+    # Separate time entries from expenses
+    time_entries = []
+    expense_entries = []
+
+    for costline in costlines:
+        if costline.kind == "time":
+            time_entry = map_costline_to_time_entry(costline, job.xero_default_task_id)
+            time_entries.append((costline, time_entry))
+        else:
+            expense_entry = map_costline_to_expense_entry(costline)
+            expense_entries.append((costline, expense_entry))
+
+    # Sync time entries
+    if time_entries:
+        sync_time_entries_bulk(job.xero_project_id, time_entries)
+
+    # Sync expense entries
+    if expense_entries:
+        sync_expense_entries_bulk(job.xero_project_id, expense_entries)
+
+    logger.info(f"Completed CostLine sync for Job {job.job_number}")
+    return True
+
+
+def map_costline_to_time_entry(costline, task_id: str) -> TimeEntryCreateOrUpdate:
+    """
+    Map a CostLine (kind='time') to Xero TimeEntryCreateOrUpdate object.
+
+    Converts hours (quantity) to minutes, validates staff reference in meta,
+    and creates proper Xero Python library object for API calls.
+    """
+    staff_id = costline.meta.get("staff_id")
+    if not staff_id:
+        error = ValueError(f"CostLine {costline.id} has no staff_id in meta")
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "map_costline_to_time_entry",
+                "costline_id": str(costline.id),
+                "meta": costline.meta,
+            },
+        )
+        raise error
+
+    try:
+        Staff.objects.get(id=staff_id)
+    except Staff.DoesNotExist:
+        error = ValueError(
+            f"CostLine {costline.id} references non-existent staff {staff_id}"
+        )
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "map_costline_to_time_entry",
+                "costline_id": str(costline.id),
+                "staff_id": staff_id,
+            },
+        )
+        raise error
+
+    # Convert hours to minutes (Xero uses minutes)
+    if costline.quantity is None:
+        error = ValueError(f"CostLine {costline.id} has null quantity")
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "map_costline_to_time_entry",
+                "costline_id": str(costline.id),
+            },
+        )
+        raise error
+
+    minutes = int(float(costline.quantity) * 60)
+
+    # Get date from costline meta - must exist
+    date_str = costline.meta.get("date")
+    if not date_str:
+        error = ValueError(f"CostLine {costline.id} has no date in meta")
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "map_costline_to_time_entry",
+                "costline_id": str(costline.id),
+                "meta": costline.meta,
+            },
+        )
+        raise error
+
+    date_utc = datetime.fromisoformat(date_str)
+
+    time_entry = TimeEntryCreateOrUpdate(
+        description=costline.desc,
+        duration=minutes,
+        date_utc=date_utc,
+        user_id=settings.XERO_DEFAULT_USER_ID,
+        task_id=task_id,
+    )
+
+    # Skip user_id - let Xero assign to current token user
+
+    # Include existing Xero time ID if updating
+    if costline.xero_time_id:
+        time_entry.time_entry_id = costline.xero_time_id
+
+    return time_entry
+
+
+def map_costline_to_expense_entry(costline) -> Dict[str, Any]:
+    """
+    Map a CostLine (material/adjust) to Xero task dictionary format.
+
+    Creates FIXED charge type tasks with calculated total amount.
+    These become expense tasks in Xero Projects.
+    """
+    if costline.quantity is None:
+        error = ValueError(f"CostLine {costline.id} has null quantity")
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "map_costline_to_expense_entry",
+                "costline_id": str(costline.id),
+            },
+        )
+        raise error
+
+    if costline.unit_cost is None:
+        error = ValueError(f"CostLine {costline.id} has null unit_cost")
+        persist_app_error(
+            error,
+            additional_context={
+                "operation": "map_costline_to_expense_entry",
+                "costline_id": str(costline.id),
+            },
+        )
+        raise error
+
+    # Calculate total amount
+    total_amount = float(costline.quantity) * float(costline.unit_cost)
+
+    expense_entry = {
+        "name": costline.desc,
+        "chargeType": "FIXED",
+        "rate": {
+            "currency": "NZD",  # NZD is correct for this NZ business
+            "value": total_amount,
+        },
+    }
+
+    # Include existing Xero task ID if updating
+    if costline.xero_expense_id:
+        expense_entry["task_id"] = costline.xero_expense_id
+
+    return expense_entry
+
+
+def sync_time_entries_bulk(project_id, time_entries_list):
+    """Sync multiple time entries to Xero in bulk"""
+    from .xero import create_time_entries, update_time_entries
+
+    create_entries = []
+    update_entries = []
+    create_costlines = []
+    update_costlines = []
+
+    for costline, time_entry in time_entries_list:
+        if costline.xero_time_id:
+            update_entries.append(time_entry)
+            update_costlines.append(costline)
+        else:
+            create_entries.append(time_entry)
+            create_costlines.append(costline)
+
+    # Create new entries
+    if create_entries:
+        logger.info(f"Creating {len(create_entries)} time entries")
+        created = create_time_entries(project_id, create_entries)
+
+        # Validate API response
+        if len(created) != len(create_costlines):
+            error = ValueError(
+                f"Xero returned {len(created)} time entries but expected {len(create_costlines)}"
+            )
+            persist_app_error(
+                error,
+                additional_context={
+                    "operation": "sync_time_entries_bulk",
+                    "project_id": project_id,
+                    "expected_count": len(create_costlines),
+                    "returned_count": len(created),
+                },
+            )
+            raise error
+
+        # Update CostLines with returned Xero IDs
+        for i, xero_entry in enumerate(created):
+            costline = create_costlines[i]
+            costline.xero_time_id = xero_entry.time_entry_id
+            costline.xero_last_synced = timezone.now()
+            costline.save(update_fields=["xero_time_id", "xero_last_synced"])
+
+    # Update existing entries
+    if update_entries:
+        logger.info(f"Updating {len(update_entries)} time entries")
+        update_time_entries(project_id, update_entries)
+        # Update sync timestamps
+        for costline in update_costlines:
+            costline.xero_last_synced = timezone.now()
+            costline.save(update_fields=["xero_last_synced"])
+
+
+def sync_expense_entries_bulk(project_id, expense_entries_list):
+    """Sync multiple expense entries to Xero in bulk"""
+    from .xero import create_expense_entries, update_expense_entries
+
+    create_entries = []
+    update_entries = []
+    create_costlines = []
+    update_costlines = []
+
+    for costline, expense_entry in expense_entries_list:
+        if costline.xero_expense_id:
+            update_entries.append(expense_entry)
+            update_costlines.append(costline)
+        else:
+            create_entries.append(expense_entry)
+            create_costlines.append(costline)
+
+    # Create new entries
+    if create_entries:
+        logger.info(f"Creating {len(create_entries)} expense entries")
+        created = create_expense_entries(project_id, create_entries)
+
+        # Validate API response
+        if len(created) != len(create_costlines):
+            error = ValueError(
+                f"Xero returned {len(created)} expense entries but expected {len(create_costlines)}"
+            )
+            persist_app_error(
+                error,
+                additional_context={
+                    "operation": "sync_expense_entries_bulk",
+                    "project_id": project_id,
+                    "expected_count": len(create_costlines),
+                    "returned_count": len(created),
+                },
+            )
+            raise error
+
+        # Update CostLines with returned Xero task IDs
+        for i, xero_entry in enumerate(created):
+            costline = create_costlines[i]
+            costline.xero_expense_id = xero_entry.task_id
+            costline.xero_last_synced = timezone.now()
+            costline.save(update_fields=["xero_expense_id", "xero_last_synced"])
+
+    # Update existing entries
+    if update_entries:
+        logger.info(f"Updating {len(update_entries)} expense entries")
+        update_expense_entries(project_id, update_entries)
+        # Update sync timestamps
+        for costline in update_costlines:
+            costline.xero_last_synced = timezone.now()
+            costline.save(update_fields=["xero_last_synced"])
 
 
 def get_all_xero_contacts():
@@ -1382,9 +1706,9 @@ def bulk_create_contacts_in_xero(clients_to_create, batch_size=50):
                         "operation": "bulk_create_contacts_in_xero",
                         "client_id": str(client.id),
                         "client_name": client.name,
-                        "contact_data_keys": list(contact_data.keys())
-                        if contact_data
-                        else None,
+                        "contact_data_keys": (
+                            list(contact_data.keys()) if contact_data else None
+                        ),
                     },
                 )
                 raise ValueError(

@@ -187,6 +187,13 @@ class Job(models.Model):
     xero_project_id = models.CharField(
         max_length=255, unique=True, null=True, blank=True
     )
+    xero_default_task_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Xero task ID for the default Labor task used for time entries",
+        # TODO: This won't work long term - need proper task management system
+    )
     xero_last_modified = models.DateTimeField(null=False, blank=False)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
