@@ -19,7 +19,7 @@ class QuoteSpreadsheetSerializer(serializers.ModelSerializer):
     """
 
     job_id = serializers.CharField(source="job.id", read_only=True)
-    job_number = serializers.CharField(source="job.job_number", read_only=True)
+    job_number = serializers.IntegerField(source="job.job_number", read_only=True)
     job_name = serializers.CharField(source="job.name", read_only=True)
 
     class Meta:

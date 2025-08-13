@@ -63,7 +63,9 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
 
     # Job information from CostSet relationship (NOT from metadata)
     job_id = serializers.CharField(source="cost_set.job.id", read_only=True)
-    job_number = serializers.CharField(source="cost_set.job.job_number", read_only=True)
+    job_number = serializers.IntegerField(
+        source="cost_set.job.job_number", read_only=True
+    )
     job_name = serializers.CharField(source="cost_set.job.name", read_only=True)
     charge_out_rate = serializers.DecimalField(
         source="cost_set.job.charge_out_rate",
@@ -375,7 +377,7 @@ class QuoteRevisionsListSerializer(serializers.Serializer):
     """Serializer for listing quote revisions"""
 
     job_id = serializers.CharField()
-    job_number = serializers.CharField()
+    job_number = serializers.IntegerField()
     current_cost_set_rev = serializers.IntegerField()
     total_revisions = serializers.IntegerField()
     revisions = serializers.ListField(

@@ -4,6 +4,7 @@ from logging import getLogger
 from typing import Any, Dict
 
 from django.views.generic import TemplateView
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -34,6 +35,31 @@ class KPICalendarAPIView(APIView):
 
     serializer_class = KPICalendarDataSerializer
 
+    @extend_schema(
+        summary="Get KPI calendar data",
+        description="Returns aggregated KPIs for display in calendar",
+        parameters=[
+            OpenApiParameter(
+                name="year",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Year (YYYY). Defaults to current year.",
+            ),
+            OpenApiParameter(
+                name="month",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Month (1-12). Defaults to current month.",
+            ),
+        ],
+        responses={
+            200: KPICalendarDataSerializer,
+            400: StandardErrorSerializer,
+            500: StandardErrorSerializer,
+        },
+    )
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
             print(f"🔍 KPI request received - all params: {dict(request.query_params)}")
