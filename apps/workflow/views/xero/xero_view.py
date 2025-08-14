@@ -249,7 +249,6 @@ def generate_xero_sync_events():
     description="Xero Sync Event Stream",
     responses={200: XeroSseEventSerializer(many=True)},
 )
-@api_view(["GET"])
 def stream_xero_sync(request: HttpRequest) -> StreamingHttpResponse:
     """
     HTTP endpoint to serve an EventSource stream of Xero sync events.
