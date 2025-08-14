@@ -102,7 +102,7 @@ class StaffListAPIView(APIView):
                             if member.wage_rate
                             else Decimal(0)
                         ),
-                        "avatarUrl": None,  # Add avatar logic if needed
+                        "avatarUrl": None,  # TODO: add avatar logic
                     }
                 )
 

@@ -193,7 +193,13 @@ class PurchaseOrderListCreateRestView(APIView):
             return PurchaseOrderCreateSerializer
         return PurchaseOrderListSerializer
 
-    @extend_schema(operation_id="listPurchaseOrders")
+    @extend_schema(
+        operation_id="listPurchaseOrders",
+        responses={
+            status.HTTP_200_OK: PurchaseOrderListSerializer(many=True),
+            status.HTTP_400_BAD_REQUEST: "Invalid input data",
+        },
+    )
     def get(self, request):
         """Get list of purchase orders with optional status filtering."""
         status_filter = request.query_params.get("status", None)
@@ -304,6 +310,12 @@ class DeliveryReceiptRestView(APIView):
 
     serializer_class = DeliveryReceiptRequestSerializer
 
+    @extend_schema(
+        responses={
+            status.HTTP_200_OK: DeliveryReceiptResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: DeliveryReceiptResponseSerializer,
+        }
+    )
     def post(self, request):
         try:
             # Validate input data
@@ -455,6 +467,8 @@ class StockConsumeRestView(APIView):
         # (But stock alocation in JobActualTab might override default values for cost and revenue)
         unit_cost = request.data.get("unit_cost", None)
         unit_rev = request.data.get("unit_rev", None)
+        cost_dec = None
+        revenue_dec = None
 
         try:
             if unit_cost is not None:
