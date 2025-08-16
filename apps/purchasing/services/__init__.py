@@ -5,6 +5,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .allocation_service import AllocationDeletionError, AllocationService
         from .delivery_receipt_service import (
             DeliveryReceiptValidationError,
             process_delivery_receipt,
@@ -37,6 +38,8 @@ except (ImportError, RuntimeError):
     pass
 
 __all__ = [
+    "AllocationDeletionError",
+    "AllocationService",
     "DeliveryReceiptValidationError",
     "PurchaseOrderPDFGenerator",
     "PurchasingRestService",

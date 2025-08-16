@@ -31,6 +31,13 @@ class GetCurrentUserAPIView(APIView):
     )
     def get(self, request: Request) -> Response:
         try:
+            # Check if user is authenticated first
+            if not request.user.is_authenticated:
+                return Response(
+                    {"detail": "Authentication credentials were not provided."},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
+
             user = request.user
             serializer = UserProfileSerializer(user, context={"request": request})
             return Response(serializer.data, status=status.HTTP_200_OK)

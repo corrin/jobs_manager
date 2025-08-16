@@ -19,6 +19,18 @@ class JWTAuthentication(BaseJWTAuthentication):
         if not getattr(settings, "ENABLE_JWT_AUTH", False):
             return None
         try:
+            # Debug logging for client create endpoint
+            if request.path_info == "/clients/create/":
+                logger.info(f"DEBUG: Authenticating request to {request.path_info}")
+                logger.info(f"DEBUG: Request method: {request.method}")
+                logger.info(
+                    f"DEBUG: User-Agent: {request.headers.get('User-Agent', 'None')}"
+                )
+                logger.info(f"DEBUG: Accept: {request.headers.get('Accept', 'None')}")
+                logger.info(
+                    f"DEBUG: Content-Type: {request.headers.get('Content-Type', 'None')}"
+                )
+
             # First try to get token from Authorization header (default behavior)
             result = super().authenticate(request)
             # If no token in header, try to get from httpOnly cookie
@@ -33,6 +45,15 @@ class JWTAuthentication(BaseJWTAuthentication):
                     "AUTH_COOKIE", "access_token"
                 )
                 has_cookie = cookie_name in request.COOKIES
+                if request.path_info == "/clients/create/":
+                    logger.info(
+                        f"DEBUG: JWT authentication failed for {request.path_info}"
+                    )
+                    logger.info(f"DEBUG: Cookie '{cookie_name}' present: {has_cookie}")
+                    if has_cookie:
+                        logger.info(
+                            f"DEBUG: Cookie value length: {len(request.COOKIES[cookie_name])}"
+                        )
                 logger.info(
                     f"JWT authentication failed: no valid token found (cookie '{cookie_name}' present: {has_cookie})"
                 )
@@ -46,8 +67,16 @@ class JWTAuthentication(BaseJWTAuthentication):
                 logger.warning(
                     f"User {getattr(user, 'email', user)} authenticated via JWT but needs to reset password."
                 )
+            if request.path_info == "/clients/create/":
+                logger.info(
+                    f"DEBUG: JWT authentication SUCCESS for {request.path_info} - User: {user.email}"
+                )
             return result
         except (InvalidToken, TokenError) as e:
+            if request.path_info == "/clients/create/":
+                logger.info(
+                    f"DEBUG: JWT authentication EXCEPTION for {request.path_info}: {str(e)}"
+                )
             logger.info(f"JWT authentication failed: {str(e)}")
             if settings.DEBUG:
                 return None

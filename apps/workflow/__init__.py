@@ -23,6 +23,7 @@ try:
         from .helpers import DecimalEncoder, decimal_to_float, get_company_defaults
         from .middleware import (
             AccessLoggingMiddleware,
+            FrontendRedirectMiddleware,
             LoginRequiredMiddleware,
             PasswordStrengthMiddleware,
         )
@@ -85,6 +86,7 @@ __all__ = [
     "CompanyDefaultsSerializer",
     "DecimalEncoder",
     "F",
+    "FrontendRedirectMiddleware",
     "LoginRequiredMiddleware",
     "PasswordStrengthMiddleware",
     "ServiceAPIKeyAuthentication",

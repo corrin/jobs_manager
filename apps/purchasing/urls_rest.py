@@ -2,6 +2,8 @@ from django.urls import path
 
 from apps.purchasing.views.purchasing_rest_views import (
     AllJobsAPIView,
+    AllocationDeleteAPIView,
+    AllocationDetailsAPIView,
     DeliveryReceiptRestView,
     PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
@@ -47,5 +49,15 @@ urlpatterns = [
         "stock/<uuid:stock_id>/",
         StockDeactivateRestView.as_view(),
         name="stock_deactivate_rest",
+    ),
+    path(
+        "purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/",
+        AllocationDeleteAPIView.as_view(),
+        name="allocation_delete_rest",
+    ),
+    path(
+        "purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/",
+        AllocationDetailsAPIView.as_view(),
+        name="allocation_details_rest",
     ),
 ]
