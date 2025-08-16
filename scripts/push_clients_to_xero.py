@@ -18,13 +18,14 @@ This ensures development Xero tenant has all the contacts needed for realistic t
 
 import os
 import sys
+
 import django
 from django.conf import settings
 from django.db import transaction
 
 # Setup Django
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jobs_manager.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django.setup()
 
 from apps.client.models import Client
@@ -34,7 +35,7 @@ from apps.workflow.services.error_persistence import persist_app_error
 
 def get_database_name():
     """Get the current database name for safety checks."""
-    return settings.DATABASES['default']['NAME']
+    return settings.DATABASES["default"]["NAME"]
 
 
 def confirm_operation(force=False, dry_run=False):
@@ -42,7 +43,7 @@ def confirm_operation(force=False, dry_run=False):
     db_name = get_database_name()
 
     # Safety check - never run on production database
-    if 'prod' in db_name.lower() or 'production' in db_name.lower():
+    if "prod" in db_name.lower() or "production" in db_name.lower():
         print(f"❌ ERROR: Refusing to run on production database: {db_name}")
         print("This script is only for development databases.")
         sys.exit(1)
@@ -65,7 +66,7 @@ def confirm_operation(force=False, dry_run=False):
         return
 
     response = input("Proceed? (yes/no): ").strip().lower()
-    if response not in ['yes', 'y']:
+    if response not in ["yes", "y"]:
         print("Operation cancelled.")
         sys.exit(0)
     print()
@@ -75,29 +76,23 @@ def find_clients_to_push():
     """Find clients that need to be pushed to Xero."""
     # Clients referenced by jobs
     clients_with_jobs = Client.objects.filter(
-        jobs__isnull=False,
-        xero_contact_id__isnull=True
+        jobs__isnull=False, xero_contact_id__isnull=True
     ).distinct()
 
     # Clients referenced by purchase orders
     clients_with_pos = Client.objects.filter(
-        purchase_orders__isnull=False,
-        xero_contact_id__isnull=True
+        purchase_orders__isnull=False, xero_contact_id__isnull=True
     ).distinct()
 
     # Combine and deduplicate
-    all_clients = (clients_with_jobs | clients_with_pos).distinct().order_by('name')
+    all_clients = (clients_with_jobs | clients_with_pos).distinct().order_by("name")
 
     return all_clients
 
 
 def push_clients_to_xero(clients, dry_run=False):
     """Push clients to Xero and track results."""
-    results = {
-        'success': [],
-        'failed': [],
-        'skipped': []
-    }
+    results = {"success": [], "failed": [], "skipped": []}
 
     for i, client in enumerate(clients, 1):
         print(f"📤 ({i}/{len(clients)}) Processing: {client.name}")
@@ -106,16 +101,16 @@ def push_clients_to_xero(clients, dry_run=False):
         try:
             if not client.validate_for_xero():
                 print(f"  ⚠️  Skipping - missing required data for Xero")
-                results['skipped'].append((client, "Missing required data"))
+                results["skipped"].append((client, "Missing required data"))
                 continue
         except Exception as e:
             print(f"  ❌ Validation error: {e}")
-            results['failed'].append((client, f"Validation error: {e}"))
+            results["failed"].append((client, f"Validation error: {e}"))
             continue
 
         if dry_run:
             print(f"  ✅ Would create contact: {client.name}")
-            results['success'].append((client, "Would create (dry run)"))
+            results["success"].append((client, "Would create (dry run)"))
             continue
 
         # Attempt to push to Xero
@@ -123,18 +118,21 @@ def push_clients_to_xero(clients, dry_run=False):
             success = sync_client_to_xero(client)
             if success:
                 print(f"  ✅ Created in Xero with ID: {client.xero_contact_id}")
-                results['success'].append((client, client.xero_contact_id))
+                results["success"].append((client, client.xero_contact_id))
             else:
                 print(f"  ❌ Failed to create in Xero")
-                results['failed'].append((client, "sync_client_to_xero returned False"))
+                results["failed"].append((client, "sync_client_to_xero returned False"))
         except Exception as e:
             print(f"  ❌ Error creating in Xero: {e}")
-            persist_app_error(e, additional_context={
-                'operation': 'push_clients_to_xero',
-                'client_id': str(client.id),
-                'client_name': client.name
-            })
-            results['failed'].append((client, str(e)))
+            persist_app_error(
+                e,
+                additional_context={
+                    "operation": "push_clients_to_xero",
+                    "client_id": str(client.id),
+                    "client_name": client.name,
+                },
+            )
+            results["failed"].append((client, str(e)))
 
     return results
 
@@ -142,8 +140,8 @@ def push_clients_to_xero(clients, dry_run=False):
 def main():
     """Main execution function."""
     # Parse command line arguments
-    dry_run = '--dry-run' in sys.argv
-    force = '--force' in sys.argv
+    dry_run = "--dry-run" in sys.argv
+    force = "--force" in sys.argv
 
     mode_text = "DRY RUN - " if dry_run else ""
     print(f"🚀 {mode_text}Push Database Clients to Xero")
@@ -158,7 +156,9 @@ def main():
 
     if not clients_to_push:
         print("✅ No clients need to be pushed to Xero.")
-        print("All clients with jobs or purchase orders already have xero_contact_id values.")
+        print(
+            "All clients with jobs or purchase orders already have xero_contact_id values."
+        )
         return
 
     print(f"📋 Found {len(clients_to_push)} clients to push:")
@@ -188,19 +188,19 @@ def main():
     print(f"❌ Failed: {len(results['failed'])}")
     print(f"⚠️  Skipped: {len(results['skipped'])}")
 
-    if results['failed']:
+    if results["failed"]:
         print()
         print("❌ Failed clients:")
-        for client, reason in results['failed']:
+        for client, reason in results["failed"]:
             print(f"  • {client.name}: {reason}")
 
-    if results['skipped']:
+    if results["skipped"]:
         print()
         print("⚠️  Skipped clients:")
-        for client, reason in results['skipped']:
+        for client, reason in results["skipped"]:
             print(f"  • {client.name}: {reason}")
 
-    if not dry_run and results['success']:
+    if not dry_run and results["success"]:
         print()
         print("💡 Next steps:")
         print("  1. Verify contacts created in Xero web interface")

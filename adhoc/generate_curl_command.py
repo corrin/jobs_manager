@@ -3,17 +3,19 @@
 Generate a curl command to reproduce the Xero Projects API error.
 """
 
-import os
-import django
 import json
+import os
 from datetime import datetime
 
+import django
+
 # Setup Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jobs_manager.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django.setup()
 
-from apps.workflow.models import XeroToken
 from apps.client.models import Client
+from apps.workflow.models import XeroToken
+
 
 def main():
     # Get current token
@@ -45,7 +47,7 @@ def main():
     # Test with this contact
     payload = {
         "contactId": client.xero_contact_id,
-        "name": f"Test Project for {client.name}"
+        "name": f"Test Project for {client.name}",
     }
 
     # Generate curl command
@@ -63,10 +65,12 @@ def main():
 
     print("\n=== Running curl command ===")
     import subprocess
+
     result = subprocess.run(curl_command, shell=True, capture_output=True, text=True)
     print(f"Exit code: {result.returncode}")
     print(f"STDOUT:\n{result.stdout}")
     print(f"STDERR:\n{result.stderr}")
+
 
 if __name__ == "__main__":
     main()

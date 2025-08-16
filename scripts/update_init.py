@@ -177,7 +177,7 @@ def generate_django_safe_imports(import_data):
 
     for module_name, exports, import_type in import_data:
         # Sort exports within each module
-        sorted_exports = sorted(set(exports)) # Remove duplicates and sort
+        sorted_exports = sorted(set(exports))  # Remove duplicates and sort
         if import_type == "safe":
             safe_imports.append((module_name, sorted_exports))
         elif import_type == "conditional":
@@ -405,7 +405,9 @@ def update_init_py(target_dir: str, verbose: bool = False) -> int:
         ]
 
         exports = classes + functions
-        exports = list(dict.fromkeys(exports))  # Remove duplicates while preserving order
+        exports = list(
+            dict.fromkeys(exports)
+        )  # Remove duplicates while preserving order
         logger.debug(
             f"Module {module_name}: classes={classes}, functions={functions}, import_type={import_type}"
         )

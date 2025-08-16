@@ -14,11 +14,11 @@
 
 ## Foundation
 
-### Ticket 1: Model Changes
-- Add Xero sync fields to Job model (`xero_project_id`, `xero_last_synced`, `xero_last_modified`)
-- Add `xero_user_id` field to Staff model
-- Add Xero sync fields to CostLine model (`xero_time_id`, `xero_expense_id`, sync timestamps)
-- Create and run migrations
+### Ticket 1: Model Changes ✅ DONE
+- ✅ Add Xero sync fields to Job model (`xero_project_id`, `xero_last_synced`, `xero_last_modified`)
+- ✅ Add `xero_user_id` field to Staff model
+- ✅ Add Xero sync fields to CostLine model (`xero_time_id`, `xero_expense_id`, sync timestamps)
+- ✅ Create and run migrations
 
 ### Ticket 2: Invoice Model Refactoring
 - Change Invoice.job from OneToOneField to ForeignKey
@@ -36,16 +36,16 @@
 - Implement bulk time/expense entry operations
 - Test with Xero sandbox
 
-### Ticket 4: Job to Xero Push Function - IN PROGRESS
+### Ticket 4: Job to Xero Push Function 🔄 IN PROGRESS
 - ✅ Create `sync_job_to_xero(job)` function in sync.py
 - ✅ Map Job fields to Xero project data (including status mapping)
 - ✅ Handle estimate mapping from `latest_estimate`
-- ❌ Single API call per job with bulk time/expense data - BLOCKED: missing "projects" scope in token
-- ❌ Map `kind='time'` → time entries, all others → expenses - TODO
-- ❌ Track synced CostLines with Xero IDs - TODO
+- ✅ Single API call per job - projects scope is working
+- ❌ Map `kind='time'` → time entries, all others → expenses - TODO (CostLine sync)
+- ❌ Track synced CostLines with Xero IDs - TODO (CostLine sync)
 - ✅ Add comprehensive error handling
 
-**CRITICAL: Function created but CANNOT actually sync to Xero until token is re-authenticated with "projects" scope**
+**STATUS: Core job sync complete. CostLine sync must be finished before moving to Ticket 5.**
 
 ### Ticket 5: Initial Job Sync & Triggers
 - Create management command to sync ALL existing jobs to Xero
