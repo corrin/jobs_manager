@@ -344,6 +344,7 @@ def _handle_creator_response(
 
 
 @extend_schema(
+    request=None,
     responses={
         200: XeroOperationResponseSerializer,
         404: XeroOperationResponseSerializer,
@@ -397,16 +398,7 @@ def create_xero_invoice(request, job_id):
 
 
 @extend_schema(
-    responses={
-        200: XeroOperationResponseSerializer,
-        404: XeroOperationResponseSerializer,
-        500: XeroOperationResponseSerializer,
-    },
-    description="Creates a purchase order in Xero for the specified purchase order",
-)
-@csrf_exempt
-@api_view(["POST"])
-@extend_schema(
+    request=None,
     operation_id="create_xero_purchase_order",
     tags=["Xero", "Purchase Orders"],
     responses={
@@ -425,6 +417,8 @@ def create_xero_invoice(request, job_id):
         )
     ],
 )
+@csrf_exempt
+@api_view(["POST"])
 def create_xero_purchase_order(request, purchase_order_id):
     """Creates a Purchase Order in Xero for a given purchase order."""
     tenant_id = ensure_xero_authentication()
@@ -469,6 +463,7 @@ def create_xero_purchase_order(request, purchase_order_id):
 
 
 @extend_schema(
+    request=None,
     responses={
         200: XeroOperationResponseSerializer,
         404: XeroOperationResponseSerializer,
