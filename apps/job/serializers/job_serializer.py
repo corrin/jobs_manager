@@ -171,9 +171,10 @@ class JobSerializer(serializers.ModelSerializer):
     @extend_schema_field(XeroQuoteSerializer)
     def get_xero_quote(self, obj) -> dict | None:
         """Get Xero quote information (status and URL only)"""
-        if obj.quote:
+        try:
             return XeroQuoteSerializer(obj.quote).data
-        return None
+        except obj.quote.RelatedObjectDoesNotExist:
+            return None
 
     @extend_schema_field(XeroInvoiceSerializer(many=True))
     def get_xero_invoices(self, obj) -> list[dict]:
