@@ -169,7 +169,7 @@ class JobSerializer(serializers.ModelSerializer):
             return serialized
         return None
 
-    @extend_schema_field(XeroQuoteSerializer)
+    @extend_schema_field(XeroQuoteSerializer(allow_null=True))
     def get_xero_quote(self, obj) -> dict | None:
         """Get Xero quote information (status and URL only)"""
         try:
