@@ -32,6 +32,7 @@ class JobFileSerializer(serializers.ModelSerializer):
 
     def get_download_url(self, obj: JobFile) -> str:
         request = self.context["request"]
+        # Use the correct namespace from jobs_manager/urls.py
         path = reverse("jobs:job_file_download", args=[obj.file_path])
         return request.build_absolute_uri(path)
 
@@ -39,6 +40,7 @@ class JobFileSerializer(serializers.ModelSerializer):
         if not obj.thumbnail_path:
             return None
         request = self.context["request"]
+        # Use the correct namespace from jobs_manager/urls.py
         path = reverse("jobs:job_file_thumbnail", args=[str(obj.id)])
         return request.build_absolute_uri(path)
 

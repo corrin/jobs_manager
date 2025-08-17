@@ -93,6 +93,7 @@ class FrontendRedirectMiddleware:
             "/api/",  # All APIs
             "/clients/",  # Client REST API
             "/job/api/",  # Job REST API
+            "/job/rest/",  # Job REST API (including file operations)
             "/purchasing/api/",  # Purchasing REST API
             "/accounts/api/",  # Accounts REST API
             "/accounts/logout/",  # Logout endpoint - CRITICAL for clearing JWT cookies

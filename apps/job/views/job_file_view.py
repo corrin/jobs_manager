@@ -124,6 +124,28 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 job_file.filename,
                 job_file.print_on_jobsheet,
             )
+
+            # Generate thumbnail if it's an image file
+            if file_obj.content_type and file_obj.content_type.startswith("image/"):
+                from apps.job.services.file_service import (
+                    create_thumbnail,
+                    get_thumbnail_folder,
+                )
+
+                thumb_folder = get_thumbnail_folder(job.job_number)
+                thumb_path = os.path.join(thumb_folder, f"{file_obj.name}.thumb.jpg")
+
+                if not os.path.exists(thumb_path):
+                    logger.info("Creating thumbnail for %s", file_obj.name)
+                    success = create_thumbnail(file_path, thumb_path)
+                    if success:
+                        logger.info("Thumbnail created successfully: %s", thumb_path)
+                    else:
+                        logger.warning(
+                            "Failed to create thumbnail for %s", file_obj.name
+                        )
+                else:
+                    logger.debug("Thumbnail already exists: %s", thumb_path)
             return {
                 "id": str(job_file.id),
                 "filename": job_file.filename,
@@ -421,6 +443,27 @@ class JobFileView(JobNumberLookupMixin, APIView):
             old_print_value = job_file.print_on_jobsheet
             job_file.print_on_jobsheet = print_on_jobsheet
             job_file.save()
+
+            # Generate thumbnail if it's an image file
+            if file_obj.content_type and file_obj.content_type.startswith("image/"):
+                from apps.job.services.file_service import (
+                    create_thumbnail,
+                    get_thumbnail_folder,
+                )
+
+                thumb_folder = get_thumbnail_folder(job.job_number)
+                thumb_path = os.path.join(thumb_folder, f"{file_obj.name}.thumb.jpg")
+
+                logger.info("Creating/updating thumbnail for %s", file_obj.name)
+                success = create_thumbnail(file_path, thumb_path)
+                if success:
+                    logger.info(
+                        "Thumbnail created/updated successfully: %s", thumb_path
+                    )
+                else:
+                    logger.warning(
+                        "Failed to create/update thumbnail for %s", file_obj.name
+                    )
 
             logger.info(
                 "Successfully updated file: %s (print_on_jobsheet %s->%s).",
