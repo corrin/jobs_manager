@@ -23,14 +23,14 @@ jobs:
 
       - name: Deploy to Scheduler Machine
         env:
-            SCHEDULER_HOST: ${{ secrets.SCHEDULER_HOST }}
-            SCHEDULER_USER: ${{ secrets.SCHEDULER_USER }}
-            PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+            SCHEDULER_HOST: ${{ vars.SCHEDULER_HOST }}
+            AWS_USER: ${{ vars.AWS_USER }}
+            PROJECT_PATH: ${{ vars.PROJECT_PATH }}
         run: |
             BRANCH_NAME=${{ github.head_ref || github.ref_name }}
             echo "🔄 Deploying to Scheduler Machine: $SCHEDULER_HOST"
 
-            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $SCHEDULER_USER@$SCHEDULER_HOST << EOF
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$SCHEDULER_HOST << EOF
               cd $PROJECT_PATH
               if git branch | grep -q "$BRANCH_NAME"; then
                 git switch $BRANCH_NAME
@@ -60,14 +60,14 @@ jobs:
       - name: Deploy to Frontend/Backend Machine
         continue-on-error: true
         env:
-            FRONTEND_HOST: ${{ secrets.FRONTEND_HOST }}
-            FRONTEND_USER: ${{ secrets.FRONTEND_USER }}
-            PROJECT_PATH: ${{ secrets.PROJECT_PATH }}
+            FRONTEND_HOST: ${{ vars.FRONTEND_HOST }}
+            AWS_USER: ${{ vars.AWS_USER }}
+            PROJECT_PATH: ${{ vars.PROJECT_PATH }}
         run: |
             BRANCH_NAME=${{ github.head_ref || github.ref_name }}
             echo "🔄 Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
 
-            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $FRONTEND_USER@$FRONTEND_HOST << EOF
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST << EOF
               cd $PROJECT_PATH
               if git branch | grep -q "$BRANCH_NAME"; then
                 git switch $BRANCH_NAME
@@ -80,7 +80,7 @@ jobs:
               poetry install
               npm install
 
-              python manage.py migrate
+              # Skip migrations since scheduler already ran them
               python manage.py collectstatic --noinput
 
               sudo systemctl restart workflow
