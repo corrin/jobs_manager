@@ -287,6 +287,7 @@ class StockItemSerializer(serializers.Serializer):
     date = serializers.DateTimeField(required=False, allow_null=True)
     job_id = serializers.UUIDField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    item_code = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class StockListSerializer(serializers.Serializer):

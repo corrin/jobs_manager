@@ -64,6 +64,20 @@ def auto_parse_stock_item(stock_instance):
 
             # Apply updates
             Stock.objects.filter(id=stock_instance.id).update(**updates)
+
+            # Generate item_code if still missing after parsing
+            stock_instance.refresh_from_db()
+            if not stock_instance.item_code or not stock_instance.item_code.strip():
+                from apps.workflow.api.xero.stock_sync import generate_item_code
+
+                generated_code = generate_item_code(stock_instance)
+                Stock.objects.filter(id=stock_instance.id).update(
+                    item_code=generated_code
+                )
+                logger.info(
+                    f"Generated item_code '{generated_code}' for stock item {stock_instance.id}"
+                )
+
             status = "from cache" if was_cached else "newly parsed"
             updated_fields = [
                 k

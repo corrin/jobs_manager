@@ -279,6 +279,18 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
 
                         auto_parse_stock_item(stock_item)
 
+                        # Generate item_code if not provided and not already set by parsing
+                        if not stock_item.item_code or not stock_item.item_code.strip():
+                            from apps.workflow.api.xero.stock_sync import (
+                                generate_item_code,
+                            )
+
+                            stock_item.item_code = generate_item_code(stock_item)
+                            stock_item.save(update_fields=["item_code"])
+                            logger.info(
+                                f"Generated item_code '{stock_item.item_code}' for stock from PO {purchase_order.po_number}"
+                            )
+
                         logger.info(
                             f"""
                             Created Stock entry {stock_item.id} for line {line.id},
