@@ -78,6 +78,8 @@ try:
             QuoteSerializer,
             WeeklyMetricsSerializer,
             WorkshopPDFResponseSerializer,
+            XeroInvoiceSerializer,
+            XeroQuoteSerializer,
         )
         from .kanban_serializer import (
             AdvancedSearchResponseSerializer,
@@ -202,4 +204,6 @@ __all__ = [
     "ValidationReportSerializer",
     "WeeklyMetricsSerializer",
     "WorkshopPDFResponseSerializer",
+    "XeroInvoiceSerializer",
+    "XeroQuoteSerializer",
 ]

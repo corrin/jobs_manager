@@ -56,6 +56,22 @@ class QuoteSerializer(serializers.ModelSerializer):
         ]
 
 
+class XeroQuoteSerializer(serializers.ModelSerializer):
+    """Simplified Quote serializer for xero_quote field"""
+
+    class Meta:
+        model = Quote
+        fields = ["status", "online_url"]
+
+
+class XeroInvoiceSerializer(serializers.ModelSerializer):
+    """Simplified Invoice serializer for xero_invoices field"""
+
+    class Meta:
+        model = Invoice
+        fields = ["number", "status", "online_url"]
+
+
 class CompanyDefaultsJobDetailSerializer(serializers.Serializer):
     """Serializer for company defaults in job detail response"""
 
@@ -75,9 +91,11 @@ class JobSerializer(serializers.ModelSerializer):
     latest_quote = serializers.SerializerMethodField()
     latest_actual = serializers.SerializerMethodField()
     quoted = serializers.BooleanField(read_only=True)
-    invoiced = serializers.BooleanField(read_only=True)
+    fully_invoiced = serializers.BooleanField(read_only=True)
     quote = serializers.SerializerMethodField()
     invoice = serializers.SerializerMethodField()
+    xero_quote = serializers.SerializerMethodField()
+    xero_invoices = serializers.SerializerMethodField()
 
     client_id = serializers.PrimaryKeyRelatedField(
         queryset=Client.objects.all(),
@@ -150,6 +168,18 @@ class JobSerializer(serializers.ModelSerializer):
             return serialized
         return None
 
+    @extend_schema_field(XeroQuoteSerializer)
+    def get_xero_quote(self, obj) -> dict | None:
+        """Get Xero quote information (status and URL only)"""
+        if obj.quote:
+            return XeroQuoteSerializer(obj.quote).data
+        return None
+
+    @extend_schema_field(XeroInvoiceSerializer(many=True))
+    def get_xero_invoices(self, obj) -> list[dict]:
+        """Get Xero invoices information (number, status, and URL only)"""
+        return XeroInvoiceSerializer(obj.invoices.all(), many=True).data
+
     class Meta:
         model = Job
         fields = [
@@ -179,9 +209,11 @@ class JobSerializer(serializers.ModelSerializer):
             "pricing_methodology",
             "quote_sheet",
             "quoted",
-            "invoiced",
+            "fully_invoiced",
             "quote",
             "invoice",
+            "xero_quote",
+            "xero_invoices",
             "shop_job",
         ]
 
@@ -236,7 +268,7 @@ class JobSerializer(serializers.ModelSerializer):
 
         # Remove read-only/computed fields to avoid AttributeError
         validated_data.pop("quoted", None)
-        validated_data.pop("invoiced", None)
+        validated_data.pop("fully_invoiced", None)
 
         # Handle job files data first
         files_data = validated_data.pop("files", None)
