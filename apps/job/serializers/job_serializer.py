@@ -1,5 +1,6 @@
 import logging
 
+from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
@@ -168,12 +169,12 @@ class JobSerializer(serializers.ModelSerializer):
             return serialized
         return None
 
-    @extend_schema_field(XeroQuoteSerializer)
+    @extend_schema_field(XeroQuoteSerializer(allow_null=True))
     def get_xero_quote(self, obj) -> dict | None:
         """Get Xero quote information (status and URL only)"""
         try:
             return XeroQuoteSerializer(obj.quote).data
-        except obj.quote.RelatedObjectDoesNotExist:
+        except ObjectDoesNotExist:
             return None
 
     @extend_schema_field(XeroInvoiceSerializer(many=True))
