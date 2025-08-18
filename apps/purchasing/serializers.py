@@ -4,6 +4,24 @@ from apps.job.models import Job
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
 
 
+class SupplierPriceStatusItemSerializer(serializers.Serializer):
+    """Single supplier price status row."""
+
+    supplier_id = serializers.UUIDField()
+    supplier_name = serializers.CharField()
+    last_uploaded_at = serializers.DateTimeField(allow_null=True)
+    file_name = serializers.CharField(allow_null=True, allow_blank=True)
+    total_products = serializers.IntegerField(allow_null=True)
+    changes_last_update = serializers.IntegerField(allow_null=True)
+
+
+class SupplierPriceStatusResponseSerializer(serializers.Serializer):
+    """Response containing list of supplier price statuses."""
+
+    items = SupplierPriceStatusItemSerializer(many=True)
+    total_count = serializers.IntegerField()
+
+
 class JobForPurchasingSerializer(serializers.ModelSerializer):
     """Serializer for Job model in purchasing contexts."""
 
