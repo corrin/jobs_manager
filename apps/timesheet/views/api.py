@@ -98,11 +98,11 @@ class StaffListAPIView(APIView):
                         "lastName": member.last_name or "",
                         "email": member.email or "",
                         "wageRate": (
-                            str(Decimal(member.wage_rate))
+                            Decimal(member.wage_rate)
                             if member.wage_rate
-                            else str(Decimal(0))
+                            else Decimal(0)
                         ),
-                        "avatarUrl": None,  # Add avatar logic if needed
+                        "avatarUrl": None,  # TODO: add avatar logic
                     }
                 )
 

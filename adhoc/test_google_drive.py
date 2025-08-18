@@ -82,7 +82,9 @@ def test_google_drive_access() -> bool:
             .execute()
         )
 
-        print(f"✅ Test folder created: {test_folder['name']} (ID: {test_folder['id']})")
+        print(
+            f"✅ Test folder created: {test_folder['name']} (ID: {test_folder['id']})"
+        )
 
         # Clean up - delete test folder
         print("\n🧹 Cleaning up test folder...")
