@@ -1,7 +1,10 @@
 import logging
 from decimal import Decimal, InvalidOperation
+from typing import Dict
 
 from django.db import transaction
+from django.db.models import F, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.job.models import CostLine, CostSet, Job
@@ -11,381 +14,345 @@ from apps.workflow.models.company_defaults import CompanyDefaults
 logger = logging.getLogger(__name__)
 
 
-# Define a custom exception for validation errors during processing
 class DeliveryReceiptValidationError(ValueError):
-    pass
+    """Raised when receipt allocation validation fails."""
+
+
+def _to_decimal(value, *, field_label: str) -> Decimal:
+    try:
+        d = Decimal(str(value))
+    except (InvalidOperation, TypeError):
+        raise DeliveryReceiptValidationError(
+            f"Invalid decimal format for {field_label}."
+        )
+    if d < 0:
+        raise DeliveryReceiptValidationError(
+            f"Negative value not allowed for {field_label}."
+        )
+    return d
+
+
+def _load_po_and_lines(
+    purchase_order_id: str, line_allocations: Dict
+) -> tuple[PurchaseOrder, dict[str, PurchaseOrderLine]]:
+    po = PurchaseOrder.objects.select_related("supplier").get(id=purchase_order_id)
+    logger.debug("Found PO %s", po.po_number)
+
+    requested_ids = set(line_allocations.keys())
+    lines = {
+        str(line.id): line
+        for line in PurchaseOrderLine.objects.filter(
+            id__in=requested_ids, purchase_order=po
+        )
+    }
+    if len(lines) != len(requested_ids):
+        missing = requested_ids - set(lines.keys())
+        raise DeliveryReceiptValidationError(
+            f"Invalid or mismatched PurchaseOrderLine IDs provided: {missing}"
+        )
+    return po, lines
+
+
+def _load_jobs(line_allocations: Dict) -> dict[str, Job]:
+    job_ids: set[str] = set()
+    for line_data in line_allocations.values():
+        for alloc in line_data.get("allocations", []):
+            jid = alloc.get("job_id")
+            if jid:
+                job_ids.add(str(jid))
+    jobs = {str(j.id): j for j in Job.objects.filter(id__in=job_ids)}
+    if len(jobs) != len(job_ids):
+        missing = job_ids - set(jobs.keys())
+        raise DeliveryReceiptValidationError(
+            f"Invalid Job IDs provided in allocations: {missing}"
+        )
+    return jobs
+
+
+def _validate_and_prepare_allocations(
+    line: PurchaseOrderLine,
+    line_data: dict,
+    jobs_by_id: dict[str, Job],
+) -> tuple[Decimal, list[dict]]:
+    """
+    Returns (total_received, prepared_allocations).
+    Each prepared allocation = {"job": Job, "quantity": Decimal, "metadata": dict, "retail_rate_pct": Decimal}
+    """
+    total_received = _to_decimal(
+        line_data.get("total_received", 0), field_label=f"line {line.id} total_received"
+    )
+
+    prepared: list[dict] = []
+    alloc_sum = Decimal("0")
+
+    for alloc in line_data.get("allocations", []):
+        qty = _to_decimal(
+            alloc.get("quantity", 0), field_label=f"line {line.id} allocation quantity"
+        )
+        if qty == 0:
+            continue
+
+        job_id = str(alloc.get("job_id"))
+        if not job_id or job_id == "None" or job_id not in jobs_by_id:
+            raise DeliveryReceiptValidationError(
+                f"Invalid or missing job_id for non-zero allocation on line {line.id}."
+            )
+
+        try:
+            defaults = CompanyDefaults.get_instance()
+            default_retail_rate_pct = defaults.materials_markup * 100
+        except Exception as e:
+            raise DeliveryReceiptValidationError(
+                f"Company defaults not configured: {str(e)}"
+            )
+
+        retail_rate_pct = Decimal(str(alloc.get("retailRate", default_retail_rate_pct)))
+
+        prepared.append(
+            {
+                "job": jobs_by_id[job_id],
+                "quantity": qty,
+                "metadata": alloc.get("metadata", {}),
+                "retail_rate_pct": retail_rate_pct,
+            }
+        )
+        alloc_sum += qty
+
+    # Totals must match (allow tiny tolerance, can be refactored)
+    if abs(alloc_sum - total_received) > Decimal("0.001"):
+        raise DeliveryReceiptValidationError(
+            f"Allocation mismatch for line '{line.description}' (id {line.id}). "
+            f"Total Received={total_received}, Sum of Allocations={alloc_sum}."
+        )
+
+    return total_received, prepared
+
+
+def _delete_previous_stock_for_line(line: PurchaseOrderLine) -> None:
+    deleted_count, _ = Stock.objects.filter(
+        source="purchase_order", source_purchase_order_line=line
+    ).delete()
+    if deleted_count:
+        logger.debug(
+            "Deleted %s existing stock entries for line %s.", deleted_count, line.id
+        )
+
+
+def _ensure_actual_costset(job: Job) -> CostSet:
+    if job.latest_actual:
+        return job.latest_actual
+    cs = CostSet.objects.create(job=job, kind="actual", rev=1)
+    job.latest_actual = cs
+    job.save(update_fields=["latest_actual"])
+    logger.debug("Created missing actual CostSet for job %s", job.id)
+    return cs
+
+
+def _create_stock_from_allocation(
+    purchase_order: PurchaseOrder,
+    line: PurchaseOrderLine,
+    job: Job,
+    qty: Decimal,
+    metadata: dict,
+    retail_rate_pct: Decimal,
+) -> Stock:
+    retail_rate = (Decimal(str(retail_rate_pct)) / Decimal("100")).quantize(
+        Decimal("0.0001")
+    )
+
+    stock = Stock.objects.create(
+        job=job,
+        description=line.description,
+        quantity=qty,
+        unit_cost=line.unit_cost or Decimal("0.00"),
+        retail_rate=retail_rate,
+        metal_type=metadata.get("metal_type", line.metal_type or "unspecified"),
+        alloy=metadata.get("alloy", line.alloy or ""),
+        specifics=metadata.get("specifics", line.specifics or ""),
+        location=metadata.get("location", line.location or ""),
+        date=timezone.now(),
+        source="purchase_order",
+        source_purchase_order_line=line,
+        notes=f"Received from PO {purchase_order.po_number}",
+    )
+
+    # Parse extra metadata
+    from apps.quoting.signals import auto_parse_stock_item
+
+    auto_parse_stock_item(stock)
+
+    logger.info(
+        "Created Stock %s for line %s, job %s, qty %s.", stock.id, line.id, job.id, qty
+    )
+    return stock
+
+
+def _create_costline_from_allocation(
+    purchase_order: PurchaseOrder,
+    line: PurchaseOrderLine,
+    job: Job,
+    qty: Decimal,
+    retail_rate_pct: Decimal,
+) -> CostLine:
+    # Convert percent to decimal for computation
+    r = (Decimal(str(retail_rate_pct)) / Decimal("100")).quantize(Decimal("0.0001"))
+    try:
+        unit_revenue = (line.unit_cost or Decimal("0.00")) * (Decimal("1") + r)
+    except TypeError:
+        raise DeliveryReceiptValidationError(
+            f"Price not confirmed for line {line.id}; cannot create material cost."
+        )
+
+    cs = _ensure_actual_costset(job)
+    cl = CostLine.objects.create(
+        cost_set=cs,
+        kind="material",
+        desc=line.description,
+        quantity=qty,
+        unit_cost=line.unit_cost,
+        unit_rev=unit_revenue,
+        ext_refs={
+            "purchase_order_line_id": str(line.id),
+            "purchase_order_id": str(purchase_order.id),
+        },
+        meta={
+            "source": "delivery_receipt",
+            "retail_rate": float(r),
+            "po_number": purchase_order.po_number,
+        },
+    )
+    logger.info(
+        "Created CostLine %s for line %s, job %s, qty %s, retail rate %.2f%%.",
+        cl.id,
+        line.id,
+        job.id,
+        qty,
+        float(retail_rate_pct),
+    )
+    return cl
+
+
+def _recompute_po_status(po: PurchaseOrder) -> None:
+    totals = po.po_lines.aggregate(
+        ordered=Coalesce(Sum("quantity"), Value(Decimal("0"))),
+        received=Coalesce(Sum("received_quantity"), Value(Decimal("0"))),
+    )
+    ordered, received = totals["ordered"], totals["received"]
+
+    if received <= 0 and po.status != "deleted":
+        new_status = "submitted"
+    elif received < ordered:
+        new_status = "partially_received"
+    else:
+        new_status = "fully_received"
+
+    if new_status != po.status:
+        po.status = new_status
+        po.save(update_fields=["status"])
+        logger.debug("Updated PO %s status to %s", po.po_number, po.status)
+    else:
+        logger.debug("PO %s status unchanged: %s", po.po_number, po.status)
 
 
 def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> bool:
     """
-    Process a delivery receipt for a purchase order based on detailed line allocations.
-
-    This function:
-    1. Validates the submitted allocation data for each PO line.
-    2. Updates the received quantity on each PurchaseOrderLine.
-    3. Deletes any previous Stock entries originating from these PO lines for this PO.
-    4. Creates new Stock entries for stock holding job allocations.
-    5. Creates new CostLine entries for direct job allocations using the modern CostSet system.
-    6. Updates the overall PurchaseOrder status.
-
-    Args:
-        purchase_order_id: The ID of the purchase order being received.
-        line_allocations: A dictionary where keys are PurchaseOrderLine IDs (str)
-                          and values are dicts containing:
-                          {
-                              "total_received": float | str,
-                              "allocations": [
-                                  {"job_id": str, "quantity": float | str},
-                                  ...
-                              ]
-                          }
-
-    Returns:
-        bool: True if successful.
-
-    Raises:
-        DeliveryReceiptValidationError: If validation fails
-            (e.g., allocation mismatch, invalid job ID).
-        PurchaseOrder.DoesNotExist: If the purchase_order_id is invalid.
-        PurchaseOrderLine.DoesNotExist: If a line_id in the input is invalid.
-        Job.DoesNotExist: If a job_id in the allocations is invalid.
-        Exception: For other unexpected errors during processing.
+    Process a delivery receipt:
+      1) Validate PO, lines, jobs, and per-line allocations
+      2) For each line: delete prior Stock, increment received_quantity, create Stock/CostLines
+      3) Recompute PO status
+    SRP: this service only validates and persists receipt effects.
+    It does NOT generate Xero item codes or push data to Xero.
     """
-    logger.info(f"Starting delivery receipt processing for PO ID: {purchase_order_id}")
-    logger.debug(f"Received line_allocations data: {line_allocations}")
+    logger.info("Starting delivery receipt processing for PO ID: %s", purchase_order_id)
+    logger.debug("Received line_allocations: %s", line_allocations)
 
-    STOCK_HOLDING_JOB_ID = Job.objects.get(name="Worker Admin").id
+    STOCK_HOLDING_JOB_ID = Stock.get_stock_holding_job().id
 
     try:
         with transaction.atomic():
-            purchase_order = PurchaseOrder.objects.select_related("supplier").get(
-                id=purchase_order_id
-            )
-            logger.debug(f"Found PO {purchase_order.po_number}")
+            po, lines_by_id = _load_po_and_lines(purchase_order_id, line_allocations)
+            jobs_by_id = _load_jobs(line_allocations)
 
-            # Log unexpected PO statuses but proceed
-            # (unless DoesNotExist error occurred)
-            # Errors for draft/void should ideally be caught
-            # before reaching this service
-            if purchase_order.status not in [
-                "submitted",
-                "partially_received",
-                "fully_received",
-            ]:
+            # Warn but continue on unexpected status (upstream should prevent)
+            if po.status not in ("submitted", "partially_received", "fully_received"):
                 logger.warning(
-                    f"""
-                    Processing delivery receipt for PO {purchase_order.po_number}
-                    with unexpected status: {purchase_order.status}.
-                    This might indicate an issue elsewhere.
-                    """.strip()
+                    "Processing PO %s with unexpected status: %s",
+                    po.po_number,
+                    po.status,
                 )
 
-            processed_line_ids = set(line_allocations.keys())
+            # Per-line processing
+            for line_id, data in line_allocations.items():
+                line = lines_by_id[str(line_id)]
+                logger.debug("Processing line %s (%s)", line.id, line.description)
 
-            # Pre-fetch lines and jobs for efficiency and validation
-            lines = {
-                str(line.id): line
-                for line in PurchaseOrderLine.objects.filter(
-                    id__in=processed_line_ids, purchase_order=purchase_order
-                )
-            }
-            if len(lines) != len(processed_line_ids):
-                missing_lines = processed_line_ids - set(lines.keys())
-                raise DeliveryReceiptValidationError(
-                    (
-                        "Invalid or mismatched PurchaseOrderLine IDs provided: "
-                        f"{missing_lines}"
-                    )
+                total_received, prepared_allocs = _validate_and_prepare_allocations(
+                    line=line,
+                    line_data=data,
+                    jobs_by_id=jobs_by_id,
                 )
 
-            all_job_ids = set()
-            for line_data in line_allocations.values():
-                for alloc in line_data.get("allocations", []):
-                    if alloc.get("job_id"):
-                        all_job_ids.add(
-                            str(alloc["job_id"])
-                        )  # Ensure string conversion
+                # Delete prior stock entries created from this line
+                _delete_previous_stock_for_line(line)
 
-            jobs = {str(job.id): job for job in Job.objects.filter(id__in=all_job_ids)}
-            if len(jobs) != len(all_job_ids):
-                missing_jobs = all_job_ids - set(jobs.keys())
-                raise DeliveryReceiptValidationError(
-                    f"Invalid Job IDs provided in allocations: {missing_jobs}"
+                # Increment received_quantity atomically
+                PurchaseOrderLine.objects.filter(id=line.id).update(
+                    received_quantity=F("received_quantity") + total_received
                 )
-
-            # --- Process each submitted line ---
-            for line_id, line_data in line_allocations.items():
-                line = lines[line_id]
-                logger.debug(f"Processing line: {line.id} ({line.description})")
-
-                # Validate total_received
-                try:
-                    total_received = Decimal(str(line_data.get("total_received", 0)))
-                    if total_received < 0:
-                        raise DeliveryReceiptValidationError(
-                            (
-                                "Negative total received quantity not allowed for "
-                                f"line {line.id}."
-                            )
-                        )
-                except (InvalidOperation, TypeError):
-                    raise DeliveryReceiptValidationError(
-                        f"Invalid total received quantity format for line {line.id}."
-                    )
-
-                allocations = line_data.get("allocations", [])
-                calculated_allocation_sum = Decimal("0.0")
-                valid_allocations = []
-
-                # Validate individual allocations
-                for alloc in allocations:
-                    try:
-                        alloc_qty = Decimal(str(alloc.get("quantity", 0)))
-                        job_id = str(alloc.get("job_id"))  # Ensure string conversion
-                        if alloc_qty < 0:
-                            raise DeliveryReceiptValidationError(
-                                f"Negative allocation quantity not allowed for "
-                                f"line {line.id}."
-                            )
-                        if alloc_qty > 0:  # Only process non-zero allocations
-                            if not job_id or job_id == "None":
-                                raise DeliveryReceiptValidationError(
-                                    f"Missing job ID for non-zero allocation quantity "
-                                    f"on line {line.id}."
-                                )
-                            if job_id not in jobs:
-                                logger.error(
-                                    f"Job ID validation failed: '{job_id}' not in {list(jobs.keys())}"
-                                )
-                                raise DeliveryReceiptValidationError(
-                                    f"Invalid job ID '{job_id}' in allocation "
-                                    f"for line {line.id}."
-                                )
-                            calculated_allocation_sum += alloc_qty
-
-                            # Get retail rate with proper error handling
-                            try:
-                                company_defaults = CompanyDefaults.get_instance()
-                                # materials_markup is already in decimal format (e.g., 0.20 for 20%)
-                                # Convert to percentage for consistency with frontend
-                                default_retail_rate = (
-                                    company_defaults.materials_markup * 100
-                                )
-                            except Exception as e:
-                                raise DeliveryReceiptValidationError(
-                                    f"Cannot process delivery receipt - company defaults not configured: {str(e)}"
-                                )
-
-                            valid_allocations.append(
-                                {
-                                    "job_id": job_id,
-                                    "quantity": alloc_qty,
-                                    "metadata": alloc.get("metadata", {}),
-                                    "retailRate": alloc.get(
-                                        "retailRate", default_retail_rate
-                                    ),
-                                }
-                            )
-                    except (InvalidOperation, TypeError):
-                        raise DeliveryReceiptValidationError(
-                            f"Invalid allocation quantity format for line {line.id}."
-                        )
-
-                # Validate sum vs total
-                allocation_diff = abs(calculated_allocation_sum - total_received)
-                if allocation_diff > Decimal("0.001"):
-                    raise DeliveryReceiptValidationError(
-                        f"""
-                        Allocation quantity mismatch for line '{line.description}'
-                        (Line ID: {line.id}).
-                        Total Received: {total_received},
-                        Sum of Allocations: {calculated_allocation_sum}.
-                        """.strip()
-                    )
-
-                # --- Passed Validation - Update Database ---
-                # Delete previous stock for this line
-                deleted_count, _ = Stock.objects.filter(
-                    source="purchase_order", source_purchase_order_line=line
-                ).delete()
-                if deleted_count > 0:
-                    logger.debug(
-                        f"Deleted {deleted_count} existing stock entries "
-                        f"for line {line.id}."
-                    )
-
-                # Update PO Line received quantity (accumulate, don't overwrite)
-                line.received_quantity += total_received
-                line.save(update_fields=["received_quantity"])  # Be specific
+                line.refresh_from_db(fields=["received_quantity"])
                 logger.debug(
-                    f"Added {total_received} to line {line.id} received_quantity. "
-                    f"New total: {line.received_quantity}."
+                    "Added %s to line %s received_quantity → now %s",
+                    total_received,
+                    line.id,
+                    line.received_quantity,
                 )
 
-                # Create new Stock entries
-                for alloc_data in valid_allocations:
-                    job_id = alloc_data["job_id"]
-                    target_job = Job.objects.get(id=job_id)
-                    alloc_qty = alloc_data["quantity"]
+                # Materialize allocations
+                for alloc in prepared_allocs:
+                    job = alloc["job"]
+                    qty = alloc["quantity"]
+                    retail_rate_pct = alloc["retail_rate_pct"]
 
-                    # Get retail rate with proper error handling
-                    try:
-                        company_defaults = CompanyDefaults.get_instance()
-                        # materials_markup is already in decimal format (e.g., 0.20 for 20%)
-                        # Convert to percentage for consistency, then back to decimal for calculations
-                        default_retail_rate = company_defaults.materials_markup * 100
-                        retail_rate = Decimal(
-                            str(alloc_data.get("retailRate", default_retail_rate))
-                        ) / Decimal("100")
-                    except Exception as e:
-                        raise DeliveryReceiptValidationError(
-                            f"Cannot process delivery receipt - company defaults not configured: {str(e)}"
-                        )
-                    logger.info(f"Metadata: {alloc_data['metadata']}")
-
-                    try:
-                        unit_revenue = line.unit_cost * (Decimal("1") + retail_rate)
-                    except TypeError:
-                        raise DeliveryReceiptValidationError(
-                            "Price not confirmed for line, "
-                            "can't save the material to a job."
-                        )
-
-                    if str(job_id) == str(STOCK_HOLDING_JOB_ID):
-                        metadata = alloc_data.get("metadata", {})
-                        logger.debug(
-                            f"Creating stock item with retail_rate: {retail_rate}, type: {type(retail_rate)}"
-                        )
-                        stock_item = Stock.objects.create(
-                            job=target_job,
-                            description=line.description,
-                            quantity=alloc_qty,
-                            unit_cost=line.unit_cost or Decimal("0.00"),
-                            retail_rate=retail_rate,
-                            metal_type=metadata.get(
-                                "metal_type", line.metal_type or "unspecified"
-                            ),
-                            alloy=metadata.get("alloy", line.alloy or ""),
-                            specifics=metadata.get("specifics", line.specifics or ""),
-                            location=metadata.get("location", line.location or ""),
-                            date=timezone.now(),
-                            source="purchase_order",
-                            source_purchase_order_line=line,
-                            notes=f"Received from PO {purchase_order.po_number}",
-                        )
-
-                        # Parse the stock item to extract additional metadata
-                        from apps.quoting.signals import auto_parse_stock_item
-
-                        auto_parse_stock_item(stock_item)
-
-                        # Generate item_code if not provided and not already set by parsing
-                        if not stock_item.item_code or not stock_item.item_code.strip():
-                            from apps.workflow.api.xero.stock_sync import (
-                                generate_item_code,
-                            )
-
-                            stock_item.item_code = generate_item_code(stock_item)
-                            stock_item.save(update_fields=["item_code"])
-                            logger.info(
-                                f"Generated item_code '{stock_item.item_code}' for stock from PO {purchase_order.po_number}"
-                            )
-
-                        logger.info(
-                            f"""
-                            Created Stock entry {stock_item.id} for line {line.id},
-                            allocated to Job {target_job.id}, qty {alloc_qty}.
-                            """.strip()
+                    if str(job.id) == str(STOCK_HOLDING_JOB_ID):
+                        _create_stock_from_allocation(
+                            purchase_order=po,
+                            line=line,
+                            job=job,
+                            qty=qty,
+                            metadata=alloc.get("metadata", {}),
+                            retail_rate_pct=retail_rate_pct,
                         )
                     else:
-                        # Ensure job has an actual cost set
-                        if not target_job.latest_actual:
-                            actual_cost_set = CostSet.objects.create(
-                                job=target_job, kind="actual", rev=1
-                            )
-                            target_job.latest_actual = actual_cost_set
-                            target_job.save(update_fields=["latest_actual"])
-                            logger.debug(
-                                f"Created missing actual CostSet for job {target_job.id}"
-                            )
-
-                        cost_line = CostLine.objects.create(
-                            cost_set=target_job.latest_actual,
-                            kind="material",
-                            desc=line.description,
-                            quantity=alloc_qty,
-                            unit_cost=line.unit_cost,
-                            unit_rev=unit_revenue,
-                            ext_refs={
-                                "purchase_order_line_id": str(line.id),
-                                "purchase_order_id": str(purchase_order.id),
-                            },
-                            meta={
-                                "source": "delivery_receipt",
-                                "retail_rate": float(retail_rate),
-                                "po_number": purchase_order.po_number,
-                            },
-                        )
-                        logger.info(
-                            f"""
-                            Created CostLine {cost_line.id} for line {line.id},
-                            allocated to Job {target_job.id}, qty {alloc_qty},
-                            retail rate {retail_rate:.2%}.
-                            """.strip()
+                        _create_costline_from_allocation(
+                            purchase_order=po,
+                            line=line,
+                            job=job,
+                            qty=qty,
+                            retail_rate_pct=retail_rate_pct,
                         )
 
-            # --- Update Overall PO Status ---
-            all_po_lines = (
-                purchase_order.po_lines.all()
-            )  # Re-fetch needed? Or can we trust the loop? Re-fetch is safer.
-            current_total_ordered = sum(line.quantity for line in all_po_lines)
-            current_total_received = sum(
-                line.received_quantity for line in all_po_lines
-            )
-
-            logger.debug(
-                f"""
-                Updating PO status - Current Total Received: {current_total_received},
-                Current Total Ordered: {current_total_ordered}
-                """.strip()
-            )
-            new_status = purchase_order.status  # Default to current
-            if current_total_received <= 0:
-                if purchase_order.status != "deleted":  # Avoid changing deleted status
-                    new_status = "submitted"
-            elif current_total_received < current_total_ordered:
-                new_status = "partially_received"
-            else:  # received >= ordered
-                new_status = "fully_received"
-
-            if new_status != purchase_order.status:
-                purchase_order.status = new_status
-                purchase_order.save(update_fields=["status"])
-                logger.debug(
-                    f"Set PO {purchase_order.po_number} status "
-                    f"to {purchase_order.status}"
-                )
-            else:
-                logger.debug(
-                    f"PO {purchase_order.po_number} status "
-                    f"remains {purchase_order.status}"
-                )
+            _recompute_po_status(po)
 
             logger.info(
-                f"Successfully processed delivery receipt allocations "
-                f"for PO {purchase_order.po_number}"
+                "Successfully processed delivery receipt for PO %s", po.po_number
             )
             return True
 
-    except DeliveryReceiptValidationError as ve:
-        logger.error(
-            f"Validation Error processing delivery receipt "
-            f"for PO {purchase_order_id}: {ve}"
+    except DeliveryReceiptValidationError:
+        # Let DRF/view layer convert to proper 4xx; message already specific
+        logger.exception(
+            "Validation Error processing delivery receipt for PO %s", purchase_order_id
         )
-        raise  # Re-raise validation errors to be caught by the view
+        raise
+    except PurchaseOrder.DoesNotExist:
+        logger.exception(
+            "PO %s not found during delivery receipt processing", purchase_order_id
+        )
+        raise
     except Exception as e:
         logger.exception(
-            f"Unexpected Error processing delivery receipt "
-            f"for PO {purchase_order_id}: {str(e)}"
+            "Unexpected error processing delivery receipt for PO %s: %s",
+            purchase_order_id,
+            str(e),
         )
-        raise Exception(f"An unexpected error occurred: {str(e)}")
+        raise

@@ -135,23 +135,39 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 thumb_folder = get_thumbnail_folder(job.job_number)
                 thumb_path = os.path.join(thumb_folder, f"{file_obj.name}.thumb.jpg")
 
-                if not os.path.exists(thumb_path):
-                    logger.info("Creating thumbnail for %s", file_obj.name)
-                    success = create_thumbnail(file_path, thumb_path)
-                    if success:
-                        logger.info("Thumbnail created successfully: %s", thumb_path)
-                    else:
-                        logger.warning(
-                            "Failed to create thumbnail for %s", file_obj.name
-                        )
-                else:
+                if os.path.exists(thumb_path):
                     logger.debug("Thumbnail already exists: %s", thumb_path)
-            return {
-                "id": str(job_file.id),
-                "filename": job_file.filename,
-                "file_path": job_file.file_path,
-                "print_on_jobsheet": job_file.print_on_jobsheet,
-            }
+                    return {
+                        "id": str(job_file.id),
+                        "filename": job_file.filename,
+                        "file_path": job_file.file_path,
+                        "print_on_jobsheet": job_file.print_on_jobsheet,
+                    }
+
+                logger.info("Creating thumbnail for %s", file_obj.name)
+
+                try:
+                    create_thumbnail(file_path, thumb_path)
+                    logger.info("Thumbnail created successfully: %s", thumb_path)
+
+                except Exception as e:
+                    from apps.workflow.services.error_persistence import (
+                        persist_app_error,
+                    )
+
+                    # I'm returning the file even if we can't generate the thumbnail
+                    # because we are already returning the whole file which can be downloaded anyway
+                    logger.error("Failed to create thumbnail for %s", file_obj.name)
+
+                    persist_app_error(e, job_id=str(job_file.job.id))
+
+                finally:
+                    return {
+                        "id": str(job_file.id),
+                        "filename": job_file.filename,
+                        "file_path": job_file.file_path,
+                        "print_on_jobsheet": job_file.print_on_jobsheet,
+                    }
         except Exception as e:
             logger.exception("Error processing file %s: %s", file_obj.name, str(e))
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
@@ -455,29 +471,38 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 thumb_path = os.path.join(thumb_folder, f"{file_obj.name}.thumb.jpg")
 
                 logger.info("Creating/updating thumbnail for %s", file_obj.name)
-                success = create_thumbnail(file_path, thumb_path)
-                if success:
-                    logger.info(
-                        "Thumbnail created/updated successfully: %s", thumb_path
-                    )
-                else:
-                    logger.warning(
-                        "Failed to create/update thumbnail for %s", file_obj.name
+                try:
+                    create_thumbnail(file_path, thumb_path)
+                    logger.info("Thumbnail created successfully: %s", thumb_path)
+
+                except Exception as e:
+                    from apps.workflow.services.error_persistence import (
+                        persist_app_error,
                     )
 
-            logger.info(
-                "Successfully updated file: %s (print_on_jobsheet %s->%s).",
-                file_obj.name,
-                old_print_value,
-                print_on_jobsheet,
-            )
-            response_data = {
-                "status": "success",
-                "message": "File updated successfully",
-                "print_on_jobsheet": job_file.print_on_jobsheet,
-            }
-            success_serializer = JobFileUpdateSuccessResponseSerializer(response_data)
-            return Response(success_serializer.data, status=status.HTTP_200_OK)
+                    logger.error("Failed to create thumbnail for %s", file_obj.name)
+
+                    persist_app_error(e, job_id=str(job_file.job.id))
+
+                # I'm returning the file even if we can't generate the thumbnail
+                # because the file operation is successfull, the thumbnail shouldn't be mandatory.
+                finally:
+                    logger.info(
+                        "Successfully updated file: %s (print_on_jobsheet %s->%s).",
+                        file_obj.name,
+                        old_print_value,
+                        print_on_jobsheet,
+                    )
+                    response_data = {
+                        "status": "success",
+                        "message": "File updated successfully",
+                        "print_on_jobsheet": job_file.print_on_jobsheet,
+                    }
+                    success_serializer = JobFileUpdateSuccessResponseSerializer(
+                        response_data
+                    )
+                    return Response(success_serializer.data, status=status.HTTP_200_OK)
+
         except Exception as e:
             logger.exception("Error updating file %s: %s", file_path, str(e))
             error_response = {

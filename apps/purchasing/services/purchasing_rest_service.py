@@ -232,16 +232,6 @@ class PurchasingRestService:
 
         auto_parse_stock_item(stock_item)
 
-        # Generate item_code if not provided and not already set by parsing
-        if not stock_item.item_code or not stock_item.item_code.strip():
-            from apps.workflow.api.xero.stock_sync import generate_item_code
-
-            stock_item.item_code = generate_item_code(stock_item)
-            stock_item.save(update_fields=["item_code"])
-            logger.info(
-                f"Generated item_code '{stock_item.item_code}' for new stock item {stock_item.id}"
-            )
-
         return stock_item
 
     @staticmethod

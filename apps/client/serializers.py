@@ -79,7 +79,6 @@ class ClientSearchResultSerializer(serializers.Serializer):
     xero_contact_id = serializers.CharField(allow_blank=True)
     last_invoice_date = serializers.CharField(allow_blank=True)
     total_spend = serializers.CharField()
-    raw_json = serializers.JSONField(required=False)
 
 
 class ClientSearchResponseSerializer(serializers.Serializer):

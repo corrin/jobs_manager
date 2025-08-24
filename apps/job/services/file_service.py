@@ -21,7 +21,7 @@ def get_thumbnail_folder(job_number):
 def create_thumbnail(source_path, thumb_path, size=(400, 400)):
     """
     Try to create a thumbnail if possible. Returns True if successful.
-    Silently returns False if file type isn't supported or thumbnail fails.
+    Fails early if the file type isn't supported or thumbnail fails.
     """
 
     try:
@@ -45,7 +45,7 @@ def create_thumbnail(source_path, thumb_path, size=(400, 400)):
 
     except Exception as e:
         logger.debug(f"Thumbnail creation failed for {source_path}: {e}")
-        return False
+        raise e
 
 
 def sync_job_folder(job):

@@ -13,9 +13,15 @@ import logging
 from typing import Any, Dict
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Max, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -85,15 +91,21 @@ class ClientListAllRestView(APIView):
 @extend_schema_view(
     get=extend_schema(
         summary="Search clients",
-        description="Search clients by name. Requires minimum 3 characters. Returns up to 10 results.",
         parameters=[
-            {
-                "name": "q",
-                "in": "query",
-                "description": "Search query (minimum 3 characters)",
-                "required": False,
-                "schema": {"type": "string", "minLength": 3},
-            }
+            OpenApiParameter(
+                name="q",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Search query (min 3 chars, prefix match)",
+                type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="limit",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Max results (default 10, max 50)",
+                type=OpenApiTypes.INT,
+            ),
         ],
         responses={
             200: ClientSearchResponseSerializer,
@@ -116,27 +128,26 @@ class ClientSearchRestView(APIView):
         Searches clients by name following early return pattern.
         """
         try:
-            # Guard clause: validate query parameter
-            query = request.GET.get("q", "").strip()
-            if not query:
-                response_data = {"results": []}
-                serializer = ClientSearchResponseSerializer(data=response_data)
+            query = (request.GET.get("q") or "").strip()
+
+            if not query or len(query) < 3:
+                empty = {"results": []}
+                serializer = ClientSearchResponseSerializer(data=empty)
                 serializer.is_valid(raise_exception=True)
                 return Response(serializer.data)
 
-            # Guard clause: query too short
-            if len(query) < 3:
-                response_data = {"results": []}
-                serializer = ClientSearchResponseSerializer(data=response_data)
-                serializer.is_valid(raise_exception=True)
-                return Response(serializer.data)
+            # limit from query, with a sensible cap
+            try:
+                limit = int(request.GET.get("limit", 10))
+            except ValueError:
+                limit = 10
+            limit = max(1, min(limit, 50))
 
-            # Search clients following clean code principles
-            clients = self._search_clients(query)
+            clients = self._search_clients(query, limit)
             results = self._format_client_results(clients)
 
-            response_data = {"results": results}
-            serializer = ClientSearchResponseSerializer(data=response_data)
+            payload = {"results": results}
+            serializer = ClientSearchResponseSerializer(data=payload)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data)
 
@@ -150,36 +161,51 @@ class ClientSearchRestView(APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _search_clients(self, query: str):
+    def _search_clients(self, query: str, limit: int):
         """
         Executes client search with appropriate filters.
         SRP: single responsibility for searching clients.
         """
-        return Client.objects.filter(Q(name__icontains=query)).order_by("name")[:10]
+        return (
+            Client.objects.filter(name__startswith=query)  # ← index‑friendly
+            .annotate(
+                last_invoice_date=Max("invoice__date"),
+                total_spend=Coalesce(Sum("invoice__total_excl_tax"), Value(0)),
+            )
+            .defer("raw_json")  # not needed/used by the front-end currently
+            .only(
+                "id",
+                "name",
+                "email",
+                "phone",
+                "address",
+                "is_account_customer",
+                "xero_contact_id",
+            )
+            .order_by("name")[:limit]
+        )
 
     def _format_client_results(self, clients) -> list:
-        """
-        Formats search results following SRP.
-        """
-        return [
-            {
-                "id": str(client.id),
-                "name": client.name,
-                "email": client.email or "",
-                "phone": client.phone or "",
-                "address": client.address or "",
-                "is_account_customer": client.is_account_customer,
-                "xero_contact_id": client.xero_contact_id or "",
-                "last_invoice_date": (
-                    client.get_last_invoice_date().strftime("%d/%m/%Y")
-                    if client.get_last_invoice_date()
-                    else ""
-                ),
-                "total_spend": f"${client.get_total_spend():,.2f}",
-                "raw_json": client.raw_json,
-            }
-            for client in clients
-        ]
+        formatted = []
+        for c in clients:
+            # guard None for date
+            date_str = (
+                c.last_invoice_date.strftime("%d/%m/%Y") if c.last_invoice_date else ""
+            )
+            formatted.append(
+                {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "email": c.email or "",
+                    "phone": c.phone or "",
+                    "address": c.address or "",
+                    "is_account_customer": c.is_account_customer,
+                    "xero_contact_id": c.xero_contact_id or "",
+                    "last_invoice_date": date_str,
+                    "total_spend": f"${c.total_spend:,.2f}",
+                }
+            )
+        return formatted
 
 
 @extend_schema_view(

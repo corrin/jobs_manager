@@ -1,9 +1,11 @@
 import logging
+from dataclasses import asdict, dataclass
 from decimal import Decimal
-from typing import Dict
+from typing import Dict, Literal, Tuple, Union
 
 from django.db import models, transaction
-from django.db.models import F, Func, Value
+from django.db.models import F, Func, Sum, Value
+from django.db.models.functions import Coalesce, Greatest
 
 from apps.job.models import CostLine
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
@@ -11,9 +13,21 @@ from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
+AllocationType = Literal["stock", "job"]
+
 
 class AllocationDeletionError(ValueError):
     """Custom exception for allocation deletion errors."""
+
+
+@dataclass
+class DeletionResult:
+    success: bool
+    message: str
+    deleted_quantity: float
+    description: str
+    updated_received_quantity: float
+    job_name: str | None = None
 
 
 class AllocationService:
@@ -21,7 +35,10 @@ class AllocationService:
 
     @staticmethod
     def delete_allocation(
-        po_id: str, line_id: str, allocation_type: str, allocation_id: str, user=None
+        po_id: str,
+        line_id: str,
+        allocation_type: AllocationType,
+        allocation_id: str,
     ) -> Dict[str, any]:
         """
         Delete a specific allocation (Stock item or CostLine) created from a delivery receipt.
@@ -46,85 +63,36 @@ class AllocationService:
         )
 
         try:
+            if allocation_type not in ("stock", "job"):
+                raise AllocationDeletionError(
+                    f"Invalid allocation type: {allocation_type}. Must be 'stock' or 'job'"
+                )
+
             with transaction.atomic():
-                # Validate PO exists first
-                try:
-                    po = PurchaseOrder.objects.get(id=po_id)
-                    logger.debug(f"Found PO {po.po_number}")
-                except PurchaseOrder.DoesNotExist:
-                    raise AllocationDeletionError(f"Purchase Order {po_id} not found")
+                po = AllocationService._get_po_or_error(po_id)
 
-                # Find the PO line based on the allocation type and ID
-                po_line = None
+                po_line, obj = AllocationService._resolve_allocation_or_error(
+                    po=po,
+                    allocation_type=allocation_type,
+                    allocation_id=allocation_id,
+                )
+
+                po_line = PurchaseOrderLine.objects.select_for_update().get(
+                    id=po_line.id
+                )
+
                 if allocation_type == "stock":
-                    try:
-                        stock_item = Stock.objects.select_related(
-                            "source_purchase_order_line"
-                        ).get(
-                            id=allocation_id,
-                            source="purchase_order",
-                            source_purchase_order_line__purchase_order=po,
-                        )
-                        po_line = stock_item.source_purchase_order_line
-                        logger.debug(
-                            f"Found PO line {po_line.description} via stock allocation"
-                        )
-                    except Stock.DoesNotExist:
-                        raise AllocationDeletionError(
-                            f"Stock allocation {allocation_id} not found or not from PO {po_id}"
-                        )
-                elif allocation_type == "job":
-                    try:
-                        cost_line = (
-                            CostLine.objects.annotate(
-                                po_id_from_refs=Func(
-                                    F("ext_refs"),
-                                    Value("$.purchase_order_id"),
-                                    function="JSON_UNQUOTE",
-                                    template="JSON_UNQUOTE(JSON_EXTRACT(%(expressions)s))",
-                                    output_field=models.CharField(),
-                                )
-                            )
-                            .filter(po_id_from_refs=str(po_id), id=allocation_id)
-                            .select_related("cost_set__job")
-                        ).first()
-                        # Get the PO line ID from ext_refs
-                        po_line_id = cost_line.ext_refs.get("purchase_order_line_id")
-                        if not po_line_id:
-                            raise AllocationDeletionError(
-                                f"Cost line {allocation_id} does not have purchase_order_line_id in ext_refs"
-                            )
-                        po_line = PurchaseOrderLine.objects.get(
-                            id=po_line_id, purchase_order=po
-                        )
-                        logger.debug(
-                            f"Found PO line {po_line.description} via job allocation"
-                        )
-                    except CostLine.DoesNotExist:
-                        raise AllocationDeletionError(
-                            f"Job allocation {allocation_id} not found or not from PO {po_id}"
-                        )
-                    except PurchaseOrderLine.DoesNotExist:
-                        raise AllocationDeletionError(
-                            f"Purchase Order Line referenced by allocation {allocation_id} not found"
-                        )
+                    obj = Stock.objects.select_for_update().get(id=obj.id)
+                    result = AllocationService._delete_stock_allocation(po_line, obj)  # type: ignore[arg-type]
                 else:
-                    raise AllocationDeletionError(
-                        f"Invalid allocation type: {allocation_type}. Must be 'stock' or 'job'"
-                    )
+                    obj = CostLine.objects.select_for_update().get(id=obj.id)
+                    result = AllocationService._delete_job_allocation(po, po_line, obj)  # type: ignore[arg-type]
 
-                # Now delete the allocation
-                if allocation_type == "stock":
-                    return AllocationService._delete_stock_allocation(
-                        po, po_line, allocation_id, user
-                    )
-                elif allocation_type == "job":
-                    return AllocationService._delete_job_allocation(
-                        po, po_line, allocation_id, user
-                    )
+                AllocationService._update_po_status(po)
 
+                return asdict(result)
         except AllocationDeletionError as e:
-            logger.error(f"Allocation deletion validation error: {e}")
+            logger.error("Allocation deletion validation error: %s", e)
             persist_app_error(
                 e,
                 additional_context={
@@ -136,7 +104,7 @@ class AllocationService:
             )
             raise
         except Exception as e:
-            logger.error(f"Unexpected error during allocation deletion: {e}")
+            logger.error("Unexpected error during allocation deletion: %s", e)
             persist_app_error(
                 e,
                 additional_context={
@@ -149,210 +117,55 @@ class AllocationService:
             raise
 
     @staticmethod
-    def _delete_stock_allocation(
-        po: PurchaseOrder, po_line: PurchaseOrderLine, stock_id: str, user=None
-    ) -> Dict[str, any]:
-        """Delete a stock allocation."""
-        # Get the stock item (already validated in main method)
-        stock_item = Stock.objects.get(id=stock_id)
-
-        logger.debug(
-            f"Found stock item: {stock_item.description}, qty: {stock_item.quantity}"
-        )
-
-        # Check if stock has been consumed by checking if any CostLines reference this stock item
-        consuming_cost_lines = CostLine.objects.filter(
-            ext_refs__stock_id=str(stock_item.id)
-        )
-
-        if consuming_cost_lines.exists():
-            raise AllocationDeletionError(
-                f"Cannot delete stock allocation - stock has been consumed by "
-                f"{consuming_cost_lines.count()} job(s)"
-            )
-
-        # Store details for response
-        deleted_quantity = stock_item.quantity
-        description = stock_item.description
-
-        # Update the PO line received quantity
-        po_line.received_quantity -= deleted_quantity
-        if po_line.received_quantity < 0:
-            po_line.received_quantity = Decimal("0")
-        po_line.save(update_fields=["received_quantity"])
-
-        # Delete the stock item
-        stock_item.delete()
-
-        logger.info(
-            f"Deleted stock allocation: {description}, qty: {deleted_quantity}, "
-            f"updated PO line received qty to: {po_line.received_quantity}"
-        )
-
-        # Update PO status if needed
-        AllocationService._update_po_status(po)
-
-        return {
-            "success": True,
-            "message": "Stock allocation deleted successfully",
-            "deleted_quantity": float(deleted_quantity),
-            "description": description,
-            "updated_received_quantity": float(po_line.received_quantity),
-        }
-
-    @staticmethod
-    def _delete_job_allocation(
-        po: PurchaseOrder, po_line: PurchaseOrderLine, cost_line_id: str, user=None
-    ) -> Dict[str, any]:
-        """Delete a job allocation (CostLine)."""
-        # Get the cost line (already validated in main method)
-        cost_line = CostLine.objects.select_related("cost_set__job").get(
-            id=cost_line_id
-        )
-
-        logger.debug(
-            f"Found cost line: {cost_line.desc}, qty: {cost_line.quantity}, "
-            f"job: {cost_line.cost_set.job.name}"
-        )
-
-        # Store details for response
-        deleted_quantity = cost_line.quantity
-        description = cost_line.desc
-        job_name = cost_line.cost_set.job.name
-
-        # Update the PO line received quantity
-        po_line.received_quantity -= deleted_quantity
-        if po_line.received_quantity < 0:
-            po_line.received_quantity = Decimal("0")
-        po_line.save(update_fields=["received_quantity"])
-
-        # Delete the cost line
-        cost_line.delete()
-
-        logger.info(
-            f"Deleted job allocation: {description}, qty: {deleted_quantity}, "
-            f"from job: {job_name}, updated PO line received qty to: {po_line.received_quantity}"
-        )
-
-        # Update PO status if needed
-        AllocationService._update_po_status(po)
-
-        return {
-            "success": True,
-            "message": "Job allocation deleted successfully",
-            "deleted_quantity": float(deleted_quantity),
-            "description": description,
-            "job_name": job_name,
-            "updated_received_quantity": float(po_line.received_quantity),
-        }
-
-    @staticmethod
-    def _update_po_status(po: PurchaseOrder) -> None:
-        """Update PO status based on current received quantities."""
-        # Re-fetch all lines to get updated quantities
-        all_po_lines = po.po_lines.all()
-        current_total_ordered = sum(line.quantity for line in all_po_lines)
-        current_total_received = sum(line.received_quantity for line in all_po_lines)
-
-        logger.debug(
-            f"Updating PO status - Total Received: {current_total_received}, "
-            f"Total Ordered: {current_total_ordered}"
-        )
-
-        new_status = po.status  # Default to current
-
-        if current_total_received <= 0:
-            if po.status != "deleted":  # Avoid changing deleted status
-                new_status = "submitted"
-        elif current_total_received < current_total_ordered:
-            new_status = "partially_received"
-        else:  # received >= ordered
-            new_status = "fully_received"
-
-        if new_status != po.status:
-            po.status = new_status
-            po.save(update_fields=["status"])
-            logger.debug(f"Updated PO {po.po_number} status to {po.status}")
-        else:
-            logger.debug(f"PO {po.po_number} status remains {po.status}")
-
-    @staticmethod
     def get_allocation_details(
-        po_id: str, allocation_type: str, allocation_id: str
-    ) -> Dict[str, any]:
-        """
-        Get details about a specific allocation before deletion.
-
-        Args:
-            po_id: Purchase Order ID
-            allocation_type: Type of allocation ('stock' or 'job')
-            allocation_id: ID of the Stock item or CostLine
-
-        Returns:
-            Dict with allocation details
-        """
+        po_id: str, allocation_type: AllocationType, allocation_id: str
+    ) -> Dict[str, object]:
         try:
-            # Validate PO exists
-            try:
-                po = PurchaseOrder.objects.get(id=po_id)
-            except PurchaseOrder.DoesNotExist:
-                raise AllocationDeletionError(f"Purchase Order {po_id} not found")
+            if allocation_type not in ("stock", "job"):
+                raise AllocationDeletionError(
+                    f"Invalid allocation type: {allocation_type}"
+                )
+
+            po = AllocationService._get_po_or_error(po_id)
 
             if allocation_type == "stock":
-                try:
-                    stock_item = Stock.objects.get(
-                        id=allocation_id,
-                        source="purchase_order",
-                        source_purchase_order_line__purchase_order=po,
-                    )
-                except Stock.DoesNotExist:
-                    raise AllocationDeletionError(
-                        f"Stock item {allocation_id} not found or not from PO {po_id}"
-                    )
+                stock_item = AllocationService._get_stock_or_error(po, allocation_id)
 
-                # Check if consumed
-                consuming_cost_lines = CostLine.objects.filter(
-                    ext_refs__stock_id=str(stock_item.id)
-                )
+                consuming_qs = CostLine.objects.annotate(
+                    stock_id=Func(
+                        F("ext_refs"),
+                        Value("$.stock_id"),
+                        function="JSON_UNQUOTE",
+                        template="JSON_UNQUOTE(JSON_EXTRACT(%(expressions)s))",
+                        output_field=models.CharField(),
+                    )
+                ).filter(stock_id=str(stock_item.id))
 
                 return {
                     "type": "stock",
                     "id": str(stock_item.id),
                     "description": stock_item.description,
                     "quantity": float(stock_item.quantity),
-                    "job_name": stock_item.job.name if stock_item.job else "No Job",
-                    "can_delete": not consuming_cost_lines.exists(),
-                    "consumed_by_jobs": consuming_cost_lines.count(),
+                    "job_name": stock_item.job.name,
+                    "can_delete": not consuming_qs.exists(),
+                    "consumed_by_jobs": consuming_qs.count(),
+                    # Location is not mandatory so that's the reason for the fallback
                     "location": stock_item.location or "Not specified",
                 }
 
-            elif allocation_type == "job":
-                try:
-                    cost_line = CostLine.objects.get(
-                        id=allocation_id, ext_refs__purchase_order_id=str(po.id)
-                    )
-                except CostLine.DoesNotExist:
-                    raise AllocationDeletionError(
-                        f"Cost line {allocation_id} not found or not from PO {po_id}"
-                    )
-
-                return {
-                    "type": "job",
-                    "id": str(cost_line.id),
-                    "description": cost_line.desc,
-                    "quantity": float(cost_line.quantity),
-                    "job_name": cost_line.cost_set.job.name,
-                    "can_delete": True,  # Job allocations can generally be deleted
-                    "unit_cost": float(cost_line.unit_cost),
-                    "unit_revenue": float(cost_line.unit_rev),
-                }
-            else:
-                raise AllocationDeletionError(
-                    f"Invalid allocation type: {allocation_type}"
-                )
-
+            cost_line = AllocationService._get_costline_or_error(po, allocation_id)
+            return {
+                "type": "job",
+                "id": str(cost_line.id),
+                "description": cost_line.desc,
+                "quantity": float(cost_line.quantity),
+                "job_name": cost_line.cost_set.job.name,
+                "can_delete": True,
+                "unit_cost": float(cost_line.unit_cost),
+                "unit_revenue": float(cost_line.unit_rev),
+            }
         except Exception as e:
-            logger.error(f"Error getting allocation details: {e}")
+            logger.error("Error getting allocation details: %s", e)
             persist_app_error(
                 e,
                 additional_context={
@@ -362,3 +175,206 @@ class AllocationService:
                 },
             )
             raise
+
+    @staticmethod
+    def _get_po_or_error(po_id: str) -> PurchaseOrder:
+        try:
+            return PurchaseOrder.objects.get(id=po_id)
+        except PurchaseOrder.DoesNotExist:
+            raise AllocationDeletionError(f"Purchase Order {po_id} not found")
+
+    @staticmethod
+    def _get_stock_or_error(po: PurchaseOrder, stock_id: str) -> Stock:
+        try:
+            return Stock.objects.select_related("source_purchase_order_line").get(
+                id=stock_id,
+                source="purchase_order",
+                source_purchase_order_line__purchase_order=po,
+            )
+        except Stock.DoesNotExist:
+            raise AllocationDeletionError(
+                f"Stock allocation {stock_id} not found or not from PO {po.id}"
+            )
+
+    @staticmethod
+    def _get_costline_or_error(po: PurchaseOrder, cost_line_id: str) -> CostLine:
+        """
+        CostLine created from a PO stores references in ext_refs:
+            - purchase_order_id
+            - purchase_order_line_id
+        Verifying both here.
+        """
+        po_id = Func(
+            Func(F("ext_refs"), Value("$.purchase_order_id"), function="JSON_EXTRACT"),
+            function="JSON_UNQUOTE",
+            output_field=models.CharField(),
+        )
+        po_line_id = Func(
+            Func(
+                F("ext_refs"),
+                Value("$.purchase_order_line_id"),
+                function="JSON_EXTRACT",
+            ),
+            function="JSON_UNQUOTE",
+            output_field=models.CharField(),
+        )
+        try:
+            line = (
+                CostLine.objects.select_related("cost_set__job")
+                .annotate(
+                    po_id=po_id,
+                    po_line_id=po_line_id,
+                )
+                .get(id=cost_line_id, po_id=str(po.id))
+            )
+        except CostLine.DoesNotExist:
+            raise AllocationDeletionError(
+                f"Job allocation {cost_line_id} not found or not from PO {po.id}"
+            )
+
+        if not line.po_line_id:
+            raise AllocationDeletionError(
+                f"Cost line {cost_line_id} missing purchase_order_line_id in ext_refs"
+            )
+
+        return line
+
+    @staticmethod
+    def _resolve_allocation_or_error(
+        po: PurchaseOrder,
+        allocation_type: AllocationType,
+        allocation_id: str,
+    ) -> Tuple[PurchaseOrderLine, Union[Stock, CostLine]]:
+        if allocation_type == "stock":
+            stock = AllocationService._get_stock_or_error(po, allocation_id)
+            return stock.source_purchase_order_line, stock
+
+        line = AllocationService._get_costline_or_error(po, allocation_id)
+        try:
+            po_line = PurchaseOrderLine.objects.get(
+                id=line.ext_refs["purchase_order_line_id"], purchase_order=po
+            )
+        except PurchaseOrderLine.DoesNotExist:
+            raise AllocationDeletionError(
+                f"Purchase Order Line referenced by allocation {allocation_id} not found"
+            )
+        return po_line, line
+
+    @staticmethod
+    def _delete_stock_allocation(
+        po_line: PurchaseOrderLine,
+        stock_item: Stock,
+    ) -> DeletionResult:
+        stock_id = Func(
+            Func(F("ext_refs"), Value("$.stock_id"), function="JSON_EXTRACT"),
+            function="JSON_UNQUOTE",
+            output_field=models.CharField(),
+        )
+
+        consuming_qs = CostLine.objects.annotate(stock_id=stock_id).filter(
+            stock_id=str(stock_item.id)
+        )
+
+        consumed_count = consuming_qs.count()
+        if consumed_count:
+            raise AllocationDeletionError(
+                "Cannot delete stock allocation - stock has been consumed by "
+                f"{consumed_count} job(s)"
+            )
+
+        deleted_qty = Decimal(stock_item.quantity or 0)
+        desc = stock_item.description
+
+        # decrement received_quantity atomically and clamp to 0 in DB
+        (
+            PurchaseOrderLine.objects.filter(id=po_line.id).update(
+                received_quantity=Greatest(
+                    Value(Decimal("0")), F("received_quantity") - Value(deleted_qty)
+                )
+            )
+        )
+        po_line.refresh_from_db(fields=["received_quantity"])
+
+        stock_item.delete()
+
+        logger.info(
+            "Deleted stock allocation: %s, qty=%s, PO line received now=%ss",
+            desc,
+            deleted_qty,
+            po_line.received_quantity,
+        )
+
+        return DeletionResult(
+            success=True,
+            message="Stock allocation deleted successfully",
+            deleted_quantity=float(deleted_qty),
+            description=desc,
+            updated_received_quantity=float(po_line.received_quantity),
+        )
+
+    @staticmethod
+    def _delete_job_allocation(
+        po_line: PurchaseOrderLine,
+        cost_line: CostLine,
+    ) -> DeletionResult:
+        deleted_qty = Decimal(cost_line.quantity or 0)
+        desc = cost_line.desc
+        job_name = cost_line.cost_set.job.name
+
+        (
+            PurchaseOrderLine.objects.filter(id=po_line.id).update(
+                received_quantity=Greatest(
+                    Value(Decimal("0")), F("received_quantity") - Value(deleted_qty)
+                )
+            )
+        )
+        po_line.refresh_from_db(fields=["received_quantity"])
+
+        cost_line.delete()
+
+        logger.info(
+            "Deleted job allocation: %s, qty=%s, job=%s, PO line received now=%s",
+            desc,
+            deleted_qty,
+            job_name,
+            po_line.received_quantity,
+        )
+
+        return DeletionResult(
+            success=True,
+            message="Job allocation deleted successfully",
+            deleted_quantity=float(deleted_qty),
+            description=desc,
+            updated_received_quantity=float(po_line.received_quantity),
+            job_name=job_name,
+        )
+
+    @staticmethod
+    def _update_po_status(po: PurchaseOrder) -> None:
+        "Compute status from aggregates (single query) and persist only if changed."
+        totals = po.po_lines.aggregate(
+            ordered=Coalesce(Sum("quantity"), Value(Decimal("0"))),
+            received=Coalesce(Sum("received_quantity"), Value(Decimal("0"))),
+        )
+        ordered = totals["ordered"]
+        received = totals["received"]
+
+        logger.debug(
+            "PO %s status eval: received=%s ordered=%s", po.po_number, received, ordered
+        )
+
+        new_status = po.status
+        if received <= 0 and po.status != "deleted":
+            new_status = "submitted"
+        elif received < ordered:
+            new_status = "partially_received"
+        else:
+            new_status = "fully_received"
+
+        if new_status == po.status:
+            logger.debug("PO %s status unchanged: %s", po.po_number, po.status)
+            return
+
+        po.status = new_status
+        po.save(update_fields=["status"])
+        logger.debug("Updated PO %s status to %s", po.po_number, po.status)
