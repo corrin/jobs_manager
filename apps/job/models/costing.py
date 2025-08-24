@@ -89,7 +89,7 @@ class CostLine(models.Model):
     # Xero sync fields for bidirectional time/expense tracking
     xero_time_id = models.CharField(max_length=255, null=True, blank=True)
     xero_expense_id = models.CharField(max_length=255, null=True, blank=True)
-    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     class Meta:
