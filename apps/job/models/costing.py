@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from .job import Job
 
@@ -41,6 +42,16 @@ class CostSet(models.Model):
         if self.rev < 0:
             raise ValidationError("Revision must be non-negative")
 
+    @property
+    def total_cost(self):
+        """Total internal cost for all cost lines in this set"""
+        return sum(cost_line.total_cost for cost_line in self.cost_lines.all())
+
+    @property
+    def total_revenue(self):
+        """Total revenue (charge amount) for all cost lines in this set"""
+        return sum(cost_line.total_rev for cost_line in self.cost_lines.all())
+
 
 class CostLine(models.Model):
     """
@@ -74,6 +85,12 @@ class CostLine(models.Model):
         help_text="External references (e.g., time entry IDs, material IDs)",
     )
     meta = models.JSONField(default=dict, help_text="Additional metadata")
+
+    # Xero sync fields for bidirectional time/expense tracking
+    xero_time_id = models.CharField(max_length=255, null=True, blank=True)
+    xero_expense_id = models.CharField(max_length=255, null=True, blank=True)
+    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     class Meta:
         indexes = [

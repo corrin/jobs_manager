@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.db import models, transaction
 from django.db.models import Index, Max
+from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Staff
@@ -73,7 +74,7 @@ class Job(models.Model):
         help_text="This becomes the first line item on the invoice",
     )
 
-    quote_acceptance_date: datetime = models.DateTimeField(
+    quote_acceptance_date: Optional[datetime] = models.DateTimeField(
         null=True,
         blank=True,
     )
@@ -83,10 +84,10 @@ class Job(models.Model):
     )  # type: ignore
 
     # Flag to track jobs that were rejected
-    rejected_flag = models.BooleanField(
+    rejected_flag: bool = models.BooleanField(
         default=False,
         help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
-    )  # type: ignore
+    )
 
     PRICING_METHODOLOGY_CHOICES = [
         ("time_materials", "Time & Materials"),
@@ -117,6 +118,10 @@ class Job(models.Model):
     job_is_valid = models.BooleanField(default=False)
     collected: bool = models.BooleanField(default=False)
     paid: bool = models.BooleanField(default=False)
+    fully_invoiced: bool = models.BooleanField(
+        default=False,
+        help_text="The total value of invoices for this job matches the total value of the job.",
+    )
     charge_out_rate = (
         models.DecimalField(  # TODO: This needs to be added to the edit job form
             max_digits=10,
@@ -178,6 +183,20 @@ class Job(models.Model):
         help_text="Priority of the job, higher numbers are higher priority.",
     )
 
+    # Xero Projects sync fields
+    xero_project_id = models.CharField(
+        max_length=255, unique=True, null=True, blank=True
+    )
+    xero_default_task_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Xero task ID for the default Labor task used for time entries",
+        # TODO: This won't work long term - need proper task management system
+    )
+    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+
     class Meta:
         verbose_name = "Job"
         verbose_name_plural = "Jobs"
@@ -214,15 +233,8 @@ class Job(models.Model):
 
     @property
     def quoted(self) -> bool:
-        if hasattr(self, "quote") and self.quote is not None:
-            return self.quote
-        return False
-
-    @property
-    def invoiced(self) -> bool:
-        if hasattr(self, "invoice") and self.invoice is not None:
-            return self.invoice
-        return False
+        # BUG: TODO: This is supposed to be if the job is quoted in XERO, not if it's quoted here.
+        return self.latest_quote is not None
 
     def __str__(self) -> str:
         status_display = self.get_status_display()

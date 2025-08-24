@@ -69,7 +69,7 @@ ls -la restore/
 
 ### DEVELOPMENT STEPS
 
-#### Step 3: Verify Environment Configuration
+#### Step 4: Verify Environment Configuration
 **Run as:** Development system user
 **Check:**
 ```bash
@@ -90,7 +90,7 @@ DB_PORT=3306
 
 Note.  If you're using Claude or similar, you need to specify these explicitly on all subsequent command lines rather than use environment variables
 
-#### Step 4: Reset Database
+#### Step 5: Reset Database
 **Run as:** System root (for MySQL admin operations)
 **Command:**
 ```bash
@@ -106,7 +106,7 @@ MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" -
 # Should show: msm_workflow
 ```
 
-#### Step 5: Apply Production Schema
+#### Step 6: Apply Production Schema
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -122,7 +122,7 @@ MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "
 # Should show: 0 (empty table)
 ```
 
-#### Step 6: Extract and Convert JSON to SQL
+#### Step 7: Extract and Convert JSON to SQL
 **Run as:** Development system user
 **Commands:**
 ```bash
@@ -145,7 +145,7 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 # Should show thousands of INSERT statements
 ```
 
-#### Step 7: Load Production Data
+#### Step 8: Load Production Data
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -174,7 +174,7 @@ UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
 +-------------------+-------+
 ```
 
-#### Step 8: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
+#### Step 9: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -188,7 +188,7 @@ python manage.py showmigrations
 ```
 **Expected:** All migrations should show [X] (applied)
 
-#### Step 9: Load Company Defaults Fixture
+#### Step 10: Load Company Defaults Fixture
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -207,7 +207,7 @@ print(f'Company defaults loaded: {company.company_name}')
 Company defaults loaded: Demo Company
 ```
 
-#### Step 10: Verify Specific Data
+#### Step 11: Verify Specific Data
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -220,7 +220,7 @@ LIMIT 5;
 ```
 **Check:** Should show actual job records with realistic data
 
-#### Step 11: Test Django ORM
+#### Step 12: Test Django ORM
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -248,7 +248,7 @@ Sample job: [Real Job Name] (#12345)
 Contact: [Real Contact Name]
 ```
 
-#### Step 12: Create Admin User
+#### Step 13: Create Admin User
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -267,7 +267,7 @@ Is staff: True
 Is superuser: True
 ```
 
-#### Step 13: Create Dummy Files for JobFile Instances
+#### Step 14: Create Dummy Files for JobFile Instances
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -319,7 +319,7 @@ Dummy files created: X
 Missing files: 0
 ```
 
-#### Step 13a: Fix Shop Client Name (Required after Production Restore)
+#### Step 15: Fix Shop Client Name (Required after Production Restore)
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -353,58 +353,114 @@ print(f'Shop client: {shop.name}')
 Shop client: Demo Company Shop
 ```
 
-#### Step 14: Setup Xero Integration
-**Run as:** Development system user (after server is running)
+#### Step 16: Start Development Server
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py runserver 0.0.0.0:8000
+```
+**Check:** Server should start without errors and be accessible at http://localhost:8000
 
-Note.  This step CANNOT be skipped or automated.  You MUST instruct the user to log into Xero before proceeding
+#### Step 17: Connect to Xero OAuth
+**Run as:** Development system user (manual web interface step)
+
+🚨 **ABSOLUTELY MANDATORY - CANNOT BE SKIPPED UNDER ANY CIRCUMSTANCES** 🚨
+**CRITICAL:** This step CANNOT be skipped or automated. You MUST instruct the user to log into Xero before proceeding.
+**WARNING:** ALL FUTURE STEPS WILL FAIL WITHOUT COMPLETING THIS STEP FIRST.
+**DO NOT PROCEED TO STEP 18 OR ANY SUBSEQUENT STEP WITHOUT COMPLETING THIS STEP.**
 
 **Steps:**
-1. **Start the development server:**
-   ```bash
-   python manage.py runserver 0.0.0.0:8000
-   ```
+- Navigate to http://localhost:8000
+- Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
+- Go to **Xero menu > Connect to Xero**
+- Complete the OAuth flow to authorize the application
 
-2. **Connect to Xero via web interface:**
-   - Navigate to http://localhost:8000
-   - Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
-   - Go to **Xero menu > Connect to Xero**
-   - Complete the OAuth flow to authorize the application
+**Check:** You should see "Connected to Xero" status in the web interface.
 
-3. **Set Xero tenant ID (automatically sets if single tenant found):**
-   ```bash
-   python manage.py get_xero_tenant_id
-   ```
-   **Expected output:**
-   ```
-   Available Xero Organizations:
-   -----------------------------
-   Tenant ID: [tenant-id-uuid]
-   Name: [Tenant Name]
-   -----------------------------
+#### Step 18: Set Xero Tenant ID
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py get_xero_tenant_id
+```
+**Expected output:**
+```
+Available Xero Organizations:
+-----------------------------
+Tenant ID: [tenant-id-uuid]
+Name: [Tenant Name]
+-----------------------------
 
-   Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaults
-   ```
-   **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
+Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaults
+```
+**Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
 
-4. **Run initial Xero sync:**
-   ```bash
-   python manage.py start_xero_sync
-   ```
-   **Check:** Should show sync progress and completion without errors
+#### Step 19: Clear Production Xero IDs
+**Run as:** Development system user
+**Command:**
+```bash
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
+UPDATE workflow_client SET xero_contact_id = NULL WHERE xero_contact_id IS NOT NULL;
+UPDATE workflow_job SET xero_project_id = NULL WHERE xero_project_id IS NOT NULL;
+"
+```
+**Why this step is critical:** Production Xero IDs won't match the development Xero tenant. Clearing them allows proper re-linking by name during sync.
+
+**Check:**
+```bash
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
+SELECT 'Clients with Xero ID' as description, COUNT(*) as count FROM workflow_client WHERE xero_contact_id IS NOT NULL
+UNION SELECT 'Jobs with Xero Project ID', COUNT(*) FROM workflow_job WHERE xero_project_id IS NOT NULL;
+"
+```
+**Expected:** Both counts should be 0.
+
+#### Step 20: Run Initial Xero Sync
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py start_xero_sync
+```
+**Why this step is critical:** This fetches contacts FROM Xero and links them to our existing clients by name. With the fixed sync logic, this will not create duplicates.
+
+#### Step 21: Seed Additional Data to Xero
+**Run as:** Development system user
+**Command:**
+```bash
+python manage.py seed_xero_from_database --skip-clear-xero-ids
+```
+**Why this step is critical:** Creates missing contacts and projects in Xero for all clients and jobs. Uses `--skip-clear-xero-ids` since we already cleared IDs in Step 19.
+
+**Check:**
+```bash
+python manage.py shell -c "
+from apps.client.models import Client
+clients_with_xero_id = Client.objects.filter(xero_contact_id__isnull=False).count()
+print(f'Clients linked to Xero: {clients_with_xero_id}')
+"
+```
+**Expected:** Large number (2500+) - clients should now have Xero IDs.
 
 **Verification:**
 ```bash
 python manage.py shell -c "
-from apps.workflow.models import CompanyDefaults
 from apps.client.models import Client
-company = CompanyDefaults.get_instance()
-print(f'Xero tenant ID: {company.xero_tenant_id}')
-print(f'Last sync: {company.last_xero_sync}')
-print(f'Clients count: {Client.objects.count()}')
+total_clients = Client.objects.count()
+clients_with_xero_id = Client.objects.filter(xero_contact_id__isnull=False).count()
+clients_with_jobs = Client.objects.filter(jobs__isnull=False, xero_contact_id__isnull=True).distinct().count()
+print(f'Total clients: {total_clients}')
+print(f'Clients with Xero contact ID: {clients_with_xero_id}')
+print(f'Clients with jobs but no Xero ID: {clients_with_jobs}')
 "
 ```
+**Expected output:**
+```
+Total clients: 3707
+Clients with Xero contact ID: 2500+ (most clients should now have IDs)
+Clients with jobs but no Xero ID: 0 (or very small number)
+```
 
-#### Step 15: Test Admin User Login
+#### Step 21: Test Admin User Login
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -431,7 +487,7 @@ else:
 ✓ Is superuser: True
 ```
 
-#### Step 15a: Test Serializers (Before API Testing)
+#### Step 22: Test Serializers (Before API Testing)
 **Run as:** Development system user
 **Command:**
 ```bash
@@ -444,7 +500,7 @@ python scripts/test_serializers.py --verbose
 ```
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 16: Test Kanban HTTP API
+#### Step 23: Test Kanban HTTP API
 **Run as:** Development system user
 **Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
 
@@ -470,7 +526,7 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 17: Final Application Test
+#### Step 24: Final Application Test
 **Run as:** Development system user
 **Command:**
 ```bash
