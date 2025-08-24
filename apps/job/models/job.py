@@ -194,7 +194,7 @@ class Job(models.Model):
         help_text="Xero task ID for the default Labor task used for time entries",
         # TODO: This won't work long term - need proper task management system
     )
-    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     class Meta:

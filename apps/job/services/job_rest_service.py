@@ -84,6 +84,9 @@ class JobRestService:
             except ClientContact.DoesNotExist:
                 logger.warning(f"Contact {data['contact_id']} not found, ignoring")
 
+        # Not needed for now, but needs to be discussed when we activate project sync
+        # job_data["xero_last_modified"] = timezone.now()
+
         with transaction.atomic():
             job = Job(**job_data)
             job.save(staff=user)
