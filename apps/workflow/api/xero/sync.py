@@ -382,10 +382,14 @@ def transform_stock(xero_item, xero_id):
         "xero_last_modified": xero_last_modified,
         "xero_inventory_tracked": is_tracked,
     }
-    # Handle missing sales_details.unit_price (required)
+    # Handle missing sales_details.unit_price (set default if missing)
     if not xero_item.sales_details or xero_item.sales_details.unit_price is None:
-        logger.error(f"Item {xero_id}: Missing sales_details.unit_price")
-        raise ValueError(f"Item {xero_id}: Missing sales_details.unit_price")
+        logger.warning(
+            f"Item {xero_id}: Missing sales_details.unit_price, setting unit_revenue to 0"
+        )
+        defaults["unit_revenue"] = Decimal("0")
+    else:
+        defaults["unit_revenue"] = Decimal(str(xero_item.sales_details.unit_price))
 
     # Zero cost means we can supply it at no cost to us.
     if not xero_item.purchase_details or xero_item.purchase_details.unit_price is None:
@@ -396,7 +400,6 @@ def transform_stock(xero_item, xero_id):
     else:
         defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
 
-    defaults["unit_revenue"] = Decimal(str(xero_item.sales_details.unit_price))
     stock, created = Stock.objects.get_or_create(xero_id=xero_id, defaults=defaults)
     updated = False
     for key, value in defaults.items():
@@ -1040,6 +1043,72 @@ def sync_all_xero_data(use_latest_timestamps=True, days_back=30, entities=None):
             additional_params=params,
             pagination_mode=pagination,
         )
+
+    # After syncing from Xero, sync local stock items back to Xero (bidirectional)
+    if "stock" in entities or entities == list(ENTITY_CONFIGS.keys()):
+        yield from sync_local_stock_to_xero()
+
+
+def sync_local_stock_to_xero():
+    """Sync local stock items to Xero as part of the main sync process."""
+    try:
+        yield {
+            "datetime": timezone.now().isoformat(),
+            "entity": "stock_local_to_xero",
+            "severity": "info",
+            "message": "Starting sync of local stock items to Xero",
+            "progress": None,
+        }
+
+        from apps.workflow.api.xero.stock_sync import sync_all_local_stock_to_xero
+
+        # Sync local stock items to Xero (limit to avoid overwhelming)
+        result = sync_all_local_stock_to_xero(limit=50)
+
+        if result["synced_count"] > 0:
+            yield {
+                "datetime": timezone.now().isoformat(),
+                "entity": "stock_local_to_xero",
+                "severity": "info",
+                "message": f"Synced {result['synced_count']} local stock items to Xero",
+                "progress": None,
+                "recordsUpdated": result["synced_count"],
+            }
+
+        if result["failed_count"] > 0:
+            yield {
+                "datetime": timezone.now().isoformat(),
+                "entity": "stock_local_to_xero",
+                "severity": "warning",
+                "message": f"Failed to sync {result['failed_count']} stock items to Xero",
+                "progress": None,
+            }
+
+        yield {
+            "datetime": timezone.now().isoformat(),
+            "entity": "stock_local_to_xero",
+            "severity": "info",
+            "message": f"Completed local stock sync: {result['success_rate']:.1f}% success rate",
+            "status": "Completed",
+            "progress": 1.0,
+        }
+
+    except Exception as e:
+        logger.error(f"Error syncing local stock to Xero: {str(e)}")
+        persist_app_error(
+            e,
+            additional_context={
+                "operation": "sync_local_stock_to_xero",
+                "sync_direction": "local_to_xero",
+            },
+        )
+        yield {
+            "datetime": timezone.now().isoformat(),
+            "entity": "stock_local_to_xero",
+            "severity": "error",
+            "message": f"Error syncing local stock to Xero: {str(e)}",
+            "progress": None,
+        }
 
 
 def one_way_sync_all_xero_data(entities=None):

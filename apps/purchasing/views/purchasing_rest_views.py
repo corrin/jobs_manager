@@ -1,6 +1,7 @@
 """REST views for purchasing module."""
 
 import logging
+import traceback
 from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import get_object_or_404
@@ -13,6 +14,9 @@ from apps.job.models import Job
 from apps.purchasing.models import PurchaseOrder, Stock
 from apps.purchasing.serializers import (
     AllJobsResponseSerializer,
+    AllocationDeleteRequestSerializer,
+    AllocationDeleteResponseSerializer,
+    AllocationDetailsResponseSerializer,
     DeliveryReceiptRequestSerializer,
     DeliveryReceiptResponseSerializer,
     PurchaseOrderAllocationsResponseSerializer,
@@ -30,6 +34,10 @@ from apps.purchasing.serializers import (
     StockDeactivateResponseSerializer,
     StockListSerializer,
     XeroItemListResponseSerializer,
+)
+from apps.purchasing.services.allocation_service import (
+    AllocationDeletionError,
+    AllocationService,
 )
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
 from apps.purchasing.services.purchasing_rest_service import PurchasingRestService
@@ -592,6 +600,7 @@ class PurchaseOrderAllocationsAPIView(APIView):
                                 else None
                             ),
                             "description": cost_line.desc,
+                            "allocation_id": str(cost_line.id),
                         }
                     )
                     logger.debug(
@@ -618,10 +627,16 @@ class PurchaseOrderAllocationsAPIView(APIView):
                             else stock_item.job.name
                         ),
                         "quantity": float(stock_item.quantity),
-                        "retail_rate": 0,  # Stock items don't have retail rate
+                        "retail_rate": float(stock_item.retail_rate * 100)
+                        if stock_item.retail_rate
+                        else 0,
                         "allocation_date": stock_item.date.isoformat(),
                         "description": stock_item.description,
                         "stock_location": stock_item.location or "Not specified",
+                        "metal_type": stock_item.metal_type or "unspecified",
+                        "alloy": stock_item.alloy or "",
+                        "specifics": stock_item.specifics or "",
+                        "allocation_id": str(stock_item.id),
                     }
                 )
                 logger.debug(
@@ -642,5 +657,114 @@ class PurchaseOrderAllocationsAPIView(APIView):
             logger.error(f"Error fetching allocations for PO {po_id}: {e}")
             return Response(
                 {"error": f"Failed to fetch allocations: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class AllocationDeleteAPIView(APIView):
+    """
+    API endpoint to delete specific allocations from a purchase order.
+
+    DELETE: Deletes a Stock item or CostLine allocation created from delivery receipt
+    """
+
+    serializer_class = AllocationDeleteResponseSerializer
+
+    @extend_schema(
+        request=AllocationDeleteRequestSerializer,
+        responses={
+            status.HTTP_200_OK: AllocationDeleteResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: AllocationDeleteResponseSerializer,
+        },
+        operation_id="deleteAllocation",
+        description="Delete a specific allocation (Stock item or CostLine) from a purchase order line.",
+    )
+    def post(self, request, po_id, line_id):
+        """Delete a specific allocation from a purchase order line."""
+        try:
+            # Validate input data
+            serializer = AllocationDeleteRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid input data",
+                        "details": serializer.errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            validated_data = serializer.validated_data
+            allocation_type = validated_data["allocation_type"]
+            allocation_id = str(validated_data["allocation_id"])
+
+            # Delete the allocation using the service
+            result = AllocationService.delete_allocation(
+                po_id=str(po_id),
+                line_id=line_id,
+                allocation_type=allocation_type,
+                allocation_id=allocation_id,
+                user=request.user,
+            )
+
+            # Return success response
+            response_serializer = self.serializer_class(result)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except AllocationDeletionError as e:
+            logger.error(f"Allocation deletion error: {str(e)}")
+            response_data = {"success": False, "message": str(e)}
+            response_serializer = self.serializer_class(response_data)
+            return Response(
+                response_serializer.data, status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            traceback.print_exc()
+            logger.error(f"Unexpected error deleting allocation: {str(e)}")
+            response_data = {
+                "success": False,
+                "message": f"An unexpected error occurred: {str(e)}",
+            }
+            response_serializer = self.serializer_class(response_data)
+            return Response(
+                response_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class AllocationDetailsAPIView(APIView):
+    """
+    API endpoint to get details about a specific allocation before deletion.
+
+    GET: Returns details about a Stock item or CostLine allocation
+    """
+
+    serializer_class = AllocationDetailsResponseSerializer
+
+    @extend_schema(
+        responses={
+            status.HTTP_200_OK: AllocationDetailsResponseSerializer,
+            status.HTTP_404_NOT_FOUND: "Allocation not found",
+        },
+        operation_id="getAllocationDetails",
+        description="Get details about a specific allocation before deletion.",
+    )
+    def get(self, request, po_id, allocation_type, allocation_id):
+        """Get details about a specific allocation."""
+        try:
+            # Get allocation details using the service
+            details = AllocationService.get_allocation_details(
+                po_id=po_id,
+                allocation_type=allocation_type,
+                allocation_id=allocation_id,
+            )
+
+            # Return details
+            response_serializer = self.serializer_class(details)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error getting allocation details: {str(e)}")
+            return Response(
+                {"error": f"Failed to get allocation details: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

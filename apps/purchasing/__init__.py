@@ -16,6 +16,9 @@ try:
         )
         from .serializers import (
             AllJobsResponseSerializer,
+            AllocationDeleteRequestSerializer,
+            AllocationDeleteResponseSerializer,
+            AllocationDetailsResponseSerializer,
             AllocationItemSerializer,
             DeliveryReceiptAllocationSerializer,
             DeliveryReceiptLineSerializer,
@@ -59,6 +62,9 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "AllJobsResponseSerializer",
+    "AllocationDeleteRequestSerializer",
+    "AllocationDeleteResponseSerializer",
+    "AllocationDetailsResponseSerializer",
     "AllocationItemSerializer",
     "DeliveryReceiptAllocationSerializer",
     "DeliveryReceiptLineSerializer",

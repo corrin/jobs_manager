@@ -13,9 +13,15 @@ import logging
 from typing import Any, Dict
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Max, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiTypes,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -43,6 +49,17 @@ from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_tok
 logger = logging.getLogger(__name__)
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="List all clients",
+        description="Returns a list of all clients with basic information (id and name) for dropdowns and search.",
+        responses={
+            200: ClientNameOnlySerializer(many=True),
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
 class ClientListAllRestView(APIView):
     """
     REST view for listing all clients.
@@ -71,6 +88,32 @@ class ClientListAllRestView(APIView):
             )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Search clients",
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Search query (min 3 chars, prefix match)",
+                type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="limit",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Max results (default 10, max 50)",
+                type=OpenApiTypes.INT,
+            ),
+        ],
+        responses={
+            200: ClientSearchResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
 class ClientSearchRestView(APIView):
     """
     REST view for client search.
@@ -85,27 +128,26 @@ class ClientSearchRestView(APIView):
         Searches clients by name following early return pattern.
         """
         try:
-            # Guard clause: validate query parameter
-            query = request.GET.get("q", "").strip()
-            if not query:
-                response_data = {"results": []}
-                serializer = ClientSearchResponseSerializer(data=response_data)
+            query = (request.GET.get("q") or "").strip()
+
+            if not query or len(query) < 3:
+                empty = {"results": []}
+                serializer = ClientSearchResponseSerializer(data=empty)
                 serializer.is_valid(raise_exception=True)
                 return Response(serializer.data)
 
-            # Guard clause: query too short
-            if len(query) < 3:
-                response_data = {"results": []}
-                serializer = ClientSearchResponseSerializer(data=response_data)
-                serializer.is_valid(raise_exception=True)
-                return Response(serializer.data)
+            # limit from query, with a sensible cap
+            try:
+                limit = int(request.GET.get("limit", 10))
+            except ValueError:
+                limit = 10
+            limit = max(1, min(limit, 50))
 
-            # Search clients following clean code principles
-            clients = self._search_clients(query)
+            clients = self._search_clients(query, limit)
             results = self._format_client_results(clients)
 
-            response_data = {"results": results}
-            serializer = ClientSearchResponseSerializer(data=response_data)
+            payload = {"results": results}
+            serializer = ClientSearchResponseSerializer(data=payload)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data)
 
@@ -119,38 +161,75 @@ class ClientSearchRestView(APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _search_clients(self, query: str):
+    def _search_clients(self, query: str, limit: int):
         """
         Executes client search with appropriate filters.
         SRP: single responsibility for searching clients.
         """
-        return Client.objects.filter(Q(name__icontains=query)).order_by("name")[:10]
+        return (
+            Client.objects.filter(name__startswith=query)  # ← index‑friendly
+            .annotate(
+                last_invoice_date=Max("invoice__date"),
+                total_spend=Coalesce(Sum("invoice__total_excl_tax"), Value(0)),
+            )
+            .defer("raw_json")  # not needed/used by the front-end currently
+            .only(
+                "id",
+                "name",
+                "email",
+                "phone",
+                "address",
+                "is_account_customer",
+                "xero_contact_id",
+            )
+            .order_by("name")[:limit]
+        )
 
     def _format_client_results(self, clients) -> list:
-        """
-        Formats search results following SRP.
-        """
-        return [
+        formatted = []
+        for c in clients:
+            # guard None for date
+            date_str = (
+                c.last_invoice_date.strftime("%d/%m/%Y") if c.last_invoice_date else ""
+            )
+            formatted.append(
+                {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "email": c.email or "",
+                    "phone": c.phone or "",
+                    "address": c.address or "",
+                    "is_account_customer": c.is_account_customer,
+                    "xero_contact_id": c.xero_contact_id or "",
+                    "last_invoice_date": date_str,
+                    "total_spend": f"${c.total_spend:,.2f}",
+                }
+            )
+        return formatted
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get client contacts",
+        description="Retrieve all contacts for a specific client.",
+        parameters=[
             {
-                "id": str(client.id),
-                "name": client.name,
-                "email": client.email or "",
-                "phone": client.phone or "",
-                "address": client.address or "",
-                "is_account_customer": client.is_account_customer,
-                "xero_contact_id": client.xero_contact_id or "",
-                "last_invoice_date": (
-                    client.get_last_invoice_date().strftime("%d/%m/%Y")
-                    if client.get_last_invoice_date()
-                    else ""
-                ),
-                "total_spend": f"${client.get_total_spend():,.2f}",
-                "raw_json": client.raw_json,
+                "name": "client_id",
+                "in": "path",
+                "description": "UUID of the client",
+                "required": True,
+                "schema": {"type": "string", "format": "uuid"},
             }
-            for client in clients
-        ]
-
-
+        ],
+        responses={
+            200: ClientContactResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            404: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
 class ClientContactsRestView(APIView):
     """
     REST view for fetching contacts of a client.
@@ -362,6 +441,21 @@ class ClientContactCreateRestView(APIView):
         return contact
 
 
+@extend_schema_view(
+    post=extend_schema(
+        summary="Create a new client",
+        description="Creates a new client in Xero first, then syncs locally. Requires valid Xero authentication.",
+        request=ClientCreateRequestSerializer,
+        responses={
+            201: ClientCreateResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            401: ClientErrorResponseSerializer,
+            409: ClientDuplicateErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
 class ClientCreateRestView(APIView):
     """
     REST view for creating new clients.
@@ -382,10 +476,27 @@ class ClientCreateRestView(APIView):
         """
         Create a new client, first in Xero, then sync locally.
         """
+        # Debug logging
+        logger.info("DEBUG ClientCreateRestView: POST request received")
+        logger.info(
+            f"DEBUG ClientCreateRestView: User authenticated: {request.user.is_authenticated}"
+        )
+        logger.info(
+            f"DEBUG ClientCreateRestView: User: {getattr(request.user, 'email', 'Anonymous')}"
+        )
+        logger.info(
+            f"DEBUG ClientCreateRestView: Permission classes: {self.permission_classes}"
+        )
+        logger.info(f"DEBUG ClientCreateRestView: Request data: {request.data}")
+
         try:
+            logger.info("DEBUG ClientCreateRestView: Starting validation")
             # Validate input data
             input_serializer = ClientCreateRequestSerializer(data=request.data)
             if not input_serializer.is_valid():
+                logger.info(
+                    f"DEBUG ClientCreateRestView: Serializer validation failed: {input_serializer.errors}"
+                )
                 error_serializer = ClientErrorResponseSerializer(
                     data={"error": f"Invalid input data: {input_serializer.errors}"}
                 )
@@ -394,9 +505,13 @@ class ClientCreateRestView(APIView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
+            logger.info("DEBUG ClientCreateRestView: Serializer validation passed")
             validated_data = input_serializer.validated_data
             form = ClientForm(validated_data)
             if not form.is_valid():
+                logger.info(
+                    f"DEBUG ClientCreateRestView: Form validation failed: {form.errors}"
+                )
                 error_messages = []
                 for field, errors in form.errors.items():
                     error_messages.extend([f"{field}: {error}" for error in errors])
@@ -408,9 +523,12 @@ class ClientCreateRestView(APIView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
+            logger.info("DEBUG ClientCreateRestView: Form validation passed")
             # Xero token check
+            logger.info("DEBUG ClientCreateRestView: Checking Xero token")
             token = get_valid_token()
             if not token:
+                logger.info("DEBUG ClientCreateRestView: No valid Xero token")
                 error_serializer = ClientErrorResponseSerializer(
                     data={"error": "Xero authentication required"}
                 )
@@ -418,6 +536,10 @@ class ClientCreateRestView(APIView):
                 return Response(
                     error_serializer.data, status=status.HTTP_401_UNAUTHORIZED
                 )
+
+            logger.info(
+                "DEBUG ClientCreateRestView: Xero token valid, proceeding with creation"
+            )
 
             accounting_api = AccountingApi(api_client)
             xero_tenant_id = get_tenant_id()

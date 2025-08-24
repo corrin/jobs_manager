@@ -11,13 +11,15 @@ from typing import Any, Dict
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
+from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
 from apps.job.models import Job, JobEvent
+from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
 from apps.job.serializers.job_serializer import (
     CompanyDefaultsJobDetailSerializer,
@@ -472,46 +474,28 @@ class JobRestService:
                 - Actual hours
                 - Total profit
         """
-        # NOTE: Previous time entries filter (commented out for future reference):
-        # if week is None:
-        #     week = date.today()
-        # week_start = week - timedelta(days=week.weekday())
-        # week_end = week_start + timedelta(days=6)
-        # job_ids_with_time_entries = (
-        #     CostLine.objects.annotate(
-        #         date_meta=RawSQL(
-        #             "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-        #             (),
-        #             output_field=models.CharField(),
-        #         )
-        #     )
-        #     .filter(
-        #         cost_set__kind="actual",
-        #         kind="time",
-        #         date_meta__gte=week_start.strftime('%Y-%m-%d'),
-        #         date_meta__lte=week_end.strftime('%Y-%m-%d'),
-        #     )
-        #     .values_list('cost_set__job_id', flat=True)
-        #     .distinct()
-        # )
-        # jobs = Job.objects.filter(id__in=job_ids_with_time_entries, ...)
-
-        # Get all active jobs (including draft and recently completed), ordered by priority
-        jobs = (
-            Job.objects.filter(
-                status__in=[
-                    "awaiting_approval",
-                    "approved",
-                    "in_progress",
-                    "unusual",
-                    "draft",
-                    "recently_completed",
-                ]
+        if week is None:
+            week = date.today()
+        week_start = week - timedelta(days=week.weekday())
+        week_end = week_start + timedelta(days=6)
+        job_ids_with_time_entries = (
+            CostLine.objects.annotate(
+                date_meta=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                )
             )
-            .select_related("client")
-            .prefetch_related("people")
-            .order_by("-priority")
+            .filter(
+                cost_set__kind="actual",
+                kind="time",
+                date_meta__gte=week_start.strftime("%Y-%m-%d"),
+                date_meta__lte=week_end.strftime("%Y-%m-%d"),
+            )
+            .values_list("cost_set__job_id", flat=True)
+            .distinct()
         )
+        jobs = Job.objects.filter(id__in=job_ids_with_time_entries)
 
         metrics = []
         for job in jobs:

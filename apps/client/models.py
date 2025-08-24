@@ -18,7 +18,7 @@ class Client(models.Model):
         max_length=255, null=True, blank=True
     )  # For reference only - we are not fully multi-tenant yet
     # Optional because not all prospects are synced to Xero
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     email = models.EmailField(null=True, blank=True)
     phone = models.CharField(max_length=50, null=True, blank=True)
     address = models.TextField(null=True, blank=True)
@@ -85,21 +85,6 @@ class Client(models.Model):
             logger.error(f"Client {self.id} does not have a valid name.")
             return False
         return True
-
-    def get_last_invoice_date(self):
-        """
-        Get the date of the client's most recent invoice.
-        """
-        last_invoice = self.invoice_set.order_by("-date").first()
-        return last_invoice.date if last_invoice else None
-
-    def get_total_spend(self):
-        """
-        Calculate the total amount spent by the client (sum of all invoice totals).
-        """
-        return (
-            self.invoice_set.aggregate(total=models.Sum("total_excl_tax"))["total"] or 0
-        )
 
     def get_client_for_xero(self):
         """

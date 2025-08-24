@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.job.models import Job
@@ -106,6 +108,17 @@ class DeliveryReceiptAllocationSerializer(serializers.Serializer):
 
     job_id = serializers.UUIDField()
     quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
+    retail_rate = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        required=False,
+        help_text="Custom retail rate percentage (e.g., 20.00 for 20%)",
+    )
+    metadata = serializers.DictField(
+        required=False,
+        allow_empty=True,
+        help_text="Additional metadata including location, metal_type, alloy, specifics",
+    )
 
 
 class DeliveryReceiptLineSerializer(serializers.Serializer):
@@ -237,8 +250,14 @@ class AllocationItemSerializer(serializers.Serializer):
     allocation_date = serializers.DateTimeField(allow_null=True)
     description = serializers.CharField()
 
-    # Optional field for stock allocations
+    # Optional fields for stock allocations
     stock_location = serializers.CharField(required=False, allow_null=True)
+    metal_type = serializers.CharField(required=False, allow_null=True)
+    alloy = serializers.CharField(required=False, allow_null=True)
+    specifics = serializers.CharField(required=False, allow_null=True)
+
+    # Optional field for allocation ID (for deletion purposes)
+    allocation_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class PurchaseOrderAllocationsResponseSerializer(serializers.Serializer):
@@ -268,6 +287,7 @@ class StockItemSerializer(serializers.Serializer):
     date = serializers.DateTimeField(required=False, allow_null=True)
     job_id = serializers.UUIDField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    item_code = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
 
 class StockListSerializer(serializers.Serializer):
@@ -336,7 +356,9 @@ class StockConsumeRequestSerializer(serializers.Serializer):
     """Serializer for stock consumption request"""
 
     job_id = serializers.UUIDField()
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0)
+    quantity = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal(0)
+    )
     unit_cost = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, allow_null=True
     )
@@ -388,3 +410,46 @@ class PurchaseOrderPDFResponseSerializer(serializers.Serializer):
 
     class Meta:
         help_text = "Generates and returns a PDF file for the specified purchase order"
+
+
+# Allocation deletion serializers
+class AllocationDeleteRequestSerializer(serializers.Serializer):
+    """Serializer for allocation deletion request"""
+
+    allocation_type = serializers.ChoiceField(
+        choices=[("stock", "Stock"), ("job", "Job")],
+        help_text="Type of allocation to delete",
+    )
+    allocation_id = serializers.UUIDField(
+        help_text="ID of the Stock item or CostLine to delete"
+    )
+
+
+class AllocationDeleteResponseSerializer(serializers.Serializer):
+    """Serializer for allocation deletion response"""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    deleted_quantity = serializers.FloatField(required=False)
+    description = serializers.CharField(required=False)
+    job_name = serializers.CharField(required=False)
+    updated_received_quantity = serializers.FloatField(required=False)
+
+
+class AllocationDetailsResponseSerializer(serializers.Serializer):
+    """Serializer for allocation details response"""
+
+    type = serializers.ChoiceField(choices=[("stock", "Stock"), ("job", "Job")])
+    id = serializers.UUIDField()
+    description = serializers.CharField()
+    quantity = serializers.FloatField()
+    job_name = serializers.CharField()
+    can_delete = serializers.BooleanField()
+
+    # Optional fields for stock allocations
+    consumed_by_jobs = serializers.IntegerField(required=False)
+    location = serializers.CharField(required=False)
+
+    # Optional fields for job allocations
+    unit_cost = serializers.FloatField(required=False)
+    unit_revenue = serializers.FloatField(required=False)

@@ -50,6 +50,126 @@ class AccessLoggingMiddleware:
         return self.get_response(request)
 
 
+class FrontendRedirectMiddleware:
+    """
+    Middleware that forces browser requests to redirect to the frontend.
+    The backend should serve ONLY APIs - any browser request goes to the frontend.
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        # Skip for static files
+        if self._is_static_request(request):
+            return self.get_response(request)
+
+        # Django admin should also be redirected to frontend
+        # If you want to keep admin accessible, uncomment the line below:
+        # if request.path_info.startswith("/admin/"):
+        #     return self.get_response(request)
+
+        # Skip for specific endpoints that should work
+        if self._is_allowed_backend_endpoint(request):
+            return self.get_response(request)
+
+        # If it's a browser request (not API), redirect to frontend
+        if self._is_browser_request(request):
+            return self._redirect_to_frontend(request)
+
+        return self.get_response(request)
+
+    def _is_static_request(self, request: HttpRequest) -> bool:
+        """Check if it's a request for static files."""
+        static_paths = ["/static/", "/media/", "/favicon.ico", "/__debug__/"]
+        return any(request.path_info.startswith(path) for path in static_paths)
+
+    def _is_allowed_backend_endpoint(self, request: HttpRequest) -> bool:
+        """
+        Endpoints that should continue working on the backend.
+        Only APIs and specific necessary endpoints.
+        """
+        allowed_patterns = [
+            "/api/",  # All APIs
+            "/clients/",  # Client REST API
+            "/job/api/",  # Job REST API
+            "/job/rest/",  # Job REST API (including file operations)
+            "/purchasing/api/",  # Purchasing REST API
+            "/accounts/api/",  # Accounts REST API
+            "/accounts/logout/",  # Logout endpoint - CRITICAL for clearing JWT cookies
+            "/timesheet/api/",  # Timesheet REST API
+            "/quoting/api/",  # Quoting REST API
+            "/accounting/api/",  # Accounting REST API
+            "/login",  # Login redirect already configured
+            "/api/schema/",  # OpenAPI schema
+            "/api/docs",  # API documentation
+        ]
+
+        # Specific endpoints that need to work
+        specific_endpoints = [
+            "/api/xero/oauth/callback/",  # Xero OAuth callback
+            "/api/xero/webhook/",  # Xero webhook
+        ]
+
+        # Check patterns
+        for pattern in allowed_patterns:
+            if request.path_info.startswith(pattern):
+                return True
+
+        # Check specific endpoints
+        if request.path_info in specific_endpoints:
+            return True
+
+        return False
+
+    def _is_browser_request(self, request: HttpRequest) -> bool:
+        """
+        Detect if it's a browser request vs API client.
+        """
+        user_agent = request.headers.get("User-Agent", "").lower()
+        accept_header = request.headers.get("Accept", "").lower()
+
+        # If it accepts HTML, it's probably a browser
+        if "text/html" in accept_header:
+            return True
+
+        # If it has a known browser User-Agent
+        browser_indicators = ["mozilla", "chrome", "safari", "firefox", "edge", "opera"]
+        if any(indicator in user_agent for indicator in browser_indicators):
+            # But if it explicitly requests JSON, treat as API
+            if "application/json" in accept_header:
+                return False
+            return True
+
+        return False
+
+    def _redirect_to_frontend(self, request: HttpRequest) -> HttpResponse:
+        """
+        Redirect browser requests to the frontend.
+        """
+        frontend_url = getattr(settings, "FRONT_END_URL", "")
+
+        if not frontend_url:
+            # If FRONT_END_URL is not configured, return error
+            return JsonResponse(
+                {
+                    "error": "Backend is API-only. Frontend URL not configured.",
+                    "message": "This backend serves only APIs. Please configure FRONT_END_URL in settings.",
+                },
+                status=503,
+            )
+
+        # Redirect to frontend root
+        frontend_root = frontend_url.rstrip("/") + "/"
+
+        # Log the redirection
+        access_logger.info(
+            f"Redirecting browser request from {request.path} to {frontend_root}"
+        )
+
+        return redirect(frontend_root)
+
+
 class LoginRequiredMiddleware:
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
@@ -75,9 +195,24 @@ class LoginRequiredMiddleware:
                     self.exempt_url_prefixes.append(url_name)
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        # In DEBUG mode, skip login requirements but continue processing
+        # Debug logging for client create endpoint
+        if request.path_info == "/clients/create/":
+            access_logger.info(
+                f"DEBUG LoginRequiredMiddleware: Processing {request.path_info}"
+            )
+            access_logger.info(
+                f"DEBUG LoginRequiredMiddleware: User authenticated: {request.user.is_authenticated}"
+            )
+            access_logger.info(
+                f"DEBUG LoginRequiredMiddleware: User: {getattr(request.user, 'email', 'Anonymous')}"
+            )
+
+        # In DEBUG mode, skip login requirements entirely
         if settings.DEBUG:
-            # Don't enforce login requirements, continue middleware chain
+            if request.path_info == "/clients/create/":
+                access_logger.info(
+                    "DEBUG LoginRequiredMiddleware: Skipping due to DEBUG mode"
+                )
             return self.get_response(request)
 
         login_path = reverse("accounts:login")
@@ -98,6 +233,30 @@ class LoginRequiredMiddleware:
             return self.get_response(request)
 
         if not request.user.is_authenticated:
+            # Skip authentication check for DRF endpoints - let DRF handle authentication
+            drf_endpoints = [
+                "/clients/",
+                "/api/",
+                "/job/api/",
+                "/purchasing/api/",
+                "/accounts/api/",
+                "/accounts/me/",  # User profile endpoint
+                "/accounts/logout/",  # Logout endpoint
+                "/timesheet/api/",
+                "/quoting/api/",
+                "/accounting/api/",
+            ]
+
+            # Check if this is a DRF endpoint
+            if any(
+                request.path_info.startswith(endpoint) for endpoint in drf_endpoints
+            ):
+                if request.path_info == "/clients/create/":
+                    access_logger.info(
+                        f"DEBUG LoginRequiredMiddleware: Allowing DRF endpoint {request.path_info}"
+                    )
+                return self.get_response(request)  # Let DRF handle authentication
+
             if request.path_info.startswith("/api/"):
                 return JsonResponse(
                     {"detail": "Authentication credentials were not provided."},
