@@ -1207,6 +1207,20 @@ def sync_client_to_xero(client):
 
 def sync_job_to_xero(job):
     """Push a job to Xero Projects API"""
+    import os
+
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    enabled = os.getenv("XERO_SYNC_PROJECTS")
+    if not enabled:
+        logger.info(
+            f"Skipping Xero Project sync for Job {job.job_number} "
+            "(feature flag disabled)"
+        )
+        return False
+
     logger.info(f"Syncing Job {job.job_number} ({job.name}) to Xero")
 
     # Validation

@@ -10,10 +10,11 @@ REST views for the Client module following clean code principles:
 
 import json
 import logging
+from decimal import Decimal
 from typing import Any, Dict
 
 from django.db import transaction
-from django.db.models import Max, Sum, Value
+from django.db.models import DecimalField, Max, Sum, Value
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from drf_spectacular.utils import (
@@ -166,11 +167,20 @@ class ClientSearchRestView(APIView):
         Executes client search with appropriate filters.
         SRP: single responsibility for searching clients.
         """
+        output = DecimalField(max_digits=12, decimal_places=2)
+
         return (
             Client.objects.filter(name__startswith=query)  # ← index‑friendly
             .annotate(
                 last_invoice_date=Max("invoice__date"),
-                total_spend=Coalesce(Sum("invoice__total_excl_tax"), Value(0)),
+                total_spend=Coalesce(
+                    Sum(
+                        "invoice__total_excl_tax",
+                        output_field=output,
+                    ),
+                    Value(Decimal("0.00")),
+                    output_field=output,
+                ),
             )
             .defer("raw_json")  # not needed/used by the front-end currently
             .only(
