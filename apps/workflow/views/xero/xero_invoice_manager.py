@@ -42,7 +42,7 @@ class XeroInvoiceManager(XeroDocumentManager):
         """
         Initializes the invoice manager.
         Args:
-            client (Client): The client associated with the document.
+        client (Client): The client associated with the document.
             job (Job): The associated job.
             xero_invoice_id (str, optional): A specific Xero ID to operate on,
                                              useful for deletion of a specific invoice.
@@ -50,7 +50,9 @@ class XeroInvoiceManager(XeroDocumentManager):
         if not client or not job:
             raise ValueError("Client and Job are required for XeroInvoiceManager")
         super().__init__(client=client, job=job)
-        self._xero_id_override = str(xero_invoice_id)
+
+        if xero_invoice_id is not None:
+            self._xero_id_override = str(xero_invoice_id)
 
     def get_xero_id(self):
         """
@@ -64,7 +66,9 @@ class XeroInvoiceManager(XeroDocumentManager):
         if not self.job:
             return None
         try:
-            # This is a fallback for document creation
+            # This is a fallback for document creation.
+            # The only case we won't use this fallback is during deletion.
+            # Actually this is default behaviour and we can consider the LOC above as simply an extra lookup
             invoice = Invoice.objects.filter(job=self.job).latest("created_at")
             return str(invoice.xero_id) if invoice and invoice.xero_id else None
         except Invoice.DoesNotExist:

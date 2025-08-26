@@ -233,6 +233,8 @@ class Job(models.Model):
 
     @property
     def quoted(self) -> bool:
+        # If the attribute doesn't exists (default behaviour in Django relationships)
+        # then the exception will be raised, in which case this only means we don't have a quote currently
         try:
             return self.quote is not None
         except AttributeError:
