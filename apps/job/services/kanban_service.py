@@ -382,9 +382,9 @@ class KanbanService:
         if xero_invoice_params := filters.get("xero_invoice_params", "").strip():
             match xero_invoice_params:
                 case param if is_valid_uuid(param):
-                    jobs_query = jobs_query.filter(invoice__xero_id=param)
+                    jobs_query = jobs_query.filter(invoices__xero_id=param)
                 case param if is_valid_invoice_number(param):
-                    jobs_query = jobs_query.filter(invoice__number=param)
+                    jobs_query = jobs_query.filter(invoices__number=param)
 
         # Handle paid filter with match-case
         paid_filter = filters.get("paid", "")

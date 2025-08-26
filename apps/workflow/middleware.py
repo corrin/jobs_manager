@@ -90,7 +90,7 @@ class FrontendRedirectMiddleware:
         Only APIs and specific necessary endpoints.
         """
         allowed_patterns = [
-            "/api/",  # All APIs
+            "/api/*",  # All APIs
             "/clients/",  # Client REST API
             "/job/api/",  # Job REST API
             "/job/rest/",  # Job REST API (including file operations)
@@ -103,6 +103,7 @@ class FrontendRedirectMiddleware:
             "/login",  # Login redirect already configured
             "/api/schema/",  # OpenAPI schema
             "/api/docs",  # API documentation
+            "/api/xero/",  # Xero endpoints
         ]
 
         # Specific endpoints that need to work

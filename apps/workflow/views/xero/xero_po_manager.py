@@ -296,13 +296,11 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             Xero ID: {xero_po.purchase_order_id}
             """.strip()
         )
-        return JsonResponse(
-            {
-                "success": True,
-                "xero_id": str(xero_po.purchase_order_id),
-                "online_url": xero_po_url,
-            }
-        )
+        return {
+            "success": True,
+            "xero_id": str(xero_po.purchase_order_id),
+            "online_url": xero_po_url,
+        }
 
     def state_valid_for_xero(self) -> bool:
         """
@@ -449,14 +447,12 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             self.validate_for_xero_sync()
         except ValueError as e:
             logger.warning(f"PO {self.purchase_order.id} validation failed: {str(e)}")
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": str(e),
-                    "error_type": "validation_error",
-                },
-                status=400,
-            )
+            return {
+                "success": False,
+                "error": str(e),
+                "error_type": "validation_error",
+                "status": 400,
+            }
 
         try:
             # Determine if creating or updating
@@ -479,14 +475,12 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 """.strip(),
                 exc_info=True,
             )
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": f"Failed to prepare Xero document: {str(e)}",
-                    "exception_type": type(e).__name__,
-                },
-                status=500,
-            )
+            return {
+                "success": False,
+                "error": f"Failed to prepare Xero document: {str(e)}",
+                "exception_type": type(e).__name__,
+                "status": 500,
+            }
 
         try:
             update_method = self._get_xero_update_method()
@@ -525,10 +519,12 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 error_message = f"Xero validation failed: {error_message}"
                 error_type = "validation_error"
 
-            return JsonResponse(
-                {"success": False, "error": error_message, "error_type": error_type},
-                status=500,
-            )
+            return {
+                "success": False,
+                "error": error_message,
+                "error_type": error_type,
+                "status": 500,
+            }
 
     def delete_document(self):
         """
@@ -541,13 +537,11 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             logger.error(
                 f"Cannot delete PO {self.purchase_order.id}: No Xero ID found."
             )
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": "Purchase Order not found in Xero (no Xero ID).",
-                },
-                status=404,
-            )
+            return {
+                "success": False,
+                "error": "Purchase Order not found in Xero (no Xero ID).",
+                "status": 404,
+            }
 
         logger.info(
             f"""
@@ -571,13 +565,11 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             logger.error(
                 f"Error serializing XeroDocument for delete: {str(e)}", exc_info=True
             )
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": f"Failed to serialize data for Xero deletion: {str(e)}",
-                },
-                status=500,
-            )
+            return {
+                "success": False,
+                "error": f"Failed to serialize data for Xero deletion: {str(e)}",
+                "status": 500,
+            }
 
         try:
             # Use the update method to set the status to DELETED
@@ -617,16 +609,13 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                         {self.purchase_order.id}: {error_details}
                         """.strip()
                     )
-                    return JsonResponse(
-                        {
-                            "success": False,
-                            "error": (
-                                f"Xero validation errors during delete: "
-                                f"{error_details}"
-                            ),
-                        },
-                        status=400,
-                    )
+                    return {
+                        "success": False,
+                        "error": (
+                            f"Xero validation errors during delete: " f"{error_details}"
+                        ),
+                        "status": 400,
+                    }
 
                 # Confirm status is DELETED (or check http_status)
                 if (
@@ -648,7 +637,7 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                         in Xero (Xero ID: {xero_id}).
                         """.strip()
                     )
-                    return JsonResponse({"success": True, "action": "delete"})
+                    return {"success": True, "action": "delete"}
                 else:
                     error_msg = (
                         f"Xero did not confirm deletion status for PO "
@@ -656,15 +645,13 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                         f"{getattr(xero_po_data, 'status', 'Unknown')}"
                     )
                     logger.error(error_msg)
-                    return JsonResponse(
-                        {"success": False, "error": error_msg}, status=500
-                    )
+                    return {"success": False, "error": error_msg, "status": 500}
             else:
                 error_msg = "Unexpected or empty response from Xero API during delete."
                 logger.error(
                     f"{error_msg} for PO {self.purchase_order.id}. Response: {response}"
                 )
-                return JsonResponse({"success": False, "error": error_msg}, status=500)
+                return {"success": False, "error": error_msg, "status": 500}
 
         except Exception as e:
             logger.error(
@@ -674,13 +661,11 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 """.strip(),
                 exc_info=True,
             )
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": f"An unexpected error occurred during deletion: {str(e)}",
-                },
-                status=500,
-            )
+            return {
+                "success": False,
+                "error": f"An unexpected error occurred during deletion: {str(e)}",
+                "status": 500,
+            }
 
     def validate_for_xero_sync(self):
         """

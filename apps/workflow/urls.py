@@ -35,8 +35,7 @@ URL Structure Patterns:
 
 Follow these patterns when adding new URLs to maintain consistency.
 """
-
-import debug_toolbar  # type: ignore[import-untyped]
+import debug_toolbar
 from django.urls import include, path
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter

@@ -24,9 +24,9 @@
 |-------------|------|------|-------------|
 | `/api/xero/authenticate/` | `xero_view.xero_authenticate` | `api_xero_authenticate` | Xero Authentication (Step 1: Redirect user to Xero OAuth2 login) |
 | `/api/xero/create_invoice/<uuid:job_id>/` | `xero_view.create_xero_invoice` | `create_invoice` | Creates an Invoice in Xero for a given job. |
-| `/api/xero/create_purchase_order/<uuid:purchase_order_id>/` | `xero_view.create_xero_purchase_order` | `create_xero_purchase_order` | Creates a Purchase Order in Xero for a given purchase order. |
+| `/api/xero/create_purchase_order/<uuid:purchase_order_id>/` | `xero_view.create_xero_purchase_order` | `create_xero_purchase_order` | Creates or updates a Purchase Order in Xero for a given purchase order. |
 | `/api/xero/create_quote/<uuid:job_id>/` | `xero_view.create_xero_quote` | `create_quote` | Creates a quote in Xero for a given job. |
-| `/api/xero/delete_invoice/<uuid:job_id>/` | `xero_view.delete_xero_invoice` | `delete_invoice` | Deletes an invoice in Xero for a given job. |
+| `/api/xero/delete_invoice/<uuid:job_id>/` | `xero_view.delete_xero_invoice` | `delete_invoice` | Deletes a specific invoice in Xero for a given job, identified by its Xero ID. |
 | `/api/xero/delete_purchase_order/<uuid:purchase_order_id>/` | `xero_view.delete_xero_purchase_order` | `delete_xero_purchase_order` | Deletes a Purchase Order in Xero. |
 | `/api/xero/delete_quote/<uuid:job_id>/` | `xero_view.delete_xero_quote` | `delete_quote` | Deletes a quote in Xero for a given job. |
 | `/api/xero/disconnect/` | `xero_view.xero_disconnect` | `xero_disconnect` | Disconnects from Xero by clearing the token from cache and database. |

@@ -202,12 +202,6 @@ class XeroQuoteManager(XeroDocumentManager):
                         job=self.job,
                         event_type="quote_created",
                         description="Quote created in Xero",
-                        details={
-                            "quote_id": str(quote.id),
-                            "xero_id": str(xero_quote_id),
-                            "total_incl_tax": str(quote.total_incl_tax),
-                            "quote_url": quote_url,
-                        },
                     )
                 except Exception as e:
                     logger.warning(
@@ -215,14 +209,12 @@ class XeroQuoteManager(XeroDocumentManager):
                     )
 
                 # Return success details for the view
-                return JsonResponse(
-                    {
-                        "success": True,
-                        "xero_id": str(xero_quote_id),
-                        "client": self.client.name,
-                        "online_url": quote_url,
-                    }
-                )
+                return {
+                    "success": True,
+                    "xero_id": str(xero_quote_id),
+                    "client": self.client.name,
+                    "online_url": quote_url,
+                }
             else:
                 # Handle API failure or unexpected response (e.g., empty response)
                 error_msg = (
@@ -247,10 +239,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     elif hasattr(first_element, "message"):
                         error_msg = first_element.message
 
-                return JsonResponse(
-                    {"success": False, "message": error_msg},
-                    status=400,
-                )
+                return {"success": False, "message": error_msg, "status": 400}
         except AccountingBadRequestException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -286,10 +275,11 @@ class XeroQuoteManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {"success": False, "message": f"Xero API Error: {e.reason}"},
-                status=e.status,
-            )
+            return {
+                "success": False,
+                "message": f"Xero API Error: {e.reason}",
+                "status": e.status,
+            }
         except Exception as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -300,13 +290,11 @@ class XeroQuoteManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": f"An unexpected error occurred ({str(e)}) while creating the quote with Xero. Please contact support.",
-                },
-                status=500,
-            )
+            return {
+                "success": False,
+                "message": f"An unexpected error occurred ({str(e)}) while creating the quote with Xero. Please contact support.",
+                "status": 500,
+            }
 
     def delete_document(self):
         """Deletes a quote in Xero and locally."""
@@ -319,9 +307,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     "No quotes found in the Xero response or failed to delete quote."
                 )
                 logger.error(error_msg)
-                return JsonResponse(
-                    {"success": False, "message": error_msg}, status=400
-                )  # Changed "error" to "message"
+                return {"success": False, "message": error_msg, "status": 400}
 
             xero_quote_data = response.quotes[0]
             status = getattr(xero_quote_data, "status", None)
@@ -335,24 +321,20 @@ class XeroQuoteManager(XeroDocumentManager):
             if not is_deleted:
                 error_msg = "Xero response did not confirm quote deletion."
                 logger.error(f"{error_msg} Status: {status}")
-                return JsonResponse(
-                    {"success": False, "message": error_msg}, status=400
-                )  # Changed "error" to "message"
+                return {"success": False, "message": error_msg, "status": 400}
 
             if not hasattr(self.job, "quote") or not self.job.quote:
                 logger.warning(f"No local quote found for job {self.job.id} to delete.")
                 # Still return success as Xero operation might have succeeded or there was nothing to delete locally
-                return JsonResponse(
-                    {
-                        "success": True,
-                        "messages": [
-                            {
-                                "level": "info",
-                                "message": "No local quote to delete, Xero operation may have succeeded.",
-                            }
-                        ],
-                    }
-                )
+                return {
+                    "success": True,
+                    "messages": [
+                        {
+                            "level": "info",
+                            "message": "No local quote to delete, Xero operation may have succeeded.",
+                        }
+                    ],
+                }
 
             local_quote_id = self.job.quote.id
             self.job.quote.delete()
@@ -368,20 +350,15 @@ class XeroQuoteManager(XeroDocumentManager):
                     job=self.job,
                     event_type="quote_deleted",
                     description="Quote deleted from Xero",
-                    details={
-                        "quote_id": str(local_quote_id),
-                    },
                 )
             except Exception as e:
                 logger.warning(f"Failed to create job event for quote deletion: {e}")
 
-            return JsonResponse(
-                {
-                    "success": True,
-                    "messages": ["Quote deleted successfully."],
-                    "xero_id": str(xero_quote_data.quote_id),
-                }
-            )
+            return {
+                "success": True,
+                "messages": ["Quote deleted successfully."],
+                "xero_id": str(xero_quote_data.quote_id),
+            }
         except AccountingBadRequestException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -397,9 +374,7 @@ class XeroQuoteManager(XeroDocumentManager):
                 exception_body=e.body,
                 default_message=f"Xero validation error ({e.status}): {e.reason} during quote deletion. Please contact support.",
             )
-            return JsonResponse(
-                {"success": False, "message": error_message}, status=e.status
-            )
+            return {"success": False, "message": error_message, "status": e.status}
         except ApiException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -411,10 +386,11 @@ class XeroQuoteManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {"success": False, "message": f"Xero API Error: {e.reason}"},
-                status=e.status,
-            )
+            return {
+                "success": False,
+                "message": f"Xero API Error: {e.reason}",
+                "status": e.status,
+            }
         except Exception as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -425,10 +401,8 @@ class XeroQuoteManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": f"An unexpected error occurred ({str(e)}) while deleting the quote with Xero. Please contact support.",
-                },
-                status=500,
-            )
+            return {
+                "success": False,
+                "message": f"An unexpected error occurred ({str(e)}) while deleting the quote with Xero. Please contact support.",
+                "status": 500,
+            }
