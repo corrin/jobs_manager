@@ -57,6 +57,9 @@ class QuoteSerializer(serializers.ModelSerializer):
         ]
 
 
+# Front-end uses "quote" field with financial data being displayed.
+# This is useless for front-end currently, we use all information from above.
+# Since I didn't get the specific requirements for this, I'll just ignore and keep using the original serializer.
 class XeroQuoteSerializer(serializers.ModelSerializer):
     """Simplified Quote serializer for xero_quote field"""
 
@@ -65,6 +68,7 @@ class XeroQuoteSerializer(serializers.ModelSerializer):
         fields = ["status", "online_url"]
 
 
+# Same for this.
 class XeroInvoiceSerializer(serializers.ModelSerializer):
     """Simplified Invoice serializer for xero_invoices field"""
 
@@ -94,7 +98,9 @@ class JobSerializer(serializers.ModelSerializer):
     quoted = serializers.BooleanField(read_only=True)
     fully_invoiced = serializers.BooleanField(read_only=True)
     quote = serializers.SerializerMethodField()
-    invoice = serializers.SerializerMethodField()
+    invoices = serializers.SerializerMethodField()
+
+    # CURRENTLY UNUSED/UNUSEFUL FOR FE:
     xero_quote = serializers.SerializerMethodField()
     xero_invoices = serializers.SerializerMethodField()
 
@@ -147,27 +153,18 @@ class JobSerializer(serializers.ModelSerializer):
         cost_set = obj.get_latest("actual")
         return CostSetSerializer(cost_set).data if cost_set else None
 
+    @extend_schema_field(QuoteSerializer(allow_null=True))
     def get_quote(self, obj) -> dict | None:
-        raw_quote = getattr(obj, "quote", None)
-        logger.debug(f"Getting quote for job {obj.id}: {raw_quote} | {type(raw_quote)}")
+        """Get Xero quote information"""
+        try:
+            return QuoteSerializer(obj.quote).data
+        except ObjectDoesNotExist:
+            return None
 
-        if raw_quote is not None:
-            serialized = QuoteSerializer(raw_quote, context=self.context).data
-            logger.debug(f"Serialized quote data: {serialized}")
-            return serialized
-        return None
-
-    def get_invoice(self, obj) -> dict | None:
-        raw_invoice = getattr(obj, "invoice", None)
-        logger.debug(
-            f"Getting invoice for job {obj.id}: {raw_invoice} | {type(raw_invoice)}"
-        )
-
-        if raw_invoice is not None:
-            serialized = InvoiceSerializer(raw_invoice, context=self.context).data
-            logger.debug(f"Serialized invoice data: {serialized}")
-            return serialized
-        return None
+    @extend_schema_field(InvoiceSerializer(many=True))
+    def get_invoices(self, obj) -> list[dict]:
+        """Get Xero invoices information"""
+        return InvoiceSerializer(obj.invoices.all(), many=True).data
 
     @extend_schema_field(XeroQuoteSerializer(allow_null=True))
     def get_xero_quote(self, obj) -> dict | None:
@@ -213,7 +210,7 @@ class JobSerializer(serializers.ModelSerializer):
             "quoted",
             "fully_invoiced",
             "quote",
-            "invoice",
+            "invoices",
             "xero_quote",
             "xero_invoices",
             "shop_job",

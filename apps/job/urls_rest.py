@@ -118,6 +118,11 @@ rest_urlpatterns = [
         "rest/jobs/files/upload/", JobFileUploadView.as_view(), name="job_file_upload"
     ),
     path(
+        "rest/jobs/files/<uuid:file_id>/thumbnail/",
+        JobFileThumbnailView.as_view(),
+        name="job_file_thumbnail",
+    ),
+    path(
         "rest/jobs/files/<int:job_number>/",
         JobFileView.as_view(),
         name="job_files_list",
@@ -132,11 +137,6 @@ rest_urlpatterns = [
         "rest/jobs/files/<int:file_path>/",
         JobFileView.as_view(),
         name="job_file_delete",
-    ),
-    path(
-        "rest/jobs/files/<uuid:file_id>/thumbnail/",
-        JobFileThumbnailView.as_view(),
-        name="job_file_thumbnail",
     ),
     # Quote Import (NEW - Google Sheets sync)
     path(
