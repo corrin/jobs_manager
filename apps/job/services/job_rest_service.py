@@ -481,6 +481,12 @@ class JobRestService:
             week = date.today()
         week_start = week - timedelta(days=week.weekday())
         week_end = week_start + timedelta(days=6)
+
+        # Debug logging
+        logger.info(
+            f"Getting weekly metrics for week {week} ({week_start} to {week_end})"
+        )
+
         job_ids_with_time_entries = (
             CostLine.objects.annotate(
                 date_meta=RawSQL(
@@ -498,40 +504,79 @@ class JobRestService:
             .values_list("cost_set__job_id", flat=True)
             .distinct()
         )
-        jobs = Job.objects.filter(id__in=job_ids_with_time_entries)
+
+        # Debug logging
+        job_ids_list = list(job_ids_with_time_entries)
+        logger.info(
+            f"Found {len(job_ids_list)} job IDs with time entries: {job_ids_list[:10]}..."
+        )
+
+        jobs = (
+            Job.objects.filter(id__in=job_ids_with_time_entries)
+            .select_related("client")
+            .prefetch_related("people")
+        )
+
+        # Debug logging
+        logger.info(f"Found {jobs.count()} jobs in database")
+
+        # If no jobs found, check if job IDs exist at all
+        if jobs.count() == 0 and len(job_ids_list) > 0:
+            logger.warning(
+                f"No jobs found for {len(job_ids_list)} job IDs. Checking if jobs exist..."
+            )
+            existing_job_count = Job.objects.filter(id__in=job_ids_list).count()
+            logger.warning(
+                f"Only {existing_job_count} of {len(job_ids_list)} job IDs exist in Job table"
+            )
 
         metrics = []
         for job in jobs:
-            summary = job.latest_actual.summary or {}
-            estimated_hours = job.latest_estimate.summary["hours"] or 0
+            try:
+                # Get latest actual cost set summary
+                latest_actual = job.latest_actual
+                if not latest_actual:
+                    logger.warning(
+                        f"Job {job.id} ({job.name}) has no latest_actual cost set"
+                    )
+                    continue
 
-            # In case the actual cost set summary is empty for lack of entries
-            actual_hours = summary.get("hours", 0)
-            actual_rev = summary.get("rev", 0)
-            actual_cost = summary.get("cost", 0)
+                summary = latest_actual.summary or {}
 
-            profit = actual_rev - actual_cost
+                # Get estimated hours from latest estimate
+                estimated_hours = 0
+                if job.latest_estimate and job.latest_estimate.summary:
+                    estimated_hours = job.latest_estimate.summary.get("hours", 0)
 
-            job_metrics = {
-                "job_id": str(job.id),
-                "name": job.name,
-                "job_number": job.job_number,
-                "client": job.client,
-                "description": job.description,
-                "status": job.status,
-                "people": [
-                    {"name": person.get_display_full_name(), "id": str(person.id)}
-                    for person in job.people.all()
-                ],
-                "estimated_hours": estimated_hours,
-                "actual_hours": actual_hours,
-                "profit": profit,
-            }
-            metrics.append(job_metrics)
+                # Get actual metrics from summary
+                actual_hours = summary.get("hours", 0)
+                actual_rev = summary.get("rev", 0)
+                actual_cost = summary.get("cost", 0)
 
-        from pprint import pprint
+                profit = actual_rev - actual_cost
 
-        pprint(metrics)
+                job_metrics = {
+                    "job_id": str(job.id),
+                    "name": job.name,
+                    "job_number": job.job_number,
+                    "client": job.client.name if job.client else None,
+                    "description": job.description,
+                    "status": job.status,
+                    "people": [
+                        {"name": person.get_display_full_name(), "id": str(person.id)}
+                        for person in job.people.all()
+                    ],
+                    "estimated_hours": estimated_hours,
+                    "actual_hours": actual_hours,
+                    "profit": profit,
+                }
+                metrics.append(job_metrics)
+
+            except Exception as e:
+                logger.error(f"Error processing job {job.id}: {e}")
+                continue
+
+        logger.info(f"Returning {len(metrics)} job metrics")
         return metrics
 
     @staticmethod

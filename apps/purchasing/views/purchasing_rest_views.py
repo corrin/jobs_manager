@@ -704,7 +704,6 @@ class AllocationDeleteAPIView(APIView):
                 line_id=line_id,
                 allocation_type=allocation_type,
                 allocation_id=allocation_id,
-                user=request.user,
             )
 
             # Return success response
