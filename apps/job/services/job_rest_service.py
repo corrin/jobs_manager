@@ -77,12 +77,12 @@ class JobRestService:
                 job_data[field] = data[field]
 
         # Contact (optional relationship)
-        if data.get("contact_id"):
+        if contact_id := data.get("contact_id"):
             try:
-                contact = ClientContact.objects.get(id=data["contact_id"])
+                contact = ClientContact.objects.get(id=contact_id)
                 job_data["contact"] = contact
             except ClientContact.DoesNotExist:
-                logger.warning(f"Contact {data['contact_id']} not found, ignoring")
+                raise ValueError(f"Contact with id {contact_id} not found")
 
         # Not needed for now, but needs to be discussed when we activate project sync
         # job_data["xero_last_modified"] = timezone.now()
@@ -115,8 +115,14 @@ class JobRestService:
 
         Returns:
             Dict with job data (pricing data removed - use CostSet endpoints)
+
+        Raises:
+            ValueError: If job is not found.
         """
-        job = Job.objects.select_related("client").get(id=job_id)
+        try:
+            job = Job.objects.select_related("client").get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
 
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
@@ -466,6 +472,7 @@ class JobRestService:
     def get_weekly_metrics(week: date = None) -> list[Dict[str, Any]]:
         """
         Fetches weekly metrics for all active jobs.
+        Fails early if any job processing error occurs.
 
         Args:
             week: Optional date parameter (ignored for now, but can be used for calculations)
@@ -476,6 +483,9 @@ class JobRestService:
                 - Estimated hours
                 - Actual hours
                 - Total profit
+
+        Raises:
+            ValueError: If a job is missing data or an error occurs during processing.
         """
         if week is None:
             week = date.today()
@@ -536,10 +546,9 @@ class JobRestService:
                 # Get latest actual cost set summary
                 latest_actual = job.latest_actual
                 if not latest_actual:
-                    logger.warning(
+                    raise ValueError(
                         f"Job {job.id} ({job.name}) has no latest_actual cost set"
                     )
-                    continue
 
                 summary = latest_actual.summary or {}
 
@@ -574,7 +583,8 @@ class JobRestService:
 
             except Exception as e:
                 logger.error(f"Error processing job {job.id}: {e}")
-                continue
+                # Re-raise exception to fail early
+                raise ValueError(f"Error processing job {job.id}: {e}") from e
 
         logger.info(f"Returning {len(metrics)} job metrics")
         return metrics
