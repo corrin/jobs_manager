@@ -62,6 +62,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
         """
         Save file to disk and create or update JobFile record.
         """
+        from apps.workflow.services.error_persistence import persist_app_error
+
         job_folder = os.path.join(
             settings.DROPBOX_WORKFLOW_FOLDER, f"Job-{job.job_number}"
         )
@@ -84,6 +86,8 @@ class JobFileView(JobNumberLookupMixin, APIView):
             return {
                 "error": f"Uploaded file {file_obj.name} is empty (0 bytes), not saved."
             }
+
+        job_file = None  # Initialize to avoid UnboundLocalError
 
         try:
             bytes_written = 0
@@ -125,6 +129,14 @@ class JobFileView(JobNumberLookupMixin, APIView):
                 job_file.print_on_jobsheet,
             )
 
+            # Prepare success response data
+            success_response = {
+                "id": str(job_file.id),
+                "filename": job_file.filename,
+                "file_path": job_file.file_path,
+                "print_on_jobsheet": job_file.print_on_jobsheet,
+            }
+
             # Generate thumbnail if it's an image file
             if file_obj.content_type and file_obj.content_type.startswith("image/"):
                 from apps.job.services.file_service import (
@@ -137,12 +149,7 @@ class JobFileView(JobNumberLookupMixin, APIView):
 
                 if os.path.exists(thumb_path):
                     logger.debug("Thumbnail already exists: %s", thumb_path)
-                    return {
-                        "id": str(job_file.id),
-                        "filename": job_file.filename,
-                        "file_path": job_file.file_path,
-                        "print_on_jobsheet": job_file.print_on_jobsheet,
-                    }
+                    return success_response
 
                 logger.info("Creating thumbnail for %s", file_obj.name)
 
@@ -151,25 +158,28 @@ class JobFileView(JobNumberLookupMixin, APIView):
                     logger.info("Thumbnail created successfully: %s", thumb_path)
 
                 except Exception as e:
-                    from apps.workflow.services.error_persistence import (
-                        persist_app_error,
-                    )
-
                     # I'm returning the file even if we can't generate the thumbnail
                     # because we are already returning the whole file which can be downloaded anyway
-                    logger.error("Failed to create thumbnail for %s", file_obj.name)
+                    logger.error(
+                        "Failed to create thumbnail for %s: %s", file_obj.name, str(e)
+                    )
+                    persist_app_error(
+                        e,
+                        context={
+                            "job_id": str(job_file.job.id),
+                            "filename": file_obj.name,
+                        },
+                    )
 
-                    persist_app_error(e, job_id=str(job_file.job.id))
+            # Return success response for both image and non-image files
+            return success_response
 
-                finally:
-                    return {
-                        "id": str(job_file.id),
-                        "filename": job_file.filename,
-                        "file_path": job_file.file_path,
-                        "print_on_jobsheet": job_file.print_on_jobsheet,
-                    }
         except Exception as e:
             logger.exception("Error processing file %s: %s", file_obj.name, str(e))
+            # Persist error following defensive programming rules
+            persist_app_error(
+                e, context={"job_id": str(job.id), "filename": file_obj.name}
+            )
             return {"error": f"Error uploading {file_obj.name}: {str(e)}"}
 
     @extend_schema(
@@ -211,6 +221,23 @@ class JobFileView(JobNumberLookupMixin, APIView):
 
         for file_obj in files:
             result = self.save_file(job, file_obj, print_on_jobsheet)
+
+            # Defensive programming: ensure result is not None
+            if result is None:
+                logger.error("save_file returned None for file: %s", file_obj.name)
+                errors.append(f"Internal error processing file {file_obj.name}")
+                continue
+
+            # Defensive programming: ensure result is a dictionary
+            if not isinstance(result, dict):
+                logger.error(
+                    "save_file returned non-dict result for file: %s, result: %s",
+                    file_obj.name,
+                    result,
+                )
+                errors.append(f"Internal error processing file {file_obj.name}")
+                continue
+
             if "error" in result:
                 errors.append(result["error"])
             else:
