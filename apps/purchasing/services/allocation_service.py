@@ -86,7 +86,7 @@ class AllocationService:
                     result = AllocationService._delete_stock_allocation(po_line, obj)  # type: ignore[arg-type]
                 else:
                     obj = CostLine.objects.select_for_update().get(id=obj.id)
-                    result = AllocationService._delete_job_allocation(po, po_line, obj)  # type: ignore[arg-type]
+                    result = AllocationService._delete_job_allocation(po_line, obj)  # type: ignore[arg-type]
 
                 AllocationService._update_po_status(po)
 
@@ -310,6 +310,7 @@ class AllocationService:
             deleted_quantity=float(deleted_qty),
             description=desc,
             updated_received_quantity=float(po_line.received_quantity),
+            job_name=Stock.get_stock_holding_job().name,
         )
 
     @staticmethod

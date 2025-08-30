@@ -68,7 +68,7 @@ class XeroInvoiceManager(XeroDocumentManager):
         try:
             # This is a fallback for document creation.
             # The only case we won't use this fallback is during deletion.
-            # Actually this is default behaviour and we can consider the LOC above as simply an extra lookup
+            # Actually this is default behaviour and we can consider the LOC above simply an extra lookup
             invoice = Invoice.objects.filter(job=self.job).latest("created_at")
             return str(invoice.xero_id) if invoice and invoice.xero_id else None
         except Invoice.DoesNotExist:
