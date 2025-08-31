@@ -39,7 +39,7 @@ jobs:
               fi
               git pull -f origin $BRANCH_NAME
               # Note: scheduler uses .venv, frontend uses venv - keep consistent per machine
-              source venv/bin/activate
+              source .venv/bin/activate
 
               poetry install
               npm install
