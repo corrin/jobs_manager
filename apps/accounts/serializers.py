@@ -135,7 +135,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_is_active(self, obj: Staff) -> bool:
         logger.warning(
-            "get_is_active method in UserProfileSerializer is deprecated.  You must pass a date"
+            "get_is_active method in UserProfileSerializer is deprecated. You must pass a date"
         )
         return obj.is_currently_active
 
