@@ -160,7 +160,7 @@ class KanbanColumnJobSerializer(serializers.Serializer):
     contact_person = serializers.CharField(allow_blank=True)
 
     # People assigned to the job (empty list for now)
-    people = serializers.ListField(child=serializers.DictField(), allow_empty=True)
+    people = KanbanJobPersonSerializer(many=True)
 
     # Status info
     status = serializers.CharField()

@@ -23,6 +23,7 @@ try:
         from .helpers import DecimalEncoder, decimal_to_float, get_company_defaults
         from .middleware import (
             AccessLoggingMiddleware,
+            FrontendRedirectMiddleware,
             LoginRequiredMiddleware,
             PasswordStrengthMiddleware,
         )
@@ -48,6 +49,8 @@ try:
             CompanyDefaultsSerializer,
             XeroAccountSerializer,
             XeroAuthenticationErrorResponseSerializer,
+            XeroDocumentErrorResponseSerializer,
+            XeroDocumentSuccessResponseSerializer,
             XeroErrorDetailResponseSerializer,
             XeroErrorListResponseSerializer,
             XeroErrorSerializer,
@@ -87,12 +90,15 @@ __all__ = [
     "CompanyDefaultsSerializer",
     "DecimalEncoder",
     "F",
+    "FrontendRedirectMiddleware",
     "LoginRequiredMiddleware",
     "PasswordStrengthMiddleware",
     "ServiceAPIKeyAuthentication",
     "WorkflowConfig",
     "XeroAccountSerializer",
     "XeroAuthenticationErrorResponseSerializer",
+    "XeroDocumentErrorResponseSerializer",
+    "XeroDocumentSuccessResponseSerializer",
     "XeroErrorDetailResponseSerializer",
     "XeroErrorListResponseSerializer",
     "XeroErrorSerializer",

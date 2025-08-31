@@ -16,7 +16,7 @@ from django.core.cache import cache
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -458,8 +458,17 @@ class WeeklyMetricsRestView(BaseJobRestView):
     serializer = WeeklyMetricsSerializer
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="week",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Month (1-12). Defaults to current month.",
+            ),
+        ],
         responses={200: WeeklyMetricsSerializer(many=True)},
-        description="Fetch weekly metrics data.",
+        description="Fetch weekly metrics data for jobs with time entries in the specified week.",
         tags=["Jobs"],
     )
     def get(self, request):
@@ -467,7 +476,6 @@ class WeeklyMetricsRestView(BaseJobRestView):
         Fetch weekly metrics data.
         """
         try:
-            # Optional week parameter for filtering
             week_param = request.query_params.get("week")
             week_date = None
             if week_param:
@@ -482,6 +490,10 @@ class WeeklyMetricsRestView(BaseJobRestView):
                     return Response(
                         error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                     )
+
+            logger.info(
+                f"WeeklyMetricsRestView: week_param={week_param}, week_date={week_date}"
+            )
 
             metrics_data = JobRestService.get_weekly_metrics(week_date)
 

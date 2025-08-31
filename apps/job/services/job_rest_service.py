@@ -11,13 +11,15 @@ from typing import Any, Dict
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, models, transaction
+from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
 from apps.job.models import Job, JobEvent
+from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
 from apps.job.serializers.job_serializer import (
     CompanyDefaultsJobDetailSerializer,
@@ -75,12 +77,15 @@ class JobRestService:
                 job_data[field] = data[field]
 
         # Contact (optional relationship)
-        if data.get("contact_id"):
+        if contact_id := data.get("contact_id"):
             try:
-                contact = ClientContact.objects.get(id=data["contact_id"])
+                contact = ClientContact.objects.get(id=contact_id)
                 job_data["contact"] = contact
             except ClientContact.DoesNotExist:
-                logger.warning(f"Contact {data['contact_id']} not found, ignoring")
+                raise ValueError(f"Contact with id {contact_id} not found")
+
+        # Not needed for now, but needs to be discussed when we activate project sync
+        # job_data["xero_last_modified"] = timezone.now()
 
         with transaction.atomic():
             job = Job(**job_data)
@@ -110,8 +115,14 @@ class JobRestService:
 
         Returns:
             Dict with job data (pricing data removed - use CostSet endpoints)
+
+        Raises:
+            ValueError: If job is not found.
         """
-        job = Job.objects.select_related("client").get(id=job_id)
+        try:
+            job = Job.objects.select_related("client").get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
 
         # Serialise main data
         job_data = JobSerializer(job, context={"request": request}).data
@@ -461,6 +472,7 @@ class JobRestService:
     def get_weekly_metrics(week: date = None) -> list[Dict[str, Any]]:
         """
         Fetches weekly metrics for all active jobs.
+        Fails early if any job processing error occurs.
 
         Args:
             week: Optional date parameter (ignored for now, but can be used for calculations)
@@ -471,80 +483,110 @@ class JobRestService:
                 - Estimated hours
                 - Actual hours
                 - Total profit
-        """
-        # NOTE: Previous time entries filter (commented out for future reference):
-        # if week is None:
-        #     week = date.today()
-        # week_start = week - timedelta(days=week.weekday())
-        # week_end = week_start + timedelta(days=6)
-        # job_ids_with_time_entries = (
-        #     CostLine.objects.annotate(
-        #         date_meta=RawSQL(
-        #             "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-        #             (),
-        #             output_field=models.CharField(),
-        #         )
-        #     )
-        #     .filter(
-        #         cost_set__kind="actual",
-        #         kind="time",
-        #         date_meta__gte=week_start.strftime('%Y-%m-%d'),
-        #         date_meta__lte=week_end.strftime('%Y-%m-%d'),
-        #     )
-        #     .values_list('cost_set__job_id', flat=True)
-        #     .distinct()
-        # )
-        # jobs = Job.objects.filter(id__in=job_ids_with_time_entries, ...)
 
-        # Get all active jobs (including draft and recently completed), ordered by priority
-        jobs = (
-            Job.objects.filter(
-                status__in=[
-                    "awaiting_approval",
-                    "approved",
-                    "in_progress",
-                    "unusual",
-                    "draft",
-                    "recently_completed",
-                ]
+        Raises:
+            ValueError: If a job is missing data or an error occurs during processing.
+        """
+        if week is None:
+            week = date.today()
+        week_start = week - timedelta(days=week.weekday())
+        week_end = week_start + timedelta(days=6)
+
+        # Debug logging
+        logger.info(
+            f"Getting weekly metrics for week {week} ({week_start} to {week_end})"
+        )
+
+        job_ids_with_time_entries = (
+            CostLine.objects.annotate(
+                date_meta=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                    (),
+                    output_field=models.CharField(),
+                )
             )
+            .filter(
+                cost_set__kind="actual",
+                kind="time",
+                date_meta__gte=week_start.strftime("%Y-%m-%d"),
+                date_meta__lte=week_end.strftime("%Y-%m-%d"),
+            )
+            .values_list("cost_set__job_id", flat=True)
+            .distinct()
+        )
+
+        # Debug logging
+        job_ids_list = list(job_ids_with_time_entries)
+        logger.info(
+            f"Found {len(job_ids_list)} job IDs with time entries: {job_ids_list[:10]}..."
+        )
+
+        jobs = (
+            Job.objects.filter(id__in=job_ids_with_time_entries)
             .select_related("client")
             .prefetch_related("people")
-            .order_by("-priority")
         )
+
+        # Debug logging
+        logger.info(f"Found {jobs.count()} jobs in database")
+
+        # If no jobs found, check if job IDs exist at all
+        if jobs.count() == 0 and len(job_ids_list) > 0:
+            logger.warning(
+                f"No jobs found for {len(job_ids_list)} job IDs. Checking if jobs exist..."
+            )
+            existing_job_count = Job.objects.filter(id__in=job_ids_list).count()
+            logger.warning(
+                f"Only {existing_job_count} of {len(job_ids_list)} job IDs exist in Job table"
+            )
 
         metrics = []
         for job in jobs:
-            summary = job.latest_actual.summary or {}
-            estimated_hours = job.latest_estimate.summary["hours"] or 0
+            try:
+                # Get latest actual cost set summary
+                latest_actual = job.latest_actual
+                if not latest_actual:
+                    raise ValueError(
+                        f"Job {job.id} ({job.name}) has no latest_actual cost set"
+                    )
 
-            # In case the actual cost set summary is empty for lack of entries
-            actual_hours = summary.get("hours", 0)
-            actual_rev = summary.get("rev", 0)
-            actual_cost = summary.get("cost", 0)
+                summary = latest_actual.summary or {}
 
-            profit = actual_rev - actual_cost
+                # Get estimated hours from latest estimate
+                estimated_hours = 0
+                if job.latest_estimate and job.latest_estimate.summary:
+                    estimated_hours = job.latest_estimate.summary.get("hours", 0)
 
-            job_metrics = {
-                "job_id": str(job.id),
-                "name": job.name,
-                "job_number": job.job_number,
-                "client": job.client,
-                "description": job.description,
-                "status": job.status,
-                "people": [
-                    {"name": person.get_display_full_name(), "id": str(person.id)}
-                    for person in job.people.all()
-                ],
-                "estimated_hours": estimated_hours,
-                "actual_hours": actual_hours,
-                "profit": profit,
-            }
-            metrics.append(job_metrics)
+                # Get actual metrics from summary
+                actual_hours = summary.get("hours", 0)
+                actual_rev = summary.get("rev", 0)
+                actual_cost = summary.get("cost", 0)
 
-        from pprint import pprint
+                profit = actual_rev - actual_cost
 
-        pprint(metrics)
+                job_metrics = {
+                    "job_id": str(job.id),
+                    "name": job.name,
+                    "job_number": job.job_number,
+                    "client": job.client.name if job.client else None,
+                    "description": job.description,
+                    "status": job.status,
+                    "people": [
+                        {"name": person.get_display_full_name(), "id": str(person.id)}
+                        for person in job.people.all()
+                    ],
+                    "estimated_hours": estimated_hours,
+                    "actual_hours": actual_hours,
+                    "profit": profit,
+                }
+                metrics.append(job_metrics)
+
+            except Exception as e:
+                logger.error(f"Error processing job {job.id}: {e}")
+                # Re-raise exception to fail early
+                raise ValueError(f"Error processing job {job.id}: {e}") from e
+
+        logger.info(f"Returning {len(metrics)} job metrics")
         return metrics
 
     @staticmethod

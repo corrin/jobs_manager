@@ -382,9 +382,9 @@ class KanbanService:
         if xero_invoice_params := filters.get("xero_invoice_params", "").strip():
             match xero_invoice_params:
                 case param if is_valid_uuid(param):
-                    jobs_query = jobs_query.filter(invoice__xero_id=param)
+                    jobs_query = jobs_query.filter(invoices__xero_id=param)
                 case param if is_valid_invoice_number(param):
-                    jobs_query = jobs_query.filter(invoice__number=param)
+                    jobs_query = jobs_query.filter(invoices__number=param)
 
         # Handle paid filter with match-case
         paid_filter = filters.get("paid", "")
@@ -429,8 +429,10 @@ class KanbanService:
 
             # Get valid statuses for this column (simplified approach - column = status)
             valid_statuses = [column.status_key]  # Only the column's main status
-            jobs_query = Job.objects.filter(status__in=valid_statuses).select_related(
-                "client"
+            jobs_query = (
+                Job.objects.filter(status__in=valid_statuses)
+                .select_related("client")
+                .prefetch_related("people")
             )
             jobs_query = KanbanService.filter_kanban_jobs(jobs_query)
 
@@ -466,7 +468,14 @@ class KanbanService:
                     "description": job.description or "",
                     "client_name": job.client.name if job.client else "No Client",
                     "contact_person": job.contact.name if job.contact else "",
-                    "people": [],  # This would need to be populated with assigned staff
+                    "people": [
+                        {
+                            "id": staff.id,
+                            "display_name": staff.get_display_full_name(),
+                            "icon": staff.icon.url if staff.icon else None,
+                        }
+                        for staff in job.people.all()
+                    ],
                     "status": job.status,
                     "status_key": job.status,
                     "paid": job.paid,

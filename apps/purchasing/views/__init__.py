@@ -2,6 +2,8 @@
 
 from .purchasing_rest_views import (
     AllJobsAPIView,
+    AllocationDeleteAPIView,
+    AllocationDetailsAPIView,
     DeliveryReceiptRestView,
     PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
@@ -36,6 +38,8 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "AllJobsAPIView",
+    "AllocationDeleteAPIView",
+    "AllocationDetailsAPIView",
     "DeliveryReceiptCreateView",
     "DeliveryReceiptListView",
     "DeliveryReceiptRestView",

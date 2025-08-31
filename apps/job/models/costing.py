@@ -89,7 +89,7 @@ class CostLine(models.Model):
     # Xero sync fields for bidirectional time/expense tracking
     xero_time_id = models.CharField(max_length=255, null=True, blank=True)
     xero_expense_id = models.CharField(max_length=255, null=True, blank=True)
-    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     class Meta:
@@ -126,3 +126,29 @@ class CostLine(models.Model):
             raise ValidationError("Unit cost must be non-negative")
         if self.unit_rev < 0:
             raise ValidationError("Unit revenue must be non-negative")
+
+    def _update_cost_set_summary(self) -> None:
+        """Update cost set summary with aggregated data"""
+        cost_set = self.cost_set
+        cost_lines = cost_set.cost_lines.all()
+
+        total_cost = sum(line.total_cost for line in cost_lines)
+        total_rev = sum(line.total_rev for line in cost_lines)
+        total_hours = sum(
+            float(line.quantity) for line in cost_lines if line.kind == "time"
+        )
+
+        cost_set.summary = {
+            "cost": float(total_cost),
+            "rev": float(total_rev),
+            "hours": total_hours,
+        }
+        cost_set.save()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._update_cost_set_summary()
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+        self._update_cost_set_summary()

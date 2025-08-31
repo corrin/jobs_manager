@@ -62,6 +62,8 @@
 | `/purchase-orders/<uuid:pk>/` | `purchase_order.PurchaseOrderCreateView` | `purchasing:purchase_orders_detail` | View to create or edit a purchase order, following the timesheet pattern. |
 | `/purchase-orders/<uuid:pk>/delete/` | `purchase_order.delete_purchase_order_view` | `purchasing:purchase_orders_delete` | Delete a purchase order if it's in draft status. |
 | `/purchase-orders/<uuid:po_id>/allocations/` | `purchasing_rest_views.PurchaseOrderAllocationsAPIView` | `purchasing:purchase_order_allocations_rest` | API endpoint to get existing allocations for a purchase order. |
+| `/purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/` | `purchasing_rest_views.AllocationDetailsAPIView` | `purchasing:allocation_details_rest` | API endpoint to get details about a specific allocation before deletion. |
+| `/purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/` | `purchasing_rest_views.AllocationDeleteAPIView` | `purchasing:allocation_delete_rest` | API endpoint to delete specific allocations from a purchase order. |
 | `/purchase-orders/new/` | `purchase_order.PurchaseOrderCreateView` | `purchasing:purchase_orders_create` | View to create or edit a purchase order, following the timesheet pattern. |
 
 ### Stock Management

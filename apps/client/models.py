@@ -18,7 +18,7 @@ class Client(models.Model):
         max_length=255, null=True, blank=True
     )  # For reference only - we are not fully multi-tenant yet
     # Optional because not all prospects are synced to Xero
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, db_index=True)
     email = models.EmailField(null=True, blank=True)
     phone = models.CharField(max_length=50, null=True, blank=True)
     address = models.TextField(null=True, blank=True)

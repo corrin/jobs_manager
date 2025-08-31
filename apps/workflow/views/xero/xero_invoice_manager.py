@@ -4,7 +4,6 @@ import logging
 from datetime import timedelta
 from decimal import Decimal
 
-from django.http import JsonResponse
 from django.utils import timezone
 from xero_python.accounting.models import Contact as XeroContact
 from xero_python.accounting.models import Invoice as XeroInvoice
@@ -39,22 +38,38 @@ class XeroInvoiceManager(XeroDocumentManager):
 
     _is_invoice_manager = True
 
-    def __init__(self, client: Client, job: Job):
+    def __init__(self, client: Client, job: Job, xero_invoice_id: str | None = None):
         """
-        Initializes the invoice manager. Both client and job are required for invoices.
-        Calls the base class __init__ ensuring consistent signature.
+        Initializes the invoice manager.
+        Args:
+        client (Client): The client associated with the document.
+            job (Job): The associated job.
+            xero_invoice_id (str, optional): A specific Xero ID to operate on,
+                                             useful for deletion of a specific invoice.
         """
         if not client or not job:
             raise ValueError("Client and Job are required for XeroInvoiceManager")
-        # Call the base class __init__ with the client and the job
         super().__init__(client=client, job=job)
 
+        if xero_invoice_id is not None:
+            self._xero_id_override = str(xero_invoice_id)
+
     def get_xero_id(self):
+        """
+        Returns the Xero ID for the invoice.
+        - If an override ID was provided during initialization, it returns that ID.
+        - Otherwise, it falls back to finding an invoice associated with the job.
+        """
+        if hasattr(self, "_xero_id_override") and self._xero_id_override:
+            return self._xero_id_override
+
         if not self.job:
             return None
-
         try:
-            invoice = Invoice.objects.get(job=self.job)
+            # This is a fallback for document creation.
+            # The only case we won't use this fallback is during deletion.
+            # Actually this is default behaviour and we can consider the LOC above simply an extra lookup
+            invoice = Invoice.objects.filter(job=self.job).latest("created_at")
             return str(invoice.xero_id) if invoice and invoice.xero_id else None
         except Invoice.DoesNotExist:
             return None
@@ -218,13 +233,6 @@ class XeroInvoiceManager(XeroDocumentManager):
                         job=self.job,
                         event_type="invoice_created",
                         description=f"Invoice {invoice.number} created in Xero",
-                        details={
-                            "invoice_id": str(invoice.id),
-                            "xero_id": str(xero_invoice_id),
-                            "invoice_number": invoice.number,
-                            "total_incl_tax": str(invoice.total_incl_tax),
-                            "invoice_url": invoice_url,
-                        },
                     )
                 except Exception as e:
                     logger.warning(
@@ -232,17 +240,15 @@ class XeroInvoiceManager(XeroDocumentManager):
                     )
 
                 # Return success details for the view
-                return JsonResponse(
-                    {
-                        "success": True,
-                        "invoice_id": str(invoice.id),  # Return local ID
-                        "xero_id": str(xero_invoice_id),
-                        "client": self.client.name,
-                        "total_excl_tax": str(invoice.total_excl_tax),
-                        "total_incl_tax": str(invoice.total_incl_tax),
-                        "online_url": invoice_url,
-                    }
-                )
+                return {
+                    "success": True,
+                    "invoice_id": str(invoice.id),  # Return local ID
+                    "xero_id": str(xero_invoice_id),
+                    "client": self.client.name,
+                    "total_excl_tax": str(invoice.total_excl_tax),
+                    "total_incl_tax": str(invoice.total_incl_tax),
+                    "online_url": invoice_url,
+                }
             else:
                 # Handle non-exception API failures (e.g., empty response)
                 error_msg = """
@@ -266,10 +272,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                     elif hasattr(first_element, "message"):
                         error_msg = first_element.message
 
-                return JsonResponse(
-                    {"success": False, "message": error_msg},
-                    status=400,
-                )
+                return {"success": False, "message": error_msg, "status": 400}
         except AccountingBadRequestException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -292,9 +295,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                 exception_body=e.body,
                 default_message=default_message,
             )
-            return JsonResponse(
-                {"success": False, "message": error_message}, status=e.status
-            )
+            return {"success": False, "message": error_message, "status": e.status}
         except ApiException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -310,10 +311,7 @@ class XeroInvoiceManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {"success": False, "message": f"Xero API Error: {e.reason}"},
-                status=e.status,
-            )
+            return {"success": False, "message": error_message, "status": e.status}
         except Exception as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -325,16 +323,14 @@ class XeroInvoiceManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": f"""
+            return {
+                "success": False,
+                "message": f"""
                     An unexpected error occurred ({str(e)}) while creating the invoice
                     with Xero. Please contact support to check the data sent.
-                    """.strip(),
-                },
-                status=500,
-            )
+                """.strip(),
+                "status": 500,
+            }
 
     def delete_document(self):
         """Deletes an invoice in Xero and locally."""
@@ -364,37 +360,27 @@ class XeroInvoiceManager(XeroDocumentManager):
                             job=self.job,
                             event_type="invoice_deleted",
                             description="Invoice deleted from Xero",
-                            details={
-                                "xero_id": str(xero_invoice_id),
-                                "deleted_count": deleted_count,
-                            },
                         )
                     except Exception as e:
                         logger.warning(
                             f"Failed to create job event for invoice deletion: {e}"
                         )
 
-                    return JsonResponse(
-                        {
-                            "success": True,
-                            "xero_id": str(xero_invoice_id),
-                            "message": "Invoice deleted successfully in Xero and locally.",
-                        }
-                    )
+                    return {
+                        "success": True,
+                        "xero_id": str(xero_invoice_id),
+                        "message": "Invoice deleted successfully in Xero and locally.",
+                    }
                 else:
                     error_msg = f"Invoice deletion failed or status not DELETED. Status: {status}, Xero ID: {xero_invoice_id}"
                     logger.error(error_msg)
-                    return JsonResponse(
-                        {"success": False, "message": error_msg}, status=400
-                    )
+                    return {"success": False, "message": error_msg, "status": 400}
             else:
                 error_msg = """
                 No invoices found in the Xero response or failed to delete invoice.
                 """.strip()
                 logger.error(error_msg)
-                return JsonResponse(
-                    {"success": False, "message": error_msg}, status=400
-                )
+                return {"success": False, "message": error_msg, "status": 400}
         except AccountingBadRequestException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -417,9 +403,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                 Please contact support to check the data sent during invoice deletion.
                 """.strip(),
             )
-            return JsonResponse(
-                {"success": False, "message": error_message}, status=e.status
-            )
+            return {"success": False, "message": error_message, "status": e.status}
         except ApiException as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -435,10 +419,11 @@ class XeroInvoiceManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {"success": False, "message": f"Xero API Error: {e.reason}"},
-                status=e.status,
-            )
+            return {
+                "success": False,
+                "message": f"Xero API Error: {e.reason}",
+                "status": e.status,
+            }
         except Exception as e:
             from apps.workflow.services.error_persistence import persist_app_error
 
@@ -450,16 +435,14 @@ class XeroInvoiceManager(XeroDocumentManager):
             # MANDATORY: Persist error to database
             persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
-            return JsonResponse(
-                {
-                    "success": False,
-                    "message": f"""
-                    An unexpected error occurred ({str(e)}) while deleting the invoice
-                    with Xero. Please contact support to check the data sent.
-                    """.strip(),
-                },
-                status=500,
-            )
+            return {
+                "success": False,
+                "message": f"""
+                        An unexpected error occurred ({str(e)}) while deleting the invoice
+                        with Xero. Please contact support to check the data sent.
+                """.strip(),
+                "status": 500,
+            }
 
     def get_or_create_xero_contact(self):
         """

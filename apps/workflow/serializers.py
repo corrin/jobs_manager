@@ -238,6 +238,63 @@ class XeroOperationResponseSerializer(serializers.Serializer):
     xero_id = serializers.UUIDField(required=True)
 
 
+class XeroDocumentSuccessResponseSerializer(serializers.Serializer):
+    """
+    Standardized serializer for a successful Xero document operation.
+    """
+
+    success = serializers.BooleanField(default=True)
+    xero_id = serializers.UUIDField(
+        help_text="The Xero UUID of the created/modified document."
+    )
+    online_url = serializers.URLField(
+        help_text="Direct link to the document in Xero.",
+        allow_blank=True,
+        required=False,
+    )
+    messages = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Informational messages.",
+    )
+
+    # Fields returned by Invoice/Quote managers
+    client = serializers.CharField(required=False, help_text="Name of the client.")
+    total_excl_tax = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False
+    )
+    total_incl_tax = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False
+    )
+
+    # Fields returned by PO manager
+    action = serializers.CharField(
+        required=False,
+        help_text="The action performed (e.g., 'created', 'updated', 'deleted').",
+    )
+
+
+class XeroDocumentErrorResponseSerializer(serializers.Serializer):
+    """
+    Standardized serializer for a failed Xero document operation.
+    """
+
+    success = serializers.BooleanField(default=False)
+    error = serializers.CharField(help_text="A description of the error that occurred.")
+    messages = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="Contextual error messages.",
+    )
+    error_type = serializers.CharField(
+        required=False,
+        help_text="A machine-readable error type (e.g., 'validation_error').",
+    )
+    redirect_to_auth = serializers.BooleanField(
+        required=False, help_text="Indicates if re-authentication is needed."
+    )
+
+
 class XeroSseEventSerializer(serializers.Serializer):
     """Serializer for Xero SSE event data."""
 

@@ -16,6 +16,14 @@ try:
             set_invoice_or_bill_fields,
             set_journal_fields,
         )
+        from .stock_sync import (
+            fix_long_item_codes,
+            generate_item_code,
+            sync_all_local_stock_to_xero,
+            sync_stock_to_xero,
+            update_stock_item_codes,
+            validate_stock_for_xero,
+        )
         from .sync import (
             bulk_create_contacts_in_xero,
             clean_json,
@@ -40,6 +48,7 @@ try:
             sync_entities,
             sync_expense_entries_bulk,
             sync_job_to_xero,
+            sync_local_stock_to_xero,
             sync_single_contact,
             sync_single_invoice,
             sync_time_entries_bulk,
@@ -87,6 +96,8 @@ __all__ = [
     "create_time_entries",
     "deep_sync_xero_data",
     "exchange_code_for_token",
+    "fix_long_item_codes",
+    "generate_item_code",
     "get_all_xero_contacts",
     "get_authentication_url",
     "get_last_modified_time",
@@ -118,6 +129,7 @@ __all__ = [
     "set_journal_fields",
     "store_token",
     "sync_accounts",
+    "sync_all_local_stock_to_xero",
     "sync_all_xero_data",
     "sync_client_to_xero",
     "sync_clients",
@@ -125,8 +137,10 @@ __all__ = [
     "sync_entities",
     "sync_expense_entries_bulk",
     "sync_job_to_xero",
+    "sync_local_stock_to_xero",
     "sync_single_contact",
     "sync_single_invoice",
+    "sync_stock_to_xero",
     "sync_time_entries_bulk",
     "sync_xero_data",
     "synchronise_xero_data",
@@ -139,5 +153,7 @@ __all__ = [
     "transform_stock",
     "update_expense_entries",
     "update_project",
+    "update_stock_item_codes",
     "update_time_entries",
+    "validate_stock_for_xero",
 ]

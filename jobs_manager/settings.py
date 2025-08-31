@@ -128,6 +128,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.workflow.middleware.FrontendRedirectMiddleware",  # DEVE vir ANTES do AccessLogging
     "apps.workflow.middleware.AccessLoggingMiddleware",
     "apps.workflow.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

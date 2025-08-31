@@ -79,9 +79,6 @@ class CostLineCreateView(APIView):
                 # Create the cost line
                 cost_line = serializer.save(cost_set=cost_set)
 
-                # Update cost set summary
-                self._update_cost_set_summary(cost_set)
-
                 # Return created cost line
                 response_serializer = CostLineSerializer(cost_line)
                 return Response(
@@ -114,23 +111,6 @@ class CostLineCreateView(APIView):
             )
 
         return cost_set
-
-    def _update_cost_set_summary(self, cost_set: CostSet) -> None:
-        """Update cost set summary with aggregated data"""
-        cost_lines = cost_set.cost_lines.all()
-
-        total_cost = sum(line.total_cost for line in cost_lines)
-        total_rev = sum(line.total_rev for line in cost_lines)
-        total_hours = sum(
-            float(line.quantity) for line in cost_lines if line.kind == "time"
-        )
-
-        cost_set.summary = {
-            "cost": float(total_cost),
-            "rev": float(total_rev),
-            "hours": total_hours,
-        }
-        cost_set.save()
 
 
 class CostLineUpdateView(APIView):
@@ -179,9 +159,6 @@ class CostLineUpdateView(APIView):
                 # Save updated cost lineTable
                 updated_cost_line = serializer.save()
 
-                # Update cost set summary
-                self._update_cost_set_summary(updated_cost_line.cost_set)
-
                 # Return updated cost line
                 response_serializer = CostLineSerializer(updated_cost_line)
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
@@ -193,23 +170,6 @@ class CostLineUpdateView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _update_cost_set_summary(self, cost_set: CostSet) -> None:
-        """Update cost set summary with aggregated data"""
-        cost_lines = cost_set.cost_lines.all()
-
-        total_cost = sum(line.total_cost for line in cost_lines)
-        total_rev = sum(line.total_rev for line in cost_lines)
-        total_hours = sum(
-            float(line.quantity) for line in cost_lines if line.kind == "time"
-        )
-
-        cost_set.summary = {
-            "cost": float(total_cost),
-            "rev": float(total_rev),
-            "hours": total_hours,
-        }
-        cost_set.save()
 
 
 class CostLineDeleteView(APIView):
@@ -245,14 +205,9 @@ class CostLineDeleteView(APIView):
 
         try:
             with transaction.atomic():
-                cost_set = cost_line.cost_set
-
                 # Delete the cost line
                 cost_line.delete()
                 logger.info(f"Deleted cost line {cost_line_id}")
-
-                # Update cost set summary
-                self._update_cost_set_summary(cost_set)
 
                 return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -263,20 +218,3 @@ class CostLineDeleteView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _update_cost_set_summary(self, cost_set: CostSet) -> None:
-        """Update cost set summary with aggregated data"""
-        cost_lines = cost_set.cost_lines.all()
-
-        total_cost = sum(line.total_cost for line in cost_lines)
-        total_rev = sum(line.total_rev for line in cost_lines)
-        total_hours = sum(
-            float(line.quantity) for line in cost_lines if line.kind == "time"
-        )
-
-        cost_set.summary = {
-            "cost": float(total_cost),
-            "rev": float(total_rev),
-            "hours": total_hours,
-        }
-        cost_set.save()

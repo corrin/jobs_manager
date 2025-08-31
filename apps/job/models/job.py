@@ -194,7 +194,7 @@ class Job(models.Model):
         help_text="Xero task ID for the default Labor task used for time entries",
         # TODO: This won't work long term - need proper task management system
     )
-    xero_last_modified = models.DateTimeField(null=False, blank=False)
+    xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
     class Meta:
@@ -233,8 +233,12 @@ class Job(models.Model):
 
     @property
     def quoted(self) -> bool:
-        # BUG: TODO: This is supposed to be if the job is quoted in XERO, not if it's quoted here.
-        return self.latest_quote is not None
+        # If the attribute doesn't exists (default behaviour in Django relationships)
+        # then the exception will be raised, in which case this only means we don't have a quote currently
+        try:
+            return self.quote is not None
+        except AttributeError:
+            return False
 
     def __str__(self) -> str:
         status_display = self.get_status_display()
