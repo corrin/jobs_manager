@@ -89,11 +89,6 @@ install_dependencies() {
     log "Installing dependencies..."
 
     cd "$PROJECT_PATH"
-
-    # Ensure poetry is in PATH
-
-    source ~/.bashrc
-    export PATH="$HOME/.local/bin:$PATH"
     source .venv/bin/activate
 
     # Python dependencies
