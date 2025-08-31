@@ -27,17 +27,12 @@ jobs:
             AWS_USER: ${{ vars.AWS_USER }}
             PROJECT_PATH: ${{ vars.PROJECT_PATH }}
         run: |
-            BRANCH_NAME=${{ github.head_ref || github.ref_name }}
             echo "Deploying to Scheduler Machine: $SCHEDULER_HOST"
 
             if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$SCHEDULER_HOST << EOF
-              cd $PROJECT_PATH
-              if git branch | grep -q "$BRANCH_NAME"; then
-                git switch $BRANCH_NAME
-              else
-                git switch -c $BRANCH_NAME
-              fi
-              git pull -f origin $BRANCH_NAME
+              cd $PROJECT_PATH || exit 1
+              git switch main
+              git pull -f origin main
               source .venv/bin/activate
 
               poetry install
@@ -64,18 +59,13 @@ jobs:
             AWS_USER: ${{ vars.AWS_USER }}
             PROJECT_PATH: ${{ vars.PROJECT_PATH }}
         run: |
-            BRANCH_NAME=${{ github.head_ref || github.ref_name }}
             echo "Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
 
             if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST << 'EOF'
               set -e  # Exit on any error
-              cd $PROJECT_PATH
-              if git branch | grep -q "$BRANCH_NAME"; then
-                git switch $BRANCH_NAME
-              else
-                git switch -c $BRANCH_NAME
-              fi
-              git pull -f origin $BRANCH_NAME
+              cd $PROJECT_PATH || exit 1
+              git switch main
+              git pull -f origin main
               source .venv/bin/activate
 
               poetry install
@@ -97,6 +87,5 @@ jobs:
       - name: Deployment Summary
         run: |
           echo "Deployment Summary:"
-          echo "- Scheduler machine: Required (deployment failed if this failed)"
+          echo "- Scheduler machine: Required"
           echo "- Frontend/Backend machine: Optional (may be offline)"
-          echo "Deployment process completed!"
