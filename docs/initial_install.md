@@ -220,7 +220,7 @@ Note - only do this if you chose not to restore from production!
     ```
 
     **Alternative Manual Setup:** If you prefer to do this manually:
-    * Get available tenant IDs: `python manage.py get_xero_tenant_id`
+    * Get available tenant IDs: `python manage.py interact_with_xero --tenant`
     * Manually update CompanyDefaults in the admin interface
     * Run sync manually: `python manage.py start_xero_sync`
 

@@ -1492,7 +1492,7 @@ def map_costline_to_time_entry(costline, task_id: str) -> TimeEntryCreateOrUpdat
         description=costline.desc,
         duration=minutes,
         date_utc=date_utc,
-        user_id=settings.XERO_DEFAULT_USER_ID,
+        user_id=settings.XERO_DEFAULT_USER_ID,  # This is supposed to be the staff ID.  The code here is wrong.
         task_id=task_id,
     )
 
