@@ -7,7 +7,7 @@ from logging import getLogger
 from django.conf import settings
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -47,7 +47,7 @@ class LogoutUserAPIView(APIView):
     Custom logout view that clears JWT httpOnly cookies
     """
 
-    permission_classes = []  # No authentication required for logout
+    permission_classes = [AllowAny]
 
     @extend_schema(
         summary="Logs out the current user by clearing JWT cookies",
