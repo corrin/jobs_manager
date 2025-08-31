@@ -109,12 +109,12 @@ class Command(BaseCommand):
 
         try:
             project_api = ProjectApi(api_client)
-            users = project_api.get_project_users(xero_tenant_id=tenant_id)
+            users_response = project_api.get_project_users(xero_tenant_id=tenant_id)
 
             self.stdout.write("Xero Users (Projects API):")
             self.stdout.write("---------------------------")
 
-            for user in users:
+            for user in users_response.items:
                 self.stdout.write(f"User ID: {user.user_id}")
                 self.stdout.write(f"Name: {user.name}")
                 self.stdout.write(f"Email: {user.email}")
