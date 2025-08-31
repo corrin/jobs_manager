@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class GeminiPriceExtractionProvider:
     """Gemini AI provider for price extraction from PDF documents."""
 
-    def __init__(self, api_key: str, model_name: str = "gemini-2.0-flash-exp"):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash"):
         self.api_key = api_key
         self.model_name = model_name
 
@@ -37,131 +37,125 @@ class GeminiPriceExtractionProvider:
         try:
             # Initialize the Gemini client
             if not self.api_key:
+                logger.error("Gemini API key not provided")
                 raise ValueError("Gemini API key not provided")
 
+            logger.info(f"Initializing Gemini client with model: {self.model_name}")
             client = genai.Client(api_key=self.api_key)
+            logger.info("Gemini client initialized successfully")
 
             # File handling
             if not os.path.exists(file_path):
+                logger.error(f"PDF file not found: {file_path}")
                 raise FileNotFoundError(f"PDF file not found: {file_path}")
 
-            logger.info(f"Processing PDF with Gemini {self.model_name}...")
+            file_size = os.path.getsize(file_path)
+            logger.info(f"Processing PDF with Gemini {self.model_name}, file size: {file_size} bytes")
 
             # Read and encode the PDF file
+            logger.info("Reading PDF file...")
             with open(file_path, "rb") as file:
                 file_content = file.read()
 
+            logger.info(f"PDF content read, size: {len(file_content)} bytes")
+
             # Encode to base64
+            logger.info("Encoding PDF to base64...")
             file_b64 = base64.b64encode(file_content).decode("utf-8")
+            logger.info(f"Base64 encoding complete, length: {len(file_b64)} characters")
 
             # Create the extraction prompt
+            logger.info("Creating extraction prompt...")
             prompt = create_extraction_prompt()
+            logger.info(f"Prompt created, length: {len(prompt)} characters")
 
             # Prepare the content for Gemini
             contents = [
                 {"text": prompt},
                 {"inline_data": {"mime_type": "application/pdf", "data": file_b64}},
             ]
+            logger.info(f"Content prepared for Gemini API call with {len(contents)} parts")
 
             # Call Gemini API
+            logger.info(f"Calling Gemini API with model: {self.model_name}")
             response = client.models.generate_content(
                 model=self.model_name,
                 contents=contents,
                 config={
-                    "max_output_tokens": 8000,
+                    "max_output_tokens": 819200, 
                     "temperature": 0.1,
                     "response_mime_type": "application/json",
                 },
             )
+            logger.info("Gemini API call completed successfully")
+            
+            # Save complete response to debug file
+            self._save_debug_response(response, file_path)
 
             # Log token usage if available
             if hasattr(response, "usage"):
                 log_token_usage(response.usage, "Gemini")
+                logger.info(f"Token usage: {response.usage}")
+            else:
+                logger.warning("No usage information in response")
+
+            # Comprehensive response logging
+            logger.info(f"Response type: {type(response)}")
+            logger.info(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
 
             # Check for any errors or issues in the response
-            logger.info(
-                f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}"
-            )
+            logger.info(f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}")
             if hasattr(response, "prompt_feedback") and response.prompt_feedback:
-                logger.info(f"Prompt feedback: {response.prompt_feedback}")
+                logger.warning(f"Prompt feedback (potential issues): {response.prompt_feedback}")
 
             # Check if there are any safety issues or blocks
             logger.info(f"Response has candidates: {hasattr(response, 'candidates')}")
-            logger.info(
-                f"Candidates length: {len(response.candidates) if hasattr(response, 'candidates') and response.candidates else 0}"
-            )
+            if hasattr(response, "candidates"):
+                if response.candidates:
+                    logger.info(f"Candidates length: {len(response.candidates)}")
+                    candidate = response.candidates[0]
+                    logger.info(f"First candidate type: {type(candidate)}")
+                    
+                    if hasattr(candidate, "finish_reason"):
+                        logger.info(f"Finish reason: {candidate.finish_reason}")
+                        if candidate.finish_reason and candidate.finish_reason != "STOP":
+                            logger.warning(f"Unexpected finish reason: {candidate.finish_reason}")
 
-            if hasattr(response, "candidates") and response.candidates:
-                candidate = response.candidates[0]
-                logger.info(
-                    f"Candidate has finish_reason: {hasattr(candidate, 'finish_reason')}"
-                )
-                if hasattr(candidate, "finish_reason"):
-                    logger.info(f"Finish reason: {candidate.finish_reason}")
+                    if hasattr(candidate, "safety_ratings"):
+                        logger.info(f"Safety ratings: {candidate.safety_ratings}")
 
-                logger.info(
-                    f"Candidate has safety_ratings: {hasattr(candidate, 'safety_ratings')}"
-                )
-                if hasattr(candidate, "safety_ratings"):
-                    logger.info(f"Safety ratings: {candidate.safety_ratings}")
+                    if hasattr(candidate, "blocked"):
+                        logger.info(f"Candidate blocked: {candidate.blocked}")
+                        if candidate.blocked:
+                            logger.error("Candidate is blocked - content may have been filtered")
+                else:
+                    logger.error("Response has candidates attribute but candidates list is empty")
+            else:
+                logger.warning("Response has no candidates attribute")
 
-                # Also check if candidate is blocked
-                if hasattr(candidate, "blocked"):
-                    logger.info(f"Candidate blocked: {candidate.blocked}")
-
-                # Check citation metadata
-                if hasattr(candidate, "citation_metadata"):
-                    logger.info(f"Citation metadata: {candidate.citation_metadata}")
-
-                # Log all candidate attributes for debugging
-                logger.info(
-                    f"All candidate attributes: {[attr for attr in dir(candidate) if not attr.startswith('_')]}"
-                )
+            # Check for text attribute
+            logger.info(f"Response has text attribute: {hasattr(response, 'text')}")
+            if hasattr(response, "text"):
+                logger.info(f"Response.text is None: {response.text is None}")
+                logger.info(f"Response.text type: {type(response.text) if response.text is not None else 'None'}")
+                if response.text:
+                    logger.info(f"Response.text length: {len(response.text)}")
+                    logger.info(f"Response.text preview: {response.text[:200]}...")
+                else:
+                    logger.error("Response.text is None or empty")
 
             # Extract text content from the response
+            # With the newer google-genai library, response.text is the direct way to access content
             result_text = None
-
-            # Try different ways to get the text content
-            if hasattr(response, "candidates") and response.candidates:
-                # Get the first candidate
-                candidate = response.candidates[0]
-                logger.info(f"Candidate type: {type(candidate)}")
-                logger.info(f"Candidate attributes: {dir(candidate)}")
-
-                if hasattr(candidate, "content") and candidate.content:
-                    content = candidate.content
-                    logger.info(f"Content type: {type(content)}")
-                    logger.info(f"Content attributes: {dir(content)}")
-
-                    if hasattr(content, "parts"):
-                        logger.info(f"Content parts: {content.parts}")
-                        logger.info(
-                            f"Content parts length: {len(content.parts) if content.parts else 0}"
-                        )
-
-                        if content.parts:
-                            part = content.parts[0]
-                            logger.info(f"Part type: {type(part)}")
-                            logger.info(f"Part attributes: {dir(part)}")
-
-                            if hasattr(part, "text"):
-                                result_text = part.text
-                                logger.info(
-                                    "Successfully extracted text from part.text"
-                                )
-                            else:
-                                logger.warning("Part has no text attribute")
-                        else:
-                            logger.warning("Content parts is empty")
-                    else:
-                        logger.warning("Content has no parts attribute")
-                else:
-                    logger.warning("Candidate has no content")
-            elif hasattr(response, "text") and response.text is not None:
+            
+            if hasattr(response, "text") and response.text is not None:
                 result_text = response.text
                 logger.info("Successfully extracted text from response.text")
             else:
-                logger.error("No text content found in response")
+                logger.error("No text content found in response - response.text is None or missing")
+                # Log response structure for debugging
+                logger.error(f"Response type: {type(response)}")
+                logger.error(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
 
             logger.info(
                 f"Final result_text length: {len(result_text) if result_text else 0}"
@@ -321,3 +315,96 @@ class GeminiPriceExtractionProvider:
         variant_id = "".join(c for c in variant_id if c.isalnum() or c in "_-")
 
         return variant_id[:100]  # Limit length
+
+    def _save_debug_response(self, response, file_path: str) -> None:
+        """
+        Save the complete Gemini API response to a debug file for troubleshooting.
+        
+        Args:
+            response: The response object from Gemini API
+            file_path: Original file path being processed
+        """
+        import datetime
+        
+        debug_data = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "source_file": os.path.basename(file_path),
+            "model_name": self.model_name,
+            "response_type": str(type(response)),
+            "response_attributes": [attr for attr in dir(response) if not attr.startswith('_')],
+        }
+        
+        # Try to serialize all response attributes
+        for attr_name in debug_data["response_attributes"]:
+            try:
+                attr_value = getattr(response, attr_name)
+                # Convert to JSON-serializable format
+                if hasattr(attr_value, '__dict__'):
+                    debug_data[attr_name] = str(attr_value)
+                elif callable(attr_value):
+                    debug_data[f"{attr_name}_callable"] = True
+                else:
+                    debug_data[attr_name] = attr_value
+            except Exception as e:
+                debug_data[f"{attr_name}_error"] = str(e)
+        
+        # Special handling for specific attributes
+        if hasattr(response, 'text'):
+            debug_data["text_is_none"] = response.text is None
+            debug_data["text_length"] = len(response.text) if response.text else 0
+            debug_data["text_preview"] = response.text[:500] if response.text else None
+        
+        if hasattr(response, 'candidates') and response.candidates:
+            debug_data["candidates_count"] = len(response.candidates)
+            candidate_details = []
+            for i, candidate in enumerate(response.candidates):
+                candidate_info = {
+                    "index": i,
+                    "type": str(type(candidate)),
+                    "attributes": [attr for attr in dir(candidate) if not attr.startswith('_')]
+                }
+                # Add specific candidate details
+                if hasattr(candidate, 'finish_reason'):
+                    candidate_info["finish_reason"] = candidate.finish_reason
+                if hasattr(candidate, 'blocked'):
+                    candidate_info["blocked"] = candidate.blocked
+                if hasattr(candidate, 'safety_ratings'):
+                    candidate_info["safety_ratings"] = str(candidate.safety_ratings)
+                if hasattr(candidate, 'content'):
+                    candidate_info["has_content"] = candidate.content is not None
+                    if candidate.content:
+                        candidate_info["content_type"] = str(type(candidate.content))
+                        if hasattr(candidate.content, 'parts'):
+                            candidate_info["content_parts_count"] = len(candidate.content.parts) if candidate.content.parts else 0
+                candidate_details.append(candidate_info)
+            debug_data["candidates_details"] = candidate_details
+        
+        if hasattr(response, 'prompt_feedback'):
+            debug_data["prompt_feedback"] = str(response.prompt_feedback)
+        
+        if hasattr(response, 'usage'):
+            debug_data["usage"] = str(response.usage)
+        
+        # Save to debug file
+        debug_file_path = "/tmp/gemini_response_debug.json"
+        try:
+            with open(debug_file_path, "w") as f:
+                json.dump(debug_data, f, indent=2, default=str)
+            logger.info(f"Complete Gemini response saved to {debug_file_path}")
+        except Exception as e:
+            logger.error(f"Failed to save debug response: {e}")
+            # Try to save a minimal version
+            try:
+                minimal_debug = {
+                    "timestamp": debug_data["timestamp"],
+                    "error": "Failed to serialize full response",
+                    "response_type": debug_data["response_type"],
+                    "text_is_none": debug_data.get("text_is_none", "unknown"),
+                    "has_candidates": hasattr(response, 'candidates'),
+                    "serialization_error": str(e)
+                }
+                with open(debug_file_path, "w") as f:
+                    json.dump(minimal_debug, f, indent=2)
+                logger.info(f"Minimal debug response saved to {debug_file_path}")
+            except Exception as e2:
+                logger.error(f"Failed to save even minimal debug response: {e2}")

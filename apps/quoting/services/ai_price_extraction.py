@@ -94,22 +94,35 @@ def extract_price_data(
     Returns:
         Tuple containing extracted data dict and error message if any
     """
+    logger.info(f"Starting price extraction for file: {file_path}, content_type: {content_type}")
+    
     # 1. Get all active providers
+    logger.info("Getting prioritized active providers...")
     prioritized_providers = get_prioritized_active_providers()
+    logger.info(f"Found {len(prioritized_providers)} active providers")
 
     if not prioritized_providers:
-        return (
-            None,
-            "No active AI providers configured with API keys. Please configure one in company settings.",
-        )
+        error_msg = "No active AI providers configured with API keys. Please configure one in company settings."
+        logger.error(error_msg)
+        return (None, error_msg)
 
     # 2. Use the top priority provider (Mistral first)
     ai_provider = prioritized_providers[0]
+    logger.info(f"Selected AI provider: {ai_provider.provider_type}, model: {ai_provider.model_name}")
+    logger.info(f"API key present: {bool(ai_provider.api_key)}")
 
     # 3. Create provider instance and call - fail early, don't eat errors
-    provider = PriceExtractionFactory.create_provider(
-        ai_provider.provider_type, ai_provider.api_key, ai_provider.model_name
-    )
-
-    logger.info(f"Using {provider.get_provider_name()} for price extraction")
-    return provider.extract_price_data(file_path, content_type)
+    try:
+        logger.info("Creating provider instance...")
+        provider = PriceExtractionFactory.create_provider(
+            ai_provider.provider_type, ai_provider.api_key, ai_provider.model_name
+        )
+        logger.info(f"Provider created successfully: {provider.get_provider_name()}")
+        
+        logger.info(f"Starting extraction with {provider.get_provider_name()}")
+        result = provider.extract_price_data(file_path, content_type)
+        logger.info(f"Extraction completed with {provider.get_provider_name()}")
+        return result
+    except Exception as e:
+        logger.exception(f"Error creating or using provider {ai_provider.provider_type}: {e}")
+        return (None, f"Provider error: {str(e)}")
