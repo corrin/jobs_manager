@@ -21,6 +21,13 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Debug All Variables
+        run: |
+          echo "SCHEDULER_HOST: ${{ vars.SCHEDULER_HOST }}"
+          echo "FRONTEND_HOST: ${{ vars.FRONTEND_HOST }}"
+          echo "AWS_USER: ${{ vars.AWS_USER }}"
+          echo "PROJECT_PATH: ${{ vars.PROJECT_PATH }}"
+
       - name: Deploy to Scheduler Machine
         env:
             SCHEDULER_HOST: ${{ vars.SCHEDULER_HOST }}
@@ -61,7 +68,7 @@ jobs:
         run: |
             echo "Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
 
-            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST << 'EOF'
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST << EOF
               set -e  # Exit on any error
               cd $PROJECT_PATH || exit 1
               git switch main
