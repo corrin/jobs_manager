@@ -10,7 +10,7 @@
 set -e  # Exit on any error
 
 # Configuration
-BRANCH_NAME=${1:-main}
+# Always deploy main branch (CD only triggers on main)
 MACHINE_TYPE=${2:-"auto"}
 PROJECT_PATH="/opt/workflow_app/jobs_manager"
 LOG_FILE="$PROJECT_PATH/logs/deploy_machine.log"
@@ -67,19 +67,19 @@ validate_environment() {
 
 # Update code from git
 update_code() {
-    log "Updating code from git (branch: $BRANCH_NAME)..."
+    log "Updating code from git (branch: main)..."
 
     cd "$PROJECT_PATH"
 
     # Check if branch exists locally
-    if git branch | grep -q "$BRANCH_NAME"; then
-        git switch "$BRANCH_NAME"
-    else
-        git switch -c "$BRANCH_NAME"
-    fi
+    git switch main
 
-    # Pull latest changes
-    git pull -f origin "$BRANCH_NAME"
+    # Pull latest changes and force sync with remote
+    git fetch origin main
+    git reset --hard origin/main
+
+    # Ensure deploy script has execute permissions
+    chmod +x "$PROJECT_PATH/scripts/deploy_machine.sh"
 
     log_success "Code update complete"
 }
@@ -151,7 +151,7 @@ restart_services() {
 # Main deployment function
 main() {
     log "Starting deployment process..."
-    log "Branch: $BRANCH_NAME"
+    log "Branch: main"
     log "Machine Type: $MACHINE_TYPE"
     log "Project Path: $PROJECT_PATH"
 
