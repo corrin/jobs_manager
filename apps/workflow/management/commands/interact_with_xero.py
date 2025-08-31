@@ -111,13 +111,18 @@ class Command(BaseCommand):
             project_api = ProjectApi(api_client)
             users_response = project_api.get_project_users(xero_tenant_id=tenant_id)
 
-            self.stdout.write("Xero Users (Projects API):")
+            self.stdout.write(
+                f"Xero Users (Projects API) - Total: {len(users_response.items)}:"
+            )
             self.stdout.write("---------------------------")
 
-            for user in users_response.items:
-                self.stdout.write(f"User ID: {user.user_id}")
-                self.stdout.write(f"Name: {user.name}")
-                self.stdout.write(f"Email: {user.email}")
+            for i, user in enumerate(users_response.items, 1):
+                self.stdout.write(f"Entry #{i}:")
+                self.stdout.write(f"  User ID: {user.user_id}")
+                self.stdout.write(f"  Name: {user.name}")
+                self.stdout.write(f"  Email: {user.email}")
+                # Show all available attributes to help debug
+                self.stdout.write(f"  Full object: {user.to_dict()}")
                 self.stdout.write("---------------------------")
 
         except Exception as e:
