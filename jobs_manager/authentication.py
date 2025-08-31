@@ -59,7 +59,7 @@ class JWTAuthentication(BaseJWTAuthentication):
                 )
                 return None
             user, token = result
-            if not user.is_active:
+            if not user.is_currently_active:
                 raise exceptions.AuthenticationFailed(
                     "User is inactive.", code="user_inactive"
                 )
