@@ -133,7 +133,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         full_name = f"{display_name} {self.last_name}"
         return full_name
 
-    def is_staff_manager(self):
+    def is_staff_manager(self) -> bool:
         return self.groups.filter(name="StaffManager").exists() or self.is_superuser
 
     @property
