@@ -89,6 +89,7 @@ install_dependencies() {
     log "Installing dependencies..."
 
     cd "$PROJECT_PATH"
+    source ~/.bashrc
     source .venv/bin/activate
 
     # Python dependencies
