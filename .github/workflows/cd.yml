@@ -28,7 +28,7 @@ jobs:
             PROJECT_PATH: ${{ vars.PROJECT_PATH }}
         run: |
             BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-            echo "🔄 Deploying to Scheduler Machine: $SCHEDULER_HOST"
+            echo "Deploying to Scheduler Machine: $SCHEDULER_HOST"
 
             if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$SCHEDULER_HOST << EOF
               cd $PROJECT_PATH
@@ -38,7 +38,6 @@ jobs:
                 git switch -c $BRANCH_NAME
               fi
               git pull -f origin $BRANCH_NAME
-              # Note: scheduler uses .venv, frontend uses venv - keep consistent per machine
               source .venv/bin/activate
 
               poetry install
@@ -52,9 +51,9 @@ jobs:
               sudo systemctl reload nginx
             EOF
             then
-              echo "✅ Scheduler machine deployment successful"
+              echo "Scheduler machine deployment successful"
             else
-              echo "❌ Scheduler machine deployment failed"
+              echo "Scheduler machine deployment failed"
               exit 1
             fi
 
@@ -66,7 +65,7 @@ jobs:
             PROJECT_PATH: ${{ vars.PROJECT_PATH }}
         run: |
             BRANCH_NAME=${{ github.head_ref || github.ref_name }}
-            echo "🔄 Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
+            echo "Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
 
             if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST << 'EOF'
               set -e  # Exit on any error
@@ -77,7 +76,6 @@ jobs:
                 git switch -c $BRANCH_NAME
               fi
               git pull -f origin $BRANCH_NAME
-              # Note: scheduler uses .venv, frontend uses venv - keep consistent per machine
               source .venv/bin/activate
 
               poetry install
@@ -90,15 +88,15 @@ jobs:
               sudo systemctl reload nginx
             EOF
             then
-              echo "✅ Frontend/Backend machine deployment successful"
+              echo "Frontend/Backend machine deployment successful"
             else
-              echo "⚠️ Frontend/Backend machine deployment failed or machine offline"
+              echo "Frontend/Backend machine deployment failed or machine offline"
               exit 1
             fi
 
       - name: Deployment Summary
         run: |
-          echo "🎯 Deployment Summary:"
+          echo "Deployment Summary:"
           echo "- Scheduler machine: Required (deployment failed if this failed)"
           echo "- Frontend/Backend machine: Optional (may be offline)"
-          echo "✅ Deployment process completed!"
+          echo "Deployment process completed!"
