@@ -68,7 +68,7 @@ python manage.py setup_dev_xero --skip-sync
 python manage.py start_xero_sync
 
 # Get Xero tenant ID for setup
-python manage.py get_xero_tenant_id
+python manage.py interact_with_xero --tenant
 ```
 
 ### Scheduler Management

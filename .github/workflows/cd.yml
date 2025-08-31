@@ -36,23 +36,7 @@ jobs:
         run: |
             echo "Deploying to Scheduler Machine: $SCHEDULER_HOST"
 
-            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$SCHEDULER_HOST << EOF
-              cd $PROJECT_PATH || exit 1
-              git switch main
-              git pull -f origin main
-              source .venv/bin/activate
-
-              poetry install
-              npm install
-
-              python manage.py migrate
-              python manage.py collectstatic --noinput
-
-              sudo systemctl restart workflow
-              sudo systemctl restart scheduler
-              sudo systemctl reload nginx
-            EOF
-            then
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$SCHEDULER_HOST "$PROJECT_PATH/scripts/deploy_machine.sh main scheduler"; then
               echo "Scheduler machine deployment successful"
             else
               echo "Scheduler machine deployment failed"
@@ -68,23 +52,7 @@ jobs:
         run: |
             echo "Deploying to Frontend/Backend Machine: $FRONTEND_HOST"
 
-            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST << EOF
-              set -e  # Exit on any error
-              cd $PROJECT_PATH || exit 1
-              git switch main
-              git pull -f origin main
-              source .venv/bin/activate
-
-              poetry install
-              npm install
-
-              # Skip migrations since scheduler already ran them
-              python manage.py collectstatic --noinput
-
-              sudo systemctl restart workflow
-              sudo systemctl reload nginx
-            EOF
-            then
+            if ssh -T -o StrictHostKeyChecking=no -o ConnectTimeout=10 $AWS_USER@$FRONTEND_HOST "$PROJECT_PATH/scripts/deploy_machine.sh main frontend"; then
               echo "Frontend/Backend machine deployment successful"
             else
               echo "Frontend/Backend machine deployment failed or machine offline"
