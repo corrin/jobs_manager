@@ -130,13 +130,12 @@ restart_services() {
 
     case $MACHINE_TYPE in
         "scheduler")
-            sudo systemctl restart workflow
             sudo systemctl restart scheduler
             sudo systemctl reload nginx
             log_success "Scheduler machine services restarted"
             ;;
         "frontend")
-            sudo systemctl restart workflow
+            sudo systemctl restart gunicorn-uat
             sudo systemctl reload nginx
             log_success "Frontend/Backend machine services restarted"
             ;;
