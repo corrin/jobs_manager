@@ -14,7 +14,9 @@ from apps.client.views.client_rest_views import (
     ClientContactsRestView,
     ClientCreateRestView,
     ClientListAllRestView,
+    ClientRetrieveRestView,
     ClientSearchRestView,
+    ClientUpdateRestView,
 )
 
 app_name = "clients_rest"
@@ -37,6 +39,18 @@ urlpatterns = [
         "search/",
         ClientSearchRestView.as_view(),
         name="client_search_rest",
+    ),
+    # Client retrieve REST endpoint
+    path(
+        "<uuid:client_id>/",
+        ClientRetrieveRestView.as_view(),
+        name="client_retrieve_rest",
+    ),
+    # Client update REST endpoint
+    path(
+        "<uuid:client_id>/update/",
+        ClientUpdateRestView.as_view(),
+        name="client_update_rest",
     ),
     # Client contacts REST endpoint
     path(

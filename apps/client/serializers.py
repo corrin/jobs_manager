@@ -128,9 +128,11 @@ class ClientCreateRequestSerializer(serializers.Serializer):
     """Serializer for client creation request"""
 
     name = serializers.CharField(max_length=255)
-    email = serializers.EmailField(required=False, allow_blank=True)
-    phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    address = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True, allow_null=True)
+    phone = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, allow_null=True
+    )
+    address = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     is_account_customer = serializers.BooleanField(default=True)
 
 
@@ -156,3 +158,48 @@ class ClientDuplicateErrorResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField(default=False)
     error = serializers.CharField()
     existing_client = serializers.DictField()
+
+
+class ClientDetailResponseSerializer(serializers.Serializer):
+    """Serializer for client detail response"""
+
+    id = serializers.CharField()
+    name = serializers.CharField()
+    email = serializers.CharField(allow_blank=True)
+    phone = serializers.CharField(allow_blank=True)
+    address = serializers.CharField(allow_blank=True)
+    is_account_customer = serializers.BooleanField()
+    is_supplier = serializers.BooleanField()
+    xero_contact_id = serializers.CharField(allow_blank=True)
+    xero_tenant_id = serializers.CharField(allow_blank=True)
+    primary_contact_name = serializers.CharField(allow_blank=True)
+    primary_contact_email = serializers.CharField(allow_blank=True)
+    additional_contact_persons = serializers.ListField(required=False)
+    all_phones = serializers.ListField(required=False)
+    xero_last_modified = serializers.CharField(allow_null=True)
+    xero_last_synced = serializers.CharField(allow_null=True)
+    xero_archived = serializers.BooleanField()
+    xero_merged_into_id = serializers.CharField(allow_blank=True)
+    merged_into = serializers.CharField(allow_null=True)
+    django_created_at = serializers.CharField()
+    django_updated_at = serializers.CharField()
+    last_invoice_date = serializers.CharField(allow_blank=True)
+    total_spend = serializers.CharField()
+
+
+class ClientUpdateRequestSerializer(serializers.Serializer):
+    """Serializer for client update request"""
+
+    name = serializers.CharField(max_length=255, required=False)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    address = serializers.CharField(required=False, allow_blank=True)
+    is_account_customer = serializers.BooleanField(required=False)
+
+
+class ClientUpdateResponseSerializer(serializers.Serializer):
+    """Serializer for client update response"""
+
+    success = serializers.BooleanField()
+    client = ClientDetailResponseSerializer()
+    message = serializers.CharField()
