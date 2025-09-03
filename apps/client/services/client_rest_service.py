@@ -171,16 +171,29 @@ class ClientRestService:
             if not data.get("name") and not client.name:
                 raise ValueError("Client name is required")
 
-            # Validate using Django form for basic validation
-            form = ClientForm(data, instance=client)
+            # Store xero_contact_id before form validation
+            original_xero_contact_id = client.xero_contact_id
+
+            # Validate using Django form for basic validation (without modifying instance)
+            form = ClientForm(data)  # Don't pass instance to avoid modification
             if not form.is_valid():
                 error_messages = []
                 for field, errors in form.errors.items():
                     error_messages.extend([f"{field}: {error}" for error in errors])
                 raise ValueError("; ".join(error_messages))
 
+            # DEBUG: Log client state after form validation
+            logger.info(
+                f"Client data after form validation: xero_contact_id={original_xero_contact_id}",
+                extra={
+                    "client_id": str(client.id),
+                    "original_xero_contact_id": original_xero_contact_id,
+                    "operation": "update_client_debug_after_form",
+                },
+            )
+
             # Check if client is synced with Xero
-            if client.xero_contact_id:
+            if original_xero_contact_id:
                 # Update in Xero first, then sync locally
                 updated_client = ClientRestService._update_client_in_xero(client, data)
                 logger.info(
