@@ -71,7 +71,12 @@ class JobRestService:
         }
 
         # Optional fields - only if provided
-        optional_fields = ["description", "order_number", "notes"]
+        optional_fields = [
+            "description",
+            "order_number",
+            "notes",
+            "pricing_methodology",
+        ]
         for field in optional_fields:
             if data.get(field):
                 job_data[field] = data[field]
