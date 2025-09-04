@@ -18,6 +18,7 @@ try:
             ClientContactSerializer,
             ClientCreateRequestSerializer,
             ClientCreateResponseSerializer,
+            ClientDetailResponseSerializer,
             ClientDuplicateErrorResponseSerializer,
             ClientErrorResponseSerializer,
             ClientListResponseSerializer,
@@ -25,6 +26,8 @@ try:
             ClientSearchResponseSerializer,
             ClientSearchResultSerializer,
             ClientSerializer,
+            ClientUpdateRequestSerializer,
+            ClientUpdateResponseSerializer,
             StandardErrorSerializer,
         )
 except (ImportError, RuntimeError):
@@ -43,6 +46,7 @@ __all__ = [
     "ClientContactSerializer",
     "ClientCreateRequestSerializer",
     "ClientCreateResponseSerializer",
+    "ClientDetailResponseSerializer",
     "ClientDuplicateErrorResponseSerializer",
     "ClientErrorResponseSerializer",
     "ClientForm",
@@ -51,6 +55,8 @@ __all__ = [
     "ClientSearchResponseSerializer",
     "ClientSearchResultSerializer",
     "ClientSerializer",
+    "ClientUpdateRequestSerializer",
+    "ClientUpdateResponseSerializer",
     "StandardErrorSerializer",
     "Supplier",
 ]

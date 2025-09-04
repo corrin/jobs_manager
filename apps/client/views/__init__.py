@@ -5,7 +5,9 @@ from .client_rest_views import (
     ClientContactsRestView,
     ClientCreateRestView,
     ClientListAllRestView,
+    ClientRetrieveRestView,
     ClientSearchRestView,
+    ClientUpdateRestView,
 )
 
 __all__ = [
@@ -13,5 +15,7 @@ __all__ = [
     "ClientContactsRestView",
     "ClientCreateRestView",
     "ClientListAllRestView",
+    "ClientRetrieveRestView",
     "ClientSearchRestView",
+    "ClientUpdateRestView",
 ]
