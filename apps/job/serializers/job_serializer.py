@@ -389,6 +389,9 @@ class JobCreateRequestSerializer(serializers.Serializer):
     order_number = serializers.CharField(required=False, allow_blank=True)
     notes = serializers.CharField(required=False, allow_blank=True)
     contact_id = serializers.UUIDField(required=False, allow_null=True)
+    pricing_methodology = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True
+    )
 
 
 class JobCreateResponseSerializer(serializers.Serializer):
