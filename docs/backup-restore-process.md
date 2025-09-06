@@ -381,7 +381,7 @@ python manage.py runserver 0.0.0.0:8000
 **Run as:** Development system user
 **Command:**
 ```bash
-python manage.py get_xero_tenant_id
+python manage.py interact_with_xero --tenant
 ```
 **Expected output:**
 ```

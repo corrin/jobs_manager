@@ -177,6 +177,7 @@ class JobCreateRestView(BaseJobRestView):
             "order_number": "Optional order number",
             "notes": "Optional notes",
             "contact_id": "optional-contact-uuid"
+            "pricing_methodology": "Optional methodology (defaults to T&M)"
         }
         """
         try:

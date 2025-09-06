@@ -128,7 +128,7 @@ class CostLine(models.Model):
             raise ValidationError("Unit revenue must be non-negative")
 
     def _update_cost_set_summary(self) -> None:
-        """Update cost set summary with aggregated data"""
+        """Update cost set summary with aggregated data - PRESERVE existing data"""
         cost_set = self.cost_set
         cost_lines = cost_set.cost_lines.all()
 
@@ -138,11 +138,17 @@ class CostLine(models.Model):
             float(line.quantity) for line in cost_lines if line.kind == "time"
         )
 
-        cost_set.summary = {
-            "cost": float(total_cost),
-            "rev": float(total_rev),
-            "hours": total_hours,
-        }
+        # Preserve existing summary data (especially revisions)
+        current_summary = cost_set.summary or {}
+        current_summary.update(
+            {
+                "cost": float(total_cost),
+                "rev": float(total_rev),
+                "hours": total_hours,
+            }
+        )
+
+        cost_set.summary = current_summary  # Preserves revisions[]
         cost_set.save()
 
     def save(self, *args, **kwargs):

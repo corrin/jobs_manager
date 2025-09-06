@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
+from rest_framework.permissions import IsAuthenticated
 
 # Import scopes from constants to ensure consistency
 from apps.workflow.api.xero.constants import XERO_SCOPES as DEFAULT_XERO_SCOPES_LIST
@@ -128,7 +129,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "apps.workflow.middleware.FrontendRedirectMiddleware",  # DEVE vir ANTES do AccessLogging
+    "apps.workflow.middleware.FrontendRedirectMiddleware",
     "apps.workflow.middleware.AccessLoggingMiddleware",
     "apps.workflow.middleware.LoginRequiredMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -267,7 +268,9 @@ SIMPLE_JWT = {
 
 # Disable DRF authentication entirely when DEBUG=True for local development
 if DEBUG:
-    from rest_framework.permissions import IsAuthenticated
+    REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"] = [
+        "rest_framework.permissions.AllowAny",
+    ]
 
     IsAuthenticated.has_permission = lambda self, request, view: True
     IsAuthenticated.has_object_permission = lambda self, request, view, obj: True

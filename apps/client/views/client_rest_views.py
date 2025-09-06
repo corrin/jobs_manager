@@ -8,15 +8,9 @@ REST views for the Client module following clean code principles:
 - Views as orchestrators only
 """
 
-import json
 import logging
-from decimal import Decimal
 from typing import Any, Dict
 
-from django.db import transaction
-from django.db.models import DecimalField, Max, Sum, Value
-from django.db.models.functions import Coalesce
-from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiTypes,
@@ -28,24 +22,24 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from xero_python.accounting import AccountingApi
 
-from apps.client.forms import ClientForm
-from apps.client.models import Client, ClientContact
+from apps.client.models import Client
 from apps.client.serializers import (
     ClientContactCreateRequestSerializer,
     ClientContactCreateResponseSerializer,
     ClientContactResponseSerializer,
     ClientCreateRequestSerializer,
     ClientCreateResponseSerializer,
+    ClientDetailResponseSerializer,
     ClientDuplicateErrorResponseSerializer,
     ClientErrorResponseSerializer,
     ClientListResponseSerializer,
     ClientNameOnlySerializer,
     ClientSearchResponseSerializer,
+    ClientUpdateRequestSerializer,
+    ClientUpdateResponseSerializer,
 )
-from apps.workflow.api.xero.sync import sync_clients
-from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
+from apps.client.services.client_rest_service import ClientRestService
 
 logger = logging.getLogger(__name__)
 
@@ -75,9 +69,8 @@ class ClientListAllRestView(APIView):
         Lists all clients (only id and name) for fast dropdowns.
         """
         try:
-            clients = Client.objects.all().order_by("name")
-            serializer = ClientNameOnlySerializer(clients, many=True)
-            return Response(serializer.data)
+            clients_data = ClientRestService.get_all_clients()
+            return Response(clients_data)
         except Exception as e:
             logger.error(f"Error fetching all clients: {str(e)}")
             error_serializer = ClientErrorResponseSerializer(
@@ -144,9 +137,7 @@ class ClientSearchRestView(APIView):
                 limit = 10
             limit = max(1, min(limit, 50))
 
-            clients = self._search_clients(query, limit)
-            results = self._format_client_results(clients)
-
+            results = ClientRestService.search_clients(query, limit)
             payload = {"results": results}
             serializer = ClientSearchResponseSerializer(data=payload)
             serializer.is_valid(raise_exception=True)
@@ -162,60 +153,185 @@ class ClientSearchRestView(APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _search_clients(self, query: str, limit: int):
-        """
-        Executes client search with appropriate filters.
-        SRP: single responsibility for searching clients.
-        """
-        output = DecimalField(max_digits=12, decimal_places=2)
 
-        return (
-            Client.objects.filter(name__startswith=query)  # ← index‑friendly
-            .annotate(
-                last_invoice_date=Max("invoice__date"),
-                total_spend=Coalesce(
-                    Sum(
-                        "invoice__total_excl_tax",
-                        output_field=output,
-                    ),
-                    Value(Decimal("0.00")),
-                    output_field=output,
-                ),
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get client details",
+        description="Retrieve detailed information for a specific client.",
+        parameters=[
+            OpenApiParameter(
+                name="client_id",
+                location=OpenApiParameter.PATH,
+                description="UUID of the client",
+                required=True,
+                type=OpenApiTypes.UUID,
             )
-            .defer("raw_json")  # not needed/used by the front-end currently
-            .only(
-                "id",
-                "name",
-                "email",
-                "phone",
-                "address",
-                "is_account_customer",
-                "xero_contact_id",
-            )
-            .order_by("name")[:limit]
-        )
+        ],
+        responses={
+            200: ClientDetailResponseSerializer,
+            404: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
+class ClientRetrieveRestView(APIView):
+    """
+    REST view for retrieving a specific client by ID.
+    """
 
-    def _format_client_results(self, clients) -> list:
-        formatted = []
-        for c in clients:
-            # guard None for date
-            date_str = (
-                c.last_invoice_date.strftime("%d/%m/%Y") if c.last_invoice_date else ""
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientDetailResponseSerializer
+
+    def get(self, request: Request, client_id: str) -> Response:
+        """
+        Retrieves detailed information for a specific client.
+        """
+        try:
+            client_data = ClientRestService.get_client_by_id(client_id)
+            return Response(client_data)
+        except ValueError as e:
+            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error retrieving client {client_id}: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error retrieving client", "details": str(e)}
             )
-            formatted.append(
-                {
-                    "id": str(c.id),
-                    "name": c.name,
-                    "email": c.email or "",
-                    "phone": c.phone or "",
-                    "address": c.address or "",
-                    "is_account_customer": c.is_account_customer,
-                    "xero_contact_id": c.xero_contact_id or "",
-                    "last_invoice_date": date_str,
-                    "total_spend": f"${c.total_spend:,.2f}",
-                }
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        return formatted
+
+
+@extend_schema_view(
+    put=extend_schema(
+        summary="Update client",
+        description="Update an existing client's information.",
+        parameters=[
+            OpenApiParameter(
+                name="client_id",
+                location=OpenApiParameter.PATH,
+                description="UUID of the client",
+                required=True,
+                type=OpenApiTypes.UUID,
+            )
+        ],
+        request=ClientUpdateRequestSerializer,
+        responses={
+            200: ClientUpdateResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            404: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    ),
+    patch=extend_schema(
+        summary="Partially update client",
+        description="Partially update an existing client's information.",
+        parameters=[
+            OpenApiParameter(
+                name="client_id",
+                location=OpenApiParameter.PATH,
+                description="UUID of the client",
+                required=True,
+                type=OpenApiTypes.UUID,
+            )
+        ],
+        request=ClientUpdateRequestSerializer,
+        responses={
+            200: ClientUpdateResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            404: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    ),
+)
+class ClientUpdateRestView(APIView):
+    """
+    REST view for updating client information.
+    Supports both PUT (full update) and PATCH (partial update).
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientUpdateResponseSerializer
+
+    def get_serializer_class(self):
+        """Return the appropriate serializer class based on the request method"""
+        if self.request.method in ["PUT", "PATCH"]:
+            return ClientUpdateRequestSerializer
+        return ClientUpdateResponseSerializer
+
+    def put(self, request: Request, client_id: str) -> Response:
+        """
+        Full update of client information.
+        """
+        return self._update_client(request, client_id, partial=False)
+
+    def patch(self, request: Request, client_id: str) -> Response:
+        """
+        Partial update of client information.
+        """
+        return self._update_client(request, client_id, partial=True)
+
+    def _update_client(
+        self, request: Request, client_id: str, partial: bool = True
+    ) -> Response:
+        """
+        Common method for handling client updates.
+        """
+        try:
+            # Validate input data
+            input_serializer = ClientUpdateRequestSerializer(
+                data=request.data, partial=partial
+            )
+            if not input_serializer.is_valid():
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": f"Invalid input data: {input_serializer.errors}"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            validated_data = input_serializer.validated_data
+            updated_client = ClientRestService.update_client(client_id, validated_data)
+
+            # Format response using the service method
+            client_data = ClientRestService._format_client_detail(updated_client)
+            response_data = {
+                "success": True,
+                "client": client_data,
+                "message": f'Client "{updated_client.name}" updated successfully',
+            }
+
+            response_serializer = ClientUpdateResponseSerializer(data=response_data)
+            response_serializer.is_valid(raise_exception=True)
+            return Response(response_serializer.data)
+
+        except ValueError as e:
+            # Handle not found and validation errors
+            if "not found" in str(e).lower():
+                error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+                error_serializer.is_valid(raise_exception=True)
+                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+            else:
+                error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+        except Exception as e:
+            logger.error(f"Error updating client {client_id}: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error updating client", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @extend_schema_view(
@@ -223,13 +339,13 @@ class ClientSearchRestView(APIView):
         summary="Get client contacts",
         description="Retrieve all contacts for a specific client.",
         parameters=[
-            {
-                "name": "client_id",
-                "in": "path",
-                "description": "UUID of the client",
-                "required": True,
-                "schema": {"type": "string", "format": "uuid"},
-            }
+            OpenApiParameter(
+                name="client_id",
+                location=OpenApiParameter.PATH,
+                description="UUID of the client",
+                required=True,
+                type=OpenApiTypes.UUID,
+            )
         ],
         responses={
             200: ClientContactResponseSerializer,
@@ -263,25 +379,16 @@ class ClientContactsRestView(APIView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Fetch client with early return
-            try:
-                client = Client.objects.get(id=client_id)
-            except Client.DoesNotExist:
-                error_serializer = ClientErrorResponseSerializer(
-                    data={"error": "Client not found"}
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-
-            # Fetch client contacts
-            contacts = self._get_client_contacts(client)
-            results = self._format_contact_results(contacts)
-
+            results = ClientRestService.get_client_contacts(client_id)
             response_data = {"results": results}
             serializer = ClientContactResponseSerializer(data=response_data)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data)
 
+        except ValueError as e:
+            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             logger.error(f"Error fetching client contacts: {str(e)}")
             error_serializer = ClientErrorResponseSerializer(
@@ -291,28 +398,6 @@ class ClientContactsRestView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _get_client_contacts(self, client):
-        """
-        Fetches client contacts following SRP.
-        """
-        return client.contacts.all().order_by("name")
-
-    def _format_contact_results(self, contacts) -> list:
-        """
-        Formats contact results following SRP.
-        """
-        return [
-            {
-                "id": str(contact.id),
-                "name": contact.name,
-                "email": contact.email or "",
-                "phone": contact.phone or "",
-                "position": contact.position or "",
-                "is_primary": contact.is_primary,
-            }
-            for contact in contacts
-        ]
 
 
 @extend_schema_view(
@@ -375,7 +460,7 @@ class ClientContactCreateRestView(APIView):
 
             validated_data = input_serializer.validated_data
             logger.info(f"Received contact creation data: {validated_data}")
-            contact = self._create_contact(validated_data)
+            contact = ClientRestService.create_client_contact(validated_data)
 
             response_data = {
                 "success": True,
@@ -397,6 +482,10 @@ class ClientContactCreateRestView(APIView):
             response_serializer.is_valid(raise_exception=True)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+        except ValueError as e:
+            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Error creating contact: {str(e)}")
             error_serializer = ClientErrorResponseSerializer(
@@ -406,49 +495,6 @@ class ClientContactCreateRestView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _parse_json_body(self, request: Request) -> Dict[str, Any]:
-        """
-        Parse JSON body with early return pattern.
-        """
-        if not request.body:
-            raise ValueError("Request body is empty")
-
-        try:
-            return json.loads(request.body)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON: {str(e)}")
-
-    def _create_contact(self, data: Dict[str, Any]) -> ClientContact:
-        """
-        Create contact following validation and business rules.
-        Apply guard clauses for required fields.
-        """
-        # Guard clauses - validate required fields
-        if "client_id" not in data:
-            raise ValueError("client_id is required")
-
-        if "name" not in data or not data["name"].strip():
-            raise ValueError("name is required")
-
-        # Get client with early return on not found
-        try:
-            client = Client.objects.get(id=data["client_id"])
-        except Client.DoesNotExist:
-            raise ValueError("Client not found")
-
-        # Create contact following clean data handling
-        contact = ClientContact.objects.create(
-            client=client,
-            name=data["name"].strip(),
-            email=data.get("email", "").strip() or None,
-            phone=data.get("phone", "").strip() or None,
-            position=data.get("position", "").strip() or None,
-            is_primary=data.get("is_primary", False),
-            notes=data.get("notes", "").strip() or None,
-        )
-
-        return contact
 
 
 @extend_schema_view(
@@ -469,8 +515,8 @@ class ClientContactCreateRestView(APIView):
 class ClientCreateRestView(APIView):
     """
     REST view for creating new clients.
-    Follows clean code principles and delegates to Django forms for validation.
-    Now creates client in Xero first, then syncs locally.
+    Follows clean code principles and delegates to service layer.
+    Creates client in Xero first, then syncs locally.
     """
 
     permission_classes = [IsAuthenticated]
@@ -486,27 +532,10 @@ class ClientCreateRestView(APIView):
         """
         Create a new client, first in Xero, then sync locally.
         """
-        # Debug logging
-        logger.info("DEBUG ClientCreateRestView: POST request received")
-        logger.info(
-            f"DEBUG ClientCreateRestView: User authenticated: {request.user.is_authenticated}"
-        )
-        logger.info(
-            f"DEBUG ClientCreateRestView: User: {getattr(request.user, 'email', 'Anonymous')}"
-        )
-        logger.info(
-            f"DEBUG ClientCreateRestView: Permission classes: {self.permission_classes}"
-        )
-        logger.info(f"DEBUG ClientCreateRestView: Request data: {request.data}")
-
         try:
-            logger.info("DEBUG ClientCreateRestView: Starting validation")
             # Validate input data
             input_serializer = ClientCreateRequestSerializer(data=request.data)
             if not input_serializer.is_valid():
-                logger.info(
-                    f"DEBUG ClientCreateRestView: Serializer validation failed: {input_serializer.errors}"
-                )
                 error_serializer = ClientErrorResponseSerializer(
                     data={"error": f"Invalid input data: {input_serializer.errors}"}
                 )
@@ -515,103 +544,8 @@ class ClientCreateRestView(APIView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
-            logger.info("DEBUG ClientCreateRestView: Serializer validation passed")
             validated_data = input_serializer.validated_data
-            form = ClientForm(validated_data)
-            if not form.is_valid():
-                logger.info(
-                    f"DEBUG ClientCreateRestView: Form validation failed: {form.errors}"
-                )
-                error_messages = []
-                for field, errors in form.errors.items():
-                    error_messages.extend([f"{field}: {error}" for error in errors])
-                error_serializer = ClientErrorResponseSerializer(
-                    data={"error": "; ".join(error_messages)}
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            logger.info("DEBUG ClientCreateRestView: Form validation passed")
-            # Xero token check
-            logger.info("DEBUG ClientCreateRestView: Checking Xero token")
-            token = get_valid_token()
-            if not token:
-                logger.info("DEBUG ClientCreateRestView: No valid Xero token")
-                error_serializer = ClientErrorResponseSerializer(
-                    data={"error": "Xero authentication required"}
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(
-                    error_serializer.data, status=status.HTTP_401_UNAUTHORIZED
-                )
-
-            logger.info(
-                "DEBUG ClientCreateRestView: Xero token valid, proceeding with creation"
-            )
-
-            accounting_api = AccountingApi(api_client)
-            xero_tenant_id = get_tenant_id()
-            name = form.cleaned_data["name"]
-
-            # Check for duplicates in Xero
-            existing_contacts = accounting_api.get_contacts(
-                xero_tenant_id, where=f'Name="{name}"'
-            )
-            if existing_contacts and existing_contacts.contacts:
-                xero_client = existing_contacts.contacts[0]
-                xero_contact_id = getattr(xero_client, "contact_id", "")
-                duplicate_error_data = {
-                    "error": f"Client '{name}' already exists in Xero",
-                    "existing_client": {
-                        "name": name,
-                        "xero_contact_id": xero_contact_id,
-                    },
-                }
-                error_serializer = ClientDuplicateErrorResponseSerializer(
-                    data=duplicate_error_data
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(error_serializer.data, status=status.HTTP_409_CONFLICT)
-
-            # Create new contact in Xero
-            contact_data = {
-                "name": name,
-                "emailAddress": form.cleaned_data["email"] or "",
-                "phones": [
-                    {
-                        "phoneType": "DEFAULT",
-                        "phoneNumber": form.cleaned_data["phone"] or "",
-                    }
-                ],
-                "addresses": [
-                    {
-                        "addressType": "STREET",
-                        "addressLine1": form.cleaned_data["address"] or "",
-                    }
-                ],
-                "isCustomer": form.cleaned_data["is_account_customer"],
-            }
-            response = accounting_api.create_contacts(
-                xero_tenant_id, contacts={"contacts": [contact_data]}
-            )
-            if (
-                not response
-                or not hasattr(response, "contacts")
-                or not response.contacts
-            ):
-                raise ValueError("No contact data in Xero response")
-            if len(response.contacts) != 1:
-                raise ValueError(
-                    f"Expected 1 contact in response, got {len(response.contacts)}"
-                )
-
-            # Sync locally
-            client_instances = sync_clients(response.contacts)
-            if not client_instances:
-                raise ValueError("Failed to sync client from Xero")
-            created_client = client_instances[0]
+            created_client = ClientRestService.create_client(validated_data)
 
             response_data = {
                 "success": True,
@@ -623,51 +557,54 @@ class ClientCreateRestView(APIView):
             response_serializer.is_valid(raise_exception=True)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
+        except ValueError as e:
+            logger.error(
+                f"Error during client creation: {e} | Request data: {request.data}"
+            )
+            # Handle duplicate client error
+            if "already exists in Xero" in str(e):
+                # Extract client name from error message
+                error_msg = str(e)
+                if "Client '" in error_msg and "' already exists" in error_msg:
+                    name = error_msg.split("Client '")[1].split("' already exists")[0]
+                    duplicate_error_data = {
+                        "error": error_msg,
+                        "existing_client": {
+                            "name": name,
+                            "xero_contact_id": error_msg.split("ID: ")[-1]
+                            if "ID: " in error_msg
+                            else "",
+                        },
+                    }
+                    error_serializer = ClientDuplicateErrorResponseSerializer(
+                        data=duplicate_error_data
+                    )
+                    error_serializer.is_valid(raise_exception=True)
+                    return Response(
+                        error_serializer.data, status=status.HTTP_409_CONFLICT
+                    )
+
+            # Handle validation errors
+            if "authentication required" in str(e).lower():
+                error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_401_UNAUTHORIZED
+                )
+
+            # Other validation errors
+            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            logger.error(f"Error creating client (Xero sync): {str(e)}")
+            logger.error(f"Error creating client: {str(e)}")
             error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error creating client (Xero sync)", "details": str(e)}
+                data={"error": "Error creating client", "details": str(e)}
             )
             error_serializer.is_valid(raise_exception=True)
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-    def _parse_json_data(self, request: Request) -> Dict[str, Any]:
-        """
-        Parse JSON data from request following SRP.
-        """
-        try:
-            return json.loads(request.body)
-        except json.JSONDecodeError:
-            raise ValueError("Invalid JSON data")
-
-    def _create_client(self, data: Dict[str, Any]) -> Client:
-        """
-        Create client using Django form validation.
-        """
-        # Use ClientForm for validation following Django best practices
-        form = ClientForm(data)
-
-        # Guard clause - validate form
-        if not form.is_valid():
-            error_messages = []
-            for field, errors in form.errors.items():
-                error_messages.extend([f"{field}: {error}" for error in errors])
-            raise ValueError("; ".join(error_messages))
-
-        # Create client with transaction for data integrity
-        with transaction.atomic():
-            client = form.save(commit=False)
-
-            # Set required fields that aren't in the form
-            client.xero_last_modified = timezone.now()
-            client.xero_last_synced = timezone.now()
-
-            client.save()
-            logger.info(f"Created client: {client.name} (ID: {client.id})")
-
-        return client
 
     def _format_client_data(self, client: Client) -> Dict[str, Any]:
         """
@@ -681,6 +618,8 @@ class ClientCreateRestView(APIView):
             "address": client.address or "",
             "is_account_customer": client.is_account_customer,
             "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": client.get_last_invoice_date() or "",
-            "total_spend": client.get_total_spend() or "0.00",
+            "last_invoice_date": client.get_last_invoice_date().strftime("%d/%m/%Y")
+            if client.get_last_invoice_date()
+            else "",
+            "total_spend": f"${client.get_total_spend():,.2f}",
         }

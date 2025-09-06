@@ -1,0 +1,14 @@
+[Unit]
+Description=Deploy latest code on startup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+ExecStart=/opt/workflow_app/jobs_manager/scripts/deploy_machine.sh main frontend
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

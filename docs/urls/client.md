@@ -18,7 +18,17 @@
 |-------------|------|------|-------------|
 | `/create/` | `client_rest_views.ClientCreateRestView` | `clients:client_create_rest` | REST view for creating new clients. |
 
+### Other
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/<uuid:client_id>/` | `client_rest_views.ClientRetrieveRestView` | `clients:client_retrieve_rest` | REST view for retrieving a specific client by ID. |
+
 ### Search Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/search/` | `client_rest_views.ClientSearchRestView` | `clients:client_search_rest` | REST view for client search. |
+
+### Update Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/<uuid:client_id>/update/` | `client_rest_views.ClientUpdateRestView` | `clients:client_update_rest` | REST view for updating client information. |

@@ -128,7 +128,7 @@ apps/workflow/context_processors.py
 apps/workflow/exceptions.py
 apps/workflow/helpers.py
 apps/workflow/management/commands/create_service_api_key.py
-apps/workflow/management/commands/get_xero_tenant_id.py
+apps/workflow/management/commands/interact_with_xero.py
 apps/workflow/management/commands/invoice_line.py
 apps/workflow/management/commands/launch_ngrok.py
 apps/workflow/management/commands/recreate_all_init_files.py
