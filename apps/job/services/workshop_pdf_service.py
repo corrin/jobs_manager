@@ -245,8 +245,12 @@ def add_logo(pdf, y_position):
 def add_title(pdf, y_position, job):
     """Adds the title to the PDF and returns the new y_position."""
     pdf.setFillColor(colors.HexColor("#004aad"))
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawString(MARGIN, y_position, f"Workshop Sheet - {job.name}")
+    pdf.setFont("Helvetica-Bold", 20)
+    pdf.drawString(
+        MARGIN,
+        y_position,
+        f"Job number - {str(job.job_number) if job.job_number else 'N/A'}",
+    )
     pdf.setFillColor(colors.black)
     return y_position - 30
 
@@ -254,7 +258,7 @@ def add_title(pdf, y_position, job):
 def add_job_details_table(pdf, y_position, job: Job):
     """Adds the job details table to the PDF and returns the new y_position."""
     job_details = [
-        ["Job Number", job.job_number or "N/A"],
+        ["Workshop Sheet", job.name],
         ["Client", job.client.name if job.client else "N/A"],
         ["Contact", job.contact.name if job.contact else "N/A"],
         ["Description", Paragraph(job.description or "N/A", description_style)],
