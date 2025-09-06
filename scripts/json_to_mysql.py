@@ -70,6 +70,7 @@ class JSONToMySQLConverter:
             "client.clientcontact": "client_contact",
             "quoting.supplierpricelist": "quoting_supplierpricelist",
             "quoting.supplierproduct": "quoting_supplierproduct",
+            "quoting.scrapejob": "quoting_scrapejob",
             "contenttypes.contenttype": "django_content_type",
             "migrations.migration": "django_migrations",
         }
@@ -123,6 +124,9 @@ class JSONToMySQLConverter:
                 "supplier": "supplier_id",
             },
             "quoting_supplierpricelist": {
+                "supplier": "supplier_id",
+            },
+            "quoting_scrapejob": {
                 "supplier": "supplier_id",
             },
         }

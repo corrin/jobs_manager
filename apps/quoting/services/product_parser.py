@@ -13,7 +13,7 @@ from apps.quoting.utils import (
     calculate_supplier_product_hash,
 )
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.helpers import get_company_defaults
+from apps.workflow.models import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,13 @@ class ProductParser:
     BATCH_SIZE = 100
 
     def __init__(self):
-        self.company_defaults = get_company_defaults()
         self._gemini_client = None
 
     @property
     def gemini_client(self):
         """Lazy initialization of Gemini client."""
         if self._gemini_client is None:
-            ai_provider = self.company_defaults.ai_providers.filter(
+            ai_provider = AIProvider.objects.filter(
                 provider_type=AIProviderTypes.GOOGLE, default=True
             ).first()
 

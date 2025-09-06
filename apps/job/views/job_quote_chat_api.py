@@ -9,6 +9,7 @@ import logging
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -42,6 +43,29 @@ class JobQuoteChatInteractionView(APIView):
     http_method_names = ["post", "options"]
     serializer_class = JobQuoteChatInteractionRequestSerializer
 
+    @extend_schema(
+        request=JobQuoteChatInteractionRequestSerializer,
+        responses={
+            201: OpenApiResponse(
+                response=JobQuoteChatInteractionSuccessResponseSerializer,
+                description="AI response generated successfully",
+            ),
+            400: OpenApiResponse(
+                response=JobQuoteChatInteractionErrorResponseSerializer,
+                description="Invalid input data or configuration error",
+            ),
+            404: OpenApiResponse(
+                response=JobQuoteChatInteractionErrorResponseSerializer,
+                description="Job not found",
+            ),
+            500: OpenApiResponse(
+                response=JobQuoteChatInteractionErrorResponseSerializer,
+                description="Internal server error",
+            ),
+        },
+        summary="Get AI assistant response",
+        description="Sends user message to AI assistant and returns the generated response",
+    )
     def post(self, request, job_id):
         """
         Receives a user message, sends it to the MCPChatService for processing,

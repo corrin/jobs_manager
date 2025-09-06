@@ -42,15 +42,13 @@ class GeminiChatService:
         """
         try:
             ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.GOOGLE,
-                default=True,
+                provider_type=AIProviderTypes.GOOGLE
             ).first()
 
             if not ai_provider:
                 raise ValueError(
-                    "No default Gemini AI provider configured. "
-                    "Please add an AIProvider with type 'Gemini' and mark it as "
-                    "default."
+                    "No Gemini AI provider configured. "
+                    "Please add an AIProvider with type 'Gemini'."
                 )
 
             if not ai_provider.api_key:

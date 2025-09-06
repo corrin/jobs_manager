@@ -9,6 +9,7 @@ import logging
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -23,6 +24,7 @@ from apps.job.serializers import (
     JobQuoteChatUpdateResponseSerializer,
     JobQuoteChatUpdateSerializer,
 )
+from apps.job.serializers.job_quote_chat_serializer import JobQuoteChatCreateSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +93,7 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
     def get_serializer_class(self):
         """Return appropriate serializer class based on request method."""
         if self.request.method == "POST":
-            return JobQuoteChatSerializer
+            return JobQuoteChatCreateSerializer
         elif self.request.method == "GET":
             return JobQuoteChatHistoryResponseSerializer
         elif self.request.method == "DELETE":
@@ -141,6 +143,14 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
         except Exception as e:
             return self.handle_error(e)
 
+    @extend_schema(
+        request=JobQuoteChatCreateSerializer,
+        responses={
+            201: JobQuoteChatCreateResponseSerializer,
+        },
+        summary="Save a new chat message",
+        description="Save a new chat message (user or assistant) for a job",
+    )
     def post(self, request, job_id):
         """
         Save a new chat message (user or assistant).
@@ -163,19 +173,19 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
                 return error_response
 
             # Validate data using serializer
-            serializer = JobQuoteChatSerializer(data=request.data)
+            serializer = JobQuoteChatCreateSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
             # Create the message with job relationship
             message = serializer.save(job=job)
 
+            # Serialize the full message for response
+            message_serializer = JobQuoteChatSerializer(message)
+
             # Serialize the response
             response_data = {
                 "success": True,
-                "data": {
-                    "message_id": message.message_id,
-                    "timestamp": message.timestamp.isoformat(),
-                },
+                "data": message_serializer.data,
             }
 
             response_serializer = JobQuoteChatCreateResponseSerializer(response_data)

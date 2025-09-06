@@ -35,6 +35,7 @@ URL Structure Patterns:
 
 Follow these patterns when adding new URLs to maintain consistency.
 """
+
 import debug_toolbar
 from django.urls import include, path
 from django.views.generic import RedirectView

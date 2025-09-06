@@ -627,9 +627,11 @@ class PurchaseOrderAllocationsAPIView(APIView):
                             else stock_item.job.name
                         ),
                         "quantity": float(stock_item.quantity),
-                        "retail_rate": float(stock_item.retail_rate * 100)
-                        if stock_item.retail_rate
-                        else 0,
+                        "retail_rate": (
+                            float(stock_item.retail_rate * 100)
+                            if stock_item.retail_rate
+                            else 0
+                        ),
                         "allocation_date": stock_item.date.isoformat(),
                         "description": stock_item.description,
                         "stock_location": stock_item.location or "Not specified",
