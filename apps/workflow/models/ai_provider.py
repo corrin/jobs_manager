@@ -4,6 +4,11 @@ from apps.workflow.enums import AIProviderTypes
 
 
 class AIProvider(models.Model):
+    company = models.ForeignKey(
+        "CompanyDefaults",
+        on_delete=models.CASCADE,
+        related_name="ai_providers",
+    )
     name = models.CharField(max_length=100, help_text="Friendly name for this provider")
     api_key = models.CharField(
         max_length=255, null=True, blank=True, help_text="API Key for this AI Provider"
@@ -16,9 +21,7 @@ class AIProvider(models.Model):
         help_text="Specific model name (e.g., gemini-2.5-flash-lite-preview-06-17)",
         blank=True,
     )
-    company = models.ForeignKey(
-        "CompanyDefaults", on_delete=models.CASCADE, related_name="ai_providers"
-    )
+
     provider_type = models.CharField(
         max_length=20, choices=AIProviderTypes, help_text="Type of AI provider"
     )
