@@ -2496,7 +2496,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/JobQuoteChatCreateResponse'
+                $ref: '#/components/schemas/JobQuoteChatInteractionSuccessResponse'
           description: ''
     delete:
       operationId: job_api_jobs_quote_chat_destroy
@@ -7791,18 +7791,6 @@ components:
       - content
       - message_id
       - role
-    JobQuoteChatCreateResponse:
-      type: object
-      description: Serializer for chat message creation response.
-      properties:
-        success:
-          type: boolean
-        data:
-          type: object
-          additionalProperties: {}
-      required:
-      - data
-      - success
     JobQuoteChatHistoryResponse:
       type: object
       description: Serializer for chat history response.

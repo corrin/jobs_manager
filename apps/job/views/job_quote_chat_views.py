@@ -17,9 +17,9 @@ from rest_framework.views import APIView
 from apps.job.mixins import JobLookupMixin
 from apps.job.models import Job, JobQuoteChat
 from apps.job.serializers import (
-    JobQuoteChatCreateResponseSerializer,
     JobQuoteChatDeleteResponseSerializer,
     JobQuoteChatHistoryResponseSerializer,
+    JobQuoteChatInteractionSuccessResponseSerializer,
     JobQuoteChatSerializer,
     JobQuoteChatUpdateResponseSerializer,
     JobQuoteChatUpdateSerializer,
@@ -146,7 +146,7 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
     @extend_schema(
         request=JobQuoteChatCreateSerializer,
         responses={
-            201: JobQuoteChatCreateResponseSerializer,
+            201: JobQuoteChatInteractionSuccessResponseSerializer,
         },
         summary="Save a new chat message",
         description="Save a new chat message (user or assistant) for a job",
@@ -164,23 +164,54 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
         }
         """
         try:
+            # Log incoming request data
+            logger.info(f"Quote chat POST - Received data: {request.data}")
+            logger.info(f"Quote chat POST - Job ID: {job_id}")
+            logger.info(f"Quote chat POST - Content type: {request.content_type}")
+
             # Get job using utility method
             job = self.get_job_or_404(job_id)
 
             # Check if job exists
             job, error_response = self.get_job_or_404_response(error_format="api")
             if error_response:
+                logger.warning(f"Quote chat POST - Job not found: {job_id}")
                 return error_response
 
             # Validate data using serializer
             serializer = JobQuoteChatCreateSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
+
+            # Log validation result
+            if serializer.is_valid():
+                logger.info(
+                    f"Quote chat POST - Validated data: {serializer.validated_data}"
+                )
+                logger.info(
+                    f"Quote chat POST - Content field: '{serializer.validated_data.get('content', 'MISSING')}'"
+                )
+            else:
+                logger.error(
+                    f"Quote chat POST - Validation errors: {serializer.errors}"
+                )
+                serializer.is_valid(
+                    raise_exception=True
+                )  # This will raise the validation error
 
             # Create the message with job relationship
             message = serializer.save(job=job)
 
+            # Log what was saved to database
+            logger.info(f"Quote chat POST - Saved to database: id={message.id}")
+            logger.info(f"Quote chat POST - Saved content: '{message.content}'")
+            logger.info(f"Quote chat POST - Saved role: '{message.role}'")
+            logger.info(f"Quote chat POST - Saved message_id: '{message.message_id}'")
+            logger.info(f"Quote chat POST - Saved metadata: {message.metadata}")
+
             # Serialize the full message for response
             message_serializer = JobQuoteChatSerializer(message)
+            logger.info(
+                f"Quote chat POST - Serialized message data: {message_serializer.data}"
+            )
 
             # Serialize the response
             response_data = {
@@ -188,10 +219,26 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
                 "data": message_serializer.data,
             }
 
-            response_serializer = JobQuoteChatCreateResponseSerializer(response_data)
+            response_serializer = JobQuoteChatInteractionSuccessResponseSerializer(
+                response_data
+            )
+
+            # Log final response data
+            logger.info(
+                f"Quote chat POST - Final response data: {response_serializer.data}"
+            )
+            logger.info(
+                f"Quote chat POST - Response content field: '{response_serializer.data.get('data', {}).get('content', 'MISSING')}'"
+            )
+
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            logger.error(f"Quote chat POST - Exception occurred: {str(e)}")
+            logger.error(f"Quote chat POST - Exception type: {type(e).__name__}")
+            import traceback
+
+            logger.error(f"Quote chat POST - Traceback: {traceback.format_exc()}")
             return self.handle_error(e)
 
     def delete(self, request, job_id):

@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import os
 
 from django.conf import settings
@@ -205,8 +206,6 @@ class JobFileView(JobNumberLookupMixin, APIView):
             )
 
         try:
-            import mimetypes
-
             response = FileResponse(open(full_path, "rb"))
             content_type, _ = mimetypes.guess_type(full_path)
             if content_type:
