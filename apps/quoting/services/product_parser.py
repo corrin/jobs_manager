@@ -461,15 +461,23 @@ def create_mapping_record(instance):
     SupplierProduct.objects.filter(id=instance.id).update(mapping_hash=mapping_hash)
 
     # Create empty ProductParsingMapping record if it doesn't exist
-    ProductParsingMapping.objects.get_or_create(
+    input_data = {
+        "input_description": instance.description or instance.product_name or "",
+        "input_product_name": instance.product_name or "",
+        "input_specifications": instance.specifications or "",
+    }
+
+    ppm, created = ProductParsingMapping.objects.get_or_create(
         input_hash=mapping_hash,
         defaults={
-            "input_description": instance.description or instance.product_name or "",
-            "input_product_name": instance.product_name or "",
-            "input_specifications": instance.specifications or "",
+            "input_data": json.dumps(input_data, indent=2),
             "created_at": timezone.now(),
         },
     )
+    if created:
+        logging.info(f"Created some shite:  {ppm}")
+    else:
+        logging.info(f"Updated some shite:  {ppm}")
 
 
 def populate_all_mappings_with_llm():

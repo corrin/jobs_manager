@@ -4,6 +4,7 @@ import logging
 import traceback
 from decimal import Decimal, InvalidOperation
 
+from django.db.models import OuterRef, Subquery
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -33,6 +34,7 @@ from apps.purchasing.serializers import (
     StockCreateSerializer,
     StockDeactivateResponseSerializer,
     StockListSerializer,
+    SupplierPriceStatusResponseSerializer,
     XeroItemListResponseSerializer,
 )
 from apps.purchasing.services.allocation_service import (
@@ -44,6 +46,97 @@ from apps.purchasing.services.purchasing_rest_service import PurchasingRestServi
 from apps.purchasing.services.stock_service import consume_stock
 
 logger = logging.getLogger(__name__)
+
+
+class SupplierPriceStatusAPIView(APIView):
+    """Return latest price upload status per supplier.
+
+    Minimal-impact: read-only query over existing Client and SupplierPriceList
+    models. No migrations required.
+    """
+
+    serializer_class = SupplierPriceStatusResponseSerializer
+
+    @extend_schema(
+        operation_id="getSupplierPriceStatus",
+        responses=SupplierPriceStatusResponseSerializer,
+    )
+    def get(self, request):
+        try:
+            from apps.client.models import Client
+            from apps.quoting.models import SupplierPriceList
+
+            # Subquery to get the latest upload per supplier
+            latest_pl = SupplierPriceList.objects.filter(
+                supplier_id=OuterRef("pk")
+            ).order_by("-uploaded_at")
+
+            suppliers = (
+                Client.objects.filter(
+                    id__in=SupplierPriceList.objects.values("supplier_id").distinct()
+                )
+                .annotate(
+                    last_uploaded_at=Subquery(latest_pl.values("uploaded_at")[:1]),
+                    last_file_name=Subquery(latest_pl.values("file_name")[:1]),
+                )
+                .order_by("name")
+            )
+
+            # Build response rows, including counts and change estimate (no migrations)
+            items = []
+            from apps.quoting.models import SupplierProduct
+
+            for s in suppliers:
+                # Find latest and previous price lists for this supplier
+                pls = (
+                    SupplierPriceList.objects.filter(supplier_id=s.id)
+                    .order_by("-uploaded_at")
+                    .values_list("id", "file_name", "uploaded_at")
+                )
+                total_products = None
+                changes_last_update = None
+                if pls:
+                    latest_id, latest_file, latest_dt = pls[0]
+                    # Count all supplier products linked to this supplier (across price lists)
+                    total_products = SupplierProduct.objects.filter(
+                        supplier_id=s.id
+                    ).count()
+                    if len(pls) > 1:
+                        prev_id, _, _ = pls[1]
+                        latest_keys = set(
+                            SupplierProduct.objects.filter(
+                                price_list_id=latest_id
+                            ).values_list("item_no", "variant_id")
+                        )
+                        prev_keys = set(
+                            SupplierProduct.objects.filter(
+                                price_list_id=prev_id
+                            ).values_list("item_no", "variant_id")
+                        )
+                        additions = len(latest_keys - prev_keys)
+                        removals = len(prev_keys - latest_keys)
+                        changes_last_update = additions + removals
+
+                items.append(
+                    {
+                        "supplier_id": s.id,
+                        "supplier_name": s.name,
+                        "last_uploaded_at": s.last_uploaded_at,
+                        "file_name": s.last_file_name,
+                        "total_products": total_products,
+                        "changes_last_update": changes_last_update,
+                    }
+                )
+
+            resp = {"items": items, "total_count": len(items)}
+            serializer = self.serializer_class(resp)
+            return Response(serializer.data)
+        except Exception as e:
+            logger.error(f"Error computing supplier price status: {e}")
+            return Response(
+                {"error": "Failed to fetch supplier price status"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class AllJobsAPIView(APIView):

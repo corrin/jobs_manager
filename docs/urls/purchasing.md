@@ -73,6 +73,11 @@
 | `/stock/<uuid:stock_id>/` | `purchasing_rest_views.StockDeactivateRestView` | `purchasing:stock_deactivate_rest` | REST API view for deactivating stock items. |
 | `/stock/<uuid:stock_id>/consume/` | `purchasing_rest_views.StockConsumeRestView` | `purchasing:stock_consume_rest` | REST API view for consuming stock items for jobs. |
 
+### Supplier-Price-Status Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/supplier-price-status/` | `purchasing_rest_views.SupplierPriceStatusAPIView` | `purchasing:supplier_price_status_rest` | Return latest price upload status per supplier. |
+
 ### Use-Stock Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
