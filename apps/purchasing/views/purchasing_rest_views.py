@@ -34,8 +34,8 @@ from apps.purchasing.serializers import (
     StockCreateSerializer,
     StockDeactivateResponseSerializer,
     StockListSerializer,
-    XeroItemListResponseSerializer,
     SupplierPriceStatusResponseSerializer,
+    XeroItemListResponseSerializer,
 )
 from apps.purchasing.services.allocation_service import (
     AllocationDeletionError,
@@ -57,17 +57,19 @@ class SupplierPriceStatusAPIView(APIView):
 
     serializer_class = SupplierPriceStatusResponseSerializer
 
-    @extend_schema(operation_id="getSupplierPriceStatus", responses=SupplierPriceStatusResponseSerializer)
+    @extend_schema(
+        operation_id="getSupplierPriceStatus",
+        responses=SupplierPriceStatusResponseSerializer,
+    )
     def get(self, request):
         try:
             from apps.client.models import Client
             from apps.quoting.models import SupplierPriceList
 
             # Subquery to get the latest upload per supplier
-            latest_pl = (
-                SupplierPriceList.objects.filter(supplier_id=OuterRef("pk"))
-                .order_by("-uploaded_at")
-            )
+            latest_pl = SupplierPriceList.objects.filter(
+                supplier_id=OuterRef("pk")
+            ).order_by("-uploaded_at")
 
             suppliers = (
                 Client.objects.filter(
@@ -83,6 +85,7 @@ class SupplierPriceStatusAPIView(APIView):
             # Build response rows, including counts and change estimate (no migrations)
             items = []
             from apps.quoting.models import SupplierProduct
+
             for s in suppliers:
                 # Find latest and previous price lists for this supplier
                 pls = (
@@ -95,16 +98,20 @@ class SupplierPriceStatusAPIView(APIView):
                 if pls:
                     latest_id, latest_file, latest_dt = pls[0]
                     # Count all supplier products linked to this supplier (across price lists)
-                    total_products = SupplierProduct.objects.filter(supplier_id=s.id).count()
+                    total_products = SupplierProduct.objects.filter(
+                        supplier_id=s.id
+                    ).count()
                     if len(pls) > 1:
                         prev_id, _, _ = pls[1]
                         latest_keys = set(
-                            SupplierProduct.objects.filter(price_list_id=latest_id)
-                            .values_list("item_no", "variant_id")
+                            SupplierProduct.objects.filter(
+                                price_list_id=latest_id
+                            ).values_list("item_no", "variant_id")
                         )
                         prev_keys = set(
-                            SupplierProduct.objects.filter(price_list_id=prev_id)
-                            .values_list("item_no", "variant_id")
+                            SupplierProduct.objects.filter(
+                                price_list_id=prev_id
+                            ).values_list("item_no", "variant_id")
                         )
                         additions = len(latest_keys - prev_keys)
                         removals = len(prev_keys - latest_keys)
@@ -713,9 +720,11 @@ class PurchaseOrderAllocationsAPIView(APIView):
                             else stock_item.job.name
                         ),
                         "quantity": float(stock_item.quantity),
-                        "retail_rate": float(stock_item.retail_rate * 100)
-                        if stock_item.retail_rate
-                        else 0,
+                        "retail_rate": (
+                            float(stock_item.retail_rate * 100)
+                            if stock_item.retail_rate
+                            else 0
+                        ),
                         "allocation_date": stock_item.date.isoformat(),
                         "description": stock_item.description,
                         "stock_location": stock_item.location or "Not specified",

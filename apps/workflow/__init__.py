@@ -74,7 +74,7 @@ except (ImportError, RuntimeError):
 
 # EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
 # Import these directly where needed using:
-# from .admin import AIProviderInline
+# from .admin import AIProviderAdmin
 # from .admin import CompanyDefaultsAdmin
 #
 

@@ -42,7 +42,7 @@ from apps.purchasing.services.quote_to_po_service import (
     create_po_from_quote,
     save_quote_file,
 )
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import AIProvider
 
 # Apps Utils and Managers
 from apps.workflow.utils import extract_messages
@@ -456,12 +456,11 @@ def extract_supplier_quote_data_view(request):
 
         quote_file = request.FILES["quote_file"]
 
-        # Get the company defaults and find default AI provider
+        # Get the default AI provider
         try:
-            company_defaults = CompanyDefaults.get_instance()
-            ai_provider = AIProvider.get_default_for_company(company_defaults)
+            ai_provider = AIProvider.get_default()
         except Exception as e:
-            logger.error(f"Failed to get company defaults or AI provider: {e}")
+            logger.error(f"Failed to get default AI provider: {e}")
             ai_provider = None
 
         if not ai_provider:

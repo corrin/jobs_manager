@@ -8,11 +8,13 @@ from django.http import HttpRequest
 from apps.workflow.models import AIProvider, CompanyDefaults
 
 
-class AIProviderInline(admin.TabularInline):
-    """Inline admin for AIProvider to allow adding multiple providers in CompanyDefaults."""
+@admin.register(AIProvider)
+class AIProviderAdmin(admin.ModelAdmin):
+    """Admin interface for AIProvider."""
 
-    model = AIProvider
-    extra = 1
+    list_display = ("name", "provider_type", "model_name", "default")
+    list_filter = ("provider_type", "default")
+    search_fields = ("name", "provider_type", "model_name")
     fields = ("name", "provider_type", "model_name", "api_key", "default")
 
     def save_model(
@@ -20,9 +22,9 @@ class AIProviderInline(admin.TabularInline):
     ) -> None:
         """Ensure only one provider is default by deactivating others when a new one is set as default."""
         if obj.default:
-            AIProvider.objects.filter(company=obj.company, default=True).exclude(
-                pk=obj.pk
-            ).update(default=False)
+            AIProvider.objects.filter(default=True).exclude(pk=obj.pk).update(
+                default=False
+            )
         super().save_model(request, obj, form, change)
 
 
@@ -50,7 +52,6 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
         "materials_markup",
         "starting_job_number",
     ]
-    inlines = [AIProviderInline]
 
     fieldsets = (
         (
@@ -115,7 +116,7 @@ class CompanyDefaultsAdmin(admin.ModelAdmin):
             "AI Providers",
             {
                 "fields": (),
-                "description": "LLM providers are managed in the section below. Only one provider can be default at a time.",
+                "description": "LLM providers are managed separately in the AI Providers admin section. Only one provider can be default at a time.",
             },
         ),
     )

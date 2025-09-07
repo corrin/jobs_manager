@@ -13,7 +13,7 @@ from apps.quoting.utils import (
     calculate_supplier_product_hash,
 )
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.helpers import get_company_defaults
+from apps.workflow.models import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +28,13 @@ class ProductParser:
     BATCH_SIZE = 100
 
     def __init__(self):
-        self.company_defaults = get_company_defaults()
         self._gemini_client = None
 
     @property
     def gemini_client(self):
         """Lazy initialization of Gemini client."""
         if self._gemini_client is None:
-            ai_provider = self.company_defaults.ai_providers.filter(
+            ai_provider = AIProvider.objects.filter(
                 provider_type=AIProviderTypes.GOOGLE, default=True
             ).first()
 
@@ -461,14 +460,14 @@ def create_mapping_record(instance):
     mapping_hash = calculate_supplier_product_hash(instance)
     SupplierProduct.objects.filter(id=instance.id).update(mapping_hash=mapping_hash)
 
-    # Create empty ProductParsingMapping record if it doesn't exist 
-    input_data= {
-            "input_description": instance.description or instance.product_name or "",
-            "input_product_name": instance.product_name or "",
-            "input_specifications": instance.specifications or "",
-        }
-    
-    ppm, created= ProductParsingMapping.objects.get_or_create(
+    # Create empty ProductParsingMapping record if it doesn't exist
+    input_data = {
+        "input_description": instance.description or instance.product_name or "",
+        "input_product_name": instance.product_name or "",
+        "input_specifications": instance.specifications or "",
+    }
+
+    ppm, created = ProductParsingMapping.objects.get_or_create(
         input_hash=mapping_hash,
         defaults={
             "input_data": json.dumps(input_data, indent=2),

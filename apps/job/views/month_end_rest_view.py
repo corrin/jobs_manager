@@ -47,9 +47,9 @@ class MonthEndRestView(APIView):
                     "job_id": str(item["job"].id),
                     "job_number": item["job"].job_number,
                     "job_name": item["job"].name,
-                    "client_name": item["job"].client.name
-                    if item["job"].client
-                    else "",
+                    "client_name": (
+                        item["job"].client.name if item["job"].client else ""
+                    ),
                     "history": [
                         {
                             "date": h["date"].date(),

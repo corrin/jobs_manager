@@ -12,6 +12,7 @@ from .purchasing_rest_views import (
     StockConsumeRestView,
     StockDeactivateRestView,
     StockListRestView,
+    SupplierPriceStatusAPIView,
     XeroItemList,
 )
 
@@ -54,6 +55,7 @@ __all__ = [
     "StockConsumeRestView",
     "StockDeactivateRestView",
     "StockListRestView",
+    "SupplierPriceStatusAPIView",
     "XeroItemList",
     "autosave_purchase_order_view",
     "delete_purchase_order_view",
