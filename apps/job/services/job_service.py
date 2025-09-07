@@ -1,7 +1,12 @@
 import logging
+from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
+from apps.accounting.enums import InvoiceStatus
+from apps.accounting.models.invoice import Invoice
 from apps.accounts.models import Staff
 from apps.job.models import Job
 
@@ -37,6 +42,26 @@ def archive_complete_jobs(job_ids):
                 logger.error(f"Error archiving job {jid}: {str(e)}")
 
     return errors, archived_count
+
+
+def recalculate_job_invoicing_state(job_id: str) -> None:
+    job = Job.objects.only("id", "fully_invoiced", "latest_actual").get(pk=job_id)
+
+    INVOICE_VALID_STATUSES = [
+        status
+        for (status, _) in InvoiceStatus.choices
+        if status not in ["VOIDED", "DELETED"]
+    ]
+
+    total_invoiced = Decimal(
+        Invoice.objects.filter(
+            job_id=job_id, status__in=INVOICE_VALID_STATUSES
+        ).aggregate(total=Coalesce(Sum("total_excl_tax"), Decimal("0")))["total"]
+    )
+
+    if job.latest_actual.total_revenue <= total_invoiced:
+        job.fully_invoiced = True
+        job.save(update_fields=["fully_invoiced"])
 
 
 class JobStaffService:

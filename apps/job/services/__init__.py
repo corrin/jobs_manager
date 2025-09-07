@@ -26,6 +26,7 @@ try:
             JobStaffService,
             archive_complete_jobs,
             get_paid_complete_jobs,
+            recalculate_job_invoicing_state,
         )
         from .kanban_categorization_service import (
             KanbanCategorizationService,
@@ -91,6 +92,7 @@ __all__ = [
     "preview_quote_import",
     "preview_quote_import_from_drafts",
     "process_attachments",
+    "recalculate_job_invoicing_state",
     "serialize_draft_lines",
     "serialize_validation_report",
     "sync_job_folder",
