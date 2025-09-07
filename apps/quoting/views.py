@@ -397,27 +397,46 @@ def extract_supplier_price_list_data_view(request):
         # Step 6: Database operations
         logger.info("Starting database import...")
         supplier_name = extracted_data.get("supplier", {}).get("name", "").strip()
-        
+
         if not supplier_name:
             # Try to infer supplier name from filename
             supplier_name = os.path.splitext(price_list_file.name)[0]
             logger.info(f"Inferred supplier name from filename: {supplier_name}")
 
+        logger.info(f"Supplier name: '{supplier_name}'")
+        logger.info(f"Number of products to import: {len(products)}")
+        logger.info(f"Sample product data: {products[0] if products else 'No products'}")
+
         # Use atomic transaction for database operations
-        with transaction.atomic():
-            import_service = PDFImportService()
-            
-            # Create or get supplier
-            supplier, supplier_created = import_service.create_or_get_supplier(supplier_name)
-            
-            # Create price list record
-            price_list = import_service.create_price_list(supplier, price_list_file.name)
-            
-            # Import products
-            duplicate_strategy = request.POST.get("duplicate_strategy", "skip")
-            import_stats = import_service.import_products(
-                products, supplier, price_list, duplicate_strategy
-            )
+        try:
+            with transaction.atomic():
+                import_service = PDFImportService()
+
+                # Create or get supplier
+                logger.info("Creating/getting supplier...")
+                supplier, supplier_created = import_service.create_or_get_supplier(supplier_name)
+                logger.info(f"Supplier created: {supplier_created}, ID: {supplier.id}")
+
+                # Create price list record
+                logger.info("Creating price list...")
+                price_list = import_service.create_price_list(supplier, price_list_file.name)
+                logger.info(f"Price list created, ID: {price_list.id}")
+
+                # Import products
+                logger.info("Importing products...")
+                duplicate_strategy = request.POST.get("duplicate_strategy", "skip")
+                import_stats = import_service.import_products(
+                    products, supplier, price_list, duplicate_strategy
+                )
+                logger.info(f"Import stats: {import_stats}")
+
+        except Exception as db_error:
+            logger.exception(f"Database import failed: {db_error}")
+            return JsonResponse({
+                "success": False,
+                "error": f"Database import failed: {str(db_error)}",
+                "stage": "database_import"
+            }, status=500)
 
         # Step 7: Compile results
         results = {
