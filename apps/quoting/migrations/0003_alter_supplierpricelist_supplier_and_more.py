@@ -11,22 +11,27 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name="supplierpricelist",
-            name="supplier",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="price_lists",
-                to="client.client",
-            ),
-        ),
-        migrations.AlterField(
-            model_name="supplierproduct",
-            name="supplier",
-            field=models.ForeignKey(
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="scraped_products",
-                to="client.client",
-            ),
-        ),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AlterField(
+                    model_name="supplierpricelist",
+                    name="supplier",
+                    field=models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="price_lists",
+                        to="client.client",
+                    ),
+                ),
+                migrations.AlterField(
+                    model_name="supplierproduct",
+                    name="supplier",
+                    field=models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="scraped_products",
+                        to="client.client",
+                    ),
+                ),
+            ],
+        )
     ]

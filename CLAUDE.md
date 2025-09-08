@@ -90,10 +90,9 @@ Django-based job/project management system for custom metal fabrication business
 - Authentication middleware and base templates
 - URL routing coordination
 
-**`job`** - Core job lifecycle management with **modern costing architecture**
+**`job`** - Core job lifecycle management
 - Job model with Kanban-style status tracking (Quoting → In Progress → Completed → Archived)
-- **NEW**: CostSet/CostLine for flexible cost tracking (estimate/quote/actual) - **USE FOR ALL NEW DEVELOPMENT**
-- **FULLY DEPRECATED**: JobPricing, MaterialEntry, AdjustmentEntry, TimeEntry - **DO NOT USE IN ANY NEW CODE**
+
 - JobFile for document attachments
 - JobEvent for comprehensive audit trails
 - Service layer for business logic orchestration
@@ -108,11 +107,9 @@ Django-based job/project management system for custom metal fabrication business
 - Contact person and communication tracking
 
 **`timesheet`** - Time tracking and billing
-- **MIGRATION TO**: CostLine with kind='time' for time tracking - **ALL NEW TIME ENTRIES**
-- **DEPRECATED**: TimeEntry model - **DO NOT CREATE NEW TimeEntry RECORDS**
-- Billable vs non-billable classification
-- Daily/weekly timesheet interfaces
-- Wage rate and charge-out rate management
+ - Billable vs non-billable classification
+ - Daily/weekly timesheet interfaces
+ - Wage rate and charge-out rate management
 
 **`purchasing`** - Purchase order and inventory management
 - PurchaseOrder with comprehensive Xero integration via XeroPurchaseOrderManager
@@ -156,7 +153,6 @@ PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 - SimpleHistory for audit trails on critical models
 - Soft deletes where appropriate
 - **NEW**: JSON ext_refs for flexible external references
-- **NEW**: CostSet/CostLine architecture for all cost tracking
 - Bidirectional Xero synchronization with conflict resolution
 
 ## Development Workflow
@@ -195,8 +191,8 @@ See `.env.example` for required environment variables. Key integrations: Xero AP
 
 
 ## Migration Management
-- **CRITICAL**: All new migrations must use CostSet/CostLine architecture
-- **IMPORTANT**: Legacy model migrations should be for data migration only
+- Keep migrations small and reviewable; include forward and (where feasible) reverse logic.
+- Prefer schema changes over code workarounds that mask data shape issues.
 
 ## Critical Architecture Guidelines
 
@@ -230,19 +226,7 @@ See `.env.example` for required environment variables. Key integrations: Xero AP
 
 **Rule**: If it doesn't involve the database, business rules, or external systems, it belongs in the frontend. If it involves data integrity, calculations, or persistence, it belongs in the backend.
 
-### For ALL New Development
-3. **Job Creation**: Create initial CostSet with kind='estimate'
-4. **Quoting**: Create CostSet with kind='quote' and appropriate CostLine entries
-5. **Time Tracking**: Create CostLine with kind='time' and staff reference in ext_refs
-6. **Material Usage**: Create CostLine with kind='material' and Stock reference in ext_refs
-7. **Adjustments**: Create CostLine with kind='adjust' for manual cost modifications
 
-### Legacy Model Handling
-- **Reading**: Legacy models can be read for migration and reporting purposes
-- **Writing**: **ABSOLUTELY NO new records in legacy models**
-- **Migration**: Gradually migrate existing data to CostSet/CostLine
-- **Service Layer**: Abstract legacy/new model differences in service classes
 
 ### Service Layer Patterns
-- **CostingService**: Handles all CostSet/CostLine operations
-- **JobService**: Updated to work with CostSet/CostLine architecture
+- Keep business logic in explicit service classes; keep views thin.
