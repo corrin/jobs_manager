@@ -32,6 +32,10 @@ try:
             StandardErrorSerializer,
         )
         from .services import JobAgingService, KPIService, StaffPerformanceService
+        from .signals import (
+            invoice_post_delete_recalc_job,
+            invoice_post_save_recalc_job,
+        )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -64,4 +68,6 @@ __all__ = [
     "StaffPerformanceTeamAveragesSerializer",
     "StandardErrorSerializer",
     "get_nz_tz",
+    "invoice_post_delete_recalc_job",
+    "invoice_post_save_recalc_job",
 ]
