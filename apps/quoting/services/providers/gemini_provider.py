@@ -43,17 +43,15 @@ class GeminiPriceExtractionProvider:
                 logger.error("Gemini API key not provided")
                 raise ValueError("Gemini API key not provided")
 
-            logger.info(f"Initializing Gemini client with model: {self.model_name}")
-            client = genai.Client(api_key=self.api_key)
-            logger.info("Gemini client initialized successfully")
-
             # File handling
             if not os.path.exists(file_path):
                 logger.error(f"PDF file not found: {file_path}")
                 raise FileNotFoundError(f"PDF file not found: {file_path}")
 
             file_size = os.path.getsize(file_path)
-            logger.info(f"Processing PDF with Gemini {self.model_name}, file size: {file_size} bytes")
+            logger.info(
+                f"Processing PDF with Gemini {self.model_name}, file size: {file_size} bytes"
+            )
 
             # Check PDF page count
             reader = PdfReader(file_path)
@@ -66,137 +64,6 @@ class GeminiPriceExtractionProvider:
             else:
                 # Multiple pages - process page by page
                 return self._extract_from_multiple_pages(file_path, num_pages)
-
-            # Call Gemini API
-            logger.info(f"Calling Gemini API with model: {self.model_name}")
-            config = {
-                "max_output_tokens": 25000,
-                "temperature": 0.1,
-                "response_mime_type": "application/json",
-            }
-            logger.info(f"Gemini API config: {config}")
-            response = client.models.generate_content(
-                model=self.model_name,
-                contents=contents,
-                config=config,
-            )
-            logger.info("Gemini API call completed successfully")
-            
-            # Save complete response to debug file
-            self._save_debug_response(response, file_path)
-
-            # Log token usage if available
-            if hasattr(response, "usage"):
-                log_token_usage(response.usage, "Gemini")
-                logger.info(f"Token usage: {response.usage}")
-            else:
-                logger.warning("No usage information in response")
-
-            # Comprehensive response logging
-            logger.info(f"Response type: {type(response)}")
-            logger.info(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
-
-            # Check for any errors or issues in the response
-            logger.info(f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}")
-            if hasattr(response, "prompt_feedback") and response.prompt_feedback:
-                logger.warning(f"Prompt feedback (potential issues): {response.prompt_feedback}")
-
-            # Check if there are any safety issues or blocks
-            logger.info(f"Response has candidates: {hasattr(response, 'candidates')}")
-            if hasattr(response, "candidates"):
-                if response.candidates:
-                    logger.info(f"Candidates length: {len(response.candidates)}")
-                    candidate = response.candidates[0]
-                    logger.info(f"First candidate type: {type(candidate)}")
-                    
-                    if hasattr(candidate, "finish_reason"):
-                        logger.info(f"Finish reason: {candidate.finish_reason}")
-                        if candidate.finish_reason and candidate.finish_reason != "STOP":
-                            logger.warning(f"Unexpected finish reason: {candidate.finish_reason}")
-                            if candidate.finish_reason == "MAX_TOKENS":
-                                logger.error("Response was truncated due to token limit - JSON may be incomplete")
-
-                    if hasattr(candidate, "safety_ratings"):
-                        logger.info(f"Safety ratings: {candidate.safety_ratings}")
-
-                    if hasattr(candidate, "blocked"):
-                        logger.info(f"Candidate blocked: {candidate.blocked}")
-                        if candidate.blocked:
-                            logger.error("Candidate is blocked - content may have been filtered")
-                else:
-                    logger.error("Response has candidates attribute but candidates list is empty")
-            else:
-                logger.warning("Response has no candidates attribute")
-
-            # Check for text attribute
-            logger.info(f"Response has text attribute: {hasattr(response, 'text')}")
-            if hasattr(response, "text"):
-                logger.info(f"Response.text is None: {response.text is None}")
-                logger.info(f"Response.text type: {type(response.text) if response.text is not None else 'None'}")
-                if response.text:
-                    logger.info(f"Response.text length: {len(response.text)}")
-                    logger.info(f"Response.text preview: {response.text[:200]}...")
-                else:
-                    logger.error("Response.text is None or empty")
-
-            # Extract text content from the response
-            # With the newer google-genai library, response.text is the direct way to access content
-            result_text = None
-            
-            if hasattr(response, "text") and response.text is not None:
-                result_text = response.text
-                logger.info("Successfully extracted text from response.text")
-            else:
-                logger.error("No text content found in response - response.text is None or missing")
-                # Log response structure for debugging
-                logger.error(f"Response type: {type(response)}")
-                logger.error(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
-
-            logger.info(
-                f"Final result_text length: {len(result_text) if result_text else 0}"
-            )
-            logger.info(
-                f"Result text preview: {result_text[:200] if result_text else 'None'}..."
-            )
-
-            # Save page-specific JSON output if this is a page processing
-            if hasattr(self, '_current_page_num') and result_text:
-                self._save_page_output(result_text, self._current_page_num, file_path)
-
-            if not result_text:
-                return None, "Empty or no text content in Gemini API response"
-
-            # Clean and parse the JSON response
-            result_text = clean_json_response(result_text)
-
-            try:
-                extracted_data = json.loads(result_text)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse Gemini JSON response: {e}")
-                logger.error(f"Raw response: {result_text[:500]}...")
-
-                # Check if this might be due to truncation
-                if "MAX_TOKENS" in str(response.candidates[0].finish_reason if response.candidates else ""):
-                    logger.error("Response appears to be truncated due to token limit")
-                    return None, "Response was truncated due to token limit. Try with a smaller PDF or reduce max_output_tokens."
-
-                return None, f"Invalid JSON response from Gemini: {str(e)}"
-
-            # Validate the response structure
-            if not isinstance(extracted_data, dict):
-                return None, "Invalid response format from Gemini"
-
-            if "items" not in extracted_data:
-                return None, "No items found in Gemini response"
-
-            # Process and normalize the extracted data
-            processed_data = self._process_extracted_data(extracted_data, file_path)
-
-            logger.info(
-                f"Successfully extracted {len(processed_data.get('items', []))} products using Gemini"
-            )
-
-            return processed_data, None
 
         except Exception as e:
             logger.exception(f"Error during Gemini PDF extraction: {e}")
@@ -324,27 +191,29 @@ class GeminiPriceExtractionProvider:
     def _save_debug_response(self, response, file_path: str) -> None:
         """
         Save the complete Gemini API response to a debug file for troubleshooting.
-        
+
         Args:
             response: The response object from Gemini API
             file_path: Original file path being processed
         """
         import datetime
-        
+
         debug_data = {
             "timestamp": datetime.datetime.now().isoformat(),
             "source_file": os.path.basename(file_path),
             "model_name": self.model_name,
             "response_type": str(type(response)),
-            "response_attributes": [attr for attr in dir(response) if not attr.startswith('_')],
+            "response_attributes": [
+                attr for attr in dir(response) if not attr.startswith("_")
+            ],
         }
-        
+
         # Try to serialize all response attributes
         for attr_name in debug_data["response_attributes"]:
             try:
                 attr_value = getattr(response, attr_name)
                 # Convert to JSON-serializable format
-                if hasattr(attr_value, '__dict__'):
+                if hasattr(attr_value, "__dict__"):
                     debug_data[attr_name] = str(attr_value)
                 elif callable(attr_value):
                     debug_data[f"{attr_name}_callable"] = True
@@ -352,44 +221,50 @@ class GeminiPriceExtractionProvider:
                     debug_data[attr_name] = attr_value
             except Exception as e:
                 debug_data[f"{attr_name}_error"] = str(e)
-        
+
         # Special handling for specific attributes
-        if hasattr(response, 'text'):
+        if hasattr(response, "text"):
             debug_data["text_is_none"] = response.text is None
             debug_data["text_length"] = len(response.text) if response.text else 0
             debug_data["text_preview"] = response.text[:500] if response.text else None
-        
-        if hasattr(response, 'candidates') and response.candidates:
+
+        if hasattr(response, "candidates") and response.candidates:
             debug_data["candidates_count"] = len(response.candidates)
             candidate_details = []
             for i, candidate in enumerate(response.candidates):
                 candidate_info = {
                     "index": i,
                     "type": str(type(candidate)),
-                    "attributes": [attr for attr in dir(candidate) if not attr.startswith('_')]
+                    "attributes": [
+                        attr for attr in dir(candidate) if not attr.startswith("_")
+                    ],
                 }
                 # Add specific candidate details
-                if hasattr(candidate, 'finish_reason'):
+                if hasattr(candidate, "finish_reason"):
                     candidate_info["finish_reason"] = candidate.finish_reason
-                if hasattr(candidate, 'blocked'):
+                if hasattr(candidate, "blocked"):
                     candidate_info["blocked"] = candidate.blocked
-                if hasattr(candidate, 'safety_ratings'):
+                if hasattr(candidate, "safety_ratings"):
                     candidate_info["safety_ratings"] = str(candidate.safety_ratings)
-                if hasattr(candidate, 'content'):
+                if hasattr(candidate, "content"):
                     candidate_info["has_content"] = candidate.content is not None
                     if candidate.content:
                         candidate_info["content_type"] = str(type(candidate.content))
-                        if hasattr(candidate.content, 'parts'):
-                            candidate_info["content_parts_count"] = len(candidate.content.parts) if candidate.content.parts else 0
+                        if hasattr(candidate.content, "parts"):
+                            candidate_info["content_parts_count"] = (
+                                len(candidate.content.parts)
+                                if candidate.content.parts
+                                else 0
+                            )
                 candidate_details.append(candidate_info)
             debug_data["candidates_details"] = candidate_details
-        
-        if hasattr(response, 'prompt_feedback'):
+
+        if hasattr(response, "prompt_feedback"):
             debug_data["prompt_feedback"] = str(response.prompt_feedback)
-        
-        if hasattr(response, 'usage'):
+
+        if hasattr(response, "usage"):
             debug_data["usage"] = str(response.usage)
-        
+
         # Save to debug file
         debug_file_path = "/tmp/gemini_response_debug.json"
         try:
@@ -405,8 +280,8 @@ class GeminiPriceExtractionProvider:
                     "error": "Failed to serialize full response",
                     "response_type": debug_data["response_type"],
                     "text_is_none": debug_data.get("text_is_none", "unknown"),
-                    "has_candidates": hasattr(response, 'candidates'),
-                    "serialization_error": str(e)
+                    "has_candidates": hasattr(response, "candidates"),
+                    "serialization_error": str(e),
                 }
                 with open(debug_file_path, "w") as f:
                     json.dump(minimal_debug, f, indent=2)
@@ -414,7 +289,9 @@ class GeminiPriceExtractionProvider:
             except Exception as e2:
                 logger.error(f"Failed to save even minimal debug response: {e2}")
 
-    def _save_page_output(self, json_text: str, page_num: int, original_file_path: str) -> None:
+    def _save_page_output(
+        self, json_text: str, page_num: int, original_file_path: str
+    ) -> None:
         """
         Save the JSON output from a specific page for debugging and analysis.
 
@@ -443,7 +320,9 @@ class GeminiPriceExtractionProvider:
         except Exception as e:
             logger.error(f"Failed to save page {page_num} output: {e}")
 
-    def _extract_from_single_page(self, file_path: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    def _extract_from_single_page(
+        self, file_path: str
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Extract data from a single-page PDF."""
         try:
             # Create the extraction prompt
@@ -456,11 +335,13 @@ class GeminiPriceExtractionProvider:
             contents = [
                 types.Part.from_bytes(
                     data=filepath.read_bytes(),
-                    mime_type='application/pdf',
+                    mime_type="application/pdf",
                 ),
-                prompt
+                prompt,
             ]
-            logger.info(f"Content prepared for Gemini API call with {len(contents)} parts")
+            logger.info(
+                f"Content prepared for Gemini API call with {len(contents)} parts"
+            )
 
             # Log the full request contents for debugging
             logger.info("=== GEMINI REQUEST CONTENTS START ===")
@@ -475,7 +356,9 @@ class GeminiPriceExtractionProvider:
             logger.exception(f"Error in single page extraction: {e}")
             return None, str(e)
 
-    def _extract_from_multiple_pages(self, file_path: str, num_pages: int) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    def _extract_from_multiple_pages(
+        self, file_path: str, num_pages: int
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Extract data from a multi-page PDF by processing each page separately."""
         try:
             logger.info(f"Processing {num_pages} pages individually...")
@@ -498,24 +381,29 @@ class GeminiPriceExtractionProvider:
 
                     if page_result:
                         # Merge supplier info (use first non-empty one)
-                        if not supplier_info and page_result.get('supplier'):
-                            supplier_info = page_result['supplier']
+                        if not supplier_info and page_result.get("supplier"):
+                            supplier_info = page_result["supplier"]
 
                         # Add items from this page
-                        if page_result.get('items'):
-                            all_items.extend(page_result['items'])
-                            logger.info(f"Page {page_num + 1}: Found {len(page_result['items'])} items")
+                        if page_result.get("items"):
+                            all_items.extend(page_result["items"])
+                            logger.info(
+                                f"Page {page_num + 1}: Found {len(page_result['items'])} items"
+                            )
                         else:
                             logger.info(f"Page {page_num + 1}: No items found")
                     else:
-                        logger.warning(f"Page {page_num + 1}: Extraction failed - {error}")
+                        logger.warning(
+                            f"Page {page_num + 1}: Extraction failed - {error}"
+                        )
 
                 finally:
                     # Clean up temporary file
                     try:
                         os.unlink(page_pdf_path)
-                    except:
-                        pass
+                    except OSError:
+                        # FIXME: All erros must always be logged
+                        pass  # Ignore cleanup errors
 
             # Create final result
             if all_items:
@@ -529,7 +417,9 @@ class GeminiPriceExtractionProvider:
                         "extraction_method": "Gemini 2.5 Flash (Page-by-page)",
                     },
                 }
-                logger.info(f"Successfully extracted {len(all_items)} items from {num_pages} pages")
+                logger.info(
+                    f"Successfully extracted {len(all_items)} items from {num_pages} pages"
+                )
                 return result, None
             else:
                 return None, "No items extracted from any page"
@@ -547,11 +437,13 @@ class GeminiPriceExtractionProvider:
         writer.add_page(reader.pages[page_num])
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
             writer.write(temp_file)
             return temp_file.name
 
-    def _process_with_gemini(self, contents: List, file_path: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    def _process_with_gemini(
+        self, contents: List, file_path: str
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Process content with Gemini API (shared logic for single and multi-page)."""
         try:
             # Initialize the Gemini client
@@ -586,12 +478,18 @@ class GeminiPriceExtractionProvider:
 
             # Comprehensive response logging
             logger.info(f"Response type: {type(response)}")
-            logger.info(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+            logger.info(
+                f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}"
+            )
 
             # Check for any errors or issues in the response
-            logger.info(f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}")
+            logger.info(
+                f"Response has prompt_feedback: {hasattr(response, 'prompt_feedback')}"
+            )
             if hasattr(response, "prompt_feedback") and response.prompt_feedback:
-                logger.warning(f"Prompt feedback (potential issues): {response.prompt_feedback}")
+                logger.warning(
+                    f"Prompt feedback (potential issues): {response.prompt_feedback}"
+                )
 
             # Check if there are any safety issues or blocks
             logger.info(f"Response has candidates: {hasattr(response, 'candidates')}")
@@ -603,10 +501,17 @@ class GeminiPriceExtractionProvider:
 
                     if hasattr(candidate, "finish_reason"):
                         logger.info(f"Finish reason: {candidate.finish_reason}")
-                        if candidate.finish_reason and candidate.finish_reason != "STOP":
-                            logger.warning(f"Unexpected finish reason: {candidate.finish_reason}")
+                        if (
+                            candidate.finish_reason
+                            and candidate.finish_reason != "STOP"
+                        ):
+                            logger.warning(
+                                f"Unexpected finish reason: {candidate.finish_reason}"
+                            )
                             if candidate.finish_reason == "MAX_TOKENS":
-                                logger.error("Response was truncated due to token limit - JSON may be incomplete")
+                                logger.error(
+                                    "Response was truncated due to token limit - JSON may be incomplete"
+                                )
 
                     if hasattr(candidate, "safety_ratings"):
                         logger.info(f"Safety ratings: {candidate.safety_ratings}")
@@ -614,9 +519,13 @@ class GeminiPriceExtractionProvider:
                     if hasattr(candidate, "blocked"):
                         logger.info(f"Candidate blocked: {candidate.blocked}")
                         if candidate.blocked:
-                            logger.error("Candidate is blocked - content may have been filtered")
+                            logger.error(
+                                "Candidate is blocked - content may have been filtered"
+                            )
                 else:
-                    logger.error("Response has candidates attribute but candidates list is empty")
+                    logger.error(
+                        "Response has candidates attribute but candidates list is empty"
+                    )
             else:
                 logger.warning("Response has no candidates attribute")
 
@@ -624,7 +533,9 @@ class GeminiPriceExtractionProvider:
             logger.info(f"Response has text attribute: {hasattr(response, 'text')}")
             if hasattr(response, "text"):
                 logger.info(f"Response.text is None: {response.text is None}")
-                logger.info(f"Response.text type: {type(response.text) if response.text is not None else 'None'}")
+                logger.info(
+                    f"Response.text type: {type(response.text) if response.text is not None else 'None'}"
+                )
                 if response.text:
                     logger.info(f"Response.text length: {len(response.text)}")
                     logger.info(f"Response.text preview: {response.text[:200]}...")
@@ -639,10 +550,14 @@ class GeminiPriceExtractionProvider:
                 result_text = response.text
                 logger.info("Successfully extracted text from response.text")
             else:
-                logger.error("No text content found in response - response.text is None or missing")
+                logger.error(
+                    "No text content found in response - response.text is None or missing"
+                )
                 # Log response structure for debugging
                 logger.error(f"Response type: {type(response)}")
-                logger.error(f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}")
+                logger.error(
+                    f"Response attributes: {[attr for attr in dir(response) if not attr.startswith('_')]}"
+                )
 
             logger.info(
                 f"Final result_text length: {len(result_text) if result_text else 0}"
@@ -664,9 +579,14 @@ class GeminiPriceExtractionProvider:
                 logger.error(f"Raw response: {result_text[:500]}...")
 
                 # Check if this might be due to truncation
-                if "MAX_TOKENS" in str(response.candidates[0].finish_reason if response.candidates else ""):
+                if "MAX_TOKENS" in str(
+                    response.candidates[0].finish_reason if response.candidates else ""
+                ):
                     logger.error("Response appears to be truncated due to token limit")
-                    return None, "Response was truncated due to token limit. Try with a smaller PDF or reduce max_output_tokens."
+                    return (
+                        None,
+                        "Response was truncated due to token limit. Try with a smaller PDF or reduce max_output_tokens.",
+                    )
 
                 return None, f"Invalid JSON response from Gemini: {str(e)}"
 

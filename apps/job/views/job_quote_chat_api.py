@@ -89,16 +89,22 @@ class JobQuoteChatInteractionView(APIView):
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         user_message = serializer.validated_data["message"]
+        mode = serializer.validated_data.get("mode", "AUTO")
 
         try:
             # Instantiate the chat service
             chat_service = GeminiChatService()
 
-            # The service handles the entire LLM interaction, including tool use
-            # and saving the final assistant message to the database.
-            # It returns the persisted assistant message object.
-            assistant_message_obj = chat_service.generate_ai_response(
-                job_id=job_id, user_message=user_message
+            # Use mode-based system as the primary implementation
+            # AUTO mode means the system will infer the appropriate mode
+            if mode == "AUTO":
+                mode = None  # Let the system infer
+
+            logger.info(
+                f"Processing request for job {job_id} with mode: {mode or 'AUTO (will infer)'}"
+            )
+            assistant_message_obj = chat_service.generate_mode_response(
+                job_id=job_id, user_message=user_message, mode=mode
             )
 
             # Serialize the final assistant message to return to the client

@@ -12,12 +12,16 @@ from apps.purchasing.views.purchasing_rest_views import (
     StockConsumeRestView,
     StockDeactivateRestView,
     StockListRestView,
-    XeroItemList,
     SupplierPriceStatusAPIView,
+    XeroItemList,
 )
 
 urlpatterns = [
-    path("supplier-price-status/", SupplierPriceStatusAPIView.as_view(), name="supplier_price_status_rest"),
+    path(
+        "supplier-price-status/",
+        SupplierPriceStatusAPIView.as_view(),
+        name="supplier_price_status_rest",
+    ),
     path("all-jobs/", AllJobsAPIView.as_view(), name="purchasing_all_jobs_rest"),
     path("jobs/", PurchasingJobsAPIView.as_view(), name="purchasing_jobs_rest"),
     path("xero-items/", XeroItemList.as_view(), name="xero_items_rest"),
