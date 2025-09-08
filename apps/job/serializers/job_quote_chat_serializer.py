@@ -132,6 +132,12 @@ class JobQuoteChatInteractionRequestSerializer(serializers.Serializer):
         max_length=5000,
         help_text="User message content to send to the AI assistant",
     )
+    mode = serializers.ChoiceField(
+        choices=["CALC", "PRICE", "TABLE", "AUTO"],
+        required=False,
+        default="AUTO",
+        help_text="Operation mode: CALC for calculations, PRICE for pricing, TABLE for summaries, AUTO for automatic detection",
+    )
 
 
 class JobQuoteChatInteractionSuccessResponseSerializer(serializers.Serializer):

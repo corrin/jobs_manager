@@ -36,6 +36,7 @@ try:
         from .mcp_chat_service import MCPChatService
         from .month_end_service import MonthEndService
         from .paid_flag_service import PaidFlagResult, PaidFlagService
+        from .quote_mode_controller import QuoteModeController
         from .quote_sync_service import apply_quote, link_quote_sheet, preview_quote
         from .workshop_pdf_service import (
             add_job_details_table,
@@ -69,6 +70,7 @@ __all__ = [
     "PaidFlagService",
     "QuoteImportError",
     "QuoteImportResult",
+    "QuoteModeController",
     "add_job_details_table",
     "add_logo",
     "add_materials_table",

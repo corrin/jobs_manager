@@ -95,11 +95,15 @@ class PDFImportService:
         skipped_count = 0
 
         logger.info(f"Starting import of {len(products)} products for {supplier.name}")
-        logger.info(f"Sample product data: {products[0] if products else 'No products'}")
+        logger.info(
+            f"Sample product data: {products[0] if products else 'No products'}"
+        )
 
         for idx, product_data in enumerate(products):
             try:
-                logger.debug(f"Processing product {idx}: {product_data.get('product_name', 'Unknown')}")
+                logger.debug(
+                    f"Processing product {idx}: {product_data.get('product_name', 'Unknown')}"
+                )
                 result = self._import_single_product(
                     product_data, supplier, price_list, duplicate_strategy, idx
                 )

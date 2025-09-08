@@ -3,7 +3,6 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.helpers import get_company_defaults
 
 from .providers.gemini_provider import GeminiPriceExtractionProvider
 
@@ -58,13 +57,14 @@ class PriceExtractionFactory:
 
 def get_prioritized_active_providers():
     """
-    Get all active AI providers sorted by priority.
+    Get all AI providers with API keys sorted by priority.
     Priority order: Mistral > Claude > Gemini
     """
-    company_defaults = get_company_defaults()
-    active_providers = company_defaults.ai_providers.filter(
-        default=True, api_key__isnull=False
-    ).exclude(api_key="")
+    from apps.workflow.models import AIProvider
+
+    active_providers = AIProvider.objects.filter(api_key__isnull=False).exclude(
+        api_key=""
+    )
 
     # Define priority order (lower number = higher priority)
     priority_map = {
@@ -94,8 +94,10 @@ def extract_price_data(
     Returns:
         Tuple containing extracted data dict and error message if any
     """
-    logger.info(f"Starting price extraction for file: {file_path}, content_type: {content_type}")
-    
+    logger.info(
+        f"Starting price extraction for file: {file_path}, content_type: {content_type}"
+    )
+
     # 1. Get all active providers
     logger.info("Getting prioritized active providers...")
     prioritized_providers = get_prioritized_active_providers()
@@ -108,7 +110,9 @@ def extract_price_data(
 
     # 2. Use the top priority provider (Mistral first)
     ai_provider = prioritized_providers[0]
-    logger.info(f"Selected AI provider: {ai_provider.provider_type}, model: {ai_provider.model_name}")
+    logger.info(
+        f"Selected AI provider: {ai_provider.provider_type}, model: {ai_provider.model_name}"
+    )
     logger.info(f"API key present: {bool(ai_provider.api_key)}")
 
     # 3. Create provider instance and call - fail early, don't eat errors
@@ -118,11 +122,13 @@ def extract_price_data(
             ai_provider.provider_type, ai_provider.api_key, ai_provider.model_name
         )
         logger.info(f"Provider created successfully: {provider.get_provider_name()}")
-        
+
         logger.info(f"Starting extraction with {provider.get_provider_name()}")
         result = provider.extract_price_data(file_path, content_type)
         logger.info(f"Extraction completed with {provider.get_provider_name()}")
         return result
     except Exception as e:
-        logger.exception(f"Error creating or using provider {ai_provider.provider_type}: {e}")
+        logger.exception(
+            f"Error creating or using provider {ai_provider.provider_type}: {e}"
+        )
         return (None, f"Provider error: {str(e)}")

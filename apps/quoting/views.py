@@ -283,18 +283,18 @@ def extract_supplier_price_list_data_view(request):
     4. Import products to database
     5. Return detailed processing results
     """
-    import tempfile
     import os
+    import tempfile
+
     from django.db import transaction
+
     from apps.quoting.services.ai_price_extraction import extract_price_data
     from apps.quoting.services.pdf_data_validation import PDFDataValidationService
     from apps.quoting.services.pdf_import_service import PDFImportService
-    from apps.client.models import Client
-    from apps.quoting.models import SupplierPriceList
     from apps.workflow.services.error_persistence import persist_app_error
-    
+
     temp_file_path = None
-    
+
     try:
         # Step 1: Validate file upload
         if "price_list_file" not in request.FILES:
@@ -307,14 +307,16 @@ def extract_supplier_price_list_data_view(request):
         # Validate file type
         if not price_list_file.content_type == "application/pdf":
             return JsonResponse(
-                {"success": False, "error": "Please upload a valid PDF file."}, status=400
+                {"success": False, "error": "Please upload a valid PDF file."},
+                status=400,
             )
 
         # Validate file size (10MB limit)
         max_size = 10 * 1024 * 1024  # 10MB
         if price_list_file.size > max_size:
             return JsonResponse(
-                {"success": False, "error": "File size must be less than 10MB."}, status=400
+                {"success": False, "error": "File size must be less than 10MB."},
+                status=400,
             )
 
         logger.info(
@@ -329,7 +331,7 @@ def extract_supplier_price_list_data_view(request):
             for chunk in price_list_file.chunks():
                 temp_file.write(chunk)
             temp_file_path = temp_file.name
-        
+
         logger.info(f"File saved to temporary path: {temp_file_path}")
         logger.info(f"Temporary file size: {os.path.getsize(temp_file_path)} bytes")
 
@@ -343,56 +345,77 @@ def extract_supplier_price_list_data_view(request):
             if extracted_data:
                 logger.info(f"Extracted data keys: {list(extracted_data.keys())}")
                 if "items" in extracted_data:
-                    logger.info(f"Number of items extracted: {len(extracted_data['items'])}")
+                    logger.info(
+                        f"Number of items extracted: {len(extracted_data['items'])}"
+                    )
             else:
                 logger.warning("No data extracted from AI provider")
         except Exception as ai_error:
             logger.exception(f"Exception during AI extraction: {ai_error}")
-            return JsonResponse({
-                "success": False, 
-                "error": f"AI extraction exception: {str(ai_error)}",
-                "stage": "extraction"
-            }, status=500)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"AI extraction exception: {str(ai_error)}",
+                    "stage": "extraction",
+                },
+                status=500,
+            )
 
         if extraction_error:
-            return JsonResponse({
-                "success": False, 
-                "error": f"AI extraction failed: {extraction_error}",
-                "stage": "extraction"
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"AI extraction failed: {extraction_error}",
+                    "stage": "extraction",
+                },
+                status=400,
+            )
 
         if not extracted_data or not extracted_data.get("items"):
-            return JsonResponse({
-                "success": False, 
-                "error": "No product data could be extracted from the PDF",
-                "stage": "extraction"
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "No product data could be extracted from the PDF",
+                    "stage": "extraction",
+                },
+                status=400,
+            )
 
         # Step 4: Validate extracted data
         logger.info("Validating extracted data...")
         validator = PDFDataValidationService()
-        is_valid, validation_errors, validation_warnings = validator.validate_extracted_data(extracted_data)
+        (
+            is_valid,
+            validation_errors,
+            validation_warnings,
+        ) = validator.validate_extracted_data(extracted_data)
 
         if not is_valid:
-            return JsonResponse({
-                "success": False, 
-                "error": "Extracted data validation failed",
-                "validation_errors": validation_errors,
-                "validation_warnings": validation_warnings,
-                "stage": "validation"
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Extracted data validation failed",
+                    "validation_errors": validation_errors,
+                    "validation_warnings": validation_warnings,
+                    "stage": "validation",
+                },
+                status=400,
+            )
 
         # Step 5: Sanitize product data
         logger.info("Sanitizing product data...")
         products = validator.sanitize_product_data(extracted_data.get("items", []))
-        
+
         if not products:
-            return JsonResponse({
-                "success": False, 
-                "error": "No valid products found after data sanitization",
-                "validation_warnings": validation_warnings,
-                "stage": "validation"
-            }, status=400)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "No valid products found after data sanitization",
+                    "validation_warnings": validation_warnings,
+                    "stage": "validation",
+                },
+                status=400,
+            )
 
         # Step 6: Database operations
         logger.info("Starting database import...")
@@ -405,7 +428,9 @@ def extract_supplier_price_list_data_view(request):
 
         logger.info(f"Supplier name: '{supplier_name}'")
         logger.info(f"Number of products to import: {len(products)}")
-        logger.info(f"Sample product data: {products[0] if products else 'No products'}")
+        logger.info(
+            f"Sample product data: {products[0] if products else 'No products'}"
+        )
 
         # Use atomic transaction for database operations
         try:
@@ -414,12 +439,16 @@ def extract_supplier_price_list_data_view(request):
 
                 # Create or get supplier
                 logger.info("Creating/getting supplier...")
-                supplier, supplier_created = import_service.create_or_get_supplier(supplier_name)
+                supplier, supplier_created = import_service.create_or_get_supplier(
+                    supplier_name
+                )
                 logger.info(f"Supplier created: {supplier_created}, ID: {supplier.id}")
 
                 # Create price list record
                 logger.info("Creating price list...")
-                price_list = import_service.create_price_list(supplier, price_list_file.name)
+                price_list = import_service.create_price_list(
+                    supplier, price_list_file.name
+                )
                 logger.info(f"Price list created, ID: {price_list.id}")
 
                 # Import products
@@ -432,11 +461,14 @@ def extract_supplier_price_list_data_view(request):
 
         except Exception as db_error:
             logger.exception(f"Database import failed: {db_error}")
-            return JsonResponse({
-                "success": False,
-                "error": f"Database import failed: {str(db_error)}",
-                "stage": "database_import"
-            }, status=500)
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": f"Database import failed: {str(db_error)}",
+                    "stage": "database_import",
+                },
+                status=500,
+            )
 
         # Step 7: Compile results
         results = {
@@ -445,12 +477,12 @@ def extract_supplier_price_list_data_view(request):
             "supplier": {
                 "name": supplier.name,
                 "id": str(supplier.id),
-                "created": supplier_created
+                "created": supplier_created,
             },
             "price_list": {
                 "id": str(price_list.id),
                 "filename": price_list.file_name,
-                "uploaded_at": price_list.uploaded_at.isoformat()
+                "uploaded_at": price_list.uploaded_at.isoformat(),
             },
             "statistics": {
                 "total_extracted": len(extracted_data.get("items", [])),
@@ -458,13 +490,13 @@ def extract_supplier_price_list_data_view(request):
                 "imported": import_stats.get("imported", 0),
                 "updated": import_stats.get("updated", 0),
                 "skipped": import_stats.get("skipped", 0),
-                "failed": import_stats.get("failed", 0)
+                "failed": import_stats.get("failed", 0),
             },
             "validation": {
                 "warnings": validation_warnings,
-                "warning_count": len(validation_warnings)
+                "warning_count": len(validation_warnings),
             },
-            "import_stats": import_service.get_import_stats()
+            "import_stats": import_service.get_import_stats(),
         }
 
         logger.info(f"Processing completed successfully: {import_stats}")
@@ -476,13 +508,13 @@ def extract_supplier_price_list_data_view(request):
             persist_app_error(e)
         except Exception:
             pass  # Don't let error persistence block the response
-            
+
         logger.exception(f"Error in extract_supplier_price_list_data_view: {e}")
         return JsonResponse(
             {
-                "success": False, 
+                "success": False,
                 "error": f"An unexpected error occurred: {str(e)}",
-                "stage": "processing"
+                "stage": "processing",
             },
             status=500,
         )
@@ -492,7 +524,9 @@ def extract_supplier_price_list_data_view(request):
             try:
                 os.unlink(temp_file_path)
             except Exception as e:
-                logger.warning(f"Failed to cleanup temporary file {temp_file_path}: {e}")
+                logger.warning(
+                    f"Failed to cleanup temporary file {temp_file_path}: {e}"
+                )
 
 
 @service_api_key_required

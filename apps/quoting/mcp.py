@@ -42,11 +42,14 @@ class QuotingTool(MCPToolset):
 
         results = []
         for product in products:
-            results.append(
+            result = (
                 f"• {product.supplier.name} - {product.product_name}\n"
                 f"  Item: {product.item_no} | Price: ${product.variant_price or 'N/A'} {product.price_unit or ''}\n"
                 f"  Description: {product.description or 'No description'}\n"
             )
+            if product.url:
+                result += f"  URL: {product.url}\n"
+            results.append(result)
 
         return "\n".join(results)
 
@@ -75,10 +78,13 @@ class QuotingTool(MCPToolset):
             price_info = (
                 f"${product.variant_price}" if product.variant_price else "Price TBA"
             )
-            results.append(
+            result = (
                 f"• {product.supplier.name}: {product.product_name}\n"
                 f"  {price_info} {product.price_unit or ''} | Dimensions: {product.parsed_dimensions or 'N/A'}\n"
             )
+            if product.url:
+                result += f"  URL: {product.url}\n"
+            results.append(result)
 
         return "\n".join(results)
 
@@ -204,6 +210,7 @@ class QuotingTool(MCPToolset):
                         "product": product.product_name,
                         "price": float(product.variant_price),
                         "unit": product.price_unit or "each",
+                        "url": product.url,
                     }
                 )
 
@@ -211,8 +218,9 @@ class QuotingTool(MCPToolset):
             avg_price = sum(p["price"] for p in products_list) / len(products_list)
             results.append(f"\n• {supplier} (avg: ${avg_price:.2f}):")
             for product_info in products_list[:3]:  # Show top 3 products
-                results.append(
-                    f"  - {product_info['product']}: ${product_info['price']:.2f} {product_info['unit']}"
-                )
+                result = f"  - {product_info['product']}: ${product_info['price']:.2f} {product_info['unit']}"
+                if product_info.get("url"):
+                    result += f"\n    URL: {product_info['url']}"
+                results.append(result)
 
         return "\n".join(results)
