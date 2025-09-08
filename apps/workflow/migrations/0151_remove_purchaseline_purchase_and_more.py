@@ -14,14 +14,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # migrations.RemoveField(
-        #     model_name="purchaseline",
-        #     name="purchase",
-        # ),
-        # migrations.RemoveField(
-        #     model_name="purchaseline",
-        #     name="po_line",
-        # ),
+        migrations.RemoveField(
+            model_name="purchaseline",
+            name="purchase",
+        ),
+        migrations.RemoveField(
+            model_name="purchaseline",
+            name="po_line",
+        ),
         migrations.RenameField(
             model_name="bill",
             old_name="total",
