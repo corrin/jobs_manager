@@ -5,7 +5,6 @@ Tests the CALC, PRICE, and TABLE modes with their schemas,
 tool gating, and mode inference logic.
 """
 
-from unittest.mock import patch
 
 from django.test import TestCase
 from jsonschema import ValidationError
@@ -23,18 +22,19 @@ class TestQuoteModeSchemas(TestCase):
         """Test valid CALC schema data."""
         valid_data = {
             "inputs": {
-                "units": "mm",
-                "part_dims_mm": {"L": 100, "W": 50, "T": 2},
-                "qty": 10,
-                "sheet_size_mm": [1220, 2440],
-                "kerf_mm": 0.2,
+                "raw_input": "3 boxes 700x700x400mm",
+                "parsed": {"dimensions": "700x700x400", "qty": 3},
             },
             "results": {
-                "part_area_m2": 0.005,
-                "total_area_m2": 0.05,
-                "nest_yield_pct": 85,
-                "sheets_required": 1,
-                "offcut_area_m2": 2.928,
+                "items": [
+                    {
+                        "description": "Flat pattern for box",
+                        "quantity": 2800,
+                        "unit": "mm x mm",
+                        "specs": {"material": "304", "thickness": 0.8},
+                    }
+                ],
+                "assumptions": "Open top box, 0.8mm 304 stainless steel",
             },
             "questions": [],
         }
@@ -120,19 +120,20 @@ class TestQuoteModeSchemas(TestCase):
 
     def test_get_allowed_tools(self):
         """Test tool gating for each mode."""
-        # CALC mode should have no tools
+        # CALC mode should have only emit tool
         calc_tools = quote_mode_schemas.get_allowed_tools("CALC")
-        self.assertEqual(calc_tools, [])
+        self.assertEqual(calc_tools, ["emit_calc_result"])
 
-        # PRICE mode should have pricing tools
+        # PRICE mode should have pricing tools plus emit tool
         price_tools = quote_mode_schemas.get_allowed_tools("PRICE")
         self.assertIn("search_products", price_tools)
         self.assertIn("get_pricing_for_material", price_tools)
         self.assertIn("compare_suppliers", price_tools)
+        self.assertIn("emit_price_result", price_tools)
 
-        # TABLE mode should have no tools
+        # TABLE mode should have only emit tool
         table_tools = quote_mode_schemas.get_allowed_tools("TABLE")
-        self.assertEqual(table_tools, [])
+        self.assertEqual(table_tools, ["emit_table_result"])
 
 
 class TestQuoteModeController(TestCase):
@@ -197,8 +198,10 @@ class TestQuoteModeController(TestCase):
         self.assertIn("MODE=CALC", prompt)
         self.assertIn("MODE=PRICE", prompt)
         self.assertIn("MODE=TABLE", prompt)
-        self.assertIn("Never call tools in the wrong mode", prompt)
-        self.assertIn("strict JSON", prompt)
+        self.assertIn("emit_calc_result", prompt)
+        self.assertIn("emit_price_result", prompt)
+        self.assertIn("emit_table_result", prompt)
+        self.assertIn("MUST call", prompt)
 
     def test_render_prompt(self):
         """Test prompt rendering for each mode."""
@@ -217,21 +220,24 @@ class TestQuoteModeController(TestCase):
             mode="PRICE", user_input="Price 304 stainless", job_ctx=None
         )
         self.assertIn("MODE=PRICE", price_prompt)
-        self.assertIn("Map to SKUs", price_prompt)
+        self.assertIn("emit_price_result", price_prompt)
 
         # Test TABLE prompt
         table_prompt = self.controller.render_prompt(
             mode="TABLE", user_input="Generate summary", job_ctx=None
         )
         self.assertIn("MODE=TABLE", table_prompt)
-        self.assertIn("Calculate subtotals", table_prompt)
+        self.assertIn("emit_table_result", table_prompt)
 
     def test_validate_json(self):
         """Test JSON validation against schemas."""
         # Valid data should pass
         valid_calc_data = {
-            "inputs": {"units": "mm"},
-            "results": {},
+            "inputs": {"raw_input": "test input", "parsed": {}},
+            "results": {
+                "items": [{"description": "Test item", "quantity": 1, "unit": "each"}],
+                "assumptions": "Test assumptions",
+            },
             "questions": ["What are the dimensions?"],
         }
         validated = self.controller.validate_json(
@@ -246,48 +252,35 @@ class TestQuoteModeController(TestCase):
 
     def test_get_mcp_tools_for_mode(self):
         """Test that correct tools are returned for each mode."""
-        # CALC mode - no tools
+        # CALC mode - only emit tool
         calc_tools = self.controller.get_mcp_tools_for_mode("CALC")
-        self.assertEqual(len(calc_tools), 0)
+        self.assertEqual(len(calc_tools), 1)
+        self.assertEqual(calc_tools[0].name, "emit_calc_result")
 
-        # PRICE mode - pricing tools
+        # PRICE mode - pricing tools plus emit tool
         price_tools = self.controller.get_mcp_tools_for_mode("PRICE")
-        self.assertEqual(len(price_tools), 3)
+        self.assertEqual(len(price_tools), 4)  # 3 search tools + 1 emit tool
         tool_names = [tool.name for tool in price_tools]
         self.assertIn("search_products", tool_names)
         self.assertIn("get_pricing_for_material", tool_names)
         self.assertIn("compare_suppliers", tool_names)
+        self.assertIn("emit_price_result", tool_names)
 
-        # TABLE mode - no tools
+        # TABLE mode - only emit tool
         table_tools = self.controller.get_mcp_tools_for_mode("TABLE")
-        self.assertEqual(len(table_tools), 0)
+        self.assertEqual(len(table_tools), 1)
+        self.assertEqual(table_tools[0].name, "emit_table_result")
 
-    @patch("apps.job.services.quote_mode_controller.logger")
-    def test_run_without_gemini_client(self, mock_logger):
-        """Test run method returns mock data when no Gemini client provided."""
-        # Test CALC mode
-        calc_data, has_questions = self.controller.run(
-            mode="CALC", user_input="Calculate area", job=self.job, gemini_client=None
-        )
-        self.assertTrue(has_questions)
-        self.assertIn("questions", calc_data)
-        self.assertTrue(len(calc_data["questions"]) > 0)
-
-        # Test PRICE mode
-        price_data, has_questions = self.controller.run(
-            mode="PRICE", user_input="Price stainless", job=None, gemini_client=None
-        )
-        self.assertTrue(has_questions)
-        self.assertIn("normalized", price_data)
-        self.assertIn("candidates", price_data)
-
-        # Test TABLE mode
-        table_data, has_questions = self.controller.run(
-            mode="TABLE", user_input="Create table", job=None, gemini_client=None
-        )
-        self.assertTrue(has_questions)
-        self.assertIn("rows", table_data)
-        self.assertIn("totals", table_data)
+    def test_run_without_gemini_client_raises_error(self):
+        """Test run method raises ValueError when no Gemini client provided."""
+        with self.assertRaises(ValueError) as context:
+            self.controller.run(
+                mode="CALC",
+                user_input="Calculate area",
+                job=self.job,
+                gemini_client=None,
+            )
+        self.assertIn("Gemini client is required", str(context.exception))
 
     def test_invalid_mode(self):
         """Test that invalid mode raises ValueError."""
