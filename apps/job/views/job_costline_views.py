@@ -143,8 +143,8 @@ class CostLineUpdateView(APIView):
     )
     def patch(self, request, cost_line_id):
         """
-        Update a cost line and ajustar o estoque caso seja linha de material com stock_id.
-        Usa snapshot do quantity ANTES do save para calcular o diff corretamente.
+        Update a cost line
+        Dynamically infers the stock adjustment based on quantity change
         """
         cost_line = get_object_or_404(CostLine, id=cost_line_id)
 
