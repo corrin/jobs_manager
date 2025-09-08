@@ -372,6 +372,9 @@ DATABASES = {
     },
 }
 
+# Test runner configuration
+TEST_RUNNER = "django.test.runner.DiscoverRunner"
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
