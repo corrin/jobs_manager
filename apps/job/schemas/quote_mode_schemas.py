@@ -42,7 +42,7 @@ CALC_SCHEMA = {
                                 "description": "Calculated amount",
                             },
                             "unit": {
-                                "type": "string", 
+                                "type": "string",
                                 "description": "Unit of measure (e.g., 'mm x mm', 'each', 'mm')",
                             },
                             "specs": {
@@ -282,9 +282,14 @@ def get_allowed_tools(mode: str) -> list:
         ValueError: If mode is not recognized
     """
     tools = {
-        "CALC": [],  # No tools needed for calculations
-        "PRICE": ["search_products", "get_pricing_for_material", "compare_suppliers"],
-        "TABLE": [],  # No tools needed for formatting
+        "CALC": ["emit_calc_result"],  # Only emit tool for structured output
+        "PRICE": [
+            "search_products",
+            "get_pricing_for_material",
+            "compare_suppliers",
+            "emit_price_result",
+        ],
+        "TABLE": ["emit_table_result"],  # Only emit tool for structured output
     }
 
     if mode not in tools:

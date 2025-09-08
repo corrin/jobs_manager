@@ -481,7 +481,11 @@ pricing, and suppliers."""
 
             # Run the mode controller with chat history
             response_data, has_questions = self.mode_controller.run(
-                mode=mode, user_input=user_message, job=job, gemini_client=model, chat_history=chat_history
+                mode=mode,
+                user_input=user_message,
+                job=job,
+                gemini_client=model,
+                chat_history=chat_history,
             )
 
             # Format the response for display
