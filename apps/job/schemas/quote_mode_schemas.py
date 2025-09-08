@@ -11,67 +11,51 @@ CALC_SCHEMA = {
     "properties": {
         "inputs": {
             "type": "object",
-            "required": ["units"],
+            "required": [],
             "properties": {
-                "units": {
+                "raw_input": {
                     "type": "string",
-                    "enum": ["mm", "m"],
-                    "description": "Unit system for measurements",
+                    "description": "The user's original input",
                 },
-                "part_dims_mm": {
+                "parsed": {
                     "type": "object",
-                    "properties": {
-                        "L": {"type": "number", "description": "Length in mm"},
-                        "W": {"type": "number", "description": "Width in mm"},
-                        "T": {"type": "number", "description": "Thickness in mm"},
-                        "OD": {"type": "number", "description": "Outer diameter in mm"},
-                        "ID": {"type": "number", "description": "Inner diameter in mm"},
-                    },
-                    "description": "Part dimensions",
-                },
-                "qty": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "description": "Quantity of parts needed",
-                },
-                "sheet_size_mm": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "minItems": 2,
-                    "maxItems": 2,
-                    "description": "Sheet dimensions [length, width] in mm",
-                },
-                "kerf_mm": {
-                    "type": "number",
-                    "description": "Cutting kerf width in mm",
+                    "description": "What was extracted from the input",
                 },
             },
         },
         "results": {
             "type": "object",
+            "required": ["items", "assumptions"],
             "properties": {
-                "part_area_m2": {
-                    "type": "number",
-                    "description": "Area of single part in m²",
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["description", "quantity", "unit"],
+                        "properties": {
+                            "description": {
+                                "type": "string",
+                                "description": "What was calculated (e.g., 'Flat pattern', 'M10 bolts', 'Welding length')",
+                            },
+                            "quantity": {
+                                "type": "number",
+                                "description": "Calculated amount",
+                            },
+                            "unit": {
+                                "type": "string", 
+                                "description": "Unit of measure (e.g., 'mm x mm', 'each', 'mm')",
+                            },
+                            "specs": {
+                                "type": "object",
+                                "description": "Additional specifications (material, thickness, dimensions, etc.)",
+                            },
+                        },
+                    },
+                    "description": "List of calculated requirements",
                 },
-                "total_area_m2": {
-                    "type": "number",
-                    "description": "Total area for all parts in m²",
-                },
-                "nest_yield_pct": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 100,
-                    "description": "Nesting efficiency percentage",
-                },
-                "sheets_required": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "description": "Number of sheets needed",
-                },
-                "offcut_area_m2": {
-                    "type": "number",
-                    "description": "Waste material area in m²",
+                "assumptions": {
+                    "type": "string",
+                    "description": "Explicit assumptions made (ALWAYS provide - e.g., 'Assumed 3mm thickness, 304 stainless, open-top box')",
                 },
             },
         },

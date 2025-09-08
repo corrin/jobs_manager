@@ -449,6 +449,25 @@ pricing, and suppliers."""
         try:
             job = Job.objects.get(id=job_id)
 
+            # Build conversation history from database
+            chat_history = []
+            recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
+                "timestamp"
+            )[:20]
+            logger.debug(
+                f"Retrieved {len(recent_messages)} recent messages for context"
+            )
+
+            for msg in recent_messages:
+                logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
+                chat_history.append(
+                    {
+                        # Gemini expects roles to be either "user" or "model"
+                        "role": self._to_gemini_role(msg.role),
+                        "parts": [msg.content],
+                    }
+                )
+
             # Infer mode if not provided
             if mode is None:
                 mode, confidence = self.mode_controller.infer_mode(user_message)
@@ -460,9 +479,9 @@ pricing, and suppliers."""
             model = self.get_gemini_client(mode=mode)
             model.system_instruction = self.mode_controller.get_system_prompt()
 
-            # Run the mode controller
+            # Run the mode controller with chat history
             response_data, has_questions = self.mode_controller.run(
-                mode=mode, user_input=user_message, job=job, gemini_client=model
+                mode=mode, user_input=user_message, job=job, gemini_client=model, chat_history=chat_history
             )
 
             # Format the response for display

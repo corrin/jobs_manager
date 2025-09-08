@@ -43,13 +43,13 @@ class QuoteModeController:
             The system prompt string
         """
         return """You are a quoting helper. Do one job at a time in the requested MODE.
-- MODE=CALC: perform deterministic arithmetic from given specs. No prices.
+- MODE=CALC: Calculate quantities and dimensions from specifications. Output a list of items with quantities and units. No prices.
 - MODE=PRICE: map normalized spec to supplier SKUs; call pricing tools only.
 - MODE=TABLE: output a final table from given line items; no new math or prices.
 
-Always return strict JSON that matches the provided SCHEMA. No prose.
-Make reasonable assumptions and state them in the results. Only ask questions if truly blocked.
-Never invent missing numeric values. Never call tools in the wrong mode."""
+Always return strict JSON that matches the provided SCHEMA. ALL fields marked as "required" in the schema MUST have valid values, never null or missing.
+ALWAYS make reasonable assumptions and explicitly state them in the 'assumptions' field. Avoid asking questions - just pick sensible defaults (e.g., 3mm thickness for sheet metal, 304 for stainless steel, open-top for boxes).
+Never call tools in the wrong mode."""
 
     def render_prompt(
         self,
@@ -78,15 +78,17 @@ Never invent missing numeric values. Never call tools in the wrong mode."""
             job_info = f"\nJOB_CONTEXT: Job #{job_ctx.get('job_number', 'N/A')} for {job_ctx.get('client', 'N/A')}"
 
         mode_tasks = {
-            "CALC": "Compute area, yield, sheets_required. Make reasonable assumptions (e.g., open-top box, standard sheets) and state them.",
+            "CALC": "Calculate required items from specifications. Output a list of what's needed with quantities and units.",
             "PRICE": "Use pricing tools to search supplier database. Return the actual results from the tools.",
             "TABLE": "Calculate subtotals, totals, and emit a neat Markdown table.",
         }
 
         return f"""MODE={mode}
 SCHEMA: {json.dumps(schema, indent=2)}{job_info}
-INPUT: {user_input}
-TASK: {mode_tasks[mode]}"""
+CURRENT INPUT: {user_input}
+TASK: {mode_tasks[mode]}
+
+Remember: Consider the full conversation context when processing this input."""
 
     def validate_json(self, data: Any, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -260,7 +262,7 @@ TASK: {mode_tasks[mode]}"""
         return selected_mode, confidence
 
     def run(
-        self, mode: str, user_input: str, job: Optional[Job] = None, gemini_client=None
+        self, mode: str, user_input: str, job: Optional[Job] = None, gemini_client=None, chat_history=None
     ) -> Tuple[Dict[str, Any], bool]:
         """
         Execute a mode with the given input.
@@ -270,6 +272,7 @@ TASK: {mode_tasks[mode]}"""
             user_input: User's input text
             job: Optional Job instance for context
             gemini_client: Optional Gemini client for API calls
+            chat_history: Optional list of previous messages in Gemini format
 
         Returns:
             Tuple of (response_data, has_questions)
@@ -313,7 +316,14 @@ TASK: {mode_tasks[mode]}"""
             response_mime_type="application/json"
         )
 
-        chat = gemini_client.start_chat()
+        # Start chat with history if provided
+        if chat_history:
+            logger.debug(f"Starting chat with {len(chat_history)} history messages")
+            chat = gemini_client.start_chat(history=chat_history)
+        else:
+            logger.debug("Starting fresh chat session (no history)")
+            chat = gemini_client.start_chat()
+            
         response = chat.send_message(
             prompt, tools=allowed_tools, generation_config=generation_config
         )
