@@ -11,6 +11,7 @@ REST views for CostLine CRUD operations following clean code principles:
 import logging
 
 from django.db import transaction
+from django.db.models import F
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
@@ -24,6 +25,7 @@ from apps.job.serializers.costing_serializer import (
     CostLineErrorResponseSerializer,
     CostLineSerializer,
 )
+from apps.purchasing.models import Stock
 
 logger = logging.getLogger(__name__)
 
@@ -140,26 +142,34 @@ class CostLineUpdateView(APIView):
         ]
     )
     def patch(self, request, cost_line_id):
-        """Update a cost line"""
-        # Guard clause - validate cost line exists
+        """
+        Update a cost line
+        Dynamically infers the stock adjustment based on quantity change
+        """
         cost_line = get_object_or_404(CostLine, id=cost_line_id)
 
         try:
             with transaction.atomic():
-                # Validate and update cost line
+                old_qty = cost_line.quantity or 0
+
                 serializer = CostLineCreateUpdateSerializer(
                     cost_line, data=request.data, partial=True
                 )
-
                 if not serializer.is_valid():
                     return Response(
                         serializer.errors, status=status.HTTP_400_BAD_REQUEST
                     )
 
-                # Save updated cost lineTable
                 updated_cost_line = serializer.save()
 
-                # Return updated cost line
+                stock_id = (updated_cost_line.ext_refs or {}).get("stock_id")
+
+                new_qty = updated_cost_line.quantity or 0
+                diff = new_qty - old_qty
+
+                if stock_id and diff:
+                    self._update_stock(stock_id, diff)
+
                 response_serializer = CostLineSerializer(updated_cost_line)
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
 
@@ -170,6 +180,11 @@ class CostLineUpdateView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    def _update_stock(self, stock_id: str, diff) -> None:
+        """Atomic decrement/increment via F() to avoid races"""
+        with transaction.atomic():
+            Stock.objects.filter(pk=stock_id).update(quantity=F("quantity") - diff)
 
 
 class CostLineDeleteView(APIView):
@@ -198,17 +213,22 @@ class CostLineDeleteView(APIView):
         },
         description="Delete an existing CostLine by ID",
     )
-    def delete(self, request, cost_line_id: str):
+    def delete(self, request, cost_line_id):
         """Delete a cost line"""
         # Guard clause - validate cost line exists
         cost_line = get_object_or_404(CostLine, id=cost_line_id)
 
         try:
             with transaction.atomic():
-                # Delete the cost line
+                stock_id = (cost_line.ext_refs or {}).get("stock_id")
+                if stock_id and cost_line.quantity:
+                    # quantity = quantity + cost_line.quantity
+                    Stock.objects.filter(pk=stock_id).update(
+                        quantity=F("quantity") + cost_line.quantity
+                    )
+
                 cost_line.delete()
                 logger.info(f"Deleted cost line {cost_line_id}")
-
                 return Response(status=status.HTTP_204_NO_CONTENT)
 
         except Exception as e:
