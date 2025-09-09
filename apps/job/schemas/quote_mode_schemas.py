@@ -51,7 +51,6 @@ CALC_SCHEMA = {
                             },
                         },
                     },
-                    "description": "List of calculated requirements",
                 },
                 "assumptions": {
                     "type": "string",
@@ -147,7 +146,6 @@ PRICE_SCHEMA = {
                     },
                 },
             },
-            "description": "Matching products from suppliers",
         },
         "questions": {
             "type": "array",
