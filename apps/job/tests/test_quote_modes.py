@@ -7,6 +7,7 @@ tool gating, and mode inference logic.
 
 
 from django.test import TestCase
+from django.utils import timezone
 from jsonschema import ValidationError
 
 from apps.client.models import Client
@@ -145,10 +146,13 @@ class TestQuoteModeController(TestCase):
 
         # Create test job
         self.client_obj = Client.objects.create(
-            name="Test Client", email="test@example.com"
+            name="Test Client",
+            email="test@example.com",
+            xero_last_modified=timezone.now(),
         )
         self.job = Job.objects.create(
-            name="Test Job", job_number="TEST001", client=self.client_obj
+            name="Test Job",
+            client=self.client_obj,
         )
 
     def test_mode_inference_calc(self):

@@ -441,7 +441,19 @@ Consider the full conversation context when processing this input."""
             chat = gemini_client.start_chat()
 
         # Send initial message (no JSON format enforcement - tools handle structure)
-        response = chat.send_message(prompt, tools=allowed_tools)
+        try:
+            response = chat.send_message(prompt, tools=allowed_tools)
+        except Exception as e:
+            logger.error(f"Error sending initial message: {e}")
+            logger.error(f"Full prompt:\n{prompt}")
+            logger.error(f"Tools configured: {[t.name for t in allowed_tools]}")
+            logger.error(
+                f"Chat history length: {len(chat_history) if chat_history else 0}"
+            )
+            # Log the actual function declaration to see what Gemini rejects
+            for tool in allowed_tools:
+                logger.error(f"Tool {tool.name} parameters: {tool.parameters}")
+            raise
 
         # Process response to find emit tool call
         emit_tool_name = f"emit_{mode.lower()}_result"
