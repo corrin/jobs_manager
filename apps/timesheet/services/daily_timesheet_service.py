@@ -84,8 +84,13 @@ class DailyTimesheetService:
             # Check if staff member has working hours for this specific date
             scheduled_hours_for_date = staff.get_scheduled_hours(target_date)
 
+            # Check if weekend functionality is enabled
+            weekend_enabled = cls._is_weekend_enabled()
+            is_weekend = target_date.weekday() >= 5
+
             # Skip staff with no working hours for this specific day
-            if scheduled_hours_for_date <= 0:
+            # But include them on weekends if feature flag is enabled
+            if scheduled_hours_for_date <= 0 and not (weekend_enabled and is_weekend):
                 logger.debug(
                     f"Excluding staff {staff.id} ({staff.first_name} {staff.last_name}) - no working hours for {target_date.strftime('%A')}"
                 )
@@ -189,20 +194,33 @@ class DailyTimesheetService:
     @classmethod
     def _get_scheduled_hours(cls, staff: Staff, target_date: date) -> Decimal:
         """Get scheduled hours for staff on given date"""
-        # Skip weekends
-        if target_date.weekday() >= 5:  # Saturday=5, Sunday=6
+        # Check weekend feature flag
+        weekend_enabled = cls._is_weekend_enabled()
+
+        # Skip weekends only if feature flag is disabled
+        if not weekend_enabled and target_date.weekday() >= 5:  # Saturday=5, Sunday=6
             return Decimal("0.0")
 
-        # Default 8 hours for weekdays - could be enhanced with staff schedules
-        return Decimal("8.0")
+        # Default 8 hours for weekdays, 0 for weekends when enabled
+        if target_date.weekday() >= 5:  # Weekend
+            return Decimal("0.0")  # No default scheduled hours for weekends
+        else:
+            return Decimal("8.0")  # Default 8 hours for weekdays
 
     @classmethod
     def _determine_status(
         cls, actual_hours: Decimal, scheduled_hours: Decimal, cost_lines
     ) -> str:
         """Determine status based on hours and entries"""
+        weekend_enabled = cls._is_weekend_enabled()
+
         if scheduled_hours == 0:
-            return "Weekend"
+            if weekend_enabled and actual_hours > 0:
+                return "Weekend Work"
+            elif weekend_enabled:
+                return "Weekend"
+            else:
+                return "Weekend"
 
         if actual_hours == 0:
             return "No Entry"
@@ -223,6 +241,7 @@ class DailyTimesheetService:
             "Partial": "warning",
             "No Entry": "danger",
             "Weekend": "secondary",
+            "Weekend Work": "info",
         }
         return status_classes.get(status, "secondary")
 
@@ -341,3 +360,10 @@ class DailyTimesheetService:
         if total == 0:
             return 0.0
         return float((part / total) * 100)
+
+    @classmethod
+    def _is_weekend_enabled(cls) -> bool:
+        """Check if weekend timesheet functionality is enabled"""
+        import os
+
+        return os.getenv("WEEKEND_TIMESHEETS_ENABLED", "false").lower() == "true"

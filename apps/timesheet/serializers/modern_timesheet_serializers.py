@@ -103,6 +103,9 @@ class WeeklyTimesheetDataSerializer(serializers.Serializer):
     export_mode = serializers.CharField()
     is_current_week = serializers.BooleanField()
     navigation = serializers.DictField(required=False)
+    # Weekend-related fields
+    weekend_enabled = serializers.BooleanField(required=False, default=False)
+    week_type = serializers.CharField(required=False, allow_blank=True)
 
 
 class IMSWeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):

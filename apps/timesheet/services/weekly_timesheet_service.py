@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class WeeklyTimesheetService:
-    """Service for weekly timesheet operations."""
+    """Service for weekly timesheet operations (Monday to Sunday)."""
 
     @classmethod
     def get_weekly_overview(
@@ -85,8 +85,8 @@ class WeeklyTimesheetService:
         if export_to_ims:
             return cls._get_ims_week(start_date)
         else:
-            # Return only weekdays (Monday to Friday)
-            return [start_date + timedelta(days=i) for i in range(5)]
+            # Return all 7 days (Monday to Sunday)
+            return [start_date + timedelta(days=i) for i in range(7)]
 
     @classmethod
     def _get_ims_week(cls, start_date: date) -> List[date]:
@@ -117,7 +117,7 @@ class WeeklyTimesheetService:
         excluded_staff_ids = get_excluded_staff()
         staff_members = Staff.objects.exclude(
             Q(is_staff=True) | Q(id__in=excluded_staff_ids)
-        ).order_by("last_name", "first_name")
+        ).order_by("first_name", "last_name")
 
         staff_data = []
 
@@ -559,47 +559,46 @@ class WeeklyTimesheetService:
             entries_created = 0
 
             while current_date <= end_date:
-                # Skip weekends
-                if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-                    # Check if entry already exists using CostLine
-                    existing_lines = CostLine.objects.annotate(
-                        staff_id=RawSQL(
-                            "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                            (),
-                            output_field=models.CharField(),
-                        ),
-                        line_date=RawSQL(
-                            "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                            (),
-                            output_field=models.CharField(),
-                        ),
-                    ).filter(
+                # Include all days (no weekend skip)
+                # Check if entry already exists using CostLine
+                existing_lines = CostLine.objects.annotate(
+                    staff_id=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                    line_date=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                ).filter(
+                    cost_set=cost_set,
+                    kind="time",
+                    staff_id=str(staff_id),
+                    line_date=current_date.isoformat(),
+                )
+
+                if not existing_lines.exists():
+                    CostLine.objects.create(
                         cost_set=cost_set,
                         kind="time",
-                        staff_id=str(staff_id),
-                        line_date=current_date.isoformat(),
+                        desc=f"{leave_type.title()} - {description}".strip(),
+                        quantity=Decimal(str(hours_per_day)),
+                        unit_cost=staff.wage_rate,  # Use staff wage rate
+                        unit_rev=Decimal("0"),  # Leave is not billable
+                        meta={
+                            "staff_id": str(staff_id),
+                            "date": current_date.isoformat(),
+                            "is_billable": False,
+                            "wage_rate": float(staff.wage_rate),
+                            "charge_out_rate": 0.0,
+                            "rate_multiplier": 1.0,
+                            "leave_type": leave_type,
+                            "created_from_timesheet": True,
+                        },
                     )
-
-                    if not existing_lines.exists():
-                        CostLine.objects.create(
-                            cost_set=cost_set,
-                            kind="time",
-                            desc=f"{leave_type.title()} - {description}".strip(),
-                            quantity=Decimal(str(hours_per_day)),
-                            unit_cost=staff.wage_rate,  # Use staff wage rate
-                            unit_rev=Decimal("0"),  # Leave is not billable
-                            meta={
-                                "staff_id": str(staff_id),
-                                "date": current_date.isoformat(),
-                                "is_billable": False,
-                                "wage_rate": float(staff.wage_rate),
-                                "charge_out_rate": 0.0,
-                                "rate_multiplier": 1.0,
-                                "leave_type": leave_type,
-                                "created_from_timesheet": True,
-                            },
-                        )
-                        entries_created += 1
+                    entries_created += 1
 
                 current_date += timedelta(days=1)
 

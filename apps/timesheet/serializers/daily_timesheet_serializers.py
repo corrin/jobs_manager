@@ -40,6 +40,9 @@ class StaffDailyDataSerializer(serializers.Serializer):
     job_breakdown = JobBreakdownSerializer(many=True)
     entry_count = serializers.IntegerField()
     alerts = serializers.ListField(child=serializers.CharField())
+    # Weekend-related fields
+    is_weekend = serializers.BooleanField(required=False, default=False)
+    weekend_enabled = serializers.BooleanField(required=False, default=False)
 
 
 class DailyTotalsSerializer(serializers.Serializer):
@@ -74,6 +77,10 @@ class DailyTimesheetSummarySerializer(serializers.Serializer):
     staff_data = StaffDailyDataSerializer(many=True)
     daily_totals = DailyTotalsSerializer()
     summary_stats = SummaryStatsSerializer()
+    # Weekend-related fields
+    weekend_enabled = serializers.BooleanField(required=False, default=False)
+    is_weekend = serializers.BooleanField(required=False, default=False)
+    day_type = serializers.CharField(required=False, allow_blank=True)
 
 
 class TimesheetErrorResponseSerializer(serializers.Serializer):
