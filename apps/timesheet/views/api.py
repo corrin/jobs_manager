@@ -85,7 +85,7 @@ class StaffListAPIView(APIView):
             staff = (
                 Staff.objects.active_on_date(target_date)
                 .exclude(Q(is_staff=True) | Q(id__in=excluded_staff_ids))
-                .order_by("last_name", "first_name")
+                .order_by("first_name", "last_name")
             )
 
             staff_data = []
@@ -182,6 +182,7 @@ class DailyTimesheetAPIView(APIView):
     """
     API endpoint for daily timesheet overview.
     Provides comprehensive daily summary using modern CostLine system.
+    Supports weekend functionality when feature flag is enabled.
 
     Supports multiple URL patterns:
     - GET /timesheets/api/daily/ (today's data)
@@ -232,6 +233,13 @@ class DailyTimesheetAPIView(APIView):
             # Delegate to service layer for business logic
             summary_data = DailyTimesheetService.get_daily_summary(target_date)
 
+            # Add weekend information to response
+            weekend_enabled = self._is_weekend_enabled()
+            is_weekend = target_date.weekday() >= 5
+            summary_data["weekend_enabled"] = weekend_enabled
+            summary_data["is_weekend"] = is_weekend
+            summary_data["day_type"] = "weekend" if is_weekend else "weekday"
+
             # Serialize and return response
             serializer = DailyTimesheetSummarySerializer(summary_data)
 
@@ -281,25 +289,43 @@ class DailyTimesheetAPIView(APIView):
 
             if not staff_data:
                 # Staff exists but has no timesheet data for this date
+                weekend_enabled = self._is_weekend_enabled()
+                is_weekend = target_date.weekday() >= 5
+
+                # Adjust scheduled hours based on weekend feature flag
+                scheduled_hours = 0.0 if is_weekend else 8.0
+
                 staff_data = {
                     "staff_id": str(staff_id),
                     "staff_name": f"{staff.first_name} {staff.last_name}",
                     "staff_initials": f"{staff.first_name[0]}{staff.last_name[0]}".upper(),
                     "avatar_url": None,
-                    "scheduled_hours": 8.0,
+                    "scheduled_hours": scheduled_hours,
                     "actual_hours": 0.0,
                     "billable_hours": 0.0,
                     "non_billable_hours": 0.0,
                     "total_revenue": 0.0,
                     "total_cost": 0.0,
-                    "status": "No Entry",
-                    "status_class": "danger",
+                    "status": "Weekend"
+                    if is_weekend and not weekend_enabled
+                    else "No Entry",
+                    "status_class": "secondary"
+                    if is_weekend and not weekend_enabled
+                    else "danger",
                     "billable_percentage": 0.0,
                     "completion_percentage": 0.0,
                     "job_breakdown": [],
                     "entry_count": 0,
                     "alerts": ["No timesheet entries for this date"],
+                    "is_weekend": is_weekend,
+                    "weekend_enabled": weekend_enabled,
                 }
+            else:
+                # Add weekend information to existing staff data
+                weekend_enabled = self._is_weekend_enabled()
+                is_weekend = target_date.weekday() >= 5
+                staff_data["is_weekend"] = is_weekend
+                staff_data["weekend_enabled"] = weekend_enabled
 
             return Response(staff_data, status=status.HTTP_200_OK)
 
@@ -340,6 +366,9 @@ class TimesheetResponseMixin:
                 today = datetime.today().date()
                 start_date = today - timedelta(days=today.weekday())
 
+            # Check weekend feature flag
+            weekend_enabled = self._is_weekend_enabled()
+
             weekly_data = WeeklyTimesheetService.get_weekly_overview(
                 start_date, export_to_ims=export_to_ims
             )
@@ -351,6 +380,10 @@ class TimesheetResponseMixin:
                 "next_week_date": next_week.isoformat(),
                 "current_week_date": start_date.isoformat(),
             }
+
+            # Add feature flag info to response
+            weekly_data["weekend_enabled"] = weekend_enabled
+            weekly_data["week_type"] = "7-day" if weekend_enabled else "5-day"
 
             serializer_cls = (
                 IMSWeeklyTimesheetDataSerializer
@@ -379,17 +412,24 @@ class TimesheetResponseMixin:
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    def _is_weekend_enabled(self):
+        """Check if weekend timesheet functionality is enabled"""
+        import os
+
+        return os.getenv("WEEKEND_TIMESHEETS_ENABLED", "false").lower() == "true"
+
 
 class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
     """
     Comprehensive weekly timesheet API endpoint using WeeklyTimesheetService.
     Provides complete weekly overview data for the modern Vue.js frontend.
+    Supports both 5-day (Mon-Fri) and 7-day (Mon-Sun) modes based on feature flag.
     """
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Standard weekly overview (Mon–Fri)",
+        summary="Standard weekly overview (Mon–Sun when enabled, Mon–Fri when disabled)",
         parameters=[
             OpenApiParameter(
                 "start_date",
@@ -406,7 +446,7 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
         },
     )
     def get(self, request):
-        """Return Monday-to-Friday weekly timesheet data."""
+        """Return weekly timesheet data (5 or 7 days based on feature flag)."""
         return self.build_timesheet_response(request, export_to_ims=False)
 
     @extend_schema(
