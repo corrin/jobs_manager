@@ -378,23 +378,70 @@ def create_xero_purchase_order(
 
     try:
         purchase_order = PurchaseOrder.objects.get(id=purchase_order_id)
+        logger.info(
+            f"Starting Xero sync for PO {purchase_order_id}",
+            extra={
+                "purchase_order_id": str(purchase_order_id),
+                "po_number": purchase_order.po_number,
+                "supplier_id": str(purchase_order.supplier.id)
+                if purchase_order.supplier
+                else None,
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
+            },
+        )
         manager = XeroPurchaseOrderManager(purchase_order=purchase_order)
         result_data = manager.sync_to_xero()
 
+        logger.info(
+            f"Manager returned result for PO {purchase_order_id}: success={result_data.get('success')}",
+            extra={
+                "purchase_order_id": str(purchase_order_id),
+                "result_data": result_data,
+            },
+        )
+
         if result_data.get("success"):
             messages.success(request, "Purchase Order synced successfully with Xero.")
+            logger.info(
+                f"Successfully synced PO {purchase_order_id} to Xero",
+                extra={
+                    "purchase_order_id": str(purchase_order_id),
+                    "xero_id": result_data.get("xero_id"),
+                    "online_url": result_data.get("online_url"),
+                },
+            )
             serializer = XeroDocumentSuccessResponseSerializer(data=result_data)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
-            messages.error(
-                request, f"Failed to sync Purchase Order: {result_data.get('error')}"
+            error_msg = result_data.get("error", "Unknown error")
+            error_type = result_data.get("error_type", "unknown")
+            messages.error(request, f"Failed to sync Purchase Order: {error_msg}")
+            logger.warning(
+                f"Failed to sync PO {purchase_order_id}: {error_msg}",
+                extra={
+                    "purchase_order_id": str(purchase_order_id),
+                    "error_message": error_msg,
+                    "error_type": error_type,
+                    "result_data": result_data,
+                },
             )
             serializer = XeroDocumentErrorResponseSerializer(data=result_data)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
     except PurchaseOrder.DoesNotExist:
+        logger.warning(
+            f"Purchase Order not found: {purchase_order_id}",
+            extra={
+                "purchase_order_id": str(purchase_order_id),
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
+            },
+        )
         error_data = {
             "success": False,
             "error": f"Purchase Order with ID {purchase_order_id} not found.",
@@ -402,8 +449,20 @@ def create_xero_purchase_order(
         messages.error(request, error_data["error"])
         return Response(error_data, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        logger.exception("Error in create_xero_purchase_order view")
-        persist_app_error(e)
+        logger.exception(
+            f"Unexpected error in create_xero_purchase_order view for PO {purchase_order_id}",
+            extra={
+                "purchase_order_id": str(purchase_order_id),
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            },
+        )
+        persist_app_error(
+            e, request=request, context={"purchase_order_id": str(purchase_order_id)}
+        )
         error_data = {"success": False, "error": "An unexpected server error occurred."}
         messages.error(request, f"An unexpected error occurred: {str(e)}")
         return Response(error_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
