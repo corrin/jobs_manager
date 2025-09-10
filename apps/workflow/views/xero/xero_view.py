@@ -402,22 +402,27 @@ def create_xero_purchase_order(
             },
         )
 
-        if result_data.get("success"):
-            messages.success(request, "Purchase Order synced successfully with Xero.")
-            logger.info(
-                f"Successfully synced PO {purchase_order_id} to Xero",
-                extra={
-                    "purchase_order_id": str(purchase_order_id),
-                    "xero_id": result_data.get("xero_id"),
-                    "online_url": result_data.get("online_url"),
-                },
-            )
-            serializer = XeroDocumentSuccessResponseSerializer(data=result_data)
-            serializer.is_valid(raise_exception=True)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
+        # Handle unhappy case first
+        if not result_data.get("success"):
             error_msg = result_data.get("error", "Unknown error")
             error_type = result_data.get("error_type", "unknown")
+            status_code = result_data.get("status", 400)
+
+            # Persist error for unhappy cases
+            persist_app_error(
+                ValueError(error_msg),
+                additional_context={
+                    "purchase_order_id": str(purchase_order_id),
+                    "error_type": error_type,
+                    "result_data": result_data,
+                    "user_id": str(request.user.id)
+                    if request.user.is_authenticated
+                    else None,
+                    "request_path": request.path,
+                    "request_method": request.method,
+                },
+            )
+
             messages.error(request, f"Failed to sync Purchase Order: {error_msg}")
             logger.warning(
                 f"Failed to sync PO {purchase_order_id}: {error_msg}",
@@ -430,7 +435,21 @@ def create_xero_purchase_order(
             )
             serializer = XeroDocumentErrorResponseSerializer(data=result_data)
             serializer.is_valid(raise_exception=True)
-            return Response(serializer.data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=status_code)
+
+        # Handle happy case
+        messages.success(request, "Purchase Order synced successfully with Xero.")
+        logger.info(
+            f"Successfully synced PO {purchase_order_id} to Xero",
+            extra={
+                "purchase_order_id": str(purchase_order_id),
+                "xero_id": result_data.get("xero_id"),
+                "online_url": result_data.get("online_url"),
+            },
+        )
+        serializer = XeroDocumentSuccessResponseSerializer(data=result_data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     except PurchaseOrder.DoesNotExist:
         logger.warning(
@@ -461,7 +480,15 @@ def create_xero_purchase_order(
             },
         )
         persist_app_error(
-            e, request=request, context={"purchase_order_id": str(purchase_order_id)}
+            e,
+            additional_context={
+                "purchase_order_id": str(purchase_order_id),
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
+                "request_path": request.path,
+                "request_method": request.method,
+            },
         )
         error_data = {"success": False, "error": "An unexpected server error occurred."}
         messages.error(request, f"An unexpected error occurred: {str(e)}")
