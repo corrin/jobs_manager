@@ -4,11 +4,14 @@ import socket
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import connection
+from dotenv import load_dotenv
 
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.workflow.api.xero.sync import seed_clients_to_xero, seed_jobs_to_xero
 from apps.workflow.services.error_persistence import persist_app_error
+
+load_dotenv()
 
 logger = logging.getLogger("xero")
 
@@ -33,32 +36,38 @@ class Command(BaseCommand):
         clear_ids = options["clear_xero_ids"]
 
         mode_text = "DRY RUN - " if dry_run else ""
-        self.stdout.write(f"🚀 {mode_text}Seeding Xero from Database")
+        self.stdout.write(f"{mode_text}Seeding Xero from Database")
         self.stdout.write("=" * 50)
 
         try:
             # Phase 0: Clear production Xero IDs (if requested)
             if clear_ids:
-                self.stdout.write("\n🧹 Phase 0: Clearing Production Xero IDs")
+                self.stdout.write("Phase 0: Clearing Production Xero IDs")
                 self.clear_production_xero_ids(dry_run)
 
             # Phase 1: Link/Create contacts
-            self.stdout.write("\n📋 Phase 1: Processing Contacts")
+            self.stdout.write("Phase 1: Processing Contacts")
             contacts_processed = self.process_contacts(dry_run)
 
-            # Phase 2: Create projects
-            self.stdout.write("\n🏗️  Phase 2: Processing Projects")
-            projects_processed = self.process_projects(dry_run)
+            # Phase 2: Create projects (only if enabled)
+            if settings.XERO_SYNC_PROJECTS:
+                self.stdout.write("Phase 2: Processing Projects")
+                projects_processed = self.process_projects(dry_run)
+            else:
+                self.stdout.write(
+                    "Phase 2: Skipping Projects (XERO_SYNC_PROJECTS is disabled)"
+                )
+                projects_processed = 0
 
             # Summary
-            self.stdout.write("\n✅ COMPLETED")
+            self.stdout.write("COMPLETED")
             self.stdout.write(f"Contacts processed: {contacts_processed}")
             self.stdout.write(f"Projects processed: {projects_processed}")
 
             if dry_run:
-                self.stdout.write("🔍 Dry run complete - no changes made")
+                self.stdout.write("Dry run complete - no changes made")
             else:
-                self.stdout.write("🎉 Xero seeding complete!")
+                self.stdout.write("Xero seeding complete!")
 
         except Exception as e:
             logger.error(f"Error during Xero seeding: {e}", exc_info=True)
@@ -80,7 +89,7 @@ class Command(BaseCommand):
         )
 
         if not clients_needing_sync.exists():
-            self.stdout.write("✅ All clients with jobs already have Xero contact IDs")
+            self.stdout.write("All clients with jobs already have Xero contact IDs")
             return 0
 
         if dry_run:
@@ -94,16 +103,16 @@ class Command(BaseCommand):
             return clients_needing_sync.count()
 
         # Call sync module for bulk processing
-        self.stdout.write("📥 Processing clients with Xero sync module...")
+        self.stdout.write("Processing clients with Xero sync module...")
         results = seed_clients_to_xero(clients_needing_sync)
 
         # Report results
         self.stdout.write(
-            f"📊 Contacts Summary: {results['linked']} linked, {results['created']} created"
+            f"Contacts Summary: {results['linked']} linked, {results['created']} created"
         )
 
         if results["failed"]:
-            self.stdout.write(f"❌ Failed to process {len(results['failed'])} clients:")
+            self.stdout.write(f"Failed to process {len(results['failed'])} clients:")
             for name in results["failed"][:5]:  # Show first 5 failures
                 self.stdout.write(f"  • {name}")
             if len(results["failed"]) > 5:
@@ -124,7 +133,7 @@ class Command(BaseCommand):
 
         if not jobs_needing_sync.exists():
             self.stdout.write(
-                "✅ All jobs with valid clients already have Xero project IDs"
+                "All jobs with valid clients already have Xero project IDs"
             )
             return 0
 
@@ -138,14 +147,14 @@ class Command(BaseCommand):
             return jobs_needing_sync.count()
 
         # Call sync module for bulk processing
-        self.stdout.write("🏗️  Processing jobs with Xero sync module...")
+        self.stdout.write("Processing jobs with Xero sync module...")
         results = seed_jobs_to_xero(jobs_needing_sync)
 
         # Report results
-        self.stdout.write(f"📊 Projects Summary: {results['created']} created")
+        self.stdout.write(f"Projects Summary: {results['created']} created")
 
         if results["failed"]:
-            self.stdout.write(f"❌ Failed to process {len(results['failed'])} jobs:")
+            self.stdout.write(f"Failed to process {len(results['failed'])} jobs:")
             for name in results["failed"][:5]:  # Show first 5 failures
                 self.stdout.write(f"  • {name}")
             if len(results["failed"]) > 5:
@@ -162,7 +171,7 @@ class Command(BaseCommand):
         if "msm" in hostname or "prod" in hostname:
             self.stdout.write(
                 self.style.ERROR(
-                    f"❌ ERROR: Refusing to run on production server: {hostname}"
+                    f"ERROR: Refusing to run on production server: {hostname}"
                 )
             )
             self.stdout.write(
@@ -170,20 +179,20 @@ class Command(BaseCommand):
             )
             return
 
-        self.stdout.write(f"🔍 Host: {hostname}")
-        self.stdout.write(f"🔍 Database: {db_name}")
+        self.stdout.write(f"Host: {hostname}")
+        self.stdout.write(f"Database: {db_name}")
         self.stdout.write("This will clear Xero IDs from restored production data.")
         self.stdout.write("Records will be re-linked during the sync process.")
 
         if dry_run:
-            self.stdout.write("🔍 Dry run - would clear Xero IDs but not making changes")
+            self.stdout.write("Dry run - would clear Xero IDs but not making changes")
             return
 
         tables_cleared = []
 
         with connection.cursor() as cursor:
             # Clear client contact IDs - allows re-linking by name
-            self.stdout.write("🧹 Clearing client xero_contact_id values...")
+            self.stdout.write("Clearing client xero_contact_id values...")
             if self._table_exists(cursor, "workflow_client"):
                 cursor.execute(
                     "UPDATE workflow_client SET xero_contact_id = NULL WHERE xero_contact_id IS NOT NULL"
@@ -192,10 +201,12 @@ class Command(BaseCommand):
                 if client_count > 0:
                     tables_cleared.append(f"workflow_client: {client_count} records")
             else:
-                self.stdout.write("  ⚠️  workflow_client table not found - skipping")
+                self.stdout.write(
+                    "  WARNING: workflow_client table not found - skipping"
+                )
 
             # Clear job project IDs - allows fresh project sync
-            self.stdout.write("🧹 Clearing job xero_project_id values...")
+            self.stdout.write("Clearing job xero_project_id values...")
             if self._table_exists(cursor, "workflow_job") and self._column_exists(
                 cursor, "workflow_job", "xero_project_id"
             ):
@@ -207,11 +218,11 @@ class Command(BaseCommand):
                     tables_cleared.append(f"workflow_job: {job_count} records")
             else:
                 self.stdout.write(
-                    "  ⚠️  workflow_job.xero_project_id column not found - skipping"
+                    "  WARNING: workflow_job.xero_project_id column not found - skipping"
                 )
 
             # Clear invoice/bill/quote IDs - prevents duplicates
-            self.stdout.write("🧹 Clearing accounting xero_id values...")
+            self.stdout.write("Clearing accounting xero_id values...")
             for table_name in [
                 "accounting_invoice",
                 "accounting_bill",
@@ -228,7 +239,7 @@ class Command(BaseCommand):
                         tables_cleared.append(f"{table_name}: {count} records")
 
             # Clear purchase order IDs
-            self.stdout.write("🧹 Clearing purchase order xero_id values...")
+            self.stdout.write("Clearing purchase order xero_id values...")
             if self._table_exists(
                 cursor, "purchasing_purchaseorder"
             ) and self._column_exists(cursor, "purchasing_purchaseorder", "xero_id"):
@@ -243,11 +254,11 @@ class Command(BaseCommand):
 
         # Summary
         if tables_cleared:
-            self.stdout.write("✅ Cleared Xero IDs from:")
+            self.stdout.write("Cleared Xero IDs from:")
             for table_info in tables_cleared:
                 self.stdout.write(f"  • {table_info}")
         else:
-            self.stdout.write("ℹ️  No Xero IDs found to clear")
+            self.stdout.write("No Xero IDs found to clear")
 
     def _table_exists(self, cursor, table_name):
         """Check if a table exists in the database."""

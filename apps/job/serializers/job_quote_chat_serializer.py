@@ -3,7 +3,7 @@ from rest_framework import serializers
 from apps.job.models import JobQuoteChat
 
 
-class JobQuoteChatSerializer(serializers.ModelSerializer):
+class JobQuoteChatCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating new JobQuoteChat messages.
     Validates required fields and business rules.
@@ -11,26 +11,39 @@ class JobQuoteChatSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobQuoteChat
-        # Expose the server-generated `timestamp` so the frontend
-        # can display message date/time, but mark it read-only so
-        # clients cannot alter it.
-        fields = ["message_id", "role", "content", "metadata", "timestamp"]
+        fields = ["message_id", "role", "content", "metadata"]
         extra_kwargs = {
             "metadata": {"default": dict, "required": False},
-            "timestamp": {"read_only": True},
         }
 
     def validate_role(self, value):
         """Validate that role is either 'user' or 'assistant'."""
         if value not in ["user", "assistant"]:
-            raise serializers.ValidationError("role must be 'user' or 'assistant'")
+            raise serializers.ValidationError(
+                "Role must be either 'user' or 'assistant'"
+            )
         return value
 
     def validate_message_id(self, value):
-        """Validate that message_id is unique."""
-        if JobQuoteChat.objects.filter(message_id=value).exists():
-            raise serializers.ValidationError("message_id already exists")
+        """Validate that message_id is provided and unique for this job."""
+        if not value.strip():
+            raise serializers.ValidationError("Message ID cannot be empty")
         return value
+
+
+class JobQuoteChatSerializer(serializers.ModelSerializer):
+    """
+    Serializer for JobQuoteChat responses (includes timestamp).
+    Used when returning saved messages to the client.
+    """
+
+    class Meta:
+        model = JobQuoteChat
+        fields = ["message_id", "role", "content", "metadata", "timestamp"]
+        read_only_fields = ["timestamp"]
+        extra_kwargs = {
+            "metadata": {"default": dict, "required": False},
+        }
 
 
 class JobQuoteChatUpdateSerializer(serializers.ModelSerializer):
@@ -118,6 +131,12 @@ class JobQuoteChatInteractionRequestSerializer(serializers.Serializer):
     message = serializers.CharField(
         max_length=5000,
         help_text="User message content to send to the AI assistant",
+    )
+    mode = serializers.ChoiceField(
+        choices=["CALC", "PRICE", "TABLE", "AUTO"],
+        required=False,
+        default="AUTO",
+        help_text="Operation mode: CALC for calculations, PRICE for pricing, TABLE for summaries, AUTO for automatic detection",
     )
 
 

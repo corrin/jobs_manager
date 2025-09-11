@@ -95,9 +95,15 @@ class PDFImportService:
         skipped_count = 0
 
         logger.info(f"Starting import of {len(products)} products for {supplier.name}")
+        logger.info(
+            f"Sample product data: {products[0] if products else 'No products'}"
+        )
 
         for idx, product_data in enumerate(products):
             try:
+                logger.debug(
+                    f"Processing product {idx}: {product_data.get('product_name', 'Unknown')}"
+                )
                 result = self._import_single_product(
                     product_data, supplier, price_list, duplicate_strategy, idx
                 )
@@ -312,19 +318,26 @@ class PDFImportService:
             String indicating action taken ("imported")
         """
         # Create the product
-        product = SupplierProduct.objects.create(
-            supplier=supplier,
-            price_list=price_list,
-            product_name=product_data["product_name"],
-            item_no=product_data.get("item_no", ""),
-            description=product_data.get("description", ""),
-            specifications=product_data.get("specifications", ""),
-            variant_id=product_data["variant_id"],
-            variant_price=product_data.get("unit_price"),
-            price_unit=product_data.get("price_unit", "each"),
-            variant_available_stock=0,  # PDF doesn't have stock info
-            url="",  # PDF doesn't have URLs
-        )
+        logger.debug(f"Creating product with data: {product_data}")
+        try:
+            product = SupplierProduct.objects.create(
+                supplier=supplier,
+                price_list=price_list,
+                product_name=product_data["product_name"],
+                item_no=product_data.get("item_no", ""),
+                description=product_data.get("description", ""),
+                specifications=product_data.get("specifications", ""),
+                variant_id=product_data["variant_id"],
+                variant_price=product_data.get("unit_price"),
+                price_unit=product_data.get("price_unit", "each"),
+                variant_available_stock=0,  # PDF doesn't have stock info
+                url="",  # PDF doesn't have URLs
+            )
+            logger.debug(f"Successfully created product: {product.id}")
+        except Exception as create_error:
+            logger.error(f"Failed to create product: {create_error}")
+            logger.error(f"Product data: {product_data}")
+            raise
 
         # Create mapping record for LLM processing
         create_mapping_record(product)

@@ -9,10 +9,12 @@ Tests cover:
 - Relationships with other models
 """
 
-from datetime import datetime, timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 
 from django.db import IntegrityError
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
@@ -24,26 +26,24 @@ class JobQuoteChatModelTests(TestCase):
 
     def setUp(self):
         """Set up test data"""
+        # Minimal CompanyDefaults singleton
         self.company_defaults = CompanyDefaults.objects.create(
             company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
         )
 
         self.client = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified=timezone.now(),
         )
 
+        # Create Job with minimal valid fields; job_number is auto-generated,
+        # status defaults to 'draft', and charge_out_rate sourced from CompanyDefaults
         self.job = Job.objects.create(
             name="Test Job",
-            job_number="JOB001",
             description="Test job description",
             client=self.client,
-            status="quoting",
         )
 
     def test_create_basic_chat_message(self):
@@ -156,7 +156,7 @@ class JobQuoteChatModelTests(TestCase):
 
     def test_timestamp_auto_set(self):
         """Test that timestamp is automatically set"""
-        before_create = datetime.now(timezone.utc)
+        before_create = datetime.now(dt_timezone.utc)
 
         message = JobQuoteChat.objects.create(
             job=self.job,
@@ -165,7 +165,7 @@ class JobQuoteChatModelTests(TestCase):
             content="Test timestamp",
         )
 
-        after_create = datetime.now(timezone.utc)
+        after_create = datetime.now(dt_timezone.utc)
 
         self.assertIsNotNone(message.timestamp)
         self.assertGreaterEqual(message.timestamp, before_create)
@@ -268,10 +268,8 @@ class JobQuoteChatModelTests(TestCase):
         # Create second job
         job2 = Job.objects.create(
             name="Second Job",
-            job_number="JOB002",
             description="Second job description",
             client=self.client,
-            status="quoting",
         )
 
         # Create messages for both jobs

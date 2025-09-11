@@ -372,6 +372,9 @@ DATABASES = {
     },
 }
 
+# Test runner configuration
+TEST_RUNNER = "django.test.runner.DiscoverRunner"
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -397,7 +400,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = "en-nz"
-TIME_ZONE = "UTC"
+TIME_ZONE = "Pacific/Auckland"
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
@@ -614,6 +617,7 @@ XERO_CLIENT_SECRET = os.getenv("XERO_CLIENT_SECRET", "")
 XERO_REDIRECT_URI = os.getenv("XERO_REDIRECT_URI", "")
 XERO_DEFAULT_USER_ID = os.getenv("XERO_DEFAULT_USER_ID", "")
 XERO_WEBHOOK_KEY = os.getenv("XERO_WEBHOOK_KEY", "")
+XERO_SYNC_PROJECTS = os.getenv("XERO_SYNC_PROJECTS", "False").lower() == "true"
 
 DEFAULT_XERO_SCOPES = " ".join(DEFAULT_XERO_SCOPES_LIST)
 XERO_SCOPES = os.getenv("XERO_SCOPES", DEFAULT_XERO_SCOPES).split()

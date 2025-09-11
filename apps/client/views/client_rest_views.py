@@ -571,9 +571,11 @@ class ClientCreateRestView(APIView):
                         "error": error_msg,
                         "existing_client": {
                             "name": name,
-                            "xero_contact_id": error_msg.split("ID: ")[-1]
-                            if "ID: " in error_msg
-                            else "",
+                            "xero_contact_id": (
+                                error_msg.split("ID: ")[-1]
+                                if "ID: " in error_msg
+                                else ""
+                            ),
                         },
                     }
                     error_serializer = ClientDuplicateErrorResponseSerializer(
@@ -618,8 +620,10 @@ class ClientCreateRestView(APIView):
             "address": client.address or "",
             "is_account_customer": client.is_account_customer,
             "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": client.get_last_invoice_date().strftime("%d/%m/%Y")
-            if client.get_last_invoice_date()
-            else "",
+            "last_invoice_date": (
+                client.get_last_invoice_date().strftime("%d/%m/%Y")
+                if client.get_last_invoice_date()
+                else ""
+            ),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }

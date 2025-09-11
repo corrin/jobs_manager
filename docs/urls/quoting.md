@@ -7,7 +7,7 @@
 #### Extract-Supplier-Price-List Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/extract-supplier-price-list/` | `views.extract_supplier_price_list_data_view` | `quoting:extract_supplier_price_list_data` | No description available |
+| `/api/extract-supplier-price-list/` | `views.extract_supplier_price_list_data_view` | `quoting:extract_supplier_price_list_data` | Complete supplier price list processing pipeline: |
 
 #### System
 | URL Pattern | View | Name | Description |

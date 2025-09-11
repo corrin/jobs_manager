@@ -396,20 +396,24 @@ class ClientRestService:
             "primary_contact_email": client.primary_contact_email or "",
             "additional_contact_persons": client.additional_contact_persons or [],
             "all_phones": client.all_phones or [],
-            "xero_last_modified": client.xero_last_modified.isoformat()
-            if client.xero_last_modified
-            else None,
-            "xero_last_synced": client.xero_last_synced.isoformat()
-            if client.xero_last_synced
-            else None,
+            "xero_last_modified": (
+                client.xero_last_modified.isoformat()
+                if client.xero_last_modified
+                else None
+            ),
+            "xero_last_synced": (
+                client.xero_last_synced.isoformat() if client.xero_last_synced else None
+            ),
             "xero_archived": client.xero_archived,
             "xero_merged_into_id": client.xero_merged_into_id or "",
             "merged_into": str(client.merged_into.id) if client.merged_into else None,
             "django_created_at": client.django_created_at.isoformat(),
             "django_updated_at": client.django_updated_at.isoformat(),
-            "last_invoice_date": client.get_last_invoice_date().strftime("%d/%m/%Y")
-            if client.get_last_invoice_date()
-            else "",
+            "last_invoice_date": (
+                client.get_last_invoice_date().strftime("%d/%m/%Y")
+                if client.get_last_invoice_date()
+                else ""
+            ),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 

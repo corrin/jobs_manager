@@ -10,6 +10,8 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("job", "0006_add_material_adjustment_jobpart_models"),
+        # Ensure referenced FK target exists when creating fresh DB
+        ("workflow", "0109_stock"),
     ]
 
     operations = [

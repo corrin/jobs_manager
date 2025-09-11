@@ -1,5 +1,3 @@
-from typing import Any, Dict, List
-
 from rest_framework import serializers
 
 # Existing models used in this serializer module
@@ -37,99 +35,9 @@ class AIProviderSerializer(serializers.ModelSerializer):
 
 
 class CompanyDefaultsSerializer(serializers.ModelSerializer):
-    ai_providers = AIProviderSerializer(many=True, read_only=True)
-
     class Meta:
         model = CompanyDefaults
         fields = "__all__"
-
-    def update(
-        self, instance: CompanyDefaults, validated_data: Dict[str, Any]
-    ) -> CompanyDefaults:
-        print("DEBUG: CompanyDefaultsSerializer.update called")
-        print(f"DEBUG: instance = {instance}")
-        print(f"DEBUG: validated_data = {validated_data}")
-
-        # Handle ai_providers from request data since it's read_only in the serializer
-        request = self.context.get("request") if self.context else None
-
-        if request and hasattr(request, "data"):
-            print(f"DEBUG: request.data = {request.data}")
-
-            # Extract data from 'body' wrapper if it exists (Zodios sends data wrapped in 'body')
-            request_data = (
-                request.data.get("body", request.data)
-                if isinstance(request.data, dict) and "body" in request.data
-                else request.data
-            )
-            print(f"DEBUG: extracted request_data = {request_data}")
-
-            ai_providers_data = request_data.get("ai_providers")
-            if ai_providers_data is not None:
-                self._update_ai_providers(instance, ai_providers_data)
-
-        # Update the rest of the fields
-        print(f"DEBUG: Calling super().update with validated_data = {validated_data}")
-        result = super().update(instance, validated_data)
-        print(f"DEBUG: super().update returned = {result}")
-        print(f"DEBUG: Final instance shop_client_name = {result.shop_client_name}")
-        return result
-
-    def _update_ai_providers(
-        self, instance: CompanyDefaults, ai_providers_data: List[Dict[str, Any]]
-    ) -> None:
-        """
-        Update the AI providers for this company.
-        This will update existing providers and create new ones as needed.
-        """
-        existing_providers = {p.id: p for p in instance.ai_providers.all()}
-        updated_provider_ids = set()
-
-        # Process each provider in the request
-        for provider_data in ai_providers_data:
-            provider_id = provider_data.get("id")
-
-            if provider_id and provider_id in existing_providers:
-                # Update existing provider
-                provider = existing_providers[provider_id]
-
-                # Update fields
-                provider.name = provider_data.get("name", provider.name)
-                provider.provider_type = provider_data.get(
-                    "provider_type", provider.provider_type
-                )
-                provider.model_name = provider_data.get(
-                    "model_name", provider.model_name
-                )
-                provider.default = provider_data.get("default", provider.default)
-
-                # Only update api_key if provided (not empty)
-                api_key = provider_data.get("api_key")
-                if api_key:
-                    provider.api_key = api_key
-
-                provider.save()
-                updated_provider_ids.add(provider_id)
-            else:
-                # Create new provider - validate required fields first
-                if not provider_data.get("name"):
-                    raise ValueError("Provider name is required")
-                if not provider_data.get("provider_type"):
-                    raise ValueError("Provider type is required")
-
-                AIProvider.objects.create(
-                    company=instance,
-                    name=provider_data["name"],
-                    provider_type=provider_data["provider_type"],
-                    model_name=provider_data.get("model_name", ""),
-                    api_key=provider_data.get("api_key", ""),
-                    default=provider_data.get("default", False),
-                )
-
-        # Delete providers that weren't in the update list
-        providers_to_delete = set(existing_providers.keys()) - updated_provider_ids
-        if providers_to_delete:
-            AIProvider.objects.filter(id__in=providers_to_delete).delete()
 
 
 class XeroAccountSerializer(serializers.ModelSerializer):
@@ -157,15 +65,12 @@ class AIProviderCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIProvider
         fields = (
-            "id",
             "name",
             "provider_type",
             "model_name",
             "default",
             "api_key",
-            "company",  # Included to be set as read_only
         )
-        read_only_fields = ("id", "company")
 
     def validate(self, data):
         """

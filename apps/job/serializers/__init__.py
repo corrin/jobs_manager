@@ -30,6 +30,7 @@ try:
         )
         from .job_quote_chat_serializer import (
             JobQuoteChatCreateResponseSerializer,
+            JobQuoteChatCreateSerializer,
             JobQuoteChatDeleteResponseSerializer,
             JobQuoteChatHistoryResponseSerializer,
             JobQuoteChatInteractionErrorResponseSerializer,
@@ -153,6 +154,7 @@ __all__ = [
     "JobFileUploadViewResponseSerializer",
     "JobQuoteAcceptanceSerializer",
     "JobQuoteChatCreateResponseSerializer",
+    "JobQuoteChatCreateSerializer",
     "JobQuoteChatDeleteResponseSerializer",
     "JobQuoteChatHistoryResponseSerializer",
     "JobQuoteChatInteractionErrorResponseSerializer",

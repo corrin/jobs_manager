@@ -47,6 +47,8 @@ try:
             StockDeactivateResponseSerializer,
             StockItemSerializer,
             StockListSerializer,
+            SupplierPriceStatusItemSerializer,
+            SupplierPriceStatusResponseSerializer,
             XeroItemListResponseSerializer,
             XeroItemSerializer,
         )
@@ -100,6 +102,8 @@ __all__ = [
     "StockDeactivateResponseSerializer",
     "StockItemSerializer",
     "StockListSerializer",
+    "SupplierPriceStatusItemSerializer",
+    "SupplierPriceStatusResponseSerializer",
     "XeroItemListResponseSerializer",
     "XeroItemSerializer",
 ]

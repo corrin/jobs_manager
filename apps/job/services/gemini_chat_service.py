@@ -11,7 +11,7 @@ seamless way to generate intelligent, context-aware responses for quoting.
 import json
 import logging
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import google.generativeai as genai
 from django.db import transaction
@@ -20,6 +20,7 @@ from django.db import transaction
 from google.generativeai.types import FunctionDeclaration
 
 from apps.job.models import Job, JobQuoteChat
+from apps.job.services.quote_mode_controller import QuoteModeController
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
 from apps.workflow.enums import AIProviderTypes
 from apps.workflow.models import AIProvider
@@ -35,22 +36,21 @@ class GeminiChatService:
     def __init__(self) -> None:
         self.quoting_tool = QuotingTool()
         self.query_tool = SupplierProductQueryTool()
+        self.mode_controller = QuoteModeController()
 
-    def get_gemini_client(self) -> genai.GenerativeModel:
+    def get_gemini_client(self, mode: Optional[str] = None) -> genai.GenerativeModel:
         """
         Configures and returns a Gemini client based on the default AIProvider.
         """
         try:
             ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.GOOGLE,
-                default=True,
+                provider_type=AIProviderTypes.GOOGLE
             ).first()
 
             if not ai_provider:
                 raise ValueError(
-                    "No default Gemini AI provider configured. "
-                    "Please add an AIProvider with type 'Gemini' and mark it as "
-                    "default."
+                    "No Gemini AI provider configured. "
+                    "Please add an AIProvider with type 'Gemini'."
                 )
 
             if not ai_provider.api_key:
@@ -69,9 +69,15 @@ class GeminiChatService:
 
             model_name = ai_provider.model_name
 
+            # Get tools based on mode if provided
+            if mode:
+                tools = self.mode_controller.get_mcp_tools_for_mode(mode)
+            else:
+                tools = self._get_mcp_tools()
+
             return genai.GenerativeModel(
                 model_name=model_name,
-                tools=self._get_mcp_tools(),
+                tools=tools,
             )
 
         except Exception as e:
@@ -231,10 +237,19 @@ pricing, and suppliers."""
         return "model" if db_role == "assistant" else "user"
 
     @transaction.atomic
-    def generate_ai_response(self, job_id: str, user_message: str) -> JobQuoteChat:
+    def generate_ai_response(
+        self, job_id: str, user_message: str, mode: Optional[str] = None
+    ) -> JobQuoteChat:
         """
         Generates an AI response using the Gemini API and MCP tools.
-        This method handles the entire conversation flow, including tool calls.
+
+        Args:
+            job_id: The UUID of the job
+            user_message: The user's message
+            mode: Optional mode (CALC, PRICE, TABLE) for mode-based operation
+
+        Returns:
+            JobQuoteChat instance with the AI response
         """
         logger.info(
             f"Starting AI response generation for job {job_id} with "
@@ -411,5 +426,143 @@ pricing, and suppliers."""
                     f"request: {str(e)}"
                 ),
                 metadata={"error": True, "error_message": str(e)},
+            )
+            return error_message
+
+    @transaction.atomic
+    def generate_mode_response(
+        self, job_id: str, user_message: str, mode: Optional[str] = None
+    ) -> JobQuoteChat:
+        """
+        Generate a response using the mode-based system.
+
+        Args:
+            job_id: The UUID of the job
+            user_message: The user's message
+            mode: Optional mode override. If None, mode is inferred from input
+
+        Returns:
+            JobQuoteChat instance with the structured response
+        """
+        logger.info(f"Starting mode-based response for job {job_id}")
+
+        try:
+            job = Job.objects.get(id=job_id)
+
+            # Build conversation history from database
+            chat_history = []
+            recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
+                "timestamp"
+            )[:20]
+            logger.debug(
+                f"Retrieved {len(recent_messages)} recent messages for context"
+            )
+
+            for msg in recent_messages:
+                logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
+                chat_history.append(
+                    {
+                        # Gemini expects roles to be either "user" or "model"
+                        "role": self._to_gemini_role(msg.role),
+                        "parts": [msg.content],
+                    }
+                )
+
+            # Infer mode if not provided
+            if mode is None:
+                mode, confidence = self.mode_controller.infer_mode(user_message)
+                logger.info(f"Inferred mode: {mode} (confidence: {confidence:.2f})")
+            else:
+                logger.info(f"Using explicit mode: {mode}")
+
+            # Get mode-specific Gemini client
+            model = self.get_gemini_client(mode=mode)
+            model.system_instruction = self.mode_controller.get_system_prompt()
+
+            # Run the mode controller with chat history
+            response_data, has_questions = self.mode_controller.run(
+                mode=mode,
+                user_input=user_message,
+                job=job,
+                gemini_client=model,
+                chat_history=chat_history,
+            )
+
+            # Format the response for display
+            if has_questions:
+                # Format questions as a bulleted list
+                questions = response_data.get("questions", [])
+                content = "I need some clarification:\n\n"
+                for q in questions:
+                    content += f"• {q}\n"
+            else:
+                # Format the results based on mode
+                if mode == "CALC":
+                    results = response_data.get("results", {})
+                    content = "**Calculation Results:**\n\n"
+                    for key, value in results.items():
+                        label = key.replace("_", " ").title()
+                        if isinstance(value, float):
+                            content += f"• {label}: {value:.2f}\n"
+                        else:
+                            content += f"• {label}: {value}\n"
+
+                elif mode == "PRICE":
+                    candidates = response_data.get("candidates", [])
+                    content = "**Material Options:**\n\n"
+                    for i, candidate in enumerate(candidates, 1):
+                        content += f"**Option {i}: {candidate['supplier']}**\n"
+                        content += f"• SKU: {candidate['sku']}\n"
+                        content += f"• Price: ${candidate['price_per_uom']:.2f}/{candidate['uom']}\n"
+                        if candidate.get("lead_time_days"):
+                            content += (
+                                f"• Lead Time: {candidate['lead_time_days']} days\n"
+                            )
+                        if candidate.get("delivery"):
+                            content += f"• Delivery: ${candidate['delivery']:.2f}\n"
+                        if candidate.get("notes"):
+                            content += f"• Notes: {candidate['notes']}\n"
+                        content += "\n"
+
+                elif mode == "TABLE":
+                    markdown = response_data.get("markdown", "")
+                    totals = response_data.get("totals", {})
+                    content = markdown
+                    if not content:
+                        content = "**Quote Summary:**\n\n"
+                        content += f"• Material: ${totals.get('material', 0):.2f}\n"
+                        content += f"• Labour: ${totals.get('labour', 0):.2f}\n"
+                        content += f"• Freight: ${totals.get('freight', 0):.2f}\n"
+                        content += f"• Overheads: ${totals.get('overheads', 0):.2f}\n"
+                        content += f"• Markup: {totals.get('markup_pct', 0)}%\n"
+                        content += f"• **Total (ex GST): ${totals.get('grand_total_ex_gst', 0):.2f}**\n"
+
+            # Save the response
+            assistant_message = JobQuoteChat.objects.create(
+                job=job,
+                message_id=f"assistant-{uuid.uuid4()}",
+                role="assistant",
+                content=content,
+                metadata={
+                    "mode": mode,
+                    "response_data": response_data,
+                    "has_questions": has_questions,
+                    "model": model.model_name,
+                    "user_message": user_message,
+                },
+            )
+
+            logger.info(f"Successfully generated mode-based response for job {job_id}")
+            return assistant_message
+
+        except Exception as e:
+            logger.exception(f"Mode-based response generation failed: {e}")
+            # Create error message
+            error_message = JobQuoteChat.objects.create(
+                job=Job.objects.get(id=job_id),
+                message_id=f"assistant-error-{uuid.uuid4()}",
+                role="assistant",
+                content=f"I encountered an error processing your request: {str(e)}",
+                metadata={"error": True, "error_message": str(e), "mode": mode},
             )
             return error_message
