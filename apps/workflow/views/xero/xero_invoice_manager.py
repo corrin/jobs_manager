@@ -87,7 +87,9 @@ class XeroInvoiceManager(XeroDocumentManager):
         Returns True if valid, False otherwise.
         """
         # self.job is guaranteed to exist here due to the __init__ check
-        return not self.job.fully_invoiced
+        return (
+            not self.job.paid
+        )  # Allowing invoicing if job is not paid (even if it's fully invoiced)
 
     def get_line_items(self):
         """
