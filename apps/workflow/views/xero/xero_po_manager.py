@@ -7,14 +7,10 @@ from django.utils import timezone
 from xero_python.accounting.models import LineItem
 from xero_python.accounting.models import PurchaseOrder as XeroPurchaseOrder
 
-# Import models
 from apps.purchasing.models import PurchaseOrder
 from apps.workflow.models import XeroAccount
-
-# Import error persistence
 from apps.workflow.services.error_persistence import persist_app_error
 
-# Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import clean_payload, convert_to_pascal_case, format_date
 
