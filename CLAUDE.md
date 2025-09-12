@@ -1,0 +1,232 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Development Commands
+
+### Environment Setup
+```bash
+# Activate Python environment
+poetry shell
+
+# Install dependencies
+poetry install
+npm install
+
+# Start development server
+python manage.py runserver 0.0.0.0:8000
+
+# Start with tunnel (ngrok/localtunnel for Xero integration)
+python manage.py runserver_with_ngrok
+```
+
+### Code Quality
+```bash
+# Format code
+tox -e format
+npm run prettier-format
+
+# Lint code
+tox -e lint
+
+# Type checking
+tox -e typecheck
+
+# Run all quality checks
+tox
+```
+
+### Database Operations
+```bash
+# Apply migrations
+python manage.py migrate
+
+# Create database fixtures
+python manage.py loaddata apps/workflow/fixtures/company_defaults.json
+
+# then EITHER load demo data
+
+python manage.py loaddata apps/workflow/fixtures/initial_data.json
+python manage.py create_shop_jobs
+# OR backport from prod
+python manage.py backport_data_restore restore/prod_backup_20250614_095927.json.gz
+# You MUST do one of these.
+
+# Validate data integrity
+python manage.py validate_jobs
+```
+
+### Xero Integration
+```bash
+# Setup Xero for development (finds Demo Company and syncs)
+python manage.py setup_dev_xero
+
+# Setup Xero tenant ID only (skip initial sync)
+python manage.py setup_dev_xero --skip-sync
+
+# Start Xero synchronization manually
+python manage.py start_xero_sync
+
+# Get Xero tenant ID for setup
+python manage.py interact_with_xero --tenant
+```
+
+### Scheduler Management
+```bash
+# Start background scheduler (runs APScheduler jobs)
+python manage.py run_scheduler
+```
+
+## Architecture Overview
+
+### Core Application Purpose
+Django-based job/project management system for custom metal fabrication business (Morris Sheetmetal). Digitizes a 50+ year paper-based workflow from quote generation to job completion and invoicing.
+
+### Django Apps Architecture
+
+**`workflow`** - Central hub and base functionality
+- Base models (CompanyDefaults, XeroAccount, XeroToken, AIProvider)
+- Xero accounting integration and synchronization
+- Authentication middleware and base templates
+- URL routing coordination
+
+**`job`** - Core job lifecycle management
+- Job model with Kanban-style status tracking (Quoting → In Progress → Completed → Archived)
+
+- JobFile for document attachments
+- JobEvent for comprehensive audit trails
+- Service layer for business logic orchestration
+
+**`accounts`** - User management with custom Staff model
+- Extends AbstractBaseUser for business-specific requirements
+- Password strength validation (minimum 10 characters)
+- Role-based permissions and authentication
+
+**`client`** - Customer relationship management
+- Client model with bidirectional Xero contact synchronization
+- Contact person and communication tracking
+
+**`timesheet`** - Time tracking and billing
+ - Billable vs non-billable classification
+ - Daily/weekly timesheet interfaces
+ - Wage rate and charge-out rate management
+
+**`purchasing`** - Purchase order and inventory management
+- PurchaseOrder with comprehensive Xero integration via XeroPurchaseOrderManager
+- Stock management with source tracking and inventory control
+- Supplier quote processing and delivery receipts
+- **Integration**: Links to CostLine via external references for material costing
+
+**`accounting`** - Financial reporting and KPI tracking
+- KPI calendar views and financial analytics
+- Invoice generation via Xero integration
+
+**`quoting`** - Quote generation and supplier pricing
+- Supplier price list management
+- AI-powered price extraction (Gemini integration)
+- Web scraping for pricing updates
+
+### Frontend
+- Django templates with Bootstrap 5, jQuery, ag-Grid
+- Separate Vue.js frontend in development (`../jobs_manager_front/`) - **managed by separate Claude Code instance**
+
+### Database Design Patterns
+
+**Modern Relationships (USE THESE):**
+```
+Job → CostSet (1:many) → CostLine (1:many)
+CostLine → external references via ext_refs JSON field
+PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
+Staff → CostLine (time entries via ext_refs)
+Client → Job (1:many)
+```
+
+**Legacy Relationships (DEPRECATED - DO NOT USE):**
+```
+Job → JobPricing (1:many) → TimeEntry/MaterialEntry/AdjustmentEntry (1:many)
+Staff → TimeEntry (1:many)
+PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
+```
+
+**Design Patterns:**
+- UUID primary keys throughout for security
+- SimpleHistory for audit trails on critical models
+- Soft deletes where appropriate
+- **NEW**: JSON ext_refs for flexible external references
+- Bidirectional Xero synchronization with conflict resolution
+
+## Development Workflow
+
+### Code Style and Quality
+- **Black** (line length 88) and **isort** for Python formatting
+- **Prettier** for JavaScript formatting with pre-commit hooks
+- **MyPy** with strict configuration for type safety
+- **Flake8** and **Pylint** for linting with Django-specific rules
+- **NEVER edit __init__.py files directly** - they are autogenerated. Run `python scripts/update_init.py` to regenerate them after adding/removing Python files
+
+### Defensive Programming Philosophy - CRITICAL TO FOLLOW
+
+**FAIL EARLY, HANDLE UNHAPPY CASES FIRST, NO FALLBACKS**
+- Check `if <bad_case>: handle_error()` first, never `if <good_case>:` patterns
+- Validate required input data upfront - crash if missing
+- No default values or fallbacks that mask configuration/data problems
+- Trust the data model - don't work around broken data with exception handling
+
+**MANDATORY ERROR PERSISTENCE**
+Every exception handler must call `persist_app_error(exc)` - errors stored permanently in database, never lost to log rotation.
+
+```python
+from apps.workflow.services.error_persistence import persist_app_error
+
+try:
+    operation()
+except Exception as exc:
+    persist_app_error(exc)  # MANDATORY
+    raise  # Fail fast unless business logic allows continuation
+```
+
+
+## Environment Configuration
+See `.env.example` for required environment variables. Key integrations: Xero API, Dropbox, MariaDB.
+
+
+## Migration Management
+- Keep migrations small and reviewable; include forward and (where feasible) reverse logic.
+- Prefer schema changes over code workarounds that mask data shape issues.
+
+## Critical Architecture Guidelines
+
+### MAINTAIN ABSOLUTELY STRICT SEPARATION OF CONCERNS BETWEEN FRONTEND AND BACKEND
+
+**NEVER PUT FRONTEND LOGIC IN THE BACKEND. NEVER PUT BACKEND LOGIC IN THE FRONTEND.**
+
+**Backend responsibilities ONLY:**
+- Data persistence and retrieval
+- Business logic and calculations
+- Data validation and integrity
+- API contracts and serialization of actual data
+- Authentication and authorization
+- External system integrations
+
+**Frontend responsibilities ONLY:**
+- User interface and presentation logic
+- User interactions and form handling
+- Client-side validation for UX (never security)
+- Routing and navigation
+- Static constants and configuration
+- Display formatting and styling
+
+**Forbidden cross-contamination:**
+- ❌ Backend serializers for static UI constants (dropdown choices, labels, etc.)
+- ❌ Backend views that return HTML or UI-specific data structures
+- ❌ Frontend making business logic decisions or calculations
+- ❌ Frontend bypassing backend validation
+- ❌ Frontend defining data structures for backend data
+- ❌ Shared code between frontend and backend (except API contracts)
+
+**Rule**: If it doesn't involve the database, business rules, or external systems, it belongs in the frontend. If it involves data integrity, calculations, or persistence, it belongs in the backend.
+
+
+
+### Service Layer Patterns
+- Keep business logic in explicit service classes; keep views thin.

@@ -1,5 +1,7 @@
 # Workflow URLs Documentation
 
+LEGACY handwritten docs.  Slated to be deleted but kept for now so we can copy patterns etc.
+
 ## Base URLs Structure
 
 ### Main Redirect
@@ -107,4 +109,3 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/__debug__/` | `debug_toolbar.urls` | N/A | Django Debug Toolbar (development only) |
-

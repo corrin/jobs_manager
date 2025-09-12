@@ -6,8 +6,8 @@ The `DashboardView` is a simple template-based view that renders the main dashbo
 ## View Specification
 
 ### DashboardView
-**Type**: Class-based View (TemplateView)  
-**Template**: `general/dashboard.html`  
+**Type**: Class-based View (TemplateView)
+**Template**: `general/dashboard.html`
 **Location**: `workflow/views/dashboard_view.py`
 
 #### Class Attributes

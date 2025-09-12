@@ -32,15 +32,15 @@ After examining the codebase, we've identified the following key components:
 
 ### Ticket 0: Data model fixes
 
-Add parts to job pricing, and remove the time/material/adjustmeent entries
-Ensure job pricing has a defualt part
+Add parts to job pricing, and remove the time/material/adjustment entries
+Ensure job pricing has a default part
 Move all existing data to that default part
 TEST EVERYTHING
 
-After this change, everything MUST go thorugh the parts.  I.e. you cannot get the time entries for a job pricing.
+After this change, everything MUST go through the parts.  I.e. you cannot get the time entries for a job pricing.
 This requires fixing the APIs, the serialisers, the JS, etc.
 
-No UI changes.   
+No UI changes.
 
 ### Ticket 1: Add Linked Quote Field and Master Template to Company Defaults
 **Goal**: Add the basic fields needed for linked quotes without changing functionality.

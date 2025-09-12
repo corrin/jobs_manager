@@ -1,0 +1,344 @@
+[
+  {
+    "model": "workflow.companydefaults",
+    "pk": 1,
+    "fields": {
+      "company_name": "Morris Sheetmetal Works",
+      "company_abn": "12345678901",
+      "company_address": "123 Industrial Ave, Metalville",
+      "company_phone": "0123456789",
+      "company_email": "admin@morrissheetmetal.com",
+      "default_labour_rate": "45.00",
+      "default_markup_percentage": "25.00"
+    }
+  },
+  {
+    "model": "workflow.aiprovider",
+    "pk": 1,
+    "fields": {
+      "provider_type": "google",
+      "provider_name": "Google Gemini",
+      "model_name": "gemini-pro",
+      "api_key": "test-gemini-api-key",
+      "api_base_url": "https://generativelanguage.googleapis.com/v1beta",
+      "default": true,
+      "active": true,
+      "max_tokens": 8192,
+      "temperature": 0.7,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "workflow.aiprovider",
+    "pk": 2,
+    "fields": {
+      "provider_type": "anthropic",
+      "provider_name": "Anthropic Claude",
+      "model_name": "claude-3-haiku-20240307",
+      "api_key": "test-claude-api-key",
+      "api_base_url": "https://api.anthropic.com",
+      "default": false,
+      "active": true,
+      "max_tokens": 4096,
+      "temperature": 0.3,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "accounts.staff",
+    "pk": 1,
+    "fields": {
+      "username": "testuser",
+      "email": "testuser@example.com",
+      "first_name": "Test",
+      "last_name": "User",
+      "is_active": true,
+      "is_staff": false,
+      "is_superuser": false,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "last_login": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "accounts.staff",
+    "pk": 2,
+    "fields": {
+      "username": "admin",
+      "email": "admin@example.com",
+      "first_name": "Admin",
+      "last_name": "User",
+      "is_active": true,
+      "is_staff": true,
+      "is_superuser": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "last_login": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "client.client",
+    "pk": "550e8400-e29b-41d4-a716-446655440001",
+    "fields": {
+      "name": "Test Manufacturing Ltd",
+      "email": "contact@testmanufacturing.com",
+      "phone": "0123456789",
+      "address": "456 Business Park Dr",
+      "city": "Test City",
+      "state": "Test State",
+      "postal_code": "12345",
+      "country": "Australia",
+      "is_active": true,
+      "notes": "Test client for chat functionality",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "client.client",
+    "pk": "550e8400-e29b-41d4-a716-446655440002",
+    "fields": {
+      "name": "ABC Construction Co",
+      "email": "info@abcconstruction.com",
+      "phone": "0987654321",
+      "address": "789 Construction Ave",
+      "city": "Build City",
+      "state": "Build State",
+      "postal_code": "54321",
+      "country": "Australia",
+      "is_active": true,
+      "notes": "Large construction company",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "job.job",
+    "pk": "550e8400-e29b-41d4-a716-446655440101",
+    "fields": {
+      "name": "Steel Handrail Project",
+      "job_number": "JOB001",
+      "description": "Custom steel handrail for commercial building",
+      "client": "550e8400-e29b-41d4-a716-446655440001",
+      "status": "quoting",
+      "priority": "medium",
+      "due_date": "2024-02-15",
+      "estimated_value": "5000.00",
+      "notes": "Client requires galvanized finish",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "job.job",
+    "pk": "550e8400-e29b-41d4-a716-446655440102",
+    "fields": {
+      "name": "Industrial Staircase",
+      "job_number": "JOB002",
+      "description": "Heavy-duty industrial staircase with platform",
+      "client": "550e8400-e29b-41d4-a716-446655440002",
+      "status": "in_progress",
+      "priority": "high",
+      "due_date": "2024-03-01",
+      "estimated_value": "12000.00",
+      "notes": "Requires engineering certification",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "job.job",
+    "pk": "550e8400-e29b-41d4-a716-446655440103",
+    "fields": {
+      "name": "Sheet Metal Ducting",
+      "job_number": "JOB003",
+      "description": "HVAC ducting for office building",
+      "client": "550e8400-e29b-41d4-a716-446655440001",
+      "status": "quoting",
+      "priority": "low",
+      "due_date": "2024-02-28",
+      "estimated_value": "8500.00",
+      "notes": "Standard galvanized steel ducting",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440201",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440101",
+      "message_id": "user-msg-001",
+      "role": "user",
+      "content": "Hello, I need help with pricing for the steel handrail project.",
+      "timestamp": "2024-01-01T10:00:00Z",
+      "metadata": {}
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440202",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440101",
+      "message_id": "assistant-msg-001",
+      "role": "assistant",
+      "content": "I'd be happy to help you with pricing for the steel handrail project. Let me search for current steel prices and materials.",
+      "timestamp": "2024-01-01T10:01:00Z",
+      "metadata": {
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "tool_calls": []
+      }
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440203",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440101",
+      "message_id": "user-msg-002",
+      "role": "user",
+      "content": "What materials do we need for a 50-meter handrail with posts every 2 meters?",
+      "timestamp": "2024-01-01T10:02:00Z",
+      "metadata": {}
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440204",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440101",
+      "message_id": "assistant-msg-002",
+      "role": "assistant",
+      "content": "For a 50-meter handrail with posts every 2 meters, you'll need:\n\n**Materials:**\n- 25 posts (50m ÷ 2m spacing)\n- 50 meters of handrail tube (typically 40mm diameter)\n- 50 meters of bottom rail (typically 25mm diameter)\n- Brackets and fixings\n- Galvanizing treatment\n\n**Estimated costs:**\n- Steel posts: $1,200\n- Handrail tube: $800\n- Bottom rail: $600\n- Hardware: $400\n- Galvanizing: $750\n- Labor: $1,500\n\n**Total estimate: $5,250**",
+      "timestamp": "2024-01-01T10:03:00Z",
+      "metadata": {
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "tool_calls": [
+          {
+            "name": "search_products",
+            "arguments": {
+              "query": "steel handrail posts 40mm"
+            },
+            "result_preview": "Found 12 products matching steel handrail posts..."
+          },
+          {
+            "name": "get_pricing_for_material",
+            "arguments": {
+              "material_type": "steel",
+              "dimensions": "40mm tube"
+            },
+            "result_preview": "Steel 40mm tube: $16.00/meter average price..."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440205",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440102",
+      "message_id": "user-msg-003",
+      "role": "user",
+      "content": "I need to know about steel prices for the industrial staircase project.",
+      "timestamp": "2024-01-01T11:00:00Z",
+      "metadata": {}
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440206",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440102",
+      "message_id": "assistant-msg-003",
+      "role": "assistant",
+      "content": "I'll help you get current steel prices for the industrial staircase project. Let me check our supplier database for heavy-duty structural steel.",
+      "timestamp": "2024-01-01T11:01:00Z",
+      "metadata": {
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "tool_calls": [
+          {
+            "name": "search_products",
+            "arguments": {
+              "query": "structural steel angle beam"
+            },
+            "result_preview": "Found 45 products for structural steel..."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440207",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440102",
+      "message_id": "user-msg-004",
+      "role": "user",
+      "content": "Can you compare prices from different suppliers for 150x150x10mm steel angle?",
+      "timestamp": "2024-01-01T11:05:00Z",
+      "metadata": {}
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440208",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440102",
+      "message_id": "assistant-msg-004",
+      "role": "assistant",
+      "content": "Here's a comparison of suppliers for 150x150x10mm steel angle:\n\n**Supplier Comparison:**\n\n1. **ABC Steel Supply**\n   - Price: $45.50/meter\n   - Stock: In stock\n   - Lead time: Same day pickup\n   - Location: 5km from workshop\n\n2. **XYZ Metal Distributors**\n   - Price: $42.80/meter\n   - Stock: Limited stock\n   - Lead time: 2-3 days\n   - Location: 15km from workshop\n\n3. **Steel Works Direct**\n   - Price: $48.20/meter\n   - Stock: Good stock levels\n   - Lead time: Next day delivery\n   - Location: 25km from workshop\n\n**Recommendation:** XYZ Metal Distributors offers the best price, but consider ABC Steel for immediate availability if timing is critical.",
+      "timestamp": "2024-01-01T11:06:00Z",
+      "metadata": {
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "tool_calls": [
+          {
+            "name": "compare_suppliers",
+            "arguments": {
+              "material_query": "150x150x10mm steel angle"
+            },
+            "result_preview": "Comparison of 3 suppliers for 150x150x10mm steel angle..."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440209",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440103",
+      "message_id": "user-msg-005",
+      "role": "user",
+      "content": "What's the current status of our supplier price lists?",
+      "timestamp": "2024-01-01T12:00:00Z",
+      "metadata": {}
+    }
+  },
+  {
+    "model": "job.jobquotechat",
+    "pk": "550e8400-e29b-41d4-a716-446655440210",
+    "fields": {
+      "job": "550e8400-e29b-41d4-a716-446655440103",
+      "message_id": "assistant-msg-005",
+      "role": "assistant",
+      "content": "Here's the current status of our supplier price lists:\n\n**Supplier Data Status:**\n\n1. **ABC Steel Supply**\n   - Last updated: January 1, 2024\n   - Product count: 1,247 items\n   - Status: ✅ Current\n\n2. **XYZ Metal Distributors**\n   - Last updated: December 28, 2023\n   - Product count: 892 items\n   - Status: ⚠️ Needs update\n\n3. **Steel Works Direct**\n   - Last updated: January 1, 2024\n   - Product count: 1,456 items\n   - Status: ✅ Current\n\n4. **Industrial Metals Co**\n   - Last updated: December 30, 2023\n   - Product count: 678 items\n   - Status: ✅ Current\n\n**Total products in database: 4,273**\n\nNote: XYZ Metal Distributors needs a price list update. I recommend requesting an updated price list from them.",
+      "timestamp": "2024-01-01T12:01:00Z",
+      "metadata": {
+        "model": "gemini-pro",
+        "temperature": 0.7,
+        "tool_calls": [
+          {
+            "name": "get_supplier_status",
+            "arguments": {},
+            "result_preview": "Retrieved status for 4 suppliers with 4,273 total products..."
+          }
+        ]
+      }
+    }
+  }
+]

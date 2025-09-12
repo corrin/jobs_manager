@@ -1,0 +1,36 @@
+[
+    {
+      "model": "workflow.companydefaults",
+      "pk": "Demo Company",
+      "fields": {
+        "is_primary": true,
+        "time_markup": "0.30",
+        "materials_markup": "0.20",
+        "charge_out_rate": "105.00",
+        "wage_rate": "32.00",
+        "starting_job_number": 1,
+        "starting_po_number": 1,
+        "po_prefix": "JO-",
+        "xero_tenant_id": "31d41e67-acad-400e-b2a9-aa6bb5e557a3",
+        "mon_start": "07:00:00",
+        "mon_end": "15:00:00",
+        "tue_start": "07:00:00",
+        "tue_end": "15:00:00",
+        "wed_start": "07:00:00",
+        "wed_end": "15:00:00",
+        "thu_start": "07:00:00",
+        "thu_end": "15:00:00",
+        "fri_start": "07:00:00",
+        "fri_end": "15:00:00",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+        "last_xero_sync": null,
+        "last_xero_deep_sync": null,
+        "shop_client_name": "Demo Company Shop",
+        "billable_threshold_green": "45.00",
+        "billable_threshold_amber": "30.00",
+        "daily_gp_target": "1250.00",
+        "shop_hours_target_percentage": "20.00"
+      }
+    }
+  ]

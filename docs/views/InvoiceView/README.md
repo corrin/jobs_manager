@@ -6,7 +6,7 @@ This module provides views for managing invoices, including listing and updating
 ## Views
 
 ### InvoiceListView
-**Type**: Class-based View (SingleTableView)  
+**Type**: Class-based View (SingleTableView)
 **Purpose**: Displays a filterable, paginated table of invoices
 
 #### Class Attributes
@@ -18,7 +18,7 @@ This module provides views for managing invoices, including listing and updating
 #### Methods
 
 ##### `get_queryset()`
-**Purpose**: Applies filters to the invoice queryset  
+**Purpose**: Applies filters to the invoice queryset
 **Returns**: Filtered QuerySet of Invoice objects
 
 **Implementation Details**:
@@ -27,7 +27,7 @@ This module provides views for managing invoices, including listing and updating
 - Stores filterset instance for context use
 
 ##### `get_context_data(**kwargs)`
-**Purpose**: Enhances template context with filter data  
+**Purpose**: Enhances template context with filter data
 **Returns**: Dictionary containing context data
 
 **Context Variables**:
@@ -35,7 +35,7 @@ This module provides views for managing invoices, including listing and updating
 - `filter`: Current filterset instance
 
 ### InvoiceUpdateView
-**Type**: Class-based View (UpdateView)  
+**Type**: Class-based View (UpdateView)
 **Purpose**: Handles updating existing invoices
 
 #### Class Attributes
@@ -47,7 +47,7 @@ This module provides views for managing invoices, including listing and updating
 #### Methods
 
 ##### `get_context_data(**kwargs)`
-**Purpose**: Enhances template context with related line items  
+**Purpose**: Enhances template context with related line items
 **Returns**: Dictionary containing context data
 
 **Context Variables**:

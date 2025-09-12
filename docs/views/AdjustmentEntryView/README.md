@@ -10,9 +10,9 @@ These views manage the creation and updating of adjustment entries, which are mo
 
 ### CreateAdjustmentEntryView
 
-**Type**: Class-based View (CreateView)  
-**Model**: AdjustmentEntry  
-**Form**: AdjustmentEntryForm  
+**Type**: Class-based View (CreateView)
+**Model**: AdjustmentEntry
+**Form**: AdjustmentEntryForm
 **Template**: `jobs/create_adjustment_entry.html`
 
 #### Purpose
@@ -45,9 +45,9 @@ Handles invalid form submission.
 
 ### UpdateAdjustmentEntryView
 
-**Type**: Class-based View (UpdateView)  
-**Model**: AdjustmentEntry  
-**Form**: AdjustmentEntryForm  
+**Type**: Class-based View (UpdateView)
+**Model**: AdjustmentEntry
+**Form**: AdjustmentEntryForm
 **Template**: `workflow/update_adjustment_entry.html`
 
 #### Purpose

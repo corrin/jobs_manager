@@ -18,9 +18,9 @@ Serves as the main entry point for the reporting system, displaying a
 
 - **View Type** : TemplateView
 - **Template** :
-    
+
     `reports/reports_index.html`
-    
+
 - **Context** : Default TemplateView context
 
 ## **CompanyProfitAndLossView**
@@ -33,9 +33,9 @@ Displays the profit and loss report for the company.
 
 - **View Type** : TemplateView
 - **Template** :
-    
+
     `reports/report_company_profit_and_loss.html`
-    
+
 - **Context** : Default TemplateView context
 
 ## **Data Flow Diagram**

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import sys
 import re
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timedelta
 
 # Configuration
@@ -19,7 +19,7 @@ def parse_arguments():
     parser.add_argument(
         "--delete",
         action="store_true",
-        help="Actually remove old backups; omit for dry-run."
+        help="Actually remove old backups; omit for dry-run.",
     )
     return parser.parse_args()
 
@@ -102,7 +102,7 @@ def sync_remote(root, dry_run):
         ["rclone", "lsf", REMOTE], universal_newlines=True
     ).splitlines()
     # strip trailing slashes for directories
-    rem_names = [entry.rstrip('/') for entry in rem_list]
+    rem_names = [entry.rstrip("/") for entry in rem_list]
     local_names = os.listdir(root)
     remote_only = sorted(set(rem_names) - set(local_names))
 
@@ -120,10 +120,7 @@ def sync_remote(root, dry_run):
 
     # Perform real sync
     print(f"Syncing {root} → {REMOTE} --delete-excluded")
-    subprocess.run(
-        ["rclone", "sync", root, REMOTE, "--delete-excluded"],
-        check=False
-    )
+    subprocess.run(["rclone", "sync", root, REMOTE, "--delete-excluded"], check=False)
 
 
 def main():

@@ -52,6 +52,11 @@ The application requires a dedicated database and user.
     FLUSH PRIVILEGES;
     EXIT;
     ```
+3.  **Install Timezone Data:** After creating the database, install timezone data into MySQL/MariaDB. This is required for Django's timezone-aware database functions to work correctly:
+    ```bash
+    # Install timezone data from system zoneinfo files
+    sudo mysql_tzinfo_to_sql /usr/share/zoneinfo | sudo mysql mysql
+    ```
     *   **Details to Record:** Database name (`<your-app-name>`), DB username (`<your-app-name>`), DB password (`your-strong-password`).
 
 ### Step 3: Set Up ngrok
@@ -109,7 +114,7 @@ npm install
 2.  Open the `.env` file in a text editor.
 3.  **Populate with Recorded Details:** Fill in the following values using the details you recorded in Phase 1:
     *   `DATABASE_URL`: Construct using your DB user, password, and name (e.g., `mysql://<your-app-name>:your-strong-password@localhost:3306/<your-app-name>`).
-    *   `NGROK_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
+    *   `APP_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
     *   `XERO_CLIENT_ID`: Paste your Xero app's Client ID.
     *   `XERO_CLIENT_SECRET`: Paste your Xero app's Client Secret.
     *   Review other settings and adjust if needed (e.g., `DJANGO_SECRET_KEY` should be changed for any non-local testing).
@@ -124,18 +129,27 @@ npm install
     ```bash
     python manage.py migrate
     ```
-3.  Load essential initial data fixtures:
+3.  Load essential configuration and initial data fixtures:
     ```bash
-    python manage.py loaddata workflow/fixtures/initial_data.json
+    # Load essential company configuration
+    python manage.py loaddata apps/workflow/fixtures/company_defaults.json
+
+    # EITHER
+    # Load demo data for development (optional - skip if restoring production data)
+    python manage.py loaddata apps/workflow/fixtures/initial_data.json
+    # OR...  restore from prod
+    python manage.py backport_data_restore
+
     ```
-    **Default Admin Credentials:**
+    **Default Admin Credentials (from initial_data.json):**
     *   **Username:** `defaultadmin@example.com`
     *   **Password:** `Default-admin-password`
 
-4.  Load essential job data fixtures:
+4.  **(Optional) Restore production data:** If you have a production backup to work with:
     ```bash
-    python manage.py create_shop_jobs
+    python manage.py backport_data_restore restore/prod_backup_YYYYMMDD_HHMMSS.json
     ```
+    This loads production data (jobs, timesheets, etc.) while preserving essential configuration. The restore command automatically loads `company_defaults.json` after clearing the database, so you don't need to load it separately.
 
 ## Phase 3: Running the Application & Connecting Xero
 
@@ -170,17 +184,45 @@ npm install
 2.  **Log In:** Use the default admin credentials (`defaultadmin@example.com` / `Default-admin-password`).
 3.  **Initiate Xero Connection:** Find the "Connect to Xero" or similar option (likely in Settings/Admin). Click it.
 4.  **Authorize in Xero:** You'll be redirected to Xero. Log in if needed. **Crucially, select and authorize the "Demo Company (Global)"**. Do *not* use your live company data for development.
-5.  **Obtain Xero Tenant ID:** After authorization, you need the ID of the Demo Company.
-    *   Go to the Xero API Explorer: [https://api-explorer.xero.com/accounting/organisation/getorganisations](https://api-explorer.xero.com/accounting/organisation/getorganisations)
-    *   Ensure you are logged into the Explorer with the same Xero account. Authorize the Explorer to use your app if prompted.
-    *   Click "Send request".
-    *   Find the "Demo Company (Global)" in the response JSON and copy its `OrganisationID`.
-6.  **Configure Tenant ID in App:**
-    *   Back in the Jobs Manager application (via the ngrok URL), go to "Admin > Edit Company Defaults" (or similar).
-    *   Paste the copied `OrganisationID` into the "Xero Tenant ID" field and save.
-7.  **Perform Initial Xero Data Sync:**
-    *   Navigate to the Xero section (e.g., "Xero > Refresh Xero Data").
-    *   Start the sync. This pulls initial data (like contacts) from the Demo Company.
+
+### Important: Create Demo Company Shop Contact
+
+**Before proceeding with the development setup, you must create a specific contact in Xero:**
+
+1. **Log into Xero Demo Company:** After authorization, log into your Xero Demo Company account at [https://go.xero.com/](https://go.xero.com/).
+2. **Create Shop Contact:**
+   - Navigate to Contacts → Add Contact
+   - Name: `Demo Company Shop` (exactly this name - case sensitive)
+   - This contact represents internal shop work/maintenance jobs
+   - Save the contact
+3. **Verify Creation:** Ensure the contact appears in your Xero contacts list as "Demo Company Shop"
+
+This contact is essential for proper shop hours tracking in KPI reports.
+5.  **Setup Development Xero Connection:** After authorization and creating the shop contact:
+    ```bash
+    python manage.py setup_dev_xero
+    ```
+    This command will:
+    * Automatically find the Demo Company tenant ID
+    * Update your CompanyDefaults with the correct tenant ID
+    * Sync the "Demo Company Shop" client to get its Xero contact ID
+    * Skip the full sync (default behavior - use --full-sync if you want to run it)
+
+6.  **Create shop jobs:** Create the special internal jobs for tracking shop work:
+Note - only do this if you chose not to restore from production!
+    ```bash
+    python manage.py create_shop_jobs
+    ```
+
+7.  **Run full Xero sync:** Now sync all data from Xero:
+    ```bash
+    python manage.py start_xero_sync
+    ```
+
+    **Alternative Manual Setup:** If you prefer to do this manually:
+    * Get available tenant IDs: `python manage.py interact_with_xero --tenant`
+    * Manually update CompanyDefaults in the admin interface
+    * Run sync manually: `python manage.py start_xero_sync`
 
 You now have a fully configured local development environment.
 
@@ -218,14 +260,26 @@ To wipe the local database and start fresh:
     mariadb -u root -p -e "source scripts/reset_database.sql"
     ```
 
-3.  **Re-initialize Application:** (Activate `poetry shell` if needed)
+3.  **Re-install Timezone Data:** (Required for timezone-aware database functions)
     ```bash
-    python manage.py migrate
-    python manage.py loaddata workflow/fixtures/initial_data.json
-    python manage.py create_shop_jobs
+    sudo mysql_tzinfo_to_sql /usr/share/zoneinfo | sudo mysql mysql
     ```
 
-4.  **Re-Connect Xero:** After resetting, you **must** repeat **Steps 10.4 through 10.7** (Authorize Xero in the app, get Tenant ID via API Explorer, set Tenant ID in app, sync data).
+4.  **Re-initialize Application:** (Activate `poetry shell` if needed)
+    ```bash
+    python manage.py migrate
+    python manage.py loaddata apps/workflow/fixtures/company_defaults.json
+    python manage.py loaddata apps/workflow/fixtures/initial_data.json
+    # Optional: python manage.py backport_data_restore restore/prod_backup_YYYYMMDD_HHMMSS.json
+    ```
+
+5.  **Re-Connect Xero and Setup:** After resetting, you **must** repeat the Xero connection steps:
+    * Log into the app and click "Connect to Xero"
+    * Authorize the Demo Company
+    * Create "Demo Company Shop" contact in Xero (if not already there)
+    * Run `python manage.py setup_dev_xero`
+    * Run `python manage.py create_shop_jobs` (only if you didn't restore from production)
+    * Run `python manage.py start_xero_sync`
 
 ## Troubleshooting
 

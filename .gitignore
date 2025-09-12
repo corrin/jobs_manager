@@ -12,6 +12,10 @@ __pycache__/
 # C extensions
 *.so
 
+# Excel extensions
+*.xls
+*.xlsx
+
 # Distribution / packaging
 .Python
 build/
@@ -40,7 +44,7 @@ share/python-wheels/
 *.log.?
 local_settings.py
 db.sqlite3
-media/
+mediafiles/
 staticfiles/
 
 # Flask
@@ -95,13 +99,38 @@ dmypy.json
 *.swp
 *.swo
 *~
-# /workflow/fixtures/ # I am adding fixtures to git now I've anonymised them
+
+# Environment setup files (personal)
+activate_env.sh
+check_env.py
+ENV_SETUP.md
+shell_alias_setup.txt
+
 /.__debug_sql.lock
 /node_modules/
-.github/
 
 # For Docker
 .yaml
 Dockerfile
+# Logs directory - keep directory but ignore all log files
+logs/*.log
+logs/*.log.*
 logs/.*.lock
-*.json
+logs/restore_log_*.txt
+
+# For images
+**/*.png
+**/*.jpg
+django-integrations-*.json
+*.pdf
+restore/*.json
+
+
+.DS_Store
+*.csv
+steel_and_tube*
+restore/*
+steel_and_tube_products.csv
+steel_and_tube_products.json
+cookies.txt
+.env.uat

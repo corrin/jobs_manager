@@ -1,231 +1,338 @@
 # Client Views Documentation
 
-## Overview
-This module contains views for managing client operations including listing, updating, searching, and adding clients. It includes integration with Xero for client synchronization.
-
-## Authentication & Permissions
-
-### Required Permissions
-- `view_client`: Required for viewing client list and details
-- `add_client`: Required for creating new clients 
-- `change_client`: Required for updating existing clients
-- `delete_client`: Required for removing clients
-
-### Authentication
-- All views require user authentication
-- Unauthenticated requests are redirected to login page
-- Session-based authentication is used
+## Business Purpose
+Provides comprehensive client management functionality for jobbing shop operations. Handles client CRUD operations, contact management, search capabilities, and Xero integration for bidirectional client synchronization. Essential for maintaining customer relationships throughout the quote → job → invoice workflow.
 
 ## Views
 
+### get_client_contact_persons
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view
+**URL**: `/client/api/contacts/<uuid:client_id>/`
+
+#### What it does
+- Retrieves contact persons for specific clients from model fields
+- Provides structured contact data including primary and secondary contacts
+- Eliminates duplicate contact entries
+- Supports client communication and job assignment workflows
+
+#### Parameters
+- `client_id`: UUID of client to fetch contacts for (path parameter)
+
+#### Returns
+- **200 OK**: JSON array of contact persons with names and emails
+- **404 Not Found**: Client not found
+- **500 Internal Server Error**: Contact retrieval failures
+
+#### Integration
+- Client model primary and secondary contact fields
+- Duplicate contact elimination logic
+- Comprehensive logging for debugging
+
+### get_client_phones
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view
+**URL**: `/client/api/phones/<uuid:client_id>/`
+
+#### What it does
+- Extracts phone numbers from client records
+- Provides structured phone data for communication
+- Handles multiple phone number formats and sources
+- Supports client contact and communication workflows
+
+#### Parameters
+- `client_id`: UUID of client to fetch phone numbers for (path parameter)
+
+#### Returns
+- **200 OK**: JSON array of phone numbers with types and labels
+- **404 Not Found**: Client not found
+- **500 Internal Server Error**: Phone data retrieval failures
+
+#### Integration
+- Client model phone fields and structured data
+- Phone number parsing and formatting
+- Communication system integration
+
+### get_all_clients_api
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view
+**URL**: `/client/api/all/`
+
+#### What it does
+- Retrieves all clients for dropdown and selection interfaces
+- Supports archived client inclusion with optional parameter
+- Provides minimal client data for performance optimization
+- Orders clients alphabetically for consistent presentation
+
+#### Parameters
+- `include_archived`: Optional query parameter to include archived clients (boolean)
+
+#### Returns
+- **200 OK**: JSON array of clients with ID, name, and Xero contact ID
+- **500 Internal Server Error**: Client retrieval failures
+
+#### Integration
+- Client model filtering and ordering
+- Xero integration status tracking
+- Archive status management
+
 ### ClientListView
-**Type**: Class-based View (SingleTableView)  
-**Model**: Client  
-**Template**: `clients/list_clients.html`
-**Required Permissions**: `view_client`
+**File**: `apps/client/views/client_views.py`
+**Type**: Class-based view (SingleTableView)
+**URL**: `/client/list/`
 
-#### Purpose
-Displays a paginated table of all clients in the system.
+#### What it does
+- Displays paginated table of all clients in the system
+- Provides main client management interface
+- Supports sorting and basic filtering
+- Integrates with table rendering framework
 
-#### Attributes
-- `model`: Client
-- `template_name`: "clients/list_clients.html"
+#### Parameters
+- Standard pagination parameters
+
+#### Returns
+- **200 OK**: Client list template with table data
+
+#### Integration
+- SingleTableView for table rendering
+- Client model for data source
+- Template-based interface
 
 ### ClientUpdateView
-**Type**: Class-based View (UpdateView)  
-**Model**: Client  
-**Form**: ClientForm  
-**Template**: `clients/update_client.html`
-**Required Permissions**: `change_client`
+**File**: `apps/client/views/client_views.py`
+**Type**: Class-based view (UpdateView)
+**URL**: `/client/update/<uuid:pk>/`
 
-#### Purpose
-Handles updating existing client information.
+#### What it does
+- Provides client editing interface with form validation
+- Handles client updates with Xero synchronization
+- Manages form processing and error handling
+- Supports client data modification workflows
 
-#### Form Fields
-- `name`: CharField (required, max_length=255)
-  - Validation: Must be unique
-- `email`: EmailField (optional)
-  - Validation: Must be valid email format
-- `phone`: CharField (optional, max_length=20)
-  - Validation: Must match phone number format
-- `address`: TextField (optional)
+#### Parameters
+- `pk`: Client UUID to update (path parameter)
+- Form data for client updates
 
-#### Example Request/Response
+#### Returns
+- **200 OK**: Update form template or success redirect
+- **302 Redirect**: To authentication if Xero token required
 
-```http
-POST /client/123/
-Content-Type: application/x-www-form-urlencoded
+#### Integration
+- ClientForm for validation and processing
+- Xero synchronization on successful updates
+- Form validation and error handling
 
-name=Acme+Corp&email=contact@acme.com&phone=+1234567890&address=123+Business+St
-```
+### ClientSearch
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view
+**URL**: `/client/api/search/`
 
-- Success Response:
+#### What it does
+- Performs intelligent client search with multiple criteria
+- Supports name-based search with filtering
+- Returns structured search results for UI components
+- Implements search term validation and processing
 
-```http
-HTTP/1.1 302 Found
-Location: /clients/
-```
+#### Parameters
+- `q`: Search query string (query parameter, minimum 3 characters)
 
-- Error response:
+#### Returns
+- **200 OK**: JSON search results with client details
+- Empty results for queries under minimum length
 
-```http
-HTTP/1.1 200 OK
-Content-Type: text/html
+#### Integration
+- Q object filtering for database searches
+- Search term validation and processing
+- Result formatting for UI consumption
 
-<form>
-  ...
-  <ul class="errorlist">
-    <li>Name already exists</li>
-  </ul>
-  ...
-</form>
-```
+### client_detail
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based template view
+**URL**: `/client/detail/<uuid:client_id>/`
 
-### **ClientSearch**
+#### What it does
+- Displays detailed client information and related data
+- Shows client jobs, contacts, and financial history
+- Provides comprehensive client overview interface
+- Supports client relationship management
 
-**Type** : Function-based View
+#### Parameters
+- `client_id`: UUID of client to display (path parameter)
 
-**Returns** : JsonResponse
+#### Returns
+- **200 OK**: Client detail template with comprehensive data
+- **404 Not Found**: Client not found
 
-**Required Permissions** :
+#### Integration
+- Client model with related data loading
+- Job history and financial data
+- Contact relationship display
 
-`view_client`
+### all_clients
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based template view
+**URL**: `/client/all/`
 
-### **Example Request/Response**
+#### What it does
+- Renders comprehensive client list interface
+- Provides client management dashboard
+- Supports client navigation and overview
+- Integrates with client management workflows
 
-```clike
-GET /api/client-search/?q=acme
+#### Parameters
+- No parameters required
 
-```
+#### Returns
+- **200 OK**: All clients template with navigation
 
+#### Integration
+- Template-based client overview
+- Client management interface foundation
 
-Success Response:
+### AddClient
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view (POST only)
+**URL**: `/client/api/add/`
 
-```json
-{
-    "results": [
-        {
-            "id": "550e8400-e29b-41d4-a716-446655440000",
-            "name": "Acme Corporation"
-        },
-        {
-            "id": "550e8400-e29b-41d4-a716-446655440001",
-            "name": "Acme Services Ltd"
-        }
-    ]
-}
+#### What it does
+- Creates new clients with comprehensive validation
+- Handles Xero integration for client creation
+- Manages client data validation and processing
+- Supports client relationship establishment
 
-```
+#### Parameters
+- JSON body with client creation data:
+  - `name`: Client name (required)
+  - `email`: Client email (optional)
+  - `phone`: Client phone (optional)
+  - Additional client fields
 
-### **AddClient**
+#### Returns
+- **200 OK**: JSON with created client data and success confirmation
+- **400 Bad Request**: Validation errors or Xero creation failures
+- **500 Internal Server Error**: Client creation failures
 
-**Type** : Function-based View
+#### Integration
+- ClientForm for validation and processing
+- Xero client creation and synchronization
+- Error handling and user feedback
 
-**Required Permissions** :
+### get_client_contacts_api
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view
+**URL**: `/client/api/<uuid:client_id>/contacts/`
 
-`add_client`
+#### What it does
+- Retrieves structured contact data for specific clients
+- Returns contact relationships and details
+- Supports contact management workflows
+- Provides comprehensive contact information
 
-### **Form Fields**
+#### Parameters
+- `client_id`: UUID of client to fetch contacts for (path parameter)
 
-Same as ClientUpdateView
+#### Returns
+- **200 OK**: JSON array of client contacts with complete details
+- **404 Not Found**: Client not found
+- **500 Internal Server Error**: Contact retrieval failures
 
-## **Xero Integration Details**
+#### Integration
+- ClientContact model for structured contact data
+- Contact relationship management
+- Comprehensive contact information display
 
-### **Synchronization Process**
+### create_client_contact_api
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view (POST only)
+**URL**: `/client/api/contacts/create/`
 
-1. **Initial Client Creation**
-    - Local client record is created first
-    - System attempts Xero synchronization
-2. **Xero Sync Steps** ( )
-    
-    `sync_client_to_xero`
-    
-    - Creates/updates contact in Xero
-    - Maps local client fields to Xero contact fields:
-        
-        ```python
-        {
-            'name': client.name,
-            'emailAddress': client.email,
-            'phones': [{'phoneNumber': client.phone}],
-            'addresses': [{'addressLine1': client.address}]
-        }
-        
-        ```
-        
-3. **Local Update** ( )
-    
-    `single_sync_client`
-    
-    - Fetches updated data from Xero
-    - Updates local record with Xero contact ID
-    - Synchronizes any additional Xero-specific fields
+#### What it does
+- Creates new client contacts with validation
+- Handles contact relationship establishment
+- Manages contact data processing and storage
+- Supports client communication workflows
 
-### **Error Handling**
+#### Parameters
+- JSON body with contact creation data:
+  - `client_id`: Client UUID (required)
+  - `name`: Contact name (required)
+  - `email`: Contact email (optional)
+  - `phone`: Contact phone (optional)
+  - Additional contact fields
 
-- Network failures: Logged and reported to user
-- Validation errors: Displayed in form
-- Xero API limits: Handled with exponential backoff
-- Duplicate contacts: Resolved through matching logic
+#### Returns
+- **201 Created**: JSON with created contact data
+- **400 Bad Request**: Validation errors or missing required fields
+- **404 Not Found**: Client not found
+- **500 Internal Server Error**: Contact creation failures
 
-### **Example Xero Sync Error Response**
+#### Integration
+- ClientContact model for contact storage
+- Client relationship validation
+- Contact data validation and processing
 
-```clike
-HTTP/1.1 200 OK
-Content-Type: text/html
+### client_contact_detail_api
+**File**: `apps/client/views/client_views.py`
+**Type**: Function-based API view
+**URL**: `/client/api/contacts/<uuid:contact_id>/`
 
-<div class="error-message">
-    Failed to sync with Xero: Rate limit exceeded.
-    Pleasetry againin 60 seconds.
-</div>
+#### What it does
+- Retrieves detailed information for specific client contacts
+- Provides contact editing and management support
+- Returns comprehensive contact data
+- Supports contact relationship workflows
 
-```
+#### Parameters
+- `contact_id`: UUID of contact to retrieve (path parameter)
 
-## **Form Validation Rules**
+#### Returns
+- **200 OK**: JSON with detailed contact information
+- **404 Not Found**: Contact not found
+- **500 Internal Server Error**: Contact retrieval failures
 
-### **ClientForm**
+#### Integration
+- ClientContact model for contact data
+- Contact serialization for API responses
+- Contact relationship management
 
-1. **Name Field**
-    - Required
-    - Maximum length: 255 characters
-    - Must be unique in system
-    - Stripped of leading/trailing whitespace
-2. **Email Field**
-    - Optional
-    - Must be valid email format
-    - Maximum length: 254 characters
-3. **Phone Field**
-    - Optional
-    - Validated against regex:
-        
-        `^\+?1?\d{9,15}$`
-        
-    - Stripped of spaces and special characters
-4. **Address Field**
-    - Optional
-    - No maximum length
-    - Newlines preserved
+## Error Handling
+- **400 Bad Request**: Validation errors, missing required fields, or Xero integration failures
+- **401 Unauthorized**: Authentication required for protected operations
+- **404 Not Found**: Client or contact resources not found
+- **500 Internal Server Error**: Database errors, Xero API failures, or unexpected system errors
+- Comprehensive logging for debugging and monitoring
+- User-friendly error messages and feedback
 
-## **Usage Notes**
+## Integration Points
+- **Xero Integration**: Bidirectional client synchronization with accounting system
+- **Job Management**: Client-job relationship establishment and tracking
+- **Contact Management**: Structured contact relationships and communication
+- **Form Validation**: ClientForm for data validation and processing
+- **Search System**: Intelligent client discovery and filtering
 
-1. Client search requires minimum 3 characters
-2. Xero integration is automatic on client creation
-3. Failed Xero synchronization doesn't prevent client creation
-4. Form validation maintains data on submission errors
-5. All operations are logged for audit purposes
+## Business Rules
+- Client names must be unique within the system
+- Xero synchronization maintains data consistency
+- Contact relationships require valid client associations
+- Search queries require minimum character length for performance
+- Archive status affects client visibility and availability
 
-## **Error Handling**
+## Performance Considerations
+- Search query optimization with minimum length requirements
+- Efficient database queries with proper indexing
+- Xero API rate limiting and error handling
+- Contact data caching for frequent access
+- Pagination support for large client datasets
 
-1. **Form Validation Errors**
-    - Displayed inline with fields
-    - Form data preserved
-    - Clear error messages provided
-2. **Xero Integration Errors**
-    - Logged with full stack trace
-    - User-friendly message displayed
-    - Option to retry synchronization
-    - Admin notification for persistent failures
-3. **Permission Errors**
-    - Redirect to login if unauthenticated
-    - 403 page for insufficient permissions
-    - Logged for security monitoring
+## Security Considerations
+- Authentication required for all client operations
+- Input validation and sanitization
+- Xero API secure authentication and token management
+- Access control for client data modification
+- Audit logging for client changes and access
+
+## Related Views
+- Client REST views for modern API interface
+- Job management views for client-job relationships
+- Xero views for accounting integration
+- Contact management for communication workflows

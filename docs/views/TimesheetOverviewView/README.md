@@ -111,10 +111,10 @@ Retrieves and processes daily timesheet data for the given date.
 ```mermaid
 flowchart TD
     A[User Request] --> B{Request Type}
-    
+
     B -->|GET Timesheet Overview| C[TimesheetOverviewView]
     B -->|GET Timesheet Daily| D[TimesheetDailyView]
-    
+
     %% TimesheetOverviewView Flow
     C --> C1[Validate Start Date]
     C1 --> C2[Calculate Last 7 Days]
@@ -138,5 +138,5 @@ flowchart TD
 
     %% Output
     C7 & D5 --> H[HTML Response]
-    H --> I[User View]    
+    H --> I[User View]
 ```
