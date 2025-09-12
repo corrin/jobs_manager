@@ -259,7 +259,7 @@ def add_title(pdf, y_position, job):
 def add_job_details_table(pdf, y_position, job: Job):
     """Render the job details with a coloured header row and improved spacing."""
     client_name = job.client.name if job.client else "N/A"
-    contact_name = job.contact.name if job.contact else "N/A"
+    contact_name = job.contact.name if job.contact else ""
 
     # Use Paragraph styles so header text is white over the blue background
     job_details = [
