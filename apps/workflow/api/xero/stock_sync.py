@@ -8,10 +8,29 @@ from xero_python.accounting import AccountingApi
 
 from apps.purchasing.models import Stock
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
+from apps.workflow.models import XeroAccount
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger("xero")
 SLEEP_TIME = 1  # Sleep after every API call to avoid hitting rate limits
+
+
+def _escape_where_value(v: str) -> str:
+    return v.replace('"', r"\"")
+
+
+def get_xero_item_by_code(api: AccountingApi, tenant_id: str, code: str):
+    if not code:
+        return None
+    try:
+        where = f'Code=="{_escape_where_value(code)}"'
+        resp = api.get_items(tenant_id, where=where)
+        time.sleep(SLEEP_TIME)
+        items = getattr(resp, "items", None) or getattr(resp, "Items", None) or []
+        return items[0] if items else None
+    except Exception as e:
+        logger.error(f"Failed to fetch Xero item by code '{code}': {e}")
+        return None
 
 
 def generate_item_code(stock_item: Stock) -> str:
@@ -102,113 +121,149 @@ def sync_stock_to_xero(stock_item: Stock) -> bool:
     Returns:
         bool: True if successful
     """
-    try:
-        if not validate_stock_for_xero(stock_item):
-            logger.error(f"Stock item {stock_item.id} failed validation for Xero sync")
-            return False
+    # Initial validation to fail fast
+    if not validate_stock_for_xero(stock_item):
+        logger.error(f"Stock item {stock_item.id} failed validation for Xero sync")
+        return False
 
-        # Generate item code if missing
-        if not stock_item.item_code or not stock_item.item_code.strip():
-            stock_item.item_code = generate_item_code(stock_item)
-            stock_item.save(update_fields=["item_code"])
-            logger.info(
-                f"Generated item_code '{stock_item.item_code}' for stock {stock_item.id}"
-            )
-
-        accounting_api = AccountingApi(api_client)
-        tenant_id = get_tenant_id()
-
-        # Get valid account codes from Xero accounts
-        from apps.workflow.models import XeroAccount
-
-        # Try to find specific accounts by code first, then by type
-        purchase_account = (
-            XeroAccount.objects.filter(account_code="300").first()
-            or XeroAccount.objects.filter(
-                account_type__in=["EXPENSE", "DIRECTCOSTS"]
-            ).first()
-        )
-
-        sales_account = (
-            XeroAccount.objects.filter(account_code="200").first()
-            or XeroAccount.objects.filter(
-                account_type__in=["REVENUE", "OTHERINCOME"]
-            ).first()
-        )
-
-        # Prepare item data for Xero
-        item_data = {
-            "Code": stock_item.item_code,
-            "Name": stock_item.description[:50],  # Xero name max length
-            "Description": stock_item.description,
-            "IsTrackedAsInventory": True,
-            "QuantityOnHand": float(stock_item.quantity),
-        }
-
+    if not (stock_item.item_code and stock_item.item_code.strip()):
+        stock_item.item_code = generate_item_code(stock_item)
+        stock_item.save(update_fields=["item_code"])
         logger.info(
-            f"Syncing stock {stock_item.id}: unit_cost={stock_item.unit_cost}, unit_revenue={stock_item.unit_revenue}"
+            f"Generated item_code '{stock_item.item_code}' for stock {stock_item.id}"
         )
 
-        # Add purchase details if we have a valid account
-        if purchase_account and stock_item.unit_cost:
-            item_data["PurchaseDetails"] = {
-                "UnitPrice": float(stock_item.unit_cost),
-                "AccountCode": purchase_account.account_code,
-            }
-            logger.info(
-                f"Added purchase details: UnitPrice={float(stock_item.unit_cost)}, AccountCode={purchase_account.account_code}"
-            )
-        else:
-            logger.warning(
-                f"Missing purchase account or unit_cost for stock {stock_item.id}"
-            )
+    api = AccountingApi(api_client)
+    tenant_id = get_tenant_id()
 
-        # Add sales details if unit_revenue is available and we have a valid account
-        if stock_item.unit_revenue and stock_item.unit_revenue > 0 and sales_account:
-            item_data["SalesDetails"] = {
-                "UnitPrice": float(stock_item.unit_revenue),
-                "AccountCode": sales_account.account_code,
-            }
-            logger.info(
-                f"Added sales details: UnitPrice={float(stock_item.unit_revenue)}, AccountCode={sales_account.account_code}"
-            )
-        else:
-            logger.warning(
-                f"Missing sales account or unit_revenue for stock {stock_item.id}: unit_revenue={stock_item.unit_revenue}, sales_account={sales_account}"
-            )
+    purchase_account = (
+        XeroAccount.objects.filter(account_code="300").first()
+        or XeroAccount.objects.filter(
+            account_type__in=["EXPENSE", "DIRECTCOSTS"]
+        ).first()
+    )
+    sales_account = (
+        XeroAccount.objects.filter(account_code="200").first()
+        or XeroAccount.objects.filter(
+            account_type__in=["REVENUE", "OTHERINCOME"]
+        ).first()
+    )
 
-        # Log the complete item data being sent to Xero
-        logger.info(f"Sending item data to Xero: {item_data}")
+    item_data = {
+        "Code": stock_item.item_code,
+        "Name": (stock_item.description or "")[:50],
+        "Description": stock_item.description,
+        "IsTrackedAsInventory": True,
+        "QuantityOnHand": float(stock_item.quantity),
+    }
 
-        # Check if item already exists in Xero
+    if purchase_account and stock_item.unit_cost is not None:
+        item_data["PurchaseDetails"] = {
+            "UnitPrice": float(stock_item.unit_cost),
+            "AccountCode": purchase_account.account_code,
+        }
+    else:
+        logger.warning(
+            f"Missing purchase account or unit_cost for stock {stock_item.id}"
+        )
+
+    if stock_item.unit_revenue and stock_item.unit_revenue > 0 and sales_account:
+        item_data["SalesDetails"] = {
+            "UnitPrice": float(stock_item.unit_revenue),
+            "AccountCode": sales_account.account_code,
+        }
+    else:
+        logger.warning(
+            f"Missing sales account or unit_revenue for stock {stock_item.id}: "
+            f"unit_revenue={stock_item.unit_revenue}, sales_account={sales_account}"
+        )
+
+    logger.info(f"Sending item data to Xero: {item_data}")
+
+    try:
+        # 1) If we don't have xero_id, try to find by Code first
+        if not stock_item.xero_id:
+            existing = get_xero_item_by_code(api, tenant_id, stock_item.item_code)
+            if existing:
+                stock_item.xero_id = existing.item_id
+                stock_item.xero_last_modified = timezone.now()
+                stock_item.save(update_fields=["xero_id", "xero_last_modified"])
+                logger.info(
+                    f"Linked local stock {stock_item.id} to existing Xero item {stock_item.xero_id} by Code"
+                )
+
+        # 2) If we already have xero_id -> update; else -> create
         if stock_item.xero_id:
-            # Update existing item
             item_data["ItemID"] = stock_item.xero_id
-            response = accounting_api.update_item(
+            api.update_item(
                 tenant_id, item_id=stock_item.xero_id, items={"Items": [item_data]}
             )
             time.sleep(SLEEP_TIME)
             logger.info(f"Updated stock item {stock_item.id} in Xero")
-        else:
-            # Create new item
-            response = accounting_api.create_items(
-                tenant_id, items={"Items": [item_data]}
-            )
-            time.sleep(SLEEP_TIME)
+            return True
 
-            if response.items and len(response.items) > 0:
-                xero_item = response.items[0]
-                stock_item.xero_id = xero_item.item_id
-                stock_item.xero_last_modified = timezone.now()
-                stock_item.save(update_fields=["xero_id", "xero_last_modified"])
-                logger.info(
-                    f"Created stock item {stock_item.id} in Xero with ID {stock_item.xero_id}"
-                )
+        # Still no xero_id → create
+        resp = api.create_items(tenant_id, items={"Items": [item_data]})
+        time.sleep(SLEEP_TIME)
 
+        created = getattr(resp, "items", None) or getattr(resp, "Items", None) or []
+        if not created:
+            logger.error("Xero create_items returned empty response")
+            return False
+
+        xero_item = created[0]
+        stock_item.xero_id = xero_item.item_id
+        stock_item.xero_last_modified = timezone.now()
+        stock_item.save(update_fields=["xero_id", "xero_last_modified"])
+        logger.info(
+            f"Created stock item {stock_item.id} in Xero with ID {stock_item.xero_id}"
+        )
         return True
 
     except Exception as e:
-        logger.error(f"Failed to sync stock item {stock_item.id} to Xero: {str(e)}")
+        msg = str(e)
+
+        # 3) Valid fallback: if error is "already exists" by Code, link and update
+        # Note: this should be rare due to the initial lookup by Code above
+        if "already exists" in msg and "Code" in msg:
+            logger.warning(
+                f"Create failed due to duplicate Code. Attempting link+update for {stock_item.item_code}"
+            )
+            existing = get_xero_item_by_code(api, tenant_id, stock_item.item_code)
+            if not existing:
+                logger.error(
+                    "Duplicate reported, but item not found by Code — aborting"
+                )
+                return False
+
+            stock_item.xero_id = existing.item_id
+            stock_item.xero_last_modified = timezone.now()
+            stock_item.save(update_fields=["xero_id", "xero_last_modified"])
+
+            try:
+                item_data["ItemID"] = stock_item.xero_id
+                api.update_item(
+                    tenant_id, item_id=stock_item.xero_id, items={"Items": [item_data]}
+                )
+                time.sleep(SLEEP_TIME)
+                logger.info(
+                    f"Recovered by linking and updating stock item {stock_item.id} -> Xero {stock_item.xero_id}"
+                )
+                return True
+            except Exception as e2:
+                logger.error(f"Failed to update after linking by Code: {e2}")
+                persist_app_error(
+                    e2,
+                    additional_context={
+                        "stock_id": str(stock_item.id),
+                        "operation": "sync_stock_to_xero_update_after_duplicate",
+                        "item_code": stock_item.item_code,
+                    },
+                )
+                return False
+
+        # Other errors: log and persist
+        logger.error(f"Failed to sync stock item {stock_item.id} to Xero: {msg}")
         persist_app_error(
             e,
             additional_context={
