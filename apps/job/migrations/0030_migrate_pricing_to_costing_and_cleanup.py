@@ -131,7 +131,7 @@ def migrate_pricing_to_costing(apps, schema_editor):
                     desc=te.description or "Work",
                     quantity=te.hours,
                     unit_cost=te.wage_rate * te.wage_rate_multiplier,
-                    unit_rev=te.charge_out_rate * te.wage_rate_multiplier,
+                    unit_rev=te.charge_out_rate if te.is_billable else Decimal("0.0"),
                     ext_refs={"time_entry_id": str(te.id)},
                     meta={
                         "staff_id": str(te.staff_id) if te.staff_id else None,
