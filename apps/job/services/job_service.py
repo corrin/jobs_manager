@@ -64,6 +64,9 @@ def recalculate_job_invoicing_state(job_id: str) -> None:
         if job.latest_actual.total_revenue <= total_invoiced:
             job.fully_invoiced = True
             job.save(update_fields=["fully_invoiced"])
+        else:
+            job.fully_invoiced = False
+            job.save(update_fields=["fully_invoiced"])
     except Job.DoesNotExist:
         logger.error("Provided job id doesn't exist")
         raise

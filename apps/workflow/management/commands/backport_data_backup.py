@@ -3,6 +3,8 @@ import gzip
 import json
 import os
 import subprocess
+import uuid
+from collections import defaultdict
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -20,7 +22,75 @@ class Command(BaseCommand):
         self._used_staff_emails = set()
         self._used_staff_preferred_names = set()
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--analyze-fields",
+            action="store_true",
+            help="Analyze all fields in the database to identify potential PII",
+        )
+        parser.add_argument(
+            "--sample-size",
+            type=int,
+            default=50,
+            help="Number of samples to show per field (default: 50)",
+        )
+        parser.add_argument(
+            "--model-filter",
+            type=str,
+            help='Only analyze specific model (e.g., "job.Job")',
+        )
+
+        # Configuration: model -> field -> replacement type
+        # Replacement types: "name", "email", "phone", "text", "number", "date", "address"
+        self.PII_CONFIG = {
+            "accounts.staff": {
+                "first_name": "first_name",
+                "last_name": "last_name",
+                "preferred_name": "first_name",
+                "email": "email",
+                "raw_ims_data.EmpNo": "number",
+                "raw_ims_data.Surname": "last_name",
+                "raw_ims_data.FirstNames": "first_name",
+                "raw_ims_data.PostalAddress1": "address",
+                "raw_ims_data.PostalAddress2": "city",
+                "raw_ims_data.PostalAddress3": "postcode",
+                "raw_ims_data.HomePhone": "phone",
+                "raw_ims_data.HomePhone2": "phone",
+                "raw_ims_data.StartDate": "date",
+                "raw_ims_data.BirthDate": "date",
+                "raw_ims_data.IRDNumber": "number",
+                "raw_ims_data.ALDueDate": "date",
+                "raw_ims_data.BankAccount": "iban",
+                "raw_ims_data.EmailAddress": "email",
+            },
+            "client.client": {
+                "name": "company",
+                "primary_contact_name": "name",
+                "primary_contact_email": "email",
+                "email": "email",
+                "phone": "phone",
+                "raw_json._name": "name",
+                "raw_json._email_address": "email",
+                "raw_json._bank_account_details": "iban",
+                "raw_json._phones[]._phone_number": "phone",
+                "raw_json._batch_payments._bank_account_number": "iban",
+                "raw_json._batch_payments._bank_account_name": "name",
+            },
+            "client.clientcontact": {
+                "name": "name",
+                "email": "email",
+                "phone": "phone",
+            },
+        }
+
     def handle(self, *args, **options):
+        # Check if we're in analysis mode
+        if options.get("analyze_fields"):
+            return self.analyze_fields(
+                sample_size=options["sample_size"],
+                model_filter=options.get("model_filter"),
+            )
+
         self.stdout.write(self.style.SUCCESS("Starting data backup..."))
 
         # Define models to include
@@ -118,148 +188,88 @@ class Command(BaseCommand):
                 os.remove(output_path)
 
     def anonymize_item(self, item, fake):
-        """Anonymize PII fields in the serialized item"""
+        """Anonymize PII fields in the serialized item using configuration"""
         model = item["model"]
         fields = item["fields"]
 
-        if model == "accounts.staff":
-            fields["first_name"] = fake.first_name()
-            fields["last_name"] = fake.last_name()
-            if fields["preferred_name"]:
-                # Generate unique preferred name
-                while True:
-                    preferred_name = fake.first_name()
-                    if preferred_name not in self._used_staff_preferred_names:
-                        self._used_staff_preferred_names.add(preferred_name)
-                        fields["preferred_name"] = preferred_name
-                        break
-            if fields["email"]:
-                # Generate unique email
-                while True:
-                    email = fake.email()
-                    if email not in self._used_staff_emails:
-                        self._used_staff_emails.add(email)
-                        fields["email"] = email
-                        break
-            if fields["raw_ims_data"]:
-                raw_data = fields["raw_ims_data"]
-                if "EmpNo" in raw_data:
-                    raw_data["EmpNo"] = fake.random_int(min=1000, max=9999)
-                if "Surname" in raw_data:
-                    raw_data["Surname"] = fake.last_name()
-                if "FirstNames" in raw_data:
-                    raw_data["FirstNames"] = fake.first_name()
-                if "PostalAddress1" in raw_data:
-                    raw_data["PostalAddress1"] = fake.street_address()
-                if "PostalAddress2" in raw_data:
-                    raw_data["PostalAddress2"] = fake.city()
-                if "PostalAddress3" in raw_data:
-                    raw_data["PostalAddress3"] = fake.postcode()
-                if "HomePhone" in raw_data:
-                    raw_data["HomePhone"] = fake.phone_number()
-                if "HomePhone2" in raw_data:
-                    raw_data["HomePhone2"] = fake.phone_number()
-                if "StartDate" in raw_data:
-                    raw_data["StartDate"] = fake.date_between(
-                        start_date="-30y", end_date="today"
-                    ).isoformat()
-                if "BirthDate" in raw_data:
-                    raw_data["BirthDate"] = fake.date_of_birth(
-                        minimum_age=18, maximum_age=70
-                    ).isoformat()
-                if "IRDNumber" in raw_data:
-                    raw_data["IRDNumber"] = fake.random_int(min=10000000, max=99999999)
-                if "ALDueDate" in raw_data:
-                    raw_data["ALDueDate"] = fake.date_between(
-                        start_date="today", end_date="+1y"
-                    ).isoformat()
-                if "BankAccount" in raw_data:
-                    raw_data["BankAccount"] = fake.iban()
-                if "EmailAddress" in raw_data:
-                    raw_data["EmailAddress"] = fake.email()
+        # Special case: preserve the shop client
+        if (
+            model == "client.client"
+            and item["pk"] == "00000000-0000-0000-0000-000000000001"
+        ):
+            fields["name"] = "Demo Company Shop"
+            # Skip other anonymization for shop client
+            return
 
-        elif model == "client.client":
-            # Don't anonymize the shop client (preserve for system functionality)
-            if item["pk"] == "00000000-0000-0000-0000-000000000001":
-                # Special handling of the shop client
-                fields["name"] = "Demo Company Shop"
-                self._used_company_names.add("Demo Company Shop")
+        if model not in self.PII_CONFIG:
+            return  # No PII configuration for this model
+
+        # Process each field path in the configuration
+        for field_path, replacement_type in self.PII_CONFIG[model].items():
+            value = self._get_replacement_value(replacement_type, fake)
+            self._set_field_by_path(fields, field_path, value)
+
+    def _get_replacement_value(self, replacement_type, fake):
+        """Get replacement value based on type"""
+        if replacement_type == "first_name":
+            return fake.first_name()
+        elif replacement_type == "last_name":
+            return fake.last_name()
+        elif replacement_type == "name":
+            return fake.name()
+        elif replacement_type == "email":
+            return fake.email()
+        elif replacement_type == "phone":
+            return fake.phone_number()
+        elif replacement_type == "company":
+            return fake.company()
+        elif replacement_type == "address":
+            return fake.street_address()
+        elif replacement_type == "city":
+            return fake.city()
+        elif replacement_type == "postcode":
+            return fake.postcode()
+        elif replacement_type == "iban":
+            return fake.iban()
+        elif replacement_type == "number":
+            return str(fake.random_int(min=10000000, max=99999999))
+        elif replacement_type == "date":
+            return fake.date_between(start_date="-30y", end_date="today").isoformat()
+        else:
+            return fake.text(max_nb_chars=100)
+
+    def _set_field_by_path(self, data, path, value):
+        """Set a value in nested data structure using dot notation path"""
+        parts = path.split(".")
+
+        # Handle simple top-level field
+        if len(parts) == 1:
+            if parts[0] in data:
+                data[parts[0]] = value
+            return
+
+        # Handle nested path
+        current = data
+        for i, part in enumerate(parts[:-1]):
+            # Handle array notation like "_phones[]"
+            if "[]" in part:
+                field_name = part.replace("[]", "")
+                if field_name in current and current[field_name]:
+                    # Apply to all items in array
+                    for item in current[field_name]:
+                        self._set_field_by_path(item, ".".join(parts[i + 1 :]), value)
+                return
             else:
-                # Generate unique company name
-                while True:
-                    company_name = fake.company()
-                    if company_name not in self._used_company_names:
-                        self._used_company_names.add(company_name)
-                        fields["name"] = company_name
-                        break
-                if fields["primary_contact_name"]:
-                    fields["primary_contact_name"] = fake.name()
-                if fields["primary_contact_email"]:
-                    fields["primary_contact_email"] = fake.email()
-                if fields["email"]:
-                    fields["email"] = fake.email()
-                if fields["phone"]:
-                    fields["phone"] = fake.phone_number()
-                if fields["raw_json"]:
-                    raw_json = fields["raw_json"]
-                    if "_name" in raw_json:
-                        raw_json["_name"] = fake.name()
-                    if "_email_address" in raw_json:
-                        raw_json["_email_address"] = fake.email()
-                    if "_bank_account_details" in raw_json:
-                        raw_json["_bank_account_details"] = fake.iban()
-                    if "_phones" in raw_json:
-                        for phone in raw_json["_phones"]:
-                            if "_phone_number" in phone and phone["_phone_number"]:
-                                phone["_phone_number"] = fake.phone_number()
-                    if "_batch_payments" in raw_json and raw_json["_batch_payments"]:
-                        batch = raw_json["_batch_payments"]
-                        if "_bank_account_number" in batch:
-                            batch["_bank_account_number"] = fake.iban()
-                        if "_bank_account_name" in batch:
-                            batch["_bank_account_name"] = fake.name()
+                # Navigate to nested object
+                if part in current and current[part]:
+                    current = current[part]
+                else:
+                    return  # Path doesn't exist
 
-        elif model == "client.clientcontact":
-            fields["name"] = fake.name()
-            if fields["email"]:
-                fields["email"] = fake.email()
-            if fields["phone"]:
-                fields["phone"] = fake.phone_number()
-
-        elif model == "job.job":
-            # contact is now a foreign key to ClientContact, not separate fields
-            if "notes" in fields and fields["notes"]:
-                fields["notes"] = fake.text(max_nb_chars=200)
-            if "description" in fields and fields["description"]:
-                fields["description"] = fake.sentence(nb_words=10)
-
-        elif model == "job.costline":
-            if "description" in fields and fields["description"]:
-                fields["description"] = fake.sentence(nb_words=8)
-            if "notes" in fields and fields["notes"]:
-                fields["notes"] = fake.text(max_nb_chars=100)
-
-        elif model == "job.jobevent":
-            if "description" not in fields:
-                raise KeyError(
-                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
-                )
-            if fields["description"]:
-                fields["description"] = fake.sentence(nb_words=8)
-
-        elif model == "timesheet.timeentry":
-            if "description" not in fields:
-                raise KeyError(
-                    f"Model {model} missing expected field 'description'. Available fields: {list(fields.keys())}"
-                )
-            if "note" not in fields:
-                raise KeyError(
-                    f"Model {model} missing expected field 'note'. Available fields: {list(fields.keys())}"
-                )
-            if fields["description"]:
-                fields["description"] = fake.sentence(nb_words=6)
-            if fields["note"]:
-                fields["note"] = fake.sentence(nb_words=4)
+        # Set the final field
+        final_field = parts[-1]
+        if final_field in current:
+            current[final_field] = value
 
     def create_schema_backup(self, backup_dir, timestamp, env_name):
         """Create a schema-only backup using mysqldump"""
@@ -317,3 +327,134 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"mysqldump failed: {e.stderr}"))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error during schema backup: {e}"))
+
+    def analyze_fields(self, sample_size, model_filter):
+        """Show field samples to help identify PII"""
+
+        self.stdout.write(self.style.SUCCESS("Showing field samples..."))
+        self.stdout.write(f"Sample size: {sample_size}")
+        if model_filter:
+            self.stdout.write(f"Filtering to model: {model_filter}")
+        self.stdout.write("")
+
+        # Models to analyze
+        MODELS_TO_ANALYZE = [
+            "job.Job",
+            "job.CostSet",
+            "job.CostLine",
+            "job.JobEvent",
+            "job.JobFile",
+            "timesheet.TimeEntry",
+            "accounts.Staff",
+            "client.Client",
+            "client.ClientContact",
+        ]
+
+        if model_filter:
+            MODELS_TO_ANALYZE = [m for m in MODELS_TO_ANALYZE if m == model_filter]
+
+        # Use dumpdata to get records
+        cmd = (
+            ["python", "manage.py", "dumpdata"] + MODELS_TO_ANALYZE + ["--indent", "2"]
+        )
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        data = json.loads(result.stdout)
+
+        # Group by model and field
+        field_samples = defaultdict(lambda: defaultdict(list))
+
+        for item in data:
+            model = item["model"]
+            fields = item["fields"]
+            self.collect_field_samples(fields, model, field_samples, "", sample_size)
+
+        # Display samples
+        for model in sorted(field_samples.keys()):
+            self.stdout.write(self.style.SUCCESS(f"\n{'='*60}"))
+            self.stdout.write(self.style.SUCCESS(f"Model: {model}"))
+            self.stdout.write(self.style.SUCCESS(f"{'='*60}"))
+
+            for field_path in sorted(field_samples[model].keys()):
+                samples = field_samples[model][field_path]
+
+                # Skip if no non-empty samples
+                if not any(samples):
+                    continue
+
+                # Check if field cannot be PII
+                if samples and self.cannot_be_pii(samples):
+                    self.stdout.write(f"\n  {model}.{field_path} - not PII")
+                    continue
+
+                # Calculate distinct values
+                non_none_samples = [s for s in samples if s is not None]
+                distinct_values = list(set(str(s) for s in non_none_samples))
+                distinct_count = len(distinct_values)
+
+                # Display field with distinct count
+                self.stdout.write(
+                    f"\n  {model}.{field_path} ({distinct_count} distinct):"
+                )
+
+                # Show up to 10 unique values if there are few distinct values
+                if distinct_count <= 10:
+                    for value in sorted(distinct_values)[:10]:
+                        display = value[:100]
+                        if len(value) > 100:
+                            display += "..."
+                        self.stdout.write(f"    - {display}")
+                else:
+                    # Show samples up to sample_size
+                    for i, sample in enumerate(non_none_samples[:sample_size]):
+                        if sample is not None:
+                            display = str(sample)[:100]
+                            if len(str(sample)) > 100:
+                                display += "..."
+                            self.stdout.write(f"    [{i+1}] {display}")
+
+    def is_uuid_string(self, value):
+        """Check if a string is a UUID"""
+        if not isinstance(value, str):
+            return False
+        try:
+            uuid.UUID(value)
+            return True
+        except (ValueError, AttributeError):
+            return False
+
+    def cannot_be_pii(self, samples):
+        """Check if field cannot possibly contain PII"""
+        for sample in samples:
+            if sample is None:
+                continue
+            # Check for boolean
+            if type(sample) is bool:
+                continue
+            # Check for UUID string
+            if self.is_uuid_string(sample):
+                continue
+            # Found something that's not UUID/boolean/None
+            return False
+        return True  # All samples were UUID/boolean/None
+
+    def collect_field_samples(self, data, model, field_samples, prefix, sample_size):
+        """Recursively collect field samples from nested structures"""
+        if isinstance(data, dict):
+            for key, value in data.items():
+                field_path = f"{prefix}.{key}" if prefix else key
+
+                if isinstance(value, dict):
+                    # Nested object
+                    self.collect_field_samples(
+                        value, model, field_samples, field_path, sample_size
+                    )
+                elif isinstance(value, list) and value and isinstance(value[0], dict):
+                    # Array of objects
+                    for item in value[:sample_size]:
+                        self.collect_field_samples(
+                            item, model, field_samples, f"{field_path}[]", sample_size
+                        )
+                else:
+                    # Leaf value
+                    if len(field_samples[model][field_path]) < sample_size:
+                        field_samples[model][field_path].append(value)
