@@ -87,10 +87,7 @@ class XeroQuoteManager(XeroDocumentManager):
         if not self.job:
             raise ValueError("Job is required to generate quote line items.")
         # Reject if job is T&M
-        if (
-            hasattr(self.job, "pricing_methodology")
-            and getattr(self.job, "pricing_methodology", None) == "TIME_AND_MATERIALS"
-        ):
+        if self.job.pricing_methodology == "time_materials":
             raise ValueError(f"Job {self.job.id} is T&M and cannot be quoted in Xero.")
         latest_quote = (
             CostSet.objects.filter(job=self.job, kind="quote")

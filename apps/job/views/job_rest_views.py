@@ -22,15 +22,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.helpers import get_company_defaults
-from apps.job.serializers.job_serializer import (
+from apps.job.models import Job
+from apps.job.serializers.job_serializer import (  # New serializers for JobView enhancement
+    JobCostSummaryResponseSerializer,
     JobCreateRequestSerializer,
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
+    JobEventsResponseSerializer,
+    JobFilesResponseSerializer,
+    JobHeaderResponseSerializer,
+    JobInvoicesResponseSerializer,
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
+    JobStatusChoicesResponseSerializer,
     WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
@@ -504,6 +511,392 @@ class WeeklyMetricsRestView(BaseJobRestView):
 
         except Exception as e:
             logger.error(f"Error fetching weekly metrics: {e}")
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobHeaderRestView(BaseJobRestView):
+    """
+    REST view for Job header information.
+    Returns essential job data for fast initial loading.
+    """
+
+    serializer_class = JobHeaderResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobHeaderResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch essential job header information for fast loading",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch essential job header data for fast initial loading.
+        """
+        try:
+            job = Job.objects.select_related("client").get(id=job_id)
+
+            # Build essential header data only
+            header_data = {
+                "job_id": str(job.id),
+                "job_number": job.job_number,
+                "name": job.name,
+                "client": {"id": str(job.client.id), "name": job.client.name}
+                if job.client
+                else None,
+                "status": job.status,
+                "job_status": job.status,  # For frontend compatibility
+                "pricing_methodology": job.pricing_methodology,
+                "fully_invoiced": job.fully_invoiced,
+                "quoted": job.quoted,
+                "quote_acceptance_date": job.quote_acceptance_date.isoformat()
+                if job.quote_acceptance_date
+                else None,
+                "paid": job.paid,
+            }
+
+            return Response(header_data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobInvoicesRestView(BaseJobRestView):
+    """
+    REST view for Job invoices.
+    Returns list of invoices for a job.
+    """
+
+    serializer_class = JobInvoicesResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobInvoicesResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job invoices list",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job invoices.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+            invoices = job.invoices.all()
+
+            serializer = JobInvoicesResponseSerializer({"invoices": invoices})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobCostSummaryRestView(BaseJobRestView):
+    """
+    REST view for Job cost summary.
+    Returns cost summary across all cost sets.
+    """
+
+    serializer_class = JobCostSummaryResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobCostSummaryResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job cost summary across all cost sets",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job cost summary.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+
+            # Get summaries from all cost sets
+            estimate = job.get_latest("estimate")
+            quote = job.get_latest("quote")
+            actual = job.get_latest("actual")
+
+            summary_data = {
+                "estimate": estimate.summary if estimate else {},
+                "quote": quote.summary if quote else {},
+                "actual": actual.summary if actual else {},
+            }
+
+            serializer = JobCostSummaryResponseSerializer(summary_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobStatusChoicesRestView(BaseJobRestView):
+    """
+    REST view for Job status choices.
+    Returns available status choices for jobs.
+    """
+
+    serializer_class = JobStatusChoicesResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobStatusChoicesResponseSerializer,
+        },
+        description="Fetch job status choices",
+        tags=["Jobs"],
+    )
+    def get(self, request):
+        """
+        Fetch job status choices.
+        """
+        try:
+            from apps.job.models.job import Job
+
+            # Get status choices from model
+            status_choices = dict(Job.STATUS_CHOICES)
+
+            response_data = {"statuses": status_choices}
+            serializer = JobStatusChoicesResponseSerializer(response_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobEventListRestView(BaseJobRestView):
+    """
+    REST view for Job events list.
+    Returns list of events for a job.
+    """
+
+    serializer_class = JobEventsResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobEventsResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job events list",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job events.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+            events = job.events.all().order_by("-timestamp")
+
+            serializer = JobEventsResponseSerializer({"events": events})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobFilesRestView(BaseJobRestView):
+    """
+    REST view for Job files.
+    Returns list of files for a job and handles uploads.
+    """
+
+    serializer_class = JobFilesResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobFilesResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job files list",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job files.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+            files = job.files.all().order_by("-uploaded_at")
+
+            serializer = JobFilesResponseSerializer({"files": files})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+    @extend_schema(
+        request={
+            "type": "object",
+            "properties": {
+                "file": {"type": "string", "format": "binary"},
+                "print_on_jobsheet": {"type": "boolean"},
+            },
+        },
+        responses={
+            201: JobFilesResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Upload a file for the job",
+        tags=["Jobs"],
+    )
+    def post(self, request, job_id):
+        """
+        Upload a file for the job.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+
+            # Handle file upload
+            uploaded_file = request.FILES.get("file")
+            if not uploaded_file:
+                raise ValueError("No file provided")
+
+            print_on_jobsheet = (
+                request.POST.get("print_on_jobsheet", "false").lower() == "true"
+            )
+
+            # Create job file
+            from apps.job.services.file_service import FileService
+
+            job_file = FileService.create_job_file(
+                job=job,
+                uploaded_file=uploaded_file,
+                print_on_jobsheet=print_on_jobsheet,
+                user=request.user,
+            )
+
+            serializer = JobFilesResponseSerializer({"files": [job_file]})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobFileDetailRestView(BaseJobRestView):
+    """
+    REST view for Job file operations.
+    Handles file updates and deletion.
+    """
+
+    @extend_schema(
+        request={
+            "type": "object",
+            "properties": {"print_on_jobsheet": {"type": "boolean"}},
+        },
+        responses={
+            200: JobFilesResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Update job file metadata",
+        tags=["Jobs"],
+    )
+    def patch(self, request, file_id):
+        """
+        Update job file metadata.
+        """
+        try:
+            from apps.job.models import JobFile
+
+            job_file = JobFile.objects.get(id=file_id)
+            data = self.parse_json_body(request)
+
+            # Update print_on_jobsheet if provided
+            if "print_on_jobsheet" in data:
+                job_file.print_on_jobsheet = data["print_on_jobsheet"]
+                job_file.save()
+
+            serializer = JobFilesResponseSerializer({"files": [job_file]})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except JobFile.DoesNotExist:
+            raise ValueError(f"Job file with id {file_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+    @extend_schema(
+        responses={
+            204: None,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Delete a job file",
+        tags=["Jobs"],
+    )
+    def delete(self, request, file_id):
+        """
+        Delete a job file.
+        """
+        try:
+            from apps.job.models import JobFile
+
+            job_file = JobFile.objects.get(id=file_id)
+            job_file.delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except JobFile.DoesNotExist:
+            raise ValueError(f"Job file with id {file_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobFileDownloadView(BaseJobRestView):
+    """
+    REST view for Job file downloads.
+    Streams file content for download.
+    """
+
+    @extend_schema(
+        responses={
+            200: {"type": "string", "format": "binary"},
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Download a job file",
+        tags=["Jobs"],
+    )
+    def get(self, request, file_id):
+        """
+        Download a job file.
+        """
+        try:
+            from django.http import FileResponse
+
+            from apps.job.models import JobFile
+
+            job_file = JobFile.objects.get(id=file_id)
+
+            # Return file response
+            response = FileResponse(
+                job_file.file.open(), as_attachment=True, filename=job_file.filename
+            )
+            return response
+
+        except JobFile.DoesNotExist:
+            raise ValueError(f"Job file with id {file_id} not found")
+        except Exception as e:
             return self.handle_service_error(e)
 
 

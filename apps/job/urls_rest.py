@@ -19,6 +19,7 @@ from apps.job.views.job_rest_views import (
     JobCreateRestView,
     JobDetailRestView,
     JobEventRestView,
+    JobHeaderRestView,
     JobQuoteAcceptRestView,
     WeeklyMetricsRestView,
 )
@@ -43,6 +44,12 @@ rest_urlpatterns = [
     path("rest/month-end/", MonthEndRestView.as_view(), name="month_end_rest"),
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
+    ),
+    # Job header (essential info only)
+    path(
+        "rest/jobs/<uuid:job_id>/header/",
+        JobHeaderRestView.as_view(),
+        name="job_header_rest",
     ),
     # Job events
     path(

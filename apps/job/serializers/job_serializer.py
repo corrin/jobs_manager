@@ -646,3 +646,53 @@ class WeeklyMetricsSerializer(serializers.Serializer):
     estimated_hours = serializers.FloatField()
     actual_hours = serializers.FloatField()
     profit = serializers.FloatField()
+
+
+# JobView Enhancement Serializers
+
+
+class JobHeaderResponseSerializer(serializers.Serializer):
+    """Serializer for job header response - essential job data for fast loading"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.CharField()
+    name = serializers.CharField()
+    client = serializers.DictField()
+    status = serializers.CharField()
+    pricing_methodology = serializers.CharField(allow_null=True)
+    fully_invoiced = serializers.BooleanField()
+    quoted = serializers.BooleanField()
+    quote_acceptance_date = serializers.DateTimeField(allow_null=True)
+    paid = serializers.BooleanField()
+
+
+class JobCostSummaryResponseSerializer(serializers.Serializer):
+    """Serializer for job cost summary response"""
+
+    estimate = serializers.DictField()
+    quote = serializers.DictField()
+    actual = serializers.DictField()
+
+
+class JobStatusChoicesResponseSerializer(serializers.Serializer):
+    """Serializer for job status choices response"""
+
+    statuses = serializers.DictField()
+
+
+class JobInvoicesResponseSerializer(serializers.Serializer):
+    """Serializer for job invoices response"""
+
+    invoices = InvoiceSerializer(many=True)
+
+
+class JobFilesResponseSerializer(serializers.Serializer):
+    """Serializer for job files response"""
+
+    files = JobFileSerializer(many=True)
+
+
+class JobEventsResponseSerializer(serializers.Serializer):
+    """Serializer for job events response"""
+
+    events = JobEventSerializer(many=True)
