@@ -1,6 +1,7 @@
 # Xero Projects Ticket 3: Xero Projects API Integration
 
 ## Overview
+
 Adding Projects API calls to the existing Xero API infrastructure to support project creation, updates, and time/expense entry management.
 
 ## Progress
@@ -10,6 +11,7 @@ Adding Projects API calls to the existing Xero API infrastructure to support pro
 ### ✅ Completed Tasks
 
 #### Task 2: Add Projects API calls to apps/workflow/api/xero/xero.py
+
 - ✅ Added ProjectsApi import
 - ✅ Added get_projects method to retrieve projects from Xero
 - ✅ Added create_project method to create new projects in Xero
@@ -17,11 +19,13 @@ Adding Projects API calls to the existing Xero API infrastructure to support pro
 - ✅ Follow existing API patterns in the file
 
 #### Task 3: Implement get_projects, create_project, update_project functions
+
 - ✅ get_projects: Retrieve all projects or filter by specific criteria
 - ✅ create_project: Create project with contact, name, deadline, estimate
 - ✅ update_project: Update project details and status
 
 #### Task 4: Implement bulk time/expense entry operations
+
 - ✅ create_time_entries: Bulk create time entries for a project
 - ✅ create_expense_entries: Bulk create expense entries for a project
 - ✅ update_time_entries: Bulk update existing time entries
@@ -30,6 +34,7 @@ Adding Projects API calls to the existing Xero API infrastructure to support pro
 ### 🔄 Tasks In Progress
 
 #### Task 5: Test with Xero sandbox - BLOCKED
+
 - ❌ Ensure API calls work correctly with Xero sandbox environment - BLOCKED: missing "projects" scope in token
 - Note we are connected to a special safe Xero Demo Company so it should sync all our jobs into projects
 - ❌ Test error handling and edge cases - BLOCKED: cannot test without proper token scope
@@ -37,6 +42,7 @@ Adding Projects API calls to the existing Xero API infrastructure to support pro
 **CRITICAL: Cannot test API calls until Xero token is re-authenticated with "projects" scope**
 
 #### Task 6: Run MyPy on edited files
+
 - ✅ Fixed import issues (changed from xero_python.projects to xero_python.project)
 - ✅ Fixed ProjectsApi to ProjectApi across all function calls
 - ✅ Added proper type annotations to new functions
@@ -44,6 +50,7 @@ Adding Projects API calls to the existing Xero API infrastructure to support pro
 - ✅ Remaining MyPy errors are from existing third-party API calls returning Any (not fixable without type stubs)
 
 ## Implementation Notes
+
 - Following existing patterns in apps/workflow/api/xero/xero.py
 - Using Xero Projects API scope (projects)
 - Implementing proper error handling with persist_app_error

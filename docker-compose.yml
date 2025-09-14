@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   db:
@@ -7,12 +7,12 @@ services:
       - SYS_NICE
     restart: always
     environment:
-      MYSQL_DATABASE: 'jobs_manager'
-      MYSQL_USER: 'user'
-      MYSQL_PASSWORD: 'password'
-      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_DATABASE: "jobs_manager"
+      MYSQL_USER: "user"
+      MYSQL_PASSWORD: "password"
+      MYSQL_ROOT_PASSWORD: "password"
     ports:
-      - '3306:3306'
+      - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
 
@@ -22,7 +22,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - '8000:8000'
+      - "8000:8000"
     depends_on:
       - db
     environment:

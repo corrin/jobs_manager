@@ -33,16 +33,16 @@ This set of rules defines the mandatory standards for backend development in the
 
 ### 📋 Full Index
 
-| #  | File                                               | Description                                   | Status |
-|----|----------------------------------------------------|-----------------------------------------------|--------|
-| 01 | [`01-architecture-design-patterns.md`](./01-architecture-design-patterns.md) | Mandatory architecture and design patterns    | ✅     |
-| 02 | [`02-code-organization-structure.md`](./02-code-organization-structure.md) | Code organization and directory structure     | ✅     |
-| 03 | [`03-api-design-standards.md`](./03-api-design-standards.md) | RESTful API design standards                  | ✅     |
-| 04 | [`04-data-handling-persistence.md`](./04-data-handling-persistence.md) | Data handling and persistence                 | ✅     |
-| 05 | [`05-error-management-logging.md`](./05-error-management-logging.md) | Error management and logging                  | ✅     |
-| 06 | [`06-testing-quality-assurance.md`](./06-testing-quality-assurance.md) | Testing and quality assurance                 | ✅     |
-| 07 | [`07-security-performance.md`](./07-security-performance.md) | Security and performance optimization         | ✅     |
-| 14 | [`08-good-practices.md`](./08-good-practices.md)     | Good practices (SOLID, Clean Code, etc.)      | ✅     |
+| #   | File                                                                         | Description                                | Status |
+| --- | ---------------------------------------------------------------------------- | ------------------------------------------ | ------ |
+| 01  | [`01-architecture-design-patterns.md`](./01-architecture-design-patterns.md) | Mandatory architecture and design patterns | ✅     |
+| 02  | [`02-code-organization-structure.md`](./02-code-organization-structure.md)   | Code organization and directory structure  | ✅     |
+| 03  | [`03-api-design-standards.md`](./03-api-design-standards.md)                 | RESTful API design standards               | ✅     |
+| 04  | [`04-data-handling-persistence.md`](./04-data-handling-persistence.md)       | Data handling and persistence              | ✅     |
+| 05  | [`05-error-management-logging.md`](./05-error-management-logging.md)         | Error management and logging               | ✅     |
+| 06  | [`06-testing-quality-assurance.md`](./06-testing-quality-assurance.md)       | Testing and quality assurance              | ✅     |
+| 07  | [`07-security-performance.md`](./07-security-performance.md)                 | Security and performance optimization      | ✅     |
+| 14  | [`08-good-practices.md`](./08-good-practices.md)                             | Good practices (SOLID, Clean Code, etc.)   | ✅     |
 
 ## Critical Rules (MANDATORY)
 
@@ -323,9 +323,9 @@ logger.info(
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0.0 | 2025-08 | Initial version with 7 main rules |
+| Version | Date    | Changes                           |
+| ------- | ------- | --------------------------------- |
+| 1.0.0   | 2025-08 | Initial version with 7 main rules |
 
 ---
 

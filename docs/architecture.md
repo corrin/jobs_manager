@@ -47,6 +47,7 @@ graph TB
 The system is organized into focused Django apps, each handling specific business domains:
 
 #### **`workflow`** - Central Hub
+
 - **Purpose**: Base functionality and integration coordination
 - **Key Models**: CompanyDefaults, XeroAccount, XeroToken, AIProvider
 - **Responsibilities**:
@@ -56,6 +57,7 @@ The system is organized into focused Django apps, each handling specific busines
   - System-wide configuration
 
 #### **`job`** - Job Lifecycle Management
+
 - **Purpose**: Core business workflow from quote to completion
 - **Key Models**: Job, JobPricing, JobFile, JobEvent, MaterialEntry, AdjustmentEntry
 - **Responsibilities**:
@@ -66,6 +68,7 @@ The system is organized into focused Django apps, each handling specific busines
   - Job costing and material tracking
 
 #### **`accounts`** - User Management
+
 - **Purpose**: Custom authentication and user management
 - **Key Models**: Staff (extends AbstractBaseUser)
 - **Responsibilities**:
@@ -74,6 +77,7 @@ The system is organized into focused Django apps, each handling specific busines
   - Role-based permissions and authentication
 
 #### **`client`** - (Minimal) Customer Relationship Management
+
 - **Purpose**: Customer data and (future) contact management
 - **Key Models**: Client
 - **Responsibilities**:
@@ -82,6 +86,7 @@ The system is organized into focused Django apps, each handling specific busines
   - Customer-specific job history
 
 #### **`timesheet`** - Time Tracking and Billing
+
 - **Purpose**: Labor time tracking and job costing
 - **Key Models**: TimeEntry
 - **Responsibilities**:
@@ -91,6 +96,7 @@ The system is organized into focused Django apps, each handling specific busines
   - Wage rate and charge-out rate management
 
 #### **`purchasing`** - Purchase Order and Inventory
+
 - **Purpose**: Material procurement and inventory management
 - **Key Models**: PurchaseOrder, PurchaseOrderLine, Stock
 - **Responsibilities**:
@@ -100,6 +106,7 @@ The system is organized into focused Django apps, each handling specific busines
   - Material cost tracking to jobs
 
 #### **`accounting`** - Financial Reporting
+
 - **Purpose**: Financial analytics and KPI tracking
 - **Key Models**: Various reporting models
 - **Responsibilities**:
@@ -108,6 +115,7 @@ The system is organized into focused Django apps, each handling specific busines
   - Profitability analysis
 
 #### **`quoting`** - Quote Generation and Pricing
+
 - **Purpose**: Supplier pricing and quote management
 - **Key Models**: Supplier pricing models
 - **Responsibilities**:
@@ -175,6 +183,7 @@ erDiagram
 ## Frontend Architecture
 
 ### Current Django Frontend
+
 - **Bootstrap 5.3.3**: Responsive UI framework
 - **jQuery 3.7.1**: DOM manipulation and AJAX
 - **ag-Grid Community 33.0.2**: Advanced data tables
@@ -183,7 +192,9 @@ erDiagram
 - **Chart.js 4.4.9 & Highcharts 12.0.2**: Data visualization
 
 ### Future Vue.js Frontend
+
 Located in `../jobs_manager_front/`:
+
 - **Vue 3**: TypeScript and Composition API
 - **Vite**: Build tooling and development server
 - **Vue Router**: Client-side routing
@@ -194,6 +205,7 @@ Located in `../jobs_manager_front/`:
 ## API Architecture
 
 ### REST API Design
+
 - **URL Patterns**: Consistent RESTful conventions
 - **Authentication**: JWT token support with session fallback
 - **Serialization**: Django REST Framework serializers
@@ -201,6 +213,7 @@ Located in `../jobs_manager_front/`:
 - **Error Handling**: Standardized error responses
 
 ### Key API Endpoints
+
 ```
 /api/jobs/                 - Job CRUD operations
 /api/clients/              - Client management
@@ -213,6 +226,7 @@ Located in `../jobs_manager_front/`:
 ## Integration Architecture
 
 ### Xero Integration
+
 - **Purpose**: Bidirectional accounting synchronization
 - **Data Flow**: Contacts, Invoices, Purchase Orders
 - **Authentication**: OAuth 2.0 with token refresh
@@ -220,11 +234,13 @@ Located in `../jobs_manager_front/`:
 - **Error Handling**: Retry logic and failure notifications
 
 ### Dropbox Integration
+
 - **Purpose**: File storage for job documents
 - **Usage**: Job sheet attachments, drawings, documentation
 - **Access Pattern**: Direct upload/download using the dropbox client for actual sync
 
 ### Gemini AI Integration
+
 - **Purpose**: Price list extraction and processing
 - **Usage**: Automated supplier pricing updates
 - **Data Processing**: PDF parsing and structured data extraction
@@ -232,12 +248,14 @@ Located in `../jobs_manager_front/`:
 ## Security Architecture
 
 ### Authentication & Authorization
+
 - **Custom User Model**: Staff extends AbstractBaseUser
 - **Password Policy**: Minimum 10 characters with strength validation
 - **Session Management**: Django sessions with JWT support
 - **Permission System**: Role-based with granular controls
 
 ### Data Protection
+
 - **Environment Variables**: All sensitive credentials externalized
 - **CSRF Protection**: Enabled with API exemptions where needed
 - **File Upload Validation**: Restricted file types and sizes
@@ -246,17 +264,20 @@ Located in `../jobs_manager_front/`:
 ## Performance Considerations
 
 ### Database Optimization
+
 - **Indexes**: UUID fields frequently queried
 - **Query Optimization**: Select_related and prefetch_related usage
 - **Connection Pooling**: Configured for production loads
 
 ### Frontend Performance
+
 - **AJAX Patterns**: Minimize full page reloads
 - **ag-Grid**: Efficient handling of large datasets
 - **Lazy Loading**: Components loaded as needed
 - **Caching**: Strategic use of browser and server-side caching
 
 ### Background Processing
+
 - **APScheduler**: Background task scheduling
 - **Xero Sync**: Asynchronous data synchronization
 - **File Processing**: Non-blocking file operations
@@ -264,11 +285,13 @@ Located in `../jobs_manager_front/`:
 ## Deployment Architecture
 
 ### Environment Configuration
+
 - **Settings Structure**: Modular settings (base/local/production_like)
 - **Environment Variables**: Database, API keys, feature flags
 - **Static Files**: Collected and served appropriately
 
 ### Required Services
+
 - **Database**: MariaDB with appropriate sizing
 - **Cache**: Redis for session storage and caching
 - **Background Tasks**: Celery for production environments
@@ -277,6 +300,7 @@ Located in `../jobs_manager_front/`:
 ## Business Process Integration
 
 ### Workflow Mapping
+
 1. **Quote Generation**: Fast phone-based quoting system
 2. **Job Creation**: Convert quotes to jobs with status tracking
 3. **Production Management**: Kanban board workflow
@@ -285,6 +309,7 @@ Located in `../jobs_manager_front/`:
 6. **Completion & Invoicing**: Xero integration for billing
 
 ### Data Flow
+
 ```mermaid
 sequenceDiagram
     participant Customer
@@ -309,11 +334,13 @@ sequenceDiagram
 Note - this is autogenerated and not really the plan.
 
 ### Scalability
+
 - **Microservices**: Potential extraction of Xero integration
 - **API-First**: Complete separation of frontend and backend
 - **Caching Strategy**: Redis implementation for frequently accessed data
 
 ### Extensibility
+
 - **Plugin Architecture**: Modular integration points
 - **API Versioning**: Support for multiple frontend versions
 - **Event System**: Decoupled notification and automation

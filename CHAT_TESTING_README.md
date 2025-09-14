@@ -17,6 +17,7 @@ This testing suite provides comprehensive coverage for all chat-related function
 ### 1. Unit Tests
 
 #### `test_gemini_chat_service.py`
+
 - Service configuration and initialization
 - AI response generation
 - Tool integration and execution
@@ -24,6 +25,7 @@ This testing suite provides comprehensive coverage for all chat-related function
 - Message persistence and metadata
 
 #### `test_job_quote_chat_model.py`
+
 - Model field validation
 - Database constraints and relationships
 - Serialization and deserialization
@@ -31,6 +33,7 @@ This testing suite provides comprehensive coverage for all chat-related function
 - Large content handling
 
 #### `test_mcp_tool_integration.py`
+
 - QuotingTool functionality
 - SupplierProductQueryTool functionality
 - Tool parameter validation
@@ -40,6 +43,7 @@ This testing suite provides comprehensive coverage for all chat-related function
 ### 2. Integration Tests
 
 #### `test_chat_api_endpoints.py`
+
 - Complete API flow testing
 - Authentication and authorization
 - Request/response validation
@@ -49,6 +53,7 @@ This testing suite provides comprehensive coverage for all chat-related function
 ### 3. Performance Tests
 
 #### `test_chat_performance.py`
+
 - Response time under different loads
 - Memory usage during conversation
 - Concurrent chat sessions
@@ -58,6 +63,7 @@ This testing suite provides comprehensive coverage for all chat-related function
 ### 4. Test Data
 
 #### `fixtures/chat_test_data.json`
+
 - Comprehensive test data fixtures
 - Multiple jobs with chat history
 - Various AI provider configurations
@@ -102,38 +108,44 @@ coverage html
 ### Test Categories
 
 #### Fast Tests (Unit Tests)
+
 ```bash
 python run_chat_tests.py --unit
 ```
+
 - **Duration**: ~30 seconds
 - **Coverage**: Core functionality
 - **Dependencies**: Mock external services
 
 #### Integration Tests
+
 ```bash
 python run_chat_tests.py --integration
 ```
+
 - **Duration**: ~60 seconds
 - **Coverage**: API endpoints and workflows
 - **Dependencies**: Database, full Django stack
 
 #### Performance Tests
+
 ```bash
 python run_chat_tests.py --performance
 ```
+
 - **Duration**: ~120 seconds
 - **Coverage**: Load testing and optimization
 - **Dependencies**: Database, threading
 
 ## Test Coverage Goals
 
-| Component | Target Coverage | Focus Areas |
-|-----------|----------------|-------------|
-| GeminiChatService | 95% | AI integration, tool execution |
-| Chat API Views | 90% | Request handling, validation |
-| JobQuoteChat Model | 85% | Database operations, relationships |
-| MCP Tools | 80% | Tool functionality, error handling |
-| Performance | N/A | Response time, memory usage |
+| Component          | Target Coverage | Focus Areas                        |
+| ------------------ | --------------- | ---------------------------------- |
+| GeminiChatService  | 95%             | AI integration, tool execution     |
+| Chat API Views     | 90%             | Request handling, validation       |
+| JobQuoteChat Model | 85%             | Database operations, relationships |
+| MCP Tools          | 80%             | Tool functionality, error handling |
+| Performance        | N/A             | Response time, memory usage        |
 
 ## Test Data Management
 
@@ -202,28 +214,28 @@ def test_tool_execution(self, mock_tool):
 
 ### Response Time Targets
 
-| Operation | Target Time | Acceptable Range |
-|-----------|-------------|------------------|
-| Basic chat response | <2 seconds | <5 seconds |
-| Response with history | <3 seconds | <8 seconds |
-| Tool execution | <3 seconds | <10 seconds |
-| Database queries | <100ms | <500ms |
+| Operation             | Target Time | Acceptable Range |
+| --------------------- | ----------- | ---------------- |
+| Basic chat response   | <2 seconds  | <5 seconds       |
+| Response with history | <3 seconds  | <8 seconds       |
+| Tool execution        | <3 seconds  | <10 seconds      |
+| Database queries      | <100ms      | <500ms           |
 
 ### Memory Usage Targets
 
-| Scenario | Target Memory | Maximum |
-|----------|---------------|---------|
-| Single conversation | <50MB | <100MB |
-| Concurrent sessions | <200MB | <500MB |
-| Large history | <100MB | <250MB |
+| Scenario            | Target Memory | Maximum |
+| ------------------- | ------------- | ------- |
+| Single conversation | <50MB         | <100MB  |
+| Concurrent sessions | <200MB        | <500MB  |
+| Large history       | <100MB        | <250MB  |
 
 ### Concurrency Targets
 
-| Metric | Target | Maximum |
-|--------|--------|---------|
-| Concurrent users | 10+ | 50+ |
-| Messages per second | 5+ | 20+ |
-| Database connections | <10 | <25 |
+| Metric               | Target | Maximum |
+| -------------------- | ------ | ------- |
+| Concurrent users     | 10+    | 50+     |
+| Messages per second  | 5+     | 20+     |
+| Database connections | <10    | <25     |
 
 ## Debugging Tests
 
@@ -284,24 +296,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.12
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.12
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install coverage
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install coverage
 
-    - name: Run chat tests
-      run: |
-        python run_chat_tests.py --coverage
+      - name: Run chat tests
+        run: |
+          python run_chat_tests.py --coverage
 
-    - name: Upload coverage
-      uses: codecov/codecov-action@v1
+      - name: Upload coverage
+        uses: codecov/codecov-action@v1
 ```
 
 ### Pre-commit Hooks
@@ -345,16 +357,19 @@ pre-commit run --all-files
 ### Common Issues
 
 1. **Database connection errors**
+
    - Check database settings
    - Ensure test database exists
    - Verify permissions
 
 2. **Import errors**
+
    - Check PYTHONPATH
    - Verify Django settings
    - Check for circular imports
 
 3. **Mock failures**
+
    - Verify mock paths
    - Check mock configuration
    - Ensure patches are applied correctly

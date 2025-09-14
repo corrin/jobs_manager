@@ -1,6 +1,7 @@
 # Weekend Timesheet Inclusion - Task Breakdown
 
 ## Task Overview
+
 Complete the implementation of weekend inclusion in the timesheet system by addressing all remaining blockers and ensuring end-to-end functionality.
 
 ## Task Categories
@@ -8,6 +9,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ### 1. Backend Service Layer (High Priority)
 
 #### TASK-001: Verify WeeklyTimesheetService Integration
+
 - **Description**: Ensure all service methods properly handle 7-day data structures
 - **Subtasks**:
   - Verify `_get_week_days()` returns 7 days consistently
@@ -18,6 +20,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: Critical
 
 #### TASK-002: Update Response Builders
+
 - **Description**: Ensure TimesheetResponseMixin.build_timesheet_response() handles 7-day data
 - **Subtasks**:
   - Verify response includes all 7 days from service
@@ -30,6 +33,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ### 2. View Layer Updates (High Priority)
 
 #### TASK-003: Modern Timesheet Views Audit
+
 - **Description**: Audit and update modern_timesheet_views.py for weekend compatibility
 - **Subtasks**:
   - Check for hardcoded weekday assumptions
@@ -40,6 +44,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: Critical
 
 #### TASK-004: Daily Timesheet Service Integration
+
 - **Description**: Ensure DailyTimesheetService works with weekend dates
 - **Subtasks**:
   - Verify service methods handle weekend dates
@@ -52,6 +57,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ### 3. Validation and Constraints (Medium Priority)
 
 #### TASK-005: Remove Weekday-Only Validations
+
 - **Description**: Find and remove any validations that block weekend entries
 - **Subtasks**:
   - Search for weekday/weekend validation logic
@@ -62,6 +68,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: High
 
 #### TASK-006: Business Logic Updates
+
 - **Description**: Update business logic to handle weekend scenarios
 - **Subtasks**:
   - Verify scheduled hours work for weekends
@@ -74,6 +81,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ### 4. Export and Integration (Medium Priority)
 
 #### TASK-007: Export Services Audit
+
 - **Description**: Ensure export services include weekend data appropriately
 - **Subtasks**:
   - Verify IMS export maintains Tue-Fri + next Mon format
@@ -84,6 +92,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: Medium
 
 #### TASK-013: Feature Flag Implementation
+
 - **Description**: Implement feature flag for weekend functionality
 - **Subtasks**:
   - Add WEEKEND_TIMESHEETS_ENABLED environment variable
@@ -95,6 +104,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: High
 
 #### TASK-008: Query Optimization
+
 - **Description**: Optimize queries for 7-day data processing
 - **Subtasks**:
   - Review query performance with larger date ranges
@@ -107,6 +117,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ### 5. Quality Assurance (Medium Priority)
 
 #### TASK-009: Manual Validation
+
 - **Description**: Perform manual validation of weekend functionality
 - **Subtasks**:
   - Test weekly overview with weekend data manually
@@ -117,6 +128,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: Medium
 
 #### TASK-010: Code Review
+
 - **Description**: Review code changes for quality and consistency
 - **Subtasks**:
   - Check for hardcoded weekday assumptions
@@ -129,6 +141,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ### 6. Documentation and Communication (Low Priority)
 
 #### TASK-011: API Documentation Updates
+
 - **Description**: Update all API documentation to reflect weekend support
 - **Subtasks**:
   - Update OpenAPI schemas
@@ -139,6 +152,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - **Priority**: Low
 
 #### TASK-012: Code Comments and Logging
+
 - **Description**: Update code comments to reflect weekend support
 - **Subtasks**:
   - Remove weekday-only comments
@@ -151,21 +165,25 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ## Implementation Order
 
 ### Phase 1: Core Backend (Week 1)
+
 1. TASK-001: Verify WeeklyTimesheetService Integration
 2. TASK-002: Update Response Builders
 3. TASK-003: Modern Timesheet Views Audit
 4. TASK-004: Daily Timesheet Service Integration
 
 ### Phase 2: Validation and Business Logic (Week 1)
+
 5. TASK-005: Remove Weekday-Only Validations
 6. TASK-006: Business Logic Updates
 
 ### Phase 3: Integration and Exports (Week 2)
+
 7. TASK-007: Export Services Audit
-13. TASK-013: Feature Flag Implementation
-8. TASK-008: Query Optimization
+8. TASK-013: Feature Flag Implementation
+9. TASK-008: Query Optimization
 
 ### Phase 4: Quality Assurance and Documentation (Week 2)
+
 9. TASK-009: Manual Validation
 10. TASK-010: Code Review
 11. TASK-011: API Documentation Updates
@@ -174,12 +192,14 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ## Success Metrics
 
 ### Technical Metrics
+
 - [ ] Query performance within 10% of baseline
 - [ ] Memory usage acceptable for 7-day structures
 - [ ] No breaking changes to existing functionality
 - [ ] Feature flag works correctly
 
 ### Functional Metrics
+
 - [ ] Weekly overviews show 7 days of data
 - [ ] Weekend dates can be queried individually
 - [ ] Leave submissions work for weekend dates
@@ -187,6 +207,7 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 - [ ] All calculations work with 7-day data
 
 ### Quality Metrics
+
 - [ ] Code coverage maintained above 80%
 - [ ] No new security vulnerabilities
 - [ ] API contracts maintained
@@ -195,11 +216,13 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ## Risk Mitigation
 
 ### High Risk Items
+
 - **Performance Degradation**: Monitor query performance, optimize if needed
 - **Test Failures**: Run comprehensive test suite before deployment
 - **API Breaking Changes**: Maintain backward compatibility
 
 ### Contingency Plans
+
 - **Rollback Plan**: Database backup and code rollback procedures
 - **Feature Flags**: Implement feature flags for weekend functionality
 - **Gradual Rollout**: Deploy to staging first, then production
@@ -207,11 +230,13 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ## Dependencies
 
 ### Internal Dependencies
+
 - Database performance monitoring
 - Frontend team availability for UI updates
 - Manual validation by development team
 
 ### External Dependencies
+
 - Third-party service compatibility
 - Export format requirements
 - Business stakeholder approval
@@ -219,11 +244,13 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ## Communication Plan
 
 ### Weekly Updates
+
 - Monday: Sprint planning and task assignment
 - Wednesday: Mid-week progress check
 - Friday: End-of-week status and blockers
 
 ### Stakeholders
+
 - Development Team: Daily standups
 - Product Owner: Feature validation
 - Business Users: Manual validation and acceptance testing
@@ -231,11 +258,13 @@ Complete the implementation of weekend inclusion in the timesheet system by addr
 ## Timeline
 
 ### Week 1: Core Implementation
+
 - Days 1-2: Backend service updates
 - Days 3-4: View layer updates
 - Day 5: Validation removal and business logic
 
 ### Week 2: Integration and Quality Assurance
+
 - Days 1-2: Export services and optimization
 - Days 3-4: Manual validation and code review
 - Day 5: Documentation and final validation

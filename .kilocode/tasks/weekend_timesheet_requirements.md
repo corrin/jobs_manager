@@ -1,10 +1,12 @@
 # Weekend Timesheet Inclusion - Requirements
 
 ## Overview
+
 The timesheet system currently excludes weekends from data fetching and processing. This needs to be updated to include Saturday and Sunday in all timesheet operations while maintaining existing functionality.
 
 ## Current State Analysis
-- ✅ **Fixed**: WeeklyTimesheetService._get_week_days() now returns 7 days (Mon-Sun)
+
+- ✅ **Fixed**: WeeklyTimesheetService.\_get_week_days() now returns 7 days (Mon-Sun)
 - ✅ **Fixed**: Paid leave auto-creation no longer skips weekends
 - ✅ **Fixed**: API documentation updated to reflect Mon-Sun coverage
 - ❌ **Missing**: Response builders may still slice to 5 days
@@ -18,6 +20,7 @@ The timesheet system currently excludes weekends from data fetching and processi
 ### Functional Requirements
 
 #### 1. Data Processing
+
 - **REQ-001**: All timesheet queries must include weekend dates
 - **REQ-002**: Weekly overviews must display 7 days (Mon-Sun)
 - **REQ-003**: Daily summaries must work for any day of the week
@@ -25,18 +28,21 @@ The timesheet system currently excludes weekends from data fetching and processi
 - **REQ-005**: Time entry creation must accept weekend dates
 
 #### 2. API Endpoints
+
 - **REQ-006**: WeeklyTimesheetAPIView must return 7-day data structures
 - **REQ-007**: DailyTimesheetAPIView must handle weekend dates
 - **REQ-008**: ModernTimesheetEntryView must accept weekend entries
 - **REQ-009**: All date-based queries must include weekends
 
 #### 3. Business Logic
+
 - **REQ-010**: Scheduled hours calculation must work for weekends
 - **REQ-011**: Overtime calculations must consider weekend work
 - **REQ-012**: Leave processing must include weekends
 - **REQ-013**: Status calculations must account for 7-day weeks
 
 #### 4. Data Integrity
+
 - **REQ-014**: No data loss when expanding to 7 days
 - **REQ-015**: Backward compatibility maintained
 - **REQ-016**: Existing weekend data must be preserved
@@ -44,16 +50,19 @@ The timesheet system currently excludes weekends from data fetching and processi
 ### Non-Functional Requirements
 
 #### 5. Performance
+
 - **REQ-017**: Query performance must not degrade with weekend inclusion
 - **REQ-018**: Response times must remain acceptable
 - **REQ-019**: Memory usage must be optimized for 7-day structures
 
 #### 6. Compatibility
+
 - **REQ-020**: IMS export format must remain unchanged (Tue-Fri + next Mon)
 - **REQ-021**: Existing API contracts must be maintained
 - **REQ-022**: Frontend integration must be seamless
 
 #### 7. Validation
+
 - **REQ-023**: Manual validation must verify weekend functionality
 - **REQ-024**: Code review must ensure quality and consistency
 - **REQ-025**: Manual testing must cover weekend scenarios
@@ -61,18 +70,21 @@ The timesheet system currently excludes weekends from data fetching and processi
 ## Constraints and Assumptions
 
 ### Technical Constraints
+
 - Database schema supports weekend dates (no constraints)
 - JSON field queries work for weekend dates
 - CostLine model can store weekend entries
 - Existing date parsing handles weekend dates
 
 ### Business Constraints
+
 - IMS export format must remain Tue-Fri + next Mon
 - Some business rules may discourage weekend work (warnings, not blocks)
 - Leave policies may apply to weekends
 - Overtime rules may differ for weekends
 
 ### Assumptions
+
 - Frontend can be updated to handle 7-column grids
 - Users want weekend timesheet capability
 - No additional database migrations needed
@@ -81,13 +93,16 @@ The timesheet system currently excludes weekends from data fetching and processi
 ## Feature Flag Implementation
 
 ### Mandatory Feature Flag Rules
+
 - **WEEKEND_TIMESHEETS_ENABLED**: Environment variable to control weekend functionality
 - **Default Value**: `false` (maintains backward compatibility)
 - **Type**: Boolean
 - **Scope**: Global application setting
 
 ### Feature Flag Behavior
+
 - **When `false` (default)**:
+
   - Standard mode: Monday-Friday (5 days)
   - IMS mode: Monday-Friday (simplified)
   - Leave processing: Skip weekends
@@ -100,6 +115,7 @@ The timesheet system currently excludes weekends from data fetching and processi
   - Weekend entries allowed
 
 ### Implementation Requirements
+
 - **REQ-026**: Feature flag must be checked in all relevant service methods
 - **REQ-027**: Feature flag must be configurable via CompanyDefauls model:
 
@@ -279,6 +295,7 @@ class CompanyDefaults(models.Model):
 ## Success Criteria
 
 ### Functional Success
+
 - [ ] Weekly overviews show 7 days of data
 - [ ] Weekend dates can be queried individually
 - [ ] Leave can be submitted for weekends
@@ -286,12 +303,14 @@ class CompanyDefaults(models.Model):
 - [ ] All calculations work with 7-day data
 
 ### Technical Success
+
 - [ ] No breaking changes to existing APIs
 - [ ] Performance remains acceptable
 - [ ] Feature flag works correctly
 - [ ] Manual validation passes
 
 ### Business Success
+
 - [ ] Users can track weekend work
 - [ ] Reporting includes weekend data
 - [ ] Export functionality works correctly
@@ -300,28 +319,33 @@ class CompanyDefaults(models.Model):
 ## Risk Assessment
 
 ### High Risk
+
 - **RISK-001**: Frontend grid components may break with 7 columns
 - **RISK-002**: Performance degradation with larger datasets
 - **RISK-003**: Feature flag configuration errors
 
 ### Medium Risk
+
 - **RISK-004**: Business logic errors in weekend calculations
 - **RISK-005**: Export format incompatibilities
 - **RISK-006**: Data consistency issues
 
 ### Low Risk
+
 - **RISK-007**: API documentation inconsistencies
 - **RISK-008**: Minor UI adjustments needed
 
 ## Dependencies
 
 ### Internal Dependencies
+
 - CostLine model and related queries
 - WeeklyTimesheetService functionality
 - API endpoint implementations
 - Frontend grid components
 
 ### External Dependencies
+
 - Database performance with larger result sets
 - Frontend framework compatibility
 - User acceptance of weekend functionality
@@ -329,18 +353,21 @@ class CompanyDefaults(models.Model):
 ## Acceptance Criteria
 
 ### Code Quality
+
 - [ ] All code follows existing patterns
 - [ ] No hardcoded weekday assumptions
 - [ ] Proper error handling for weekend dates
 - [ ] Comprehensive logging
 
 ### Validation
+
 - [ ] Manual validation of weekend functionality
 - [ ] Code review for quality and consistency
 - [ ] Manual testing of weekend scenarios
 - [ ] Performance monitoring with 7-day data
 
 ### Documentation
+
 - [ ] API documentation updated
 - [ ] Code comments reflect 7-day functionality
 - [ ] User documentation updated if needed
@@ -348,6 +375,7 @@ class CompanyDefaults(models.Model):
 ## Out of Scope
 
 ### Explicitly Excluded
+
 - Frontend UI redesign (beyond basic 7-column support)
 - Database schema changes
 - Business rule changes for weekend overtime
@@ -355,6 +383,7 @@ class CompanyDefaults(models.Model):
 - Third-party integration changes
 
 ### Future Considerations
+
 - Weekend-specific business rules
 - Enhanced reporting for weekend work
 - Automated weekend scheduling

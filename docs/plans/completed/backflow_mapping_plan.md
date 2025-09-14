@@ -8,7 +8,7 @@ The product mapping validation system currently has a gap: when users validate a
 
 1. **No Direct Relationship**: SupplierProduct has no hash field to reference ProductParsingMapping
 2. **Dynamic Hash Lookup**: The system computes hashes on-the-fly to find related mappings
-3. **One-Way Data Flow**: Initial parsing updates SupplierProduct.parsed_* fields, but validation corrections don't flow back
+3. **One-Way Data Flow**: Initial parsing updates SupplierProduct.parsed\_\* fields, but validation corrections don't flow back
 4. **Complex Lookup Logic**: Finding related SupplierProducts requires recomputing hashes
 
 ## Proposed Solution
@@ -56,16 +56,19 @@ def validate_mapping(request):
 ### Changes Made
 
 **Database Schema:**
+
 - Added `mapping_hash` CharField(64) with db_index=True to SupplierProduct model
 - Migration `0011_add_mapping_hash_to_supplierproduct.py` created and applied
 
 **Code Changes:**
+
 - Created `apps/quoting/utils.py` with common hash calculation functions
 - Updated `ProductParser._calculate_input_hash()` to use common function
 - Updated signal handler in `apps/quoting/signals.py` to set mapping_hash on new records
 - Modified validation view in `apps/purchasing/views/product_mapping.py` to update related SupplierProducts
 
 **Hash Consistency:**
+
 - Centralized hash calculation in `calculate_product_mapping_hash()` and `calculate_supplier_product_hash()`
 - Ensures ProductParser and signal handler use identical logic
 - Hash based on: `product_data.get('description', '') or product_data.get('product_name', '')`

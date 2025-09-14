@@ -3,6 +3,7 @@
 ## Endpoints
 
 ### `GET /rest/month-end/`
+
 Returns a JSON object with two keys:
 
 - `jobs`: list of special jobs excluding the stock job
@@ -38,6 +39,7 @@ Each job entry includes:
 ```
 
 ### `POST /rest/month-end/`
+
 Send a JSON body with job IDs to run month end:
 
 ```

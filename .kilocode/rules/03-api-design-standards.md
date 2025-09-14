@@ -269,7 +269,6 @@ class JobSerializer(serializers.ModelSerializer):
 
 <!-- Pagination is not globally enforced. Most endpoints use APIView and return either full lists or custom paginated responses as needed. If pagination is required, use DRF's PageNumberPagination or custom logic per endpoint. -->
 
-
 ## Filtering and Search
 
 ### Filter Implementation
@@ -304,6 +303,7 @@ class JobFilter(filters.FilterSet):
 <!-- Serializers are defined per endpoint. Use ModelSerializer or Serializer as appropriate for each APIView. -->
 
 ### Nested Serializers
+
 <!-- Nested serializers are used as needed per endpoint. See the implementation in each APIView for details. -->
 
 ## API Error Handling

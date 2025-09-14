@@ -5,6 +5,7 @@
 ### FAIL EARLY, HANDLE UNHAPPY PATHS FIRST, NO FALLBACKS
 
 **Mandatory Patterns:**
+
 - Always check `if <bad_case>: handle_error()` first, never `if <good_case>:`
 - Validate required input data up front – fail if missing
 - No default values or fallbacks that mask config/data issues
@@ -46,6 +47,7 @@ except Exception as exc:
 ### 🚨 NEVER PUT FRONTEND LOGIC IN THE BACKEND. NEVER PUT BACKEND LOGIC IN THE FRONTEND. 🚨
 
 **Backend-ONLY Responsibilities:**
+
 - Data persistence and retrieval
 - Business logic and calculations
 - Data validation and integrity
@@ -54,6 +56,7 @@ except Exception as exc:
 - Integrations with external systems
 
 **Cross-Contamination Forbidden:**
+
 - ❌ Backend serializers for static UI constants (dropdown options, labels, etc.)
 - ❌ Backend views returning HTML or UI-specific data structures
 - ❌ Frontend making business logic decisions or calculations
@@ -68,39 +71,47 @@ except Exception as exc:
 ### Focused App Structure
 
 **`workflow`** – Central Hub
+
 - Base functionality and integration coordination
 - Base models (CompanyDefaults, XeroAccount, XeroToken, AIProvider)
 - Xero accounting integration and sync
 - Authentication middleware and base templates
 
 **`job`** – Job Lifecycle Management
+
 - **NEW**: CostSet/CostLine architecture for flexible cost tracking – **USE FOR ALL NEW DEVELOPMENT**
 - **FULLY DEPRECATED**: JobPricing, MaterialEntry, AdjustmentEntry, TimeEntry – **DO NOT USE IN NEW CODE**
 - Kanban-style status tracking
 - Comprehensive audit trails
 
 **`accounts`** – User Management
+
 - Extends AbstractBaseUser for business-specific requirements
 - Password strength validation (minimum 10 characters)
 - Role-based permissions
 
 **`client`** – Client Relationship Management
+
 - Bidirectional Xero contact sync
 - Contact person and communication tracking
 
 **`timesheet`** – Time Tracking
+
 - **MIGRATE TO**: CostLine with kind='time' for time tracking – **ALL NEW TIME ENTRIES**
 - **DEPRECATED**: TimeEntry model – **DO NOT CREATE NEW TimeEntry RECORDS**
 
 **`purchasing`** – Purchase Order Management
+
 - Comprehensive Xero integration via XeroPurchaseOrderManager
 - **Integration**: Links to CostLine via external references for material costing
 
 **`accounting`** – Financial Reporting
+
 - KPI calendar views and financial analytics
 - Invoice generation via Xero integration
 
 **`quoting`** – Quotation Generation
+
 - Supplier price list management
 - Price extraction with AI (Gemini integration)
 
@@ -171,6 +182,7 @@ class JobRestService:
 ## For ALL New Development
 
 ### Job Creation
+
 1. Create initial CostSet with kind='estimate'
 2. **Quotation**: Create CostSet with kind='quote' and appropriate CostLine entries
 3. **Time Tracking**: Create CostLine with kind='time' and staff reference in ext_refs

@@ -1,7 +1,7 @@
-# Django  Environment Setup
+# Django Environment Setup
 
 Dev: Windows, WSL, or MacOS.
-UAT: Ubuntu. Runs in AWS currently.  Oracle is considered as a replacement
+UAT: Ubuntu. Runs in AWS currently. Oracle is considered as a replacement
 Prod: Hyper-V VM running Ubuntu
 
 Note that I currently have UAT split over two VMs (a scheduler on 24/7 and a main app on as needed)
@@ -14,12 +14,12 @@ This document outlines the steps to recreate the Django environment from scratch
 
 **Reviewed**
 
-* The instance must be created in VPC `vpc-00fed508b33af6502` (msm-workflow-vpc)
-* Use instance type `t4g.small` (ARM, 2 vCPU burstable, 2GB RAM)
-* Launch an EC2 instance running Ubuntu 22.04 ARM
-* Assign an Elastic IP address
-* Open inbound ports 22, 80, and 443 in the security group
-* All environment setup steps below assume a fresh Ubuntu install.
+- The instance must be created in VPC `vpc-00fed508b33af6502` (msm-workflow-vpc)
+- Use instance type `t4g.small` (ARM, 2 vCPU burstable, 2GB RAM)
+- Launch an EC2 instance running Ubuntu 22.04 ARM
+- Assign an Elastic IP address
+- Open inbound ports 22, 80, and 443 in the security group
+- All environment setup steps below assume a fresh Ubuntu install.
 
 ---
 
@@ -74,7 +74,7 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ### 3.1. Clone Repository
 
-**Reviewed – UAT uses /opt, production uses /home/django\_user**
+**Reviewed – UAT uses /opt, production uses /home/django_user**
 
 ```bash
 mkdir -p /opt/workflow_app && cd /opt/workflow_app
@@ -88,7 +88,6 @@ git clone https://github.com/corrin/jobs_manager_front.git
 ```
 
 ### 3.2. Set Up Python Environment
-
 
 ```bash
 cd /opt/workflow_app/jobs_manager
@@ -105,10 +104,10 @@ source .venv/bin/activate
 
 **TO BE REVIEWED**
 
-* For dev: copy `.env.example` to `.env`
-* For UAT: Copy `.env.uat` (from dev) to `.env`
-  * **Current UAT Instance ID**: `i-0db10a8a884664276` (set in `UAT_INSTANCE_ID`)
-* For prod: use the backup in Google Drive
+- For dev: copy `.env.example` to `.env`
+- For UAT: Copy `.env.uat` (from dev) to `.env`
+  - **Current UAT Instance ID**: `i-0db10a8a884664276` (set in `UAT_INSTANCE_ID`)
+- For prod: use the backup in Google Drive
 
 ---
 
@@ -116,8 +115,8 @@ source .venv/bin/activate
 
 **TO BE REVIEWED**
 
-* Use external RDS MariaDB instance
-* Ensure security group allows access from EC2
+- Use external RDS MariaDB instance
+- Ensure security group allows access from EC2
 
 ---
 
@@ -153,7 +152,7 @@ python manage.py runserver 0.0.0.0:8000
 
 **TO BE REVIEWED**
 
-* Create reverse proxy config to forward to Gunicorn or Django server
+- Create reverse proxy config to forward to Gunicorn or Django server
 
 ## 9. SSL Certificate Setup
 
@@ -168,22 +167,28 @@ sudo apt install python3-certbot-nginx
 Generate SSL certificate for the domain:
 
 UAT:
+
 ```bash
 sudo certbot --nginx -d uat-office.morrissheetmetal.co.nz
 ```
+
 PROD:
+
 ```bash
 sudo certbot --nginx -d office.morrissheetmetal.co.nz
 ```
+
 DEV:
+
 ```bash
 lt --port 8000 --subdomain msm-corrin
 ```
 
 Certbot will automatically:
-* Generate Let's Encrypt SSL certificate
-* Update Nginx configuration for HTTPS
-* Set up automatic certificate renewal
+
+- Generate Let's Encrypt SSL certificate
+- Update Nginx configuration for HTTPS
+- Set up automatic certificate renewal
 
 ---
 
@@ -209,5 +214,5 @@ sudo systemctl status scheduler
 
 ## Notes
 
-* Scheduler runs on dedicated instance using systemd service
-* Use `scripts/deploy_release.sh` for automated deployments
+- Scheduler runs on dedicated instance using systemd service
+- Use `scripts/deploy_release.sh` for automated deployments
