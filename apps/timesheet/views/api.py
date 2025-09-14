@@ -306,12 +306,12 @@ class DailyTimesheetAPIView(APIView):
                     "non_billable_hours": 0.0,
                     "total_revenue": 0.0,
                     "total_cost": 0.0,
-                    "status": "Weekend"
-                    if is_weekend and not weekend_enabled
-                    else "No Entry",
-                    "status_class": "secondary"
-                    if is_weekend and not weekend_enabled
-                    else "danger",
+                    "status": (
+                        "Weekend" if is_weekend and not weekend_enabled else "No Entry"
+                    ),
+                    "status_class": (
+                        "secondary" if is_weekend and not weekend_enabled else "danger"
+                    ),
                     "billable_percentage": 0.0,
                     "completion_percentage": 0.0,
                     "job_breakdown": [],

@@ -5,7 +5,6 @@ Tests the CALC, PRICE, and TABLE modes with their schemas,
 tool gating, and mode inference logic.
 """
 
-
 from django.test import TestCase
 from django.utils import timezone
 from jsonschema import ValidationError

@@ -5,8 +5,8 @@ from pprint import pprint
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.job.models import CostLine, CostSet
 from apps.accounts.models import Staff
+from apps.job.models import CostLine, CostSet
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
