@@ -195,6 +195,9 @@ class LoginRequiredMiddleware:
                     # If it fails, we assume it's a prefix and add it directly
                     self.exempt_url_prefixes.append(url_name)
 
+        # Add /api/schema/ to allowany whitelist for unauthenticated access
+        self.exempt_url_prefixes.append("/api/schema/")
+
     def __call__(self, request: HttpRequest) -> HttpResponse:
         # Debug logging for client create endpoint
         if request.path_info == "/clients/create/":
