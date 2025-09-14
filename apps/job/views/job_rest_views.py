@@ -23,7 +23,8 @@ from rest_framework.views import APIView
 
 from apps.job.helpers import get_company_defaults
 from apps.job.models import Job
-from apps.job.serializers.job_serializer import (  # New serializers for JobView enhancement
+from apps.job.serializers.job_serializer import (
+    JobBasicInformationResponseSerializer,
     JobCostSummaryResponseSerializer,
     JobCreateRequestSerializer,
     JobCreateResponseSerializer,
@@ -32,12 +33,12 @@ from apps.job.serializers.job_serializer import (  # New serializers for JobView
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
     JobEventsResponseSerializer,
-    JobFilesResponseSerializer,
     JobHeaderResponseSerializer,
     JobInvoicesResponseSerializer,
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
+    QuoteSerializer,
     WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
@@ -242,6 +243,7 @@ class JobDetailRestView(BaseJobRestView):
         responses={200: JobDetailResponseSerializer},
         description="Fetch complete job data including financial information",
         tags=["Jobs"],
+        operation_id="getFullJob",
     )
     def get(self, request, job_id):
         """
@@ -341,6 +343,7 @@ class JobEventRestView(BaseJobRestView):
         },
         description="Add a manual event to the Job with duplicate prevention.",
         tags=["Jobs"],
+        operation_id="job_rest_jobs_events_create",
     )
     def post(self, request, job_id):
         """
@@ -547,7 +550,6 @@ class JobHeaderRestView(BaseJobRestView):
                 if job.client
                 else None,
                 "status": job.status,
-                "job_status": job.status,  # For frontend compatibility
                 "pricing_methodology": job.pricing_methodology,
                 "fully_invoiced": job.fully_invoiced,
                 "quoted": job.quoted,
@@ -587,14 +589,41 @@ class JobInvoicesRestView(BaseJobRestView):
         Fetch job invoices.
         """
         try:
-            job = Job.objects.get(id=job_id)
-            invoices = job.invoices.all()
+            invoices = JobRestService.get_job_invoices(job_id)
 
             serializer = JobInvoicesResponseSerializer({"invoices": invoices})
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except Job.DoesNotExist:
-            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobQuoteRestView(BaseJobRestView):
+    """
+    REST view for Job quotes.
+    Returns the xero quote for a job.
+    """
+
+    serializer_class = QuoteSerializer
+
+    @extend_schema(
+        responses={
+            200: QuoteSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job quote",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job quote.
+        """
+        try:
+            quote = JobRestService.get_job_quote(job_id)
+
+            return Response(quote, status=status.HTTP_200_OK)
+
         except Exception as e:
             return self.handle_service_error(e)
 
@@ -618,7 +647,7 @@ class JobCostSummaryRestView(BaseJobRestView):
     )
     def get(self, request, job_id):
         """
-        Fetch job cost summary.
+        Fetch job cost summary in frontend-expected format.
         """
         try:
             job = Job.objects.get(id=job_id)
@@ -628,10 +657,61 @@ class JobCostSummaryRestView(BaseJobRestView):
             quote = job.get_latest("quote")
             actual = job.get_latest("actual")
 
+            def calculate_profit_margin(cost_set):
+                """Calculate profit margin as (rev - cost) / cost * 100"""
+                if not cost_set or not cost_set.summary:
+                    return None
+                summary = cost_set.summary
+                cost = summary.get("cost", 0)
+                rev = summary.get("rev", 0)
+                if cost and cost > 0:
+                    return ((rev - cost) / cost) * 100
+                return 0
+
+            # Build frontend-expected summary data with profitMargin
             summary_data = {
-                "estimate": estimate.summary if estimate else {},
-                "quote": quote.summary if quote else {},
-                "actual": actual.summary if actual else {},
+                "estimate": {
+                    "cost": estimate.summary.get("cost", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "rev": estimate.summary.get("rev", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "hours": estimate.summary.get("hours", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(estimate),
+                }
+                if estimate and estimate.summary
+                else None,
+                "quote": {
+                    "cost": quote.summary.get("cost", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "rev": quote.summary.get("rev", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "hours": quote.summary.get("hours", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(quote),
+                }
+                if quote and quote.summary
+                else None,
+                "actual": {
+                    "cost": actual.summary.get("cost", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "rev": actual.summary.get("rev", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "hours": actual.summary.get("hours", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(actual),
+                }
+                if actual and actual.summary
+                else None,
             }
 
             serializer = JobCostSummaryResponseSerializer(summary_data)
@@ -712,190 +792,32 @@ class JobEventListRestView(BaseJobRestView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class JobFilesRestView(BaseJobRestView):
+class JobBasicInformationRestView(BaseJobRestView):
     """
-    REST view for Job files.
-    Returns list of files for a job and handles uploads.
+    REST view for Job basic information.
+    Returns description, delivery date, order number and internal notes.
     """
 
-    serializer_class = JobFilesResponseSerializer
+    serializer_class = JobBasicInformationResponseSerializer
 
     @extend_schema(
         responses={
-            200: JobFilesResponseSerializer,
+            200: JobBasicInformationResponseSerializer,
             400: JobRestErrorResponseSerializer,
         },
-        description="Fetch job files list",
+        description="Fetch job basic information (description, delivery date, order number, notes)",
         tags=["Jobs"],
     )
     def get(self, request, job_id):
         """
-        Fetch job files.
+        Fetch job basic information.
         """
         try:
-            job = Job.objects.get(id=job_id)
-            files = job.files.all().order_by("-uploaded_at")
+            basic_info = JobRestService.get_job_basic_information(job_id)
 
-            serializer = JobFilesResponseSerializer({"files": files})
+            serializer = JobBasicInformationResponseSerializer(basic_info)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except Job.DoesNotExist:
-            raise ValueError(f"Job with id {job_id} not found")
-        except Exception as e:
-            return self.handle_service_error(e)
-
-    @extend_schema(
-        request={
-            "type": "object",
-            "properties": {
-                "file": {"type": "string", "format": "binary"},
-                "print_on_jobsheet": {"type": "boolean"},
-            },
-        },
-        responses={
-            201: JobFilesResponseSerializer,
-            400: JobRestErrorResponseSerializer,
-        },
-        description="Upload a file for the job",
-        tags=["Jobs"],
-    )
-    def post(self, request, job_id):
-        """
-        Upload a file for the job.
-        """
-        try:
-            job = Job.objects.get(id=job_id)
-
-            # Handle file upload
-            uploaded_file = request.FILES.get("file")
-            if not uploaded_file:
-                raise ValueError("No file provided")
-
-            print_on_jobsheet = (
-                request.POST.get("print_on_jobsheet", "false").lower() == "true"
-            )
-
-            # Create job file
-            from apps.job.services.file_service import FileService
-
-            job_file = FileService.create_job_file(
-                job=job,
-                uploaded_file=uploaded_file,
-                print_on_jobsheet=print_on_jobsheet,
-                user=request.user,
-            )
-
-            serializer = JobFilesResponseSerializer({"files": [job_file]})
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        except Job.DoesNotExist:
-            raise ValueError(f"Job with id {job_id} not found")
-        except Exception as e:
-            return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobFileDetailRestView(BaseJobRestView):
-    """
-    REST view for Job file operations.
-    Handles file updates and deletion.
-    """
-
-    @extend_schema(
-        request={
-            "type": "object",
-            "properties": {"print_on_jobsheet": {"type": "boolean"}},
-        },
-        responses={
-            200: JobFilesResponseSerializer,
-            400: JobRestErrorResponseSerializer,
-        },
-        description="Update job file metadata",
-        tags=["Jobs"],
-    )
-    def patch(self, request, file_id):
-        """
-        Update job file metadata.
-        """
-        try:
-            from apps.job.models import JobFile
-
-            job_file = JobFile.objects.get(id=file_id)
-            data = self.parse_json_body(request)
-
-            # Update print_on_jobsheet if provided
-            if "print_on_jobsheet" in data:
-                job_file.print_on_jobsheet = data["print_on_jobsheet"]
-                job_file.save()
-
-            serializer = JobFilesResponseSerializer({"files": [job_file]})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        except JobFile.DoesNotExist:
-            raise ValueError(f"Job file with id {file_id} not found")
-        except Exception as e:
-            return self.handle_service_error(e)
-
-    @extend_schema(
-        responses={
-            204: None,
-            400: JobRestErrorResponseSerializer,
-        },
-        description="Delete a job file",
-        tags=["Jobs"],
-    )
-    def delete(self, request, file_id):
-        """
-        Delete a job file.
-        """
-        try:
-            from apps.job.models import JobFile
-
-            job_file = JobFile.objects.get(id=file_id)
-            job_file.delete()
-
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        except JobFile.DoesNotExist:
-            raise ValueError(f"Job file with id {file_id} not found")
-        except Exception as e:
-            return self.handle_service_error(e)
-
-
-@method_decorator(csrf_exempt, name="dispatch")
-class JobFileDownloadView(BaseJobRestView):
-    """
-    REST view for Job file downloads.
-    Streams file content for download.
-    """
-
-    @extend_schema(
-        responses={
-            200: {"type": "string", "format": "binary"},
-            400: JobRestErrorResponseSerializer,
-        },
-        description="Download a job file",
-        tags=["Jobs"],
-    )
-    def get(self, request, file_id):
-        """
-        Download a job file.
-        """
-        try:
-            from django.http import FileResponse
-
-            from apps.job.models import JobFile
-
-            job_file = JobFile.objects.get(id=file_id)
-
-            # Return file response
-            response = FileResponse(
-                job_file.file.open(), as_attachment=True, filename=job_file.filename
-            )
-            return response
-
-        except JobFile.DoesNotExist:
-            raise ValueError(f"Job file with id {file_id} not found")
         except Exception as e:
             return self.handle_service_error(e)
 

@@ -203,3 +203,15 @@ class ClientUpdateResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     client = ClientDetailResponseSerializer()
     message = serializers.CharField()
+
+
+class JobContactResponseSerializer(serializers.Serializer):
+    """Serializer for job contact information response"""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    email = serializers.CharField(allow_blank=True, allow_null=True)
+    phone = serializers.CharField(allow_blank=True, allow_null=True)
+    position = serializers.CharField(allow_blank=True, allow_null=True)
+    is_primary = serializers.BooleanField()
+    notes = serializers.CharField(allow_blank=True, allow_null=True)

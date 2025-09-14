@@ -23,7 +23,9 @@ from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
 from apps.job.serializers.job_serializer import (
     CompanyDefaultsJobDetailSerializer,
+    InvoiceSerializer,
     JobEventSerializer,
+    QuoteSerializer,
 )
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -146,6 +148,78 @@ class JobRestService:
             "job": job_data,
             "events": events_data,
             "company_defaults": company_data,
+        }
+
+    @staticmethod
+    def get_job_quote(job_id: UUID) -> list[Dict[str, Any]]:
+        """
+        Fetches quotes for a specific job.
+
+        Args:
+            job_id: Job UUID
+
+        Returns:
+            List of quote data
+
+        Raises:
+            ValueError: If job is not found
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+
+        if job.quoted:
+            return QuoteSerializer(job.quote).data
+
+    @staticmethod
+    def get_job_invoices(job_id: UUID) -> list[Dict[str, Any]]:
+        """
+        Fetches invoices for a specific job.
+
+        Args:
+            job_id: Job UUID
+
+        Returns:
+            List of invoice data
+
+        Raises:
+            ValueError: If job is not found
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+
+        invoices = job.invoices.all().order_by("-date")
+        return InvoiceSerializer(invoices, many=True).data
+
+    @staticmethod
+    def get_job_basic_information(job_id: UUID) -> Dict[str, Any]:
+        """
+        Fetches basic information for a specific job.
+
+        Args:
+            job_id: Job UUID
+
+        Returns:
+            Dict with basic job information
+
+        Raises:
+            ValueError: If job is not found
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+
+        return {
+            "description": job.description or "",
+            "delivery_date": job.delivery_date.isoformat()
+            if job.delivery_date
+            else None,
+            "order_number": job.order_number or "",
+            "notes": job.notes or "",
         }
 
     @staticmethod

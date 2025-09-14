@@ -317,6 +317,47 @@ class ClientRestService:
             raise
 
     @staticmethod
+    def get_job_contact(job_id: UUID) -> Dict[str, Any]:
+        """
+        Retrieves contact information for a specific job.
+
+        Args:
+            job_id: Job UUID
+
+        Returns:
+            Dict with contact information
+
+        Raises:
+            ValueError: If job not found or no contact associated
+        """
+        try:
+            # Import here to avoid circular imports
+            from apps.job.models import Job
+
+            try:
+                job = Job.objects.select_related("contact").get(id=job_id)
+            except Job.DoesNotExist:
+                raise ValueError(f"Job with id {job_id} not found")
+
+            if not job.contact:
+                raise ValueError(f"No contact associated with job {job_id}")
+
+            contact = job.contact
+            return {
+                "id": str(contact.id),
+                "name": contact.name,
+                "email": contact.email or "",
+                "phone": contact.phone or "",
+                "position": contact.position or "",
+                "is_primary": contact.is_primary,
+                "notes": contact.notes or "",
+            }
+
+        except Exception as e:
+            persist_app_error(e)
+            raise
+
+    @staticmethod
     def _execute_client_search(query: str, limit: int):
         """
         Executes client search with appropriate filters and annotations.

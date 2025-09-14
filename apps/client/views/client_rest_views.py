@@ -38,6 +38,7 @@ from apps.client.serializers import (
     ClientSearchResponseSerializer,
     ClientUpdateRequestSerializer,
     ClientUpdateResponseSerializer,
+    JobContactResponseSerializer,
 )
 from apps.client.services.client_rest_service import ClientRestService
 
@@ -627,3 +628,68 @@ class ClientCreateRestView(APIView):
             ),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get job contact",
+        description="Retrieve contact information for a specific job.",
+        parameters=[
+            OpenApiParameter(
+                name="job_id",
+                location=OpenApiParameter.PATH,
+                description="UUID of the job",
+                required=True,
+                type=OpenApiTypes.UUID,
+            )
+        ],
+        responses={
+            200: JobContactResponseSerializer,
+            404: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
+class JobContactRestView(APIView):
+    """
+    REST view for retrieving contact information for a job.
+    Returns the contact associated with a specific job.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = JobContactResponseSerializer
+
+    def get(self, request: Request, job_id: str) -> Response:
+        """
+        Retrieves contact information for a specific job.
+        """
+        try:
+            # Guard clause: validate job_id
+            if not job_id:
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": "Job ID is required"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            contact_data = ClientRestService.get_job_contact(job_id)
+            serializer = JobContactResponseSerializer(data=contact_data)
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data)
+
+        except ValueError as e:
+            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error retrieving job contact for job {job_id}: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error retrieving job contact", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
