@@ -16,10 +16,17 @@ from apps.job.views.job_quote_chat_views import (
     JobQuoteChatMessageView,
 )
 from apps.job.views.job_rest_views import (
+    JobBasicInformationRestView,
+    JobCostSummaryRestView,
     JobCreateRestView,
     JobDetailRestView,
+    JobEventListRestView,
     JobEventRestView,
+    JobHeaderRestView,
+    JobInvoicesRestView,
     JobQuoteAcceptRestView,
+    JobQuoteRestView,
+    JobStatusChoicesRestView,
     WeeklyMetricsRestView,
 )
 from apps.job.views.modern_timesheet_views import (
@@ -44,11 +51,52 @@ rest_urlpatterns = [
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
     ),
-    # Job events
+    # Job header (essential info only)
+    path(
+        "rest/jobs/<uuid:job_id>/header/",
+        JobHeaderRestView.as_view(),
+        name="job_header_rest",
+    ),
+    # Job basic information (description, delivery date, order number, notes)
+    path(
+        "rest/jobs/<uuid:job_id>/basic-info/",
+        JobBasicInformationRestView.as_view(),
+        name="job_basic_info_rest",
+    ),
+    # Job events (list)
     path(
         "rest/jobs/<uuid:job_id>/events/",
+        JobEventListRestView.as_view(),
+        name="job_events_list_rest",
+    ),
+    # Job events (create)
+    path(
+        "rest/jobs/<uuid:job_id>/events/create/",
         JobEventRestView.as_view(),
         name="job_events_rest",
+    ),
+    # Job invoices and quotes
+    path(
+        "rest/jobs/<uuid:job_id>/invoices/",
+        JobInvoicesRestView.as_view(),
+        name="job_invoices_rest",
+    ),
+    path(
+        "rest/jobs/<uuid:job_id>/quote/",
+        JobQuoteRestView.as_view(),
+        name="job_quote_rest",
+    ),
+    # Job cost summary
+    path(
+        "rest/jobs/<uuid:job_id>/costs/summary/",
+        JobCostSummaryRestView.as_view(),
+        name="job_cost_summary_rest",
+    ),
+    # Job status choices
+    path(
+        "rest/jobs/status-choices/",
+        JobStatusChoicesRestView.as_view(),
+        name="job_status_choices_rest",
     ),
     # Quote acceptance endpoint
     path(

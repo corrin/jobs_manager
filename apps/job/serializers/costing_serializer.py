@@ -223,7 +223,6 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     raise exception
 
                 final_wage = wage_rate * rate_multiplier
-
                 self.validated_data["unit_cost"] = final_wage
                 logger.info(
                     f"Auto-calculated unit_cost: {final_wage} for staff {staff_id}"
@@ -240,6 +239,15 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 is_billable = meta.get("is_billable", False)
                 if job and job.charge_out_rate and is_billable:
                     self.validated_data["unit_rev"] = job.charge_out_rate
+
+                    is_billable = meta.get("is_billable", None)
+
+                    if is_billable is False:
+                        self.validated_data["unit_rev"] = Decimal("0.00")
+                        logger.info(
+                            f"Entry is non-billable, setting unit_rev to 0.00 for staff {staff_id}"
+                        )
+
                     logger.info(
                         f"Auto-calculated unit_rev: {job.charge_out_rate} from job {job.job_number}"
                     )

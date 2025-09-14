@@ -317,6 +317,115 @@ class ClientRestService:
             raise
 
     @staticmethod
+    def get_job_contact(job_id: UUID) -> Dict[str, Any]:
+        """
+        Retrieves contact information for a specific job.
+
+        Args:
+            job_id: Job UUID
+
+        Returns:
+            Dict with contact information
+
+        Raises:
+            ValueError: If job not found or no contact associated
+        """
+        try:
+            # Import here to avoid circular imports
+            from apps.job.models import Job
+
+            try:
+                job = Job.objects.select_related("contact").get(id=job_id)
+            except Job.DoesNotExist:
+                raise ValueError(f"Job with id {job_id} not found")
+
+            if not job.contact:
+                raise ValueError(f"No contact associated with job {job_id}")
+
+            contact = job.contact
+            return {
+                "id": str(contact.id),
+                "name": contact.name,
+                "email": contact.email or "",
+                "phone": contact.phone or "",
+                "position": contact.position or "",
+                "is_primary": contact.is_primary,
+                "notes": contact.notes or "",
+            }
+
+        except Exception as e:
+            persist_app_error(e)
+            raise
+
+    @staticmethod
+    def update_job_contact(
+        job_id: UUID, contact_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Updates the contact person for a specific job.
+
+        Args:
+            job_id: Job UUID
+            contact_data: Contact data to update
+
+        Returns:
+            Dict with updated contact information
+
+        Raises:
+            ValueError: If job not found, contact not found, or validation fails
+        """
+        try:
+            # Import here to avoid circular imports
+            from apps.job.models import Job
+
+            try:
+                job = Job.objects.select_related("client", "contact").get(id=job_id)
+            except Job.DoesNotExist:
+                raise ValueError(f"Job with id {job_id} not found")
+
+            # Validate contact exists and belongs to the same client
+            contact_id = contact_data.get("id")
+            if not contact_id:
+                raise ValueError("Contact ID is required")
+
+            try:
+                contact = ClientContact.objects.get(id=contact_id)
+            except ClientContact.DoesNotExist:
+                raise ValueError(f"Contact with id {contact_id} not found")
+
+            # Validate contact belongs to the job's client
+            if contact.client_id != job.client_id:
+                raise ValueError("Contact does not belong to the job's client")
+
+            # Update job's contact
+            job.contact = contact
+            job.save()
+
+            logger.info(
+                f"Contact {contact_id} assigned to job {job_id}",
+                extra={
+                    "job_id": str(job_id),
+                    "contact_id": str(contact_id),
+                    "client_id": str(job.client_id),
+                    "operation": "update_job_contact",
+                },
+            )
+
+            return {
+                "id": str(contact.id),
+                "name": contact.name,
+                "email": contact.email or "",
+                "phone": contact.phone or "",
+                "position": contact.position or "",
+                "is_primary": contact.is_primary,
+                "notes": contact.notes or "",
+            }
+
+        except Exception as e:
+            persist_app_error(e)
+            raise
+
+    @staticmethod
     def _execute_client_search(query: str, limit: int):
         """
         Executes client search with appropriate filters and annotations.

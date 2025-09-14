@@ -256,6 +256,16 @@ class LoginRequiredMiddleware:
                     access_logger.info(
                         f"DEBUG LoginRequiredMiddleware: Allowing DRF endpoint {request.path_info}"
                     )
+                # Allow cost set endpoint without authentication for testing
+                if (
+                    settings.DEBUG_PAYLOAD
+                    and request.path_info.startswith("/job/rest/jobs/")
+                    and "cost-sets" in request.path_info
+                ):
+                    access_logger.info(
+                        f"DEBUG LoginRequiredMiddleware: Allowing cost-set endpoint without auth {request.path_info}"
+                    )
+                    return self.get_response(request)
                 return self.get_response(request)  # Let DRF handle authentication
 
             if request.path_info.startswith("/api/"):

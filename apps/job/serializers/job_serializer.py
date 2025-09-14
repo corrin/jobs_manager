@@ -646,3 +646,72 @@ class WeeklyMetricsSerializer(serializers.Serializer):
     estimated_hours = serializers.FloatField()
     actual_hours = serializers.FloatField()
     profit = serializers.FloatField()
+
+
+# JobView Enhancement Serializers
+
+
+class JobClientHeaderSerializer(serializers.Serializer):
+    """Serializer for client data in job header response"""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+
+
+class JobHeaderResponseSerializer(serializers.Serializer):
+    """Serializer for job header response - essential job data for fast loading"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.IntegerField()
+    name = serializers.CharField()
+    client = JobClientHeaderSerializer()
+    status = serializers.CharField()
+    pricing_methodology = serializers.CharField(allow_null=True)
+    fully_invoiced = serializers.BooleanField()
+    quoted = serializers.BooleanField()
+    quote_acceptance_date = serializers.DateTimeField(allow_null=True)
+    paid = serializers.BooleanField()
+
+
+class JobStatusChoicesResponseSerializer(serializers.Serializer):
+    """Serializer for job status choices response"""
+
+    statuses = serializers.DictField()
+
+
+class JobInvoicesResponseSerializer(serializers.Serializer):
+    """Serializer for job invoices response"""
+
+    invoices = InvoiceSerializer(many=True)
+
+
+class JobCostSetSummarySerializer(serializers.Serializer):
+    """Serializer for cost set summary data in job views"""
+
+    cost = serializers.FloatField()
+    rev = serializers.FloatField()
+    hours = serializers.FloatField()
+    profitMargin = serializers.FloatField(allow_null=True)
+
+
+class JobCostSummaryResponseSerializer(serializers.Serializer):
+    """Serializer for job cost summary response"""
+
+    estimate = JobCostSetSummarySerializer(allow_null=True)
+    quote = JobCostSetSummarySerializer(allow_null=True)
+    actual = JobCostSetSummarySerializer(allow_null=True)
+
+
+class JobEventsResponseSerializer(serializers.Serializer):
+    """Serializer for job events response"""
+
+    events = JobEventSerializer(many=True)
+
+
+class JobBasicInformationResponseSerializer(serializers.Serializer):
+    """Serializer for job basic information response"""
+
+    description = serializers.CharField(allow_blank=True, allow_null=True)
+    delivery_date = serializers.DateField(allow_null=True)
+    order_number = serializers.CharField(allow_blank=True, allow_null=True)
+    notes = serializers.CharField(allow_blank=True, allow_null=True)

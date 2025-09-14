@@ -22,15 +22,23 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.helpers import get_company_defaults
+from apps.job.models import Job
 from apps.job.serializers.job_serializer import (
+    JobBasicInformationResponseSerializer,
+    JobCostSummaryResponseSerializer,
     JobCreateRequestSerializer,
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
+    JobEventsResponseSerializer,
+    JobHeaderResponseSerializer,
+    JobInvoicesResponseSerializer,
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
+    JobStatusChoicesResponseSerializer,
+    QuoteSerializer,
     WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import JobRestService
@@ -235,6 +243,7 @@ class JobDetailRestView(BaseJobRestView):
         responses={200: JobDetailResponseSerializer},
         description="Fetch complete job data including financial information",
         tags=["Jobs"],
+        operation_id="getFullJob",
     )
     def get(self, request, job_id):
         """
@@ -334,6 +343,7 @@ class JobEventRestView(BaseJobRestView):
         },
         description="Add a manual event to the Job with duplicate prevention.",
         tags=["Jobs"],
+        operation_id="job_rest_jobs_events_create",
     )
     def post(self, request, job_id):
         """
@@ -504,6 +514,311 @@ class WeeklyMetricsRestView(BaseJobRestView):
 
         except Exception as e:
             logger.error(f"Error fetching weekly metrics: {e}")
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobHeaderRestView(BaseJobRestView):
+    """
+    REST view for Job header information.
+    Returns essential job data for fast initial loading.
+    """
+
+    serializer_class = JobHeaderResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobHeaderResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch essential job header information for fast loading",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch essential job header data for fast initial loading.
+        """
+        try:
+            job = Job.objects.select_related("client").get(id=job_id)
+
+            # Build essential header data only
+            header_data = {
+                "job_id": str(job.id),
+                "job_number": job.job_number,
+                "name": job.name,
+                "client": {"id": str(job.client.id), "name": job.client.name}
+                if job.client
+                else None,
+                "status": job.status,
+                "pricing_methodology": job.pricing_methodology,
+                "fully_invoiced": job.fully_invoiced,
+                "quoted": job.quoted,
+                "quote_acceptance_date": job.quote_acceptance_date.isoformat()
+                if job.quote_acceptance_date
+                else None,
+                "paid": job.paid,
+            }
+
+            return Response(header_data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobInvoicesRestView(BaseJobRestView):
+    """
+    REST view for Job invoices.
+    Returns list of invoices for a job.
+    """
+
+    serializer_class = JobInvoicesResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobInvoicesResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job invoices list",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job invoices.
+        """
+        try:
+            invoices = JobRestService.get_job_invoices(job_id)
+
+            serializer = JobInvoicesResponseSerializer({"invoices": invoices})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobQuoteRestView(BaseJobRestView):
+    """
+    REST view for Job quotes.
+    Returns the xero quote for a job.
+    """
+
+    serializer_class = QuoteSerializer
+
+    @extend_schema(
+        responses={
+            200: QuoteSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job quote",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job quote.
+        """
+        try:
+            quote = JobRestService.get_job_quote(job_id)
+
+            return Response(quote, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobCostSummaryRestView(BaseJobRestView):
+    """
+    REST view for Job cost summary.
+    Returns cost summary across all cost sets.
+    """
+
+    serializer_class = JobCostSummaryResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobCostSummaryResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job cost summary across all cost sets",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job cost summary in frontend-expected format.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+
+            # Get summaries from all cost sets
+            estimate = job.get_latest("estimate")
+            quote = job.get_latest("quote")
+            actual = job.get_latest("actual")
+
+            def calculate_profit_margin(cost_set):
+                """Calculate profit margin as (rev - cost) / cost * 100"""
+                if not cost_set or not cost_set.summary:
+                    return None
+                summary = cost_set.summary
+                cost = summary.get("cost", 0)
+                rev = summary.get("rev", 0)
+                if cost and cost > 0:
+                    return ((rev - cost) / cost) * 100
+                return 0
+
+            # Build frontend-expected summary data with profitMargin
+            summary_data = {
+                "estimate": {
+                    "cost": estimate.summary.get("cost", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "rev": estimate.summary.get("rev", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "hours": estimate.summary.get("hours", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(estimate),
+                }
+                if estimate and estimate.summary
+                else None,
+                "quote": {
+                    "cost": quote.summary.get("cost", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "rev": quote.summary.get("rev", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "hours": quote.summary.get("hours", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(quote),
+                }
+                if quote and quote.summary
+                else None,
+                "actual": {
+                    "cost": actual.summary.get("cost", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "rev": actual.summary.get("rev", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "hours": actual.summary.get("hours", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(actual),
+                }
+                if actual and actual.summary
+                else None,
+            }
+
+            serializer = JobCostSummaryResponseSerializer(summary_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobStatusChoicesRestView(BaseJobRestView):
+    """
+    REST view for Job status choices.
+    Returns available status choices for jobs.
+    """
+
+    serializer_class = JobStatusChoicesResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobStatusChoicesResponseSerializer,
+        },
+        description="Fetch job status choices",
+        tags=["Jobs"],
+    )
+    def get(self, request):
+        """
+        Fetch job status choices.
+        """
+        try:
+            from apps.job.models.job import Job
+
+            # Get status choices from model
+            status_choices = dict(Job.STATUS_CHOICES)
+
+            response_data = {"statuses": status_choices}
+            serializer = JobStatusChoicesResponseSerializer(response_data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobEventListRestView(BaseJobRestView):
+    """
+    REST view for Job events list.
+    Returns list of events for a job.
+    """
+
+    serializer_class = JobEventsResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobEventsResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job events list",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job events.
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+            events = job.events.all().order_by("-timestamp")
+
+            serializer = JobEventsResponseSerializer({"events": events})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobBasicInformationRestView(BaseJobRestView):
+    """
+    REST view for Job basic information.
+    Returns description, delivery date, order number and internal notes.
+    """
+
+    serializer_class = JobBasicInformationResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobBasicInformationResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job basic information (description, delivery date, order number, notes)",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch job basic information.
+        """
+        try:
+            basic_info = JobRestService.get_job_basic_information(job_id)
+
+            serializer = JobBasicInformationResponseSerializer(basic_info)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
             return self.handle_service_error(e)
 
 

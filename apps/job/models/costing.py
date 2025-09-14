@@ -87,6 +87,8 @@ class CostLine(models.Model):
     meta = models.JSONField(default=dict, help_text="Additional metadata")
 
     # Xero sync fields for bidirectional time/expense tracking
+    # This really shouldn't be here. It should be on ext_refs. That's the whole point of ext_refs and the whole costline model.
+    # This violates the hexagonal architecture principles.
     xero_time_id = models.CharField(max_length=255, null=True, blank=True)
     xero_expense_id = models.CharField(max_length=255, null=True, blank=True)
     xero_last_modified = models.DateTimeField(null=True, blank=True)

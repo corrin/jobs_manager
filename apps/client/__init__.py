@@ -28,6 +28,8 @@ try:
             ClientSerializer,
             ClientUpdateRequestSerializer,
             ClientUpdateResponseSerializer,
+            JobContactResponseSerializer,
+            JobContactUpdateRequestSerializer,
             StandardErrorSerializer,
         )
 except (ImportError, RuntimeError):
@@ -57,6 +59,8 @@ __all__ = [
     "ClientSerializer",
     "ClientUpdateRequestSerializer",
     "ClientUpdateResponseSerializer",
+    "JobContactResponseSerializer",
+    "JobContactUpdateRequestSerializer",
     "StandardErrorSerializer",
     "Supplier",
 ]

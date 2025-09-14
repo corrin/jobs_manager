@@ -18,6 +18,11 @@
 |-------------|------|------|-------------|
 | `/create/` | `client_rest_views.ClientCreateRestView` | `clients:client_create_rest` | REST view for creating new clients. |
 
+### Jobs Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/jobs/<uuid:job_id>/contact/` | `client_rest_views.JobContactRestView` | `clients:job_contact_rest` | REST view for contact information operations for a job. |
+
 ### Other
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|

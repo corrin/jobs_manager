@@ -8,6 +8,7 @@ from .client_rest_views import (
     ClientRetrieveRestView,
     ClientSearchRestView,
     ClientUpdateRestView,
+    JobContactRestView,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "ClientRetrieveRestView",
     "ClientSearchRestView",
     "ClientUpdateRestView",
+    "JobContactRestView",
 ]
