@@ -17,6 +17,7 @@ The system only had unidirectional sync (Xero → Local) for stock items. Items 
 - `update_stock_item_codes()`: Updates missing item_codes in existing items
 
 **Item Code Generation:**
+
 ```python
 # Examples of generated codes:
 # Stainless Steel 304 → "SS-304-ROUNDBAR"
@@ -28,6 +29,7 @@ The system only had unidirectional sync (Xero → Local) for stock items. Items 
 ### 2. Integration with Existing Services
 
 **Updated:**
+
 - `PurchasingRestService.create_stock()`: Generates item_code automatically
 - `process_delivery_receipt()`: Generates item_code for PO stock
 - `auto_parse_stock_item()`: Generates item_code after parsing
@@ -37,6 +39,7 @@ The system only had unidirectional sync (Xero → Local) for stock items. Items 
 ### 3. Integration with Main Sync
 
 The bidirectional sync has been integrated into the main Xero sync process:
+
 - After synchronising items from Xero → Local
 - Automatically synchronises items Local → Xero (limited to 50 at a time)
 - Appears in the sync dashboard as "stock_local_to_xero"
@@ -46,6 +49,7 @@ The bidirectional sync has been integrated into the main Xero sync process:
 **Command:** `python manage.py sync_stock_to_xero`
 
 **Options:**
+
 ```bash
 # Fix existing long codes (>30 chars)
 python manage.py sync_stock_to_xero --fix-long-codes
@@ -71,6 +75,7 @@ python manage.py sync_stock_to_xero --limit 10
 **Script:** `scripts/test_stock_sync.py`
 
 Tests:
+
 - Item code generation for different material types
 - Stock item validation
 - Current sync statistics
@@ -79,11 +84,13 @@ Tests:
 ## Files Modified
 
 ### New Files:
+
 - `apps/workflow/api/xero/stock_sync.py` - Main sync module
 - `apps/workflow/management/commands/sync_stock_to_xero.py` - Django command
 - `scripts/test_stock_sync.py` - Test script
 
 ### Modified Files:
+
 - `apps/workflow/api/xero/sync.py` - Integration with main sync + fixed validation error
 - `apps/workflow/api/xero/__init__.py` - Function exports
 - `apps/purchasing/services/purchasing_rest_service.py` - Auto-generation of codes
@@ -93,6 +100,7 @@ Tests:
 ## How to Use
 
 ### To Fix Existing Data:
+
 ```bash
 # 1. Fix long item codes (>30 characters)
 python manage.py sync_stock_to_xero --fix-long-codes
@@ -105,10 +113,12 @@ python manage.py sync_stock_to_xero --sync-all
 ```
 
 ### For New Stock Items:
+
 - **Automatic**: All new items receive item_codes automatically
 - **Manual**: Use the command to synchronise specific items
 
 ### Monitoring:
+
 - Detailed logs in `logs/xero_integration.log`
 - Errors persisted in the `AppError` table
 - Sync dashboard shows progress of "stock_local_to_xero"
@@ -125,6 +135,7 @@ python manage.py sync_stock_to_xero --sync-all
 ## Fixes Implemented (v2)
 
 ### 🚨 **Problems Identified During Testing:**
+
 1. **Item codes too long**: Codes like `stock-768bedb7-087c-43cb-92e7-4e4517144e5a` (44 characters) exceed Xero's 30-character limit
 2. **Invalid account codes**: Codes 630 and 200 didn't exist in the Xero chart of accounts
 3. **Missing prices**: Cost price and sales price weren't being included in Xero items
@@ -133,21 +144,25 @@ python manage.py sync_stock_to_xero --sync-all
 ### ✅ **Corrections Applied:**
 
 #### 1. **30-Character Limit**
+
 - Item codes now strictly respect Xero's 30-character limit
 - Smart truncation algorithm preserves important information
 - Prefix "STK-" for generic items instead of "STOCK-"
 
 #### 2. **Dynamic Account Codes**
+
 - System now looks up valid accounts from Xero automatically
 - Uses account codes 200 (Sales) and 300 (Purchases) when available
 - Fallback to account type matching if specific codes don't exist
 
 #### 3. **Price Integration**
+
 - **Cost Price**: Uses `unit_cost` → PurchaseDetails.UnitPrice
 - **Sales Price**: Uses `unit_revenue` → SalesDetails.UnitPrice
 - Both prices now appear correctly in Xero
 
 #### 4. **Validation Error Fix**
+
 - Fixed rigid validation in Xero → Local sync
 - Items without sales_details.unit_price now default to $0 instead of failing
 - Sync continues without interruption

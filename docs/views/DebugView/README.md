@@ -25,8 +25,8 @@ These views provide debugging functionality for synchronizing invoices with Xero
 
 ```json
 {
-    "status": "success",
-    "message": "Invoice {invoice_number} synced successfully."
+  "status": "success",
+  "message": "Invoice {invoice_number} synced successfully."
 }
 ```
 
@@ -34,8 +34,8 @@ These views provide debugging functionality for synchronizing invoices with Xero
 
 ```json
 {
-    "status": "error",
-    "message": "Error message details"
+  "status": "error",
+  "message": "Error message details"
 }
 ```
 
@@ -64,8 +64,8 @@ def debug_sync_invoice_view(request, invoice_number):
 ### debug_sync_invoice_form
 
 **Type**: Function-based View
-**Template**: ```xero/debug_sync_invoice_form.html```
-**Decorator**: ```@csrf_exempt```
+**Template**: `xero/debug_sync_invoice_form.html`
+**Decorator**: `@csrf_exempt`
 **Purpose**: Provides a form interface for invoice synchronization testing
 
 ### Methods Supported
@@ -86,7 +86,7 @@ def debug_sync_invoice_view(request, invoice_number):
 
 **Parameters**:
 
-- ```invoice_number```: Form field containing invoice number
+- `invoice_number`: Form field containing invoice number
 
 **Success Response** (200 OK):
 
@@ -101,19 +101,20 @@ def debug_sync_invoice_view(request, invoice_number):
 
 ```json
 {
-    "status": "error",
-    "message": "Please provide an invoice number."
+  "status": "error",
+  "message": "Please provide an invoice number."
 }
-
 ```
 
 2. Successful Submission:
+
 - Redirects to invoice list view with invoice number parameter
 - Redirect URL format:
 
-    `/invoices/?invoice_number={invoice_number}`
+  `/invoices/?invoice_number={invoice_number}`
 
 **Implementation Details**
+
 ```python
 @csrf_exempt
 def debug_sync_invoice_form(request):

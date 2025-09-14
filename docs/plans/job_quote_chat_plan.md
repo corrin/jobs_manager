@@ -1,11 +1,13 @@
 # Backend Requirements: Quote Chat History API
 
 ## Overview
+
 The frontend Vue.js app needs Django REST API endpoints to store and retrieve chat conversations for the interactive quoting feature. Each job can have an associated chat conversation where users interact with an LLM to generate quotes.
 
 ## Database Model Requirements
 
 ### JobQuoteChat Model
+
 Create a new model to store chat messages linked to jobs:
 
 ```python
@@ -27,11 +29,13 @@ class JobQuoteChat(models.Model):
 ## API Endpoints Required
 
 ### 1. Get Chat History
+
 **Endpoint**: `GET /api/jobs/{job_id}/quote-chat/`
 
 **Purpose**: Load all chat messages for a specific job
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -50,7 +54,7 @@ class JobQuoteChat(models.Model):
         "role": "assistant",
         "content": "I understand you need 3 stainless steel boxes...",
         "timestamp": "2024-01-15T10:30:05Z",
-        "metadata": {"processing_time": 2.5}
+        "metadata": { "processing_time": 2.5 }
       }
     ]
   }
@@ -58,11 +62,13 @@ class JobQuoteChat(models.Model):
 ```
 
 ### 2. Save New Message
+
 **Endpoint**: `POST /api/jobs/{job_id}/quote-chat/`
 
 **Purpose**: Save a new chat message (user or assistant)
 
 **Request Body**:
+
 ```json
 {
   "message_id": "user-1234567892",
@@ -73,6 +79,7 @@ class JobQuoteChat(models.Model):
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -84,11 +91,13 @@ class JobQuoteChat(models.Model):
 ```
 
 ### 3. Clear Chat History
+
 **Endpoint**: `DELETE /api/jobs/{job_id}/quote-chat/`
 
 **Purpose**: Delete all chat messages for a job (start fresh)
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -99,24 +108,28 @@ class JobQuoteChat(models.Model):
 ```
 
 ### 4. Update Message (Optional)
+
 **Endpoint**: `PATCH /api/jobs/{job_id}/quote-chat/{message_id}/`
 
 **Purpose**: Update an existing message (useful for streaming responses)
 
 **Request Body**:
+
 ```json
 {
   "content": "Updated message content",
-  "metadata": {"final": true}
+  "metadata": { "final": true }
 }
 ```
 
 ## Authentication & Permissions
+
 - Use existing job-level permissions
 - Users can only access chat for jobs they have permission to view
 - Follow existing authentication patterns in the codebase
 
 ## Error Handling
+
 Follow existing API error response patterns:
 
 ```json
@@ -130,25 +143,31 @@ Follow existing API error response patterns:
 ## Additional Considerations
 
 ### Performance
+
 - Index on `(job, timestamp)` for efficient message retrieval
 - Consider pagination if conversations become very long
 
 ### Data Retention
+
 - Chat messages should be preserved when jobs are archived
 - Consider adding soft delete functionality
 
 ### Integration Points
+
 - Chat history should be included in job export functionality
 - Consider adding chat summary to job overview pages
 
 ## Frontend Usage
+
 The Vue.js frontend will:
+
 1. Load chat history when opening the quote chat interface
 2. Save each message (user and assistant) as they're sent
 3. Support clearing chat history with user confirmation
 4. Handle streaming assistant responses by updating messages
 
 ## Testing Requirements
+
 - Unit tests for the model
 - API endpoint tests with various scenarios
 - Performance tests with large conversation histories

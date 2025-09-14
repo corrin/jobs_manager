@@ -16,6 +16,7 @@ The `TimesheetEntryView` is a Django template-based view that manages the displa
 ## **GET Method**
 
 ### **Purpose**
+
 Handles data retrieval and preparation for rendering the timesheet entry page, ensuring a user-friendly experience with dynamic navigation and data presentation.
 
 ### **Parameters**
@@ -28,22 +29,27 @@ Handles data retrieval and preparation for rendering the timesheet entry page, e
 ### **Workflow**
 
 1. **Date Validation**:
+
    - Parses the `date` parameter into a `datetime.date` object.
    - Validates the format to ensure compliance with `YYYY-MM-DD`.
 
 2. **Staff Data Retrieval**:
+
    - Ensures the `staff_id` is not excluded based on `EXCLUDED_STAFF_IDS`.
    - Retrieves the staff member from the database, raising a 404 if not found.
 
 3. **Timesheet Entries**:
+
    - Queries the database for timesheet entries matching the `date` and `staff_id`.
    - Includes related job and client information for richer context.
 
 4. **Jobs Data**:
+
    - Fetches all open jobs (statuses: quoting, approved, in progress, special).
    - Provides job and client details for assignment options.
 
 5. **Navigation Data**:
+
    - Determines the next and previous staff members for seamless navigation.
    - Implements wraparound logic for user convenience.
 
@@ -79,6 +85,7 @@ Handles data retrieval and preparation for rendering the timesheet entry page, e
 ## **POST Method**
 
 ### **Purpose**
+
 Manages interactions related to timesheet entries and paid absences, including form loading, submission, and entry creation.
 
 ### **Actions Supported**
@@ -138,13 +145,13 @@ A function-based view designed to handle automatic saving of timesheet entries t
 ### **Workflow**
 
 1. **Request Validation**:
-    - Ensures the JSON payload is properly formatted.
-    - Validates required fields in `time_entries` and `deleted_entries`.
+   - Ensures the JSON payload is properly formatted.
+   - Validates required fields in `time_entries` and `deleted_entries`.
 2. **Entry Processing**:
-    - Updates existing entries or creates new ones, ensuring no duplicates.
-    - Deletes entries marked for removal.
+   - Updates existing entries or creates new ones, ensuring no duplicates.
+   - Deletes entries marked for removal.
 3. **Response**:
-    - Returns success with updated entries or detailed errors for invalid data.
+   - Returns success with updated entries or detailed errors for invalid data.
 
 ---
 
@@ -152,15 +159,16 @@ A function-based view designed to handle automatic saving of timesheet entries t
 
 - **Success**:
 
-    ```json
-    {"success": true, "updated_entries": [1, 2, 3]}
-    ```
+  ```json
+  { "success": true, "updated_entries": [1, 2, 3] }
+  ```
 
 - **Error**:
 
-    ```json
-    {"error": "Invalid JSON", "messages": ["Details of the error."]
-    ```
+  ```json
+  {"error": "Invalid JSON", "messages": ["Details of the error."]
+  ```
+
 ---
 
 ## **Data Flow Diagram**

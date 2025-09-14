@@ -22,17 +22,17 @@ Handles retrieval and aggregation of timesheet data for a given date range.
 ### **Data Processing**
 
 1. **Start Date Handling**
-    - Parses the `start_date` parameter.
-    - Defaults to the last seven days ending yesterday if `start_date` is invalid or not provided.
+   - Parses the `start_date` parameter.
+   - Defaults to the last seven days ending yesterday if `start_date` is invalid or not provided.
 2. **Staff Data**
-    - Retrieves all staff members and their scheduled hours for each of the last seven days.
-    - Includes each staff member's ID, name, and daily scheduled hours.
+   - Retrieves all staff members and their scheduled hours for each of the last seven days.
+   - Includes each staff member's ID, name, and daily scheduled hours.
 3. **Job Data**
-    - Fetches open jobs with statuses: quoting, approved, in_progress, or special.
-    - Includes job details like estimated hours, quoted hours, actual hours, billable hours, and revenue/cost metrics.
+   - Fetches open jobs with statuses: quoting, approved, in_progress, or special.
+   - Includes job details like estimated hours, quoted hours, actual hours, billable hours, and revenue/cost metrics.
 4. **Timesheet Entries**
-    - Gathers all time entries for the last seven days.
-    - Includes details like date, staff member, job, hours worked, billable status, wage rate, and charge-out rate.
+   - Gathers all time entries for the last seven days.
+   - Includes details like date, staff member, job, hours worked, billable status, wage rate, and charge-out rate.
 
 ### **Context Data**
 
@@ -80,14 +80,14 @@ Retrieves and processes daily timesheet data for the given date.
 ### **Data Processing**
 
 1. **Date Parsing**
-    - Parses the `date` parameter.
-    - Defaults to the current date if the parameter is invalid or not provided.
+   - Parses the `date` parameter.
+   - Defaults to the current date if the parameter is invalid or not provided.
 2. **Staff Data**
-    - Retrieves all staff members and their scheduled hours for the target date.
-    - Includes actual hours worked and job details for each staff member.
+   - Retrieves all staff members and their scheduled hours for the target date.
+   - Includes actual hours worked and job details for each staff member.
 3. **Time Entries**
-    - Fetches all time entries for the target date.
-    - Includes details like job name, hours, and billable status for each entry.
+   - Fetches all time entries for the target date.
+   - Includes details like job name, hours, and billable status for each entry.
 
 ### **Context Data**
 

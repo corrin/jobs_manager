@@ -3,6 +3,7 @@
 ## System Architecture
 
 ### Current Architecture
+
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Frontend      │    │   API Layer      │    │  Service Layer  │
@@ -18,6 +19,7 @@
 ```
 
 ### Weekend Inclusion Architecture
+
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   Frontend      │    │   API Layer      │    │  Service Layer  │
@@ -37,6 +39,7 @@
 ### 1. Service Layer (`WeeklyTimesheetService`)
 
 #### Current Implementation
+
 ```python
 class WeeklyTimesheetService:
     @classmethod
@@ -48,6 +51,7 @@ class WeeklyTimesheetService:
 ```
 
 #### Updated Implementation
+
 ```python
 class WeeklyTimesheetService:
     @classmethod
@@ -59,6 +63,7 @@ class WeeklyTimesheetService:
 ```
 
 #### Key Changes
+
 - **Standard mode**: Returns 7 days instead of 5
 - **IMS mode**: Changed to Monday-Friday (simplified from Tue-Fri + next Mon)
 - **Leave processing**: Removed weekend skip logic
@@ -66,6 +71,7 @@ class WeeklyTimesheetService:
 ### 2. API Layer (`TimesheetResponseMixin`)
 
 #### Current Flow
+
 ```
 Request → build_timesheet_response() → WeeklyTimesheetService.get_weekly_overview()
     ↓
@@ -73,6 +79,7 @@ Service returns 5-day data → Serializer → Response
 ```
 
 #### Updated Flow
+
 ```
 Request → build_timesheet_response() → WeeklyTimesheetService.get_weekly_overview()
     ↓
@@ -80,6 +87,7 @@ Service returns 7-day data → Serializer → Response
 ```
 
 #### Key Changes
+
 - No changes needed - automatically handles 7-day data from service
 - Serializers must support variable-length day arrays
 - Response structure remains compatible
@@ -87,6 +95,7 @@ Service returns 7-day data → Serializer → Response
 ### 3. View Layer (`ModernTimesheetEntryView`, `ModernTimesheetDayView`)
 
 #### Current Implementation
+
 ```python
 # Individual entries - already weekend-compatible
 def get(self, request):
@@ -101,6 +110,7 @@ def post(self, request):
 ```
 
 #### Key Changes
+
 - **No changes required** - views already accept any date
 - **Validation**: Ensure no hidden weekday checks
 - **Queries**: Confirm date filtering works for weekends
@@ -108,6 +118,7 @@ def post(self, request):
 ### 4. Data Layer (CostLine Model)
 
 #### Current Schema
+
 ```python
 class CostLine(models.Model):
     meta = models.JSONField()  # Contains date, staff_id, etc.
@@ -115,6 +126,7 @@ class CostLine(models.Model):
 ```
 
 #### Weekend Compatibility
+
 - ✅ **Database**: No constraints on weekend dates
 - ✅ **JSON queries**: MariaDB JSON_EXTRACT works with any date
 - ✅ **Storage**: Weekend dates store normally
@@ -123,6 +135,7 @@ class CostLine(models.Model):
 ## Data Flow Architecture
 
 ### Standard Weekly Overview (7 days)
+
 ```
 1. API Request: GET /api/weekly/?start_date=2024-01-15
 2. TimesheetResponseMixin.build_timesheet_response()
@@ -135,6 +148,7 @@ class CostLine(models.Model):
 ```
 
 ### IMS Export (Special format)
+
 ```
 1. API Request: GET /api/weekly/ims/?start_date=2024-01-15
 2. TimesheetResponseMixin.build_timesheet_response(export_to_ims=True)
@@ -147,6 +161,7 @@ class CostLine(models.Model):
 ```
 
 ### Individual Day Entry
+
 ```
 1. API Request: POST /api/entries/ with weekend date
 2. ModernTimesheetEntryView.post()
@@ -158,6 +173,7 @@ class CostLine(models.Model):
 ## Integration Points
 
 ### Frontend Integration
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Frontend Grid Component                                    │
@@ -169,6 +185,7 @@ class CostLine(models.Model):
 ```
 
 ### Database Integration
+
 ```
 CostLine.meta JSON structure:
 {
@@ -181,6 +198,7 @@ CostLine.meta JSON structure:
 ```
 
 ### Export Integration
+
 ```
 IMS Export: Monday-Friday (simplified)
 Standard Export: Mon-Sun (new capability)
@@ -190,6 +208,7 @@ Xero Integration: Includes weekend dates
 ## Validation Architecture
 
 ### Input Validation
+
 ```python
 # Before: Weekend blocking
 if date.weekday() >= 5:
@@ -200,6 +219,7 @@ if date.weekday() >= 5:
 ```
 
 ### Business Rule Validation
+
 ```python
 # Weekend warnings (optional)
 if date.weekday() >= 5:
@@ -211,11 +231,13 @@ if date.weekday() >= 5:
 ## Performance Considerations
 
 ### Query Optimization
+
 - **JSON field queries**: Use database indexes on JSON fields
 - **Date range queries**: Ensure proper indexing on date fields
 - **Batch processing**: Handle 7-day data efficiently
 
 ### Memory Management
+
 - **Response size**: 7-day data is ~40% larger than 5-day
 - **Caching**: Update cache keys to include weekend data
 - **Pagination**: Consider pagination for large datasets
@@ -223,6 +245,7 @@ if date.weekday() >= 5:
 ## Testing Architecture
 
 ### Unit Tests
+
 ```python
 def test_weekly_overview_includes_weekends(self):
     # Test 7-day data structure
@@ -232,6 +255,7 @@ def test_weekly_overview_includes_weekends(self):
 ```
 
 ### Integration Tests
+
 ```python
 def test_end_to_end_weekend_entry(self):
     # Create weekend entry
@@ -247,12 +271,14 @@ def test_end_to_end_weekend_entry(self):
 ## Deployment Strategy
 
 ### Phased Rollout
+
 1. **Phase 1**: Backend changes (service layer)
 2. **Phase 2**: API updates (response builders)
 3. **Phase 3**: Frontend updates (7-column grids)
 4. **Phase 4**: Testing and validation
 
 ### Feature Flags
+
 ```python
 # Mandatory: Feature flag for weekend functionality
 WEEKEND_TIMESHEETS_ENABLED = os.getenv('WEEKEND_TIMESHEETS_ENABLED', 'false')
@@ -270,6 +296,7 @@ else:
 ```
 
 ### Feature Flag Integration
+
 ```python
 class WeeklyTimesheetService:
     @classmethod
@@ -292,12 +319,14 @@ class WeeklyTimesheetService:
 ## Monitoring and Observability
 
 ### Key Metrics
+
 - **Response times**: Monitor API performance with 7-day data
 - **Error rates**: Track weekend-specific errors
 - **Data completeness**: Ensure weekend entries are processed
 - **User adoption**: Track weekend entry creation
 
 ### Logging
+
 ```python
 logger.info(f"Processing {len(week_days)}-day timesheet for {start_date}")
 logger.info(f"Weekend entries found: {weekend_count}")
@@ -306,11 +335,13 @@ logger.info(f"Weekend entries found: {weekend_count}")
 ## Security Considerations
 
 ### Data Access
+
 - **Authorization**: Same permissions apply to weekend data
 - **Audit trails**: Weekend entries logged normally
 - **Data integrity**: Weekend dates validated like weekdays
 
 ### Input Validation
+
 - **Date format**: Weekend dates use same validation
 - **Business rules**: Weekend entries subject to same rules
 - **Rate limiting**: Same limits apply
@@ -318,12 +349,14 @@ logger.info(f"Weekend entries found: {weekend_count}")
 ## Future Extensions
 
 ### Weekend-Specific Features
+
 - **Weekend rates**: Different rates for weekend work
 - **Overtime rules**: Weekend overtime calculations
 - **Scheduling**: Weekend shift planning
 - **Reporting**: Weekend-specific analytics
 
 ### Advanced Analytics
+
 - **Weekend patterns**: Analyze weekend work trends
 - **Productivity metrics**: Compare weekday vs weekend productivity
 - **Cost analysis**: Weekend labor cost tracking

@@ -1,18 +1,22 @@
 # Staff Performance Report Implementation Plan
 
 ## Overview
+
 Two APIs to support 1:1 performance management - identify lazy staff, time dumpers, and compare individual performance against team averages.
 
 ## API Endpoints
 
 ### 1. Team Summary API
+
 **`GET /accounting/api/reports/staff-performance-summary/`**
 
 **Query Parameters:**
+
 - `start_date` (required): Period start date
 - `end_date` (required): Period end date
 
 **Response Structure (both APIs use same format):**
+
 ```json
 {
   "team_averages": {
@@ -55,15 +59,18 @@ Two APIs to support 1:1 performance management - identify lazy staff, time dumpe
 ```
 
 ### 2. Individual Staff API
+
 **`GET /accounting/api/reports/staff-performance/{staff_id}/`**
 
 **Query Parameters:**
+
 - `start_date` (required): Period start date
 - `end_date` (required): Period end date
 
 **Response Structure:**
 Same as above, but `staff` array contains only one entry with `job_breakdown` populated.
-```
+
+````
 
 ## Implementation Components
 
@@ -100,31 +107,36 @@ cost_lines = CostLine.objects.annotate(
     date_meta__gte=start_date,
     date_meta__lte=end_date
 ).select_related("cost_set__job__client")
-```
+````
 
 ### Key Calculations
+
 - **Revenue**: `sum(unit_rev * quantity)` per staff
 - **Cost**: `sum(unit_cost * quantity)` per staff
 - **Profit**: Revenue - Cost
-- **Billable %**: Billable hours / Total hours * 100
+- **Billable %**: Billable hours / Total hours \* 100
 - **Team Averages**: Calculate across all active staff
 
 ### Problem Detection Metrics
+
 - **Lazy Staff**: Low billable percentage vs team average
 - **Time Dumpers**: High hours per job vs team average
 - **Low Performers**: Below average revenue/profit per hour
 
 ## Error Handling
+
 - Validate date ranges
 - Handle missing staff references gracefully
 - Use `persist_app_error()` for exceptions
 - Return appropriate HTTP status codes
 
 ## Frontend Usage
+
 1. **Main View**: Call summary API, iterate `staff` array for table with team average comparisons
 2. **1:1 Drill-down**: Call individual API, access `staff[0]` for detailed job breakdown
 3. **Performance Conversations**: "You're 20% below team average on billable hours..."
 
 ## API Differences
+
 - **Summary API**: `staff` array has multiple entries, `job_breakdown` omitted for performance
 - **Individual API**: `staff` array has one entry, `job_breakdown` populated with detailed job data

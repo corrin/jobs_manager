@@ -1,16 +1,19 @@
 # Staff Date-Based Filtering Implementation Plan
 
 ## Problem Statement
+
 The current staff filtering system uses an inconsistent boolean `is_active` field. We need to implement date-based staff filtering that can answer "who was employed on date X" while avoiding field duplication and maintaining data integrity.
 
 ## Current State Analysis
 
 ### Staff Model Fields
+
 - `date_joined` - When staff record was created in Django (close enough to employment start)
 - `is_active` - Boolean active/inactive flag (creates potential for inconsistency)
 - No employment end date tracking
 
 ### Current API Issues
+
 - **`/timesheet/api/staff/`**: Missing `is_active` filter entirely, uses only `get_excluded_staff()`
 - **`/accounts/api/staff/all/`**: Uses `Staff.objects.all()` by default, optional exclusions
 - **Inconsistent filtering**: Different endpoints use different filtering rules
@@ -21,6 +24,7 @@ The current staff filtering system uses an inconsistent boolean `is_active` fiel
 ### Phase 1: Database Changes
 
 #### Migration 1: Add date_left field
+
 ```python
 # 0006_add_date_left_field.py
 from django.db import migrations, models
@@ -44,6 +48,7 @@ class Migration(migrations.Migration):
 ```
 
 #### Migration 2: Data migration
+
 ```python
 # 0007_migrate_is_active_to_date_left.py
 from django.db import migrations
@@ -73,6 +78,7 @@ class Migration(migrations.Migration):
 ```
 
 #### Migration 3: Remove is_active field
+
 ```python
 # 0008_remove_is_active_field.py
 from django.db import migrations
@@ -93,6 +99,7 @@ class Migration(migrations.Migration):
 ### Phase 2: Model Updates
 
 #### Staff Model Changes
+
 ```python
 # apps/accounts/models.py
 class Staff(AbstractBaseUser, PermissionsMixin):
@@ -115,6 +122,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
 ```
 
 #### StaffManager Updates
+
 ```python
 # apps/accounts/managers.py
 class StaffManager(BaseManagerClass):
@@ -137,7 +145,9 @@ class StaffManager(BaseManagerClass):
 ### Phase 3: Code Updates
 
 #### Replace All is_active References
+
 Search and replace throughout codebase:
+
 - `Staff.objects.filter(is_active=True)` → `Staff.objects.currently_active()`
 - `staff.is_active` → `staff.is_currently_active`
 - Forms, services, views, serializers, utilities
@@ -145,6 +155,7 @@ Search and replace throughout codebase:
 #### API Updates
 
 **Timesheet Staff API** (`apps/timesheet/views/api.py`):
+
 ```python
 class StaffListAPIView(APIView):
     def get(self, request):
@@ -174,6 +185,7 @@ class StaffListAPIView(APIView):
 ```
 
 **Accounts Staff API** (`apps/accounts/views/staff_views.py`):
+
 ```python
 class StaffListAPIView(generics.ListAPIView):
     def get_queryset(self):
@@ -202,6 +214,7 @@ class StaffListAPIView(generics.ListAPIView):
 ### Phase 4: Update Utilities
 
 #### get_excluded_staff Function
+
 ```python
 # apps/accounts/utils.py
 def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
@@ -217,6 +230,7 @@ def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
 ## API Contract Changes
 
 ### Before
+
 ```
 GET /timesheet/api/staff/              # Inconsistent filtering
 GET /accounts/api/staff/all/           # All staff
@@ -224,6 +238,7 @@ GET /accounts/api/staff/all/?actual_users=true  # Filtered staff
 ```
 
 ### After
+
 ```
 GET /timesheet/api/staff/?date=2024-01-15                    # Required date parameter
 GET /accounts/api/staff/all/                                 # All staff (unchanged)

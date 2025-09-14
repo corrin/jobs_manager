@@ -1,9 +1,11 @@
 # Emit Tools Refactor Plan
 
 ## Problem Statement
+
 Gemini API has a limitation: it cannot use function calling (tools) and enforce JSON response format (`response_mime_type="application/json"`) simultaneously. This causes PRICE mode to fail since it needs both tools (to search products) and structured JSON output.
 
 ## Solution: Emit Tools Pattern
+
 Instead of forcing JSON response format, we'll use dedicated "emit" tools that accept structured data as their parameters. The model will call these tools with the final results, giving us validated JSON through tool arguments.
 
 ## Implementation Steps
@@ -288,10 +290,12 @@ mode_tasks = {
 ## Testing Strategy
 
 1. **CALC Mode Test**
+
    - Input: "3 stainless steel boxes, 700×700×400mm, 0.8mm thick, open top"
    - Expected: Model calls `emit_calc_result` with calculated flat patterns and assumptions
 
 2. **PRICE Mode Test**
+
    - Input: "Price the materials from the previous calculation"
    - Expected: Model calls search tools, then `emit_price_result` with candidates
 
@@ -310,9 +314,11 @@ mode_tasks = {
 ## Risks and Mitigations
 
 1. **Risk**: Model might not call emit tool
+
    - **Mitigation**: Prompt engineering + retry logic with explicit instructions
 
 2. **Risk**: Tool execution failures in PRICE mode
+
    - **Mitigation**: Error handling with graceful fallbacks
 
 3. **Risk**: Schema mismatch between emit tool and validation
@@ -321,6 +327,7 @@ mode_tasks = {
 ## Rollback Plan
 
 If this approach fails:
+
 1. Revert to original code (git history)
 2. Consider two-pass approach: gather data with tools, then format without tools
 3. Or server-side assembly: let model be a planner only, server builds the JSON

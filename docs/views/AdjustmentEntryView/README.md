@@ -16,9 +16,11 @@ These views manage the creation and updating of adjustment entries, which are mo
 **Template**: `jobs/create_adjustment_entry.html`
 
 #### Purpose
+
 Handles the creation of new adjustment entries for job pricing records.
 
 #### Attributes
+
 - `model`: AdjustmentEntry
 - `form_class`: AdjustmentEntryForm
 - `template_name`: "jobs/create_adjustment_entry.html"
@@ -26,9 +28,11 @@ Handles the creation of new adjustment entries for job pricing records.
 #### Methods
 
 ##### `form_valid(form: AdjustmentEntryForm) -> JsonResponse`
+
 Processes valid form submission for creating an adjustment entry.
 
 **Actions**:
+
 1. Creates new adjustment entry without committing
 2. Associates entry with specific job pricing
 3. Saves the adjustment entry
@@ -36,10 +40,13 @@ Processes valid form submission for creating an adjustment entry.
 5. Returns response via parent class
 
 ##### `get_success_url()`
+
 **Returns**: URL to job pricing update view for the associated job pricing
 
 ##### `form_invalid(form: AdjustmentEntryForm) -> JsonResponse`
+
 Handles invalid form submission.
+
 - Logs form errors at debug level
 - Returns standard invalid form response
 
@@ -51,9 +58,11 @@ Handles invalid form submission.
 **Template**: `workflow/update_adjustment_entry.html`
 
 #### Purpose
+
 Handles the updating of existing adjustment entries.
 
 #### Attributes
+
 - `model`: AdjustmentEntry
 - `form_class`: AdjustmentEntryForm
 - `template_name`: "workflow/update_adjustment_entry.html"
@@ -61,15 +70,18 @@ Handles the updating of existing adjustment entries.
 #### Methods
 
 ##### `form_valid(form: AdjustmentEntryForm) -> JsonResponse`
+
 Processes valid form submission for updating an adjustment entry.
 
 **Actions**:
+
 1. Updates adjustment entry without committing
 2. Saves the adjustment entry
 3. Updates the associated job's last_updated timestamp
 4. Returns response via parent class
 
 ##### `get_success_url()`
+
 **Returns**: URL to job pricing update view for the associated job pricing
 
 ## Dependencies

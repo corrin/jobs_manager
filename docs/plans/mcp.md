@@ -196,108 +196,133 @@ class ChatConsumer(AsyncWebsocketConsumer):
 <!-- templates/chatbot/chat.html -->
 <!DOCTYPE html>
 <html>
-<head>
+  <head>
     <title>AI Chatbot</title>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .chat-container {
-            height: 600px;
-            display: flex;
-            flex-direction: column;
+      .chat-container {
+        height: 600px;
+        display: flex;
+        flex-direction: column;
+      }
+      .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+      }
+      .message {
+        margin-bottom: 1rem;
+        animation: fadeIn 0.3s ease-in;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
         }
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
-        .message {
-            margin-bottom: 1rem;
-            animation: fadeIn 0.3s ease-in;
+      }
+      .typing-indicator {
+        display: none;
+      }
+      .typing-indicator.active {
+        display: flex;
+      }
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #718096;
+        margin: 0 2px;
+        animation: bounce 1.4s infinite ease-in-out both;
+      }
+      .dot:nth-child(1) {
+        animation-delay: -0.32s;
+      }
+      .dot:nth-child(2) {
+        animation-delay: -0.16s;
+      }
+      @keyframes bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0);
         }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        40% {
+          transform: scale(1);
         }
-        .typing-indicator {
-            display: none;
-        }
-        .typing-indicator.active {
-            display: flex;
-        }
-        .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #718096;
-            margin: 0 2px;
-            animation: bounce 1.4s infinite ease-in-out both;
-        }
-        .dot:nth-child(1) { animation-delay: -0.32s; }
-        .dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
-        }
+      }
     </style>
-</head>
-<body class="bg-gray-50">
+  </head>
+  <body class="bg-gray-50">
     <div class="container mx-auto max-w-4xl p-4">
-        <div class="bg-white rounded-lg shadow-lg chat-container">
-            <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-t-lg">
-                <h1 class="text-2xl font-bold">AI Assistant</h1>
-                <p class="text-sm opacity-90">Powered by MCP</p>
-            </div>
-
-            <div id="messages" class="messages bg-gray-50">
-                <!-- Messages will appear here -->
-            </div>
-
-            <div class="typing-indicator p-4" id="typing-indicator">
-                <div class="flex items-center space-x-2">
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                    <div class="dot"></div>
-                </div>
-            </div>
-
-            <form id="chat-form" class="p-4 border-t"
-                  ws-send
-                  hx-ext="ws"
-                  ws-connect="/ws/chat/{{ room_name }}/">
-                <div class="flex space-x-2">
-                    <input type="text"
-                           id="message-input"
-                           name="message"
-                           class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="Type your message..."
-                           autocomplete="off">
-                    <button type="submit"
-                            class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-                        Send
-                    </button>
-                </div>
-            </form>
+      <div class="bg-white rounded-lg shadow-lg chat-container">
+        <div
+          class="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-t-lg"
+        >
+          <h1 class="text-2xl font-bold">AI Assistant</h1>
+          <p class="text-sm opacity-90">Powered by MCP</p>
         </div>
+
+        <div id="messages" class="messages bg-gray-50">
+          <!-- Messages will appear here -->
+        </div>
+
+        <div class="typing-indicator p-4" id="typing-indicator">
+          <div class="flex items-center space-x-2">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+
+        <form
+          id="chat-form"
+          class="p-4 border-t"
+          ws-send
+          hx-ext="ws"
+          ws-connect="/ws/chat/{{ room_name }}/"
+        >
+          <div class="flex space-x-2">
+            <input
+              type="text"
+              id="message-input"
+              name="message"
+              class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Type your message..."
+              autocomplete="off"
+            />
+            <button
+              type="submit"
+              class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Send
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script>
-        const messagesDiv = document.getElementById('messages');
-        const messageInput = document.getElementById('message-input');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const chatSocket = new WebSocket(
-            'ws://' + window.location.host + '/ws/chat/{{ room_name }}/'
-        );
+      const messagesDiv = document.getElementById("messages");
+      const messageInput = document.getElementById("message-input");
+      const typingIndicator = document.getElementById("typing-indicator");
+      const chatSocket = new WebSocket(
+        "ws://" + window.location.host + "/ws/chat/{{ room_name }}/",
+      );
 
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            typingIndicator.classList.remove('active');
+      chatSocket.onmessage = function (e) {
+        const data = JSON.parse(e.data);
+        typingIndicator.classList.remove("active");
 
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message';
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message";
 
-            if (data.sender === 'bot') {
-                messageDiv.innerHTML = `
+        if (data.sender === "bot") {
+          messageDiv.innerHTML = `
                     <div class="flex items-start space-x-2">
                         <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold">
                             AI
@@ -309,8 +334,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         </div>
                     </div>
                 `;
-            } else {
-                messageDiv.innerHTML = `
+        } else {
+          messageDiv.innerHTML = `
                     <div class="flex items-start space-x-2 justify-end">
                         <div class="flex-1">
                             <div class="bg-blue-500 text-white p-3 rounded-lg shadow-sm">
@@ -322,24 +347,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         </div>
                     </div>
                 `;
-            }
+        }
 
-            messagesDiv.appendChild(messageDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        };
+        messagesDiv.appendChild(messageDiv);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      };
 
-        document.getElementById('chat-form').onsubmit = function(e) {
-            e.preventDefault();
-            const message = messageInput.value;
-            if (message) {
-                chatSocket.send(JSON.stringify({
-                    'message': message
-                }));
+      document.getElementById("chat-form").onsubmit = function (e) {
+        e.preventDefault();
+        const message = messageInput.value;
+        if (message) {
+          chatSocket.send(
+            JSON.stringify({
+              message: message,
+            }),
+          );
 
-                // Show user message immediately
-                const userMessageDiv = document.createElement('div');
-                userMessageDiv.className = 'message';
-                userMessageDiv.innerHTML = `
+          // Show user message immediately
+          const userMessageDiv = document.createElement("div");
+          userMessageDiv.className = "message";
+          userMessageDiv.innerHTML = `
                     <div class="flex items-start space-x-2 justify-end">
                         <div class="flex-1">
                             <div class="bg-blue-500 text-white p-3 rounded-lg shadow-sm">
@@ -351,15 +378,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         </div>
                     </div>
                 `;
-                messagesDiv.appendChild(userMessageDiv);
+          messagesDiv.appendChild(userMessageDiv);
 
-                messageInput.value = '';
-                typingIndicator.classList.add('active');
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            }
-        };
+          messageInput.value = "";
+          typingIndicator.classList.add("active");
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+      };
     </script>
-</body>
+  </body>
 </html>
 ```
 
@@ -413,6 +440,7 @@ def chat_room(request):
 ## Advanced Features
 
 ### 1. Streaming Responses
+
 For streaming AI responses character by character:
 
 ```python
@@ -427,6 +455,7 @@ async def stream_response(self, response_text):
 ```
 
 ### 2. File Upload Support
+
 Add file handling to your MCP tools:
 
 ```python
@@ -438,6 +467,7 @@ class FileTool(MCPToolset):
 ```
 
 ### 3. Authentication & Security
+
 - Use Django's built-in authentication
 - Implement rate limiting
 - Add CSRF protection for WebSocket connections
@@ -459,5 +489,6 @@ class FileTool(MCPToolset):
 - [HTMX WebSocket Extension](https://htmx.org/extensions/web-sockets/)
 
 ## Example Projects
+
 - [Django-Firebase-MCP](https://github.com/raghavdasila/django-firebase-mcp) - Production-ready example with Firebase integration
 - [Django Chatbot with Celery](https://github.com/slyapustin/django-chatbot) - Example using Celery for background tasks

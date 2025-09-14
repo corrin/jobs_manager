@@ -77,6 +77,7 @@ else:
 ---
 
 **References:**
+
 - [SOLID Principles](https://en.wikipedia.org/wiki/SOLID)
 - [Object Calisthenics](https://williamdurand.fr/2013/06/03/object-calisthenics/)
 - [Clean Code (Robert C. Martin)](https://www.oreilly.com/library/view/clean-code/9780136083238/)

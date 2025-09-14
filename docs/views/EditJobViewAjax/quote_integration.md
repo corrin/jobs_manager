@@ -1,22 +1,26 @@
 # Quote Integration Views
 
 ## Business Purpose
+
 Handles integration between job management and external quote systems, particularly Google Sheets quote synchronization. Enables seamless quote import and linking for accurate job pricing and estimation workflows in jobbing shop operations.
 
 ## Views
 
 ### create_linked_quote_api
+
 **File**: `apps/job/views/edit_job_view_ajax.py`
 **Type**: Function-based API view (POST only)
 **URL**: `/job/api/create-linked-quote/`
 
 #### What it does
+
 - Creates linked quotes from external quote systems (Google Sheets)
 - Integrates job pricing with external quote data
 - Handles quote validation and data transformation
 - Manages quote-to-job pricing synchronization
 
 #### Parameters
+
 - JSON body with quote linking data:
   - `job_id`: Job UUID to link quote to (required)
   - `quote_sheet_url`: Google Sheets URL for quote data (required)
@@ -24,6 +28,7 @@ Handles integration between job management and external quote systems, particula
   - Additional quote metadata and configuration
 
 #### Returns
+
 - **201 Created**: JSON with created quote link and pricing data
 - **400 Bad Request**: Invalid quote data, URL validation errors, or job state issues
 - **404 Not Found**: Job not found
@@ -31,6 +36,7 @@ Handles integration between job management and external quote systems, particula
 - **500 Internal Server Error**: Quote processing failures or external system errors
 
 #### Integration
+
 - link_quote_sheet() service for Google Sheets integration
 - Quote validation and data transformation
 - Job pricing synchronization and update
@@ -40,6 +46,7 @@ Handles integration between job management and external quote systems, particula
 ## Quote Data Processing
 
 ### Google Sheets Integration
+
 - Authentication with Google Sheets API
 - Quote data extraction and validation
 - Pricing structure transformation
@@ -47,6 +54,7 @@ Handles integration between job management and external quote systems, particula
 - Quote revision and update tracking
 
 ### Data Validation
+
 - Quote structure verification
 - Pricing calculation validation
 - Material quantity and cost checks
@@ -54,6 +62,7 @@ Handles integration between job management and external quote systems, particula
 - Total cost and revenue reconciliation
 
 ### Job Pricing Synchronization
+
 - Quote data transformation to job pricing format
 - Cost breakdown mapping (materials, labor, adjustments)
 - Pricing stage management (estimate → quote → actual)
@@ -63,6 +72,7 @@ Handles integration between job management and external quote systems, particula
 ## Business Rules
 
 ### Quote Linking Constraints
+
 - Jobs must be in appropriate status for quote linking
 - Quote data must pass validation checks
 - Pricing totals must reconcile with job requirements
@@ -70,6 +80,7 @@ Handles integration between job management and external quote systems, particula
 - User permissions for quote operations
 
 ### Data Integrity Requirements
+
 - Quote data consistency across systems
 - Pricing calculation accuracy
 - Material and labor cost validation
@@ -77,6 +88,7 @@ Handles integration between job management and external quote systems, particula
 - Historical data preservation
 
 ### Synchronization Rules
+
 - Quote updates trigger job pricing updates
 - Version control for quote revisions
 - Conflict resolution for concurrent updates
@@ -84,6 +96,7 @@ Handles integration between job management and external quote systems, particula
 - Audit trail maintenance for all changes
 
 ## Error Handling
+
 - **400 Bad Request**: Invalid quote URLs, malformed data, or validation failures
 - **401 Unauthorized**: Insufficient permissions or external system authentication failures
 - **403 Forbidden**: Access denied to external quote systems
@@ -94,6 +107,7 @@ Handles integration between job management and external quote systems, particula
 ## External System Dependencies
 
 ### Google Sheets API
+
 - Authentication and authorization management
 - Rate limiting and quota management
 - Error handling for API failures
@@ -101,6 +115,7 @@ Handles integration between job management and external quote systems, particula
 - Real-time synchronization capabilities
 
 ### Quote Format Standards
+
 - Standardized quote structure requirements
 - Material and labor cost breakdown formats
 - Pricing calculation methodologies
@@ -108,6 +123,7 @@ Handles integration between job management and external quote systems, particula
 - Export and import format specifications
 
 ## Integration Points
+
 - Job pricing system for cost synchronization
 - Google Sheets API for external data access
 - Authentication system for API access management
@@ -115,6 +131,7 @@ Handles integration between job management and external quote systems, particula
 - Notification system for update alerts
 
 ## Performance Considerations
+
 - Asynchronous quote processing for large datasets
 - Caching strategies for frequently accessed quotes
 - Rate limiting compliance with external APIs
@@ -122,6 +139,7 @@ Handles integration between job management and external quote systems, particula
 - Error recovery and retry mechanisms
 
 ## Security Considerations
+
 - Secure authentication with external systems
 - Data encryption for sensitive pricing information
 - Access control for quote operations

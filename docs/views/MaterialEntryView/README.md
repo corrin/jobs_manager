@@ -18,16 +18,15 @@ for creating new material entries.
 
 - **model** :
 
-    `MaterialEntry`
+  `MaterialEntry`
 
 - **form_class** :
 
-    `MaterialEntryForm`
+  `MaterialEntryForm`
 
 - **template_name** :
 
-    `"jobs/create_material_entry.html"`
-
+  `"jobs/create_material_entry.html"`
 
 ### **Methods**
 
@@ -37,11 +36,11 @@ for creating new material entries.
 - Creates new MaterialEntry instance without committing
 - Associates entry with JobPricing using URL parameter
 
-    `job_pricing_id`
+  `job_pricing_id`
 
 - Updates job's  timestamp
 
-    `last_updated`
+  `last_updated`
 
 - Returns JSON response via parent class implementation
 
@@ -50,8 +49,7 @@ for creating new material entries.
 - Generates URL for redirect after successful creation
 - Returns URL to edit job pricing page using
 
-    `self.object.job_pricing.pk`
-
+  `self.object.job_pricing.pk`
 
 ### **`form_invalid(form: MaterialEntryForm) -> JsonResponse`**
 
@@ -78,16 +76,15 @@ for editing existing material entries.
 
 - **model** :
 
-    `MaterialEntry`
+  `MaterialEntry`
 
 - **form_class** :
 
-    `MaterialEntryForm`
+  `MaterialEntryForm`
 
 - **template_name** :
 
-    `"jobs/edit_material_entry.html"`
-
+  `"jobs/edit_material_entry.html"`
 
 ### **Methods**
 
@@ -102,8 +99,7 @@ for editing existing material entries.
 - Generates URL for redirect after successful update
 - Returns URL to edit job pricing page using
 
-    `self.object.job_pricing.pk`
-
+  `self.object.job_pricing.pk`
 
 ### **Template Context**
 
@@ -116,10 +112,10 @@ Default UpdateView context plus:
 
 - Handles validation and cleaning of material entry data
 - Likely includes fields for:
-    - Material description
-    - Quantity
-    - Unit price
-    - Additional notes/metadata
+  - Material description
+  - Quantity
+  - Unit price
+  - Additional notes/metadata
 
 ## **Template Requirements**
 
@@ -127,19 +123,19 @@ Default UpdateView context plus:
 
 - Form for creating new material entries
 - Should include:
-    - CSRF token
-    - Form fields
-    - Submit button
-    - Error display section
+  - CSRF token
+  - Form fields
+  - Submit button
+  - Error display section
 
 ### **edit_material_entry.html**
 
 - Form for editing existing material entries
 - Should include:
-    - CSRF token
-    - Pre-populated form fields
-    - Submit button
-    - Error display section
+  - CSRF token
+  - Pre-populated form fields
+  - Submit button
+  - Error display section
 
 ## **Error Handling**
 
@@ -152,10 +148,10 @@ Default UpdateView context plus:
 1. Receives form data for an existing MaterialEntry
 2. Validates the submitted form data
 3. If valid:
-    - Updates the MaterialEntry instance
-    - Redirects to the job pricing edit page
+   - Updates the MaterialEntry instance
+   - Redirects to the job pricing edit page
 4. If invalid:
-    - Returns form with validation errors
+   - Returns form with validation errors
 
 ## **Mermaid Diagram**
 

@@ -14,6 +14,7 @@ Closes #[issue-number]
 ## ✅ Checklist
 
 **Django REST Framework**
+
 - [ ] I used a `Serializer` for all request/response payloads
 - [ ] Business logic is isolated in a service layer (`services/…`)
 - [ ] Query optimizations (`select_related`/`prefetch_related`) applied where needed
@@ -22,6 +23,7 @@ Closes #[issue-number]
 - [ ] Error handling is uniform (all errors return JSON with a `detail` field)
 
 **General**
+
 - [ ] Code is type-hinted and passes `tox -e mypy`
 - [ ] Formatted with Black/isort and linted with Flake8 (`tox -e lint`)
 - [ ] Covered by new or updated unit tests

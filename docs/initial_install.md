@@ -4,11 +4,11 @@ This guide details the steps required to set up the Jobs Manager application for
 
 **Core Dependencies:**
 
-*   Python 3.12+
-*   [Poetry](https://python-poetry.org/)
-*   Node.js + npm
-*   MariaDB Server & Client (Version 11.5.2+ recommended)
-*   [ngrok](https://ngrok.com/) Client
+- Python 3.12+
+- [Poetry](https://python-poetry.org/)
+- Node.js + npm
+- MariaDB Server & Client (Version 11.5.2+ recommended)
+- [ngrok](https://ngrok.com/) Client
 
 ## Defining Your Application Name
 
@@ -16,10 +16,10 @@ To maintain consistency throughout this guide, choose a name for your applicatio
 
 This "App Name" will be used to construct:
 
-*   Your MariaDB database name (e.g., `<your-app-name>`)
-*   Your MariaDB database username (e.g., `<your-app-name>`)
-*   Part of your ngrok subdomain (e.g., `<your-app-name>-dev.ngrok-free.app`). Note that ngrok's free tier may not guarantee your requested name, so you might need to tweak it slightly.
-*   Part of your Xero App name (e.g., `<your-app-name> Development`).
+- Your MariaDB database name (e.g., `<your-app-name>`)
+- Your MariaDB database username (e.g., `<your-app-name>`)
+- Part of your ngrok subdomain (e.g., `<your-app-name>-dev.ngrok-free.app`). Note that ngrok's free tier may not guarantee your requested name, so you might need to tweak it slightly.
+- Part of your Xero App name (e.g., `<your-app-name> Development`).
 
 **Decide on your App Name now and use it consistently throughout this guide.** We'll refer to it as `<your-app-name>`.
 
@@ -57,7 +57,7 @@ The application requires a dedicated database and user.
     # Install timezone data from system zoneinfo files
     sudo mysql_tzinfo_to_sql /usr/share/zoneinfo | sudo mysql mysql
     ```
-    *   **Details to Record:** Database name (`<your-app-name>`), DB username (`<your-app-name>`), DB password (`your-strong-password`).
+    - **Details to Record:** Database name (`<your-app-name>`), DB username (`<your-app-name>`), DB password (`your-strong-password`).
 
 ### Step 3: Set Up ngrok
 
@@ -66,11 +66,11 @@ The application requires a dedicated database and user.
 1.  **Sign up/Log in:** Create an account at [ngrok.com](https://ngrok.com/).
 2.  **Install & Authenticate:** Follow their instructions to install the ngrok client and connect it to your account using your authtoken (`ngrok config add-authtoken <your_token>`).
 3.  **Choose Your Static Domain:** You need a predictable hostname.
-    *   *Free Plan:* You can use a static domain provided on the free tier (e.g., `<your-app-name>-dev.ngrok-free.app`). Find this option in your ngrok dashboard.
-    *   *Paid Plan:* You can configure a custom static domain.
-    *   **Decide on your domain name now.** You will need it for the Xero setup in the next step.
-    *   **Detail to Record:** Your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
-    *   **Note your region:** Also note the ngrok region you intend to use (e.g., `au`, `us`, `eu`).
+    - _Free Plan:_ You can use a static domain provided on the free tier (e.g., `<your-app-name>-dev.ngrok-free.app`). Find this option in your ngrok dashboard.
+    - _Paid Plan:_ You can configure a custom static domain.
+    - **Decide on your domain name now.** You will need it for the Xero setup in the next step.
+    - **Detail to Record:** Your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
+    - **Note your region:** Also note the ngrok region you intend to use (e.g., `au`, `us`, `eu`).
 
 ### Step 4: Set Up Xero Developer Account & App
 
@@ -78,18 +78,18 @@ The application syncs data with Xero. You need to register a Xero application.
 
 1.  **Sign up/Log in:** Go to the Xero Developer Portal: [https://developer.xero.com/](https://developer.xero.com/) and create an account or log in.
 2.  **Create a New App:**
-    *   Click "New App".
-    *   Give it a name (e.g., `<your-app-name> Development`).
-    *   Select "Web app" as the integration type.
-    *   Company or Practice Name: Enter your details.
-    *   **OAuth 2.0 Redirect URI:** This is critical. Enter the URL formed by your ngrok domain from Step 3, followed by `/xero/callback`.
-        *   Example: `https://<your-app-name>-dev.ngrok-free.app/xero/callback`
-        *   *(Make sure to use HTTPS and replace the example domain with your actual ngrok domain)*.
-    *   Agree to the terms and conditions and create the app.
+    - Click "New App".
+    - Give it a name (e.g., `<your-app-name> Development`).
+    - Select "Web app" as the integration type.
+    - Company or Practice Name: Enter your details.
+    - **OAuth 2.0 Redirect URI:** This is critical. Enter the URL formed by your ngrok domain from Step 3, followed by `/xero/callback`.
+      - Example: `https://<your-app-name>-dev.ngrok-free.app/xero/callback`
+      - _(Make sure to use HTTPS and replace the example domain with your actual ngrok domain)_.
+    - Agree to the terms and conditions and create the app.
 3.  **Get Credentials:** Once the app is created, navigate to its configuration page.
-    *   **Details to Record:** Copy the **Client ID** and the **Client Secret**. Keep the Client Secret confidential.
+    - **Details to Record:** Copy the **Client ID** and the **Client Secret**. Keep the Client Secret confidential.
 
-*You should now have recorded: DB credentials, your ngrok domain & region, and your Xero Client ID & Client Secret.*
+_You should now have recorded: DB credentials, your ngrok domain & region, and your Xero Client ID & Client Secret._
 
 ## Phase 2: Application Installation & Configuration
 
@@ -113,11 +113,11 @@ npm install
     ```
 2.  Open the `.env` file in a text editor.
 3.  **Populate with Recorded Details:** Fill in the following values using the details you recorded in Phase 1:
-    *   `DATABASE_URL`: Construct using your DB user, password, and name (e.g., `mysql://<your-app-name>:your-strong-password@localhost:3306/<your-app-name>`).
-    *   `APP_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
-    *   `XERO_CLIENT_ID`: Paste your Xero app's Client ID.
-    *   `XERO_CLIENT_SECRET`: Paste your Xero app's Client Secret.
-    *   Review other settings and adjust if needed (e.g., `DJANGO_SECRET_KEY` should be changed for any non-local testing).
+    - `DATABASE_URL`: Construct using your DB user, password, and name (e.g., `mysql://<your-app-name>:your-strong-password@localhost:3306/<your-app-name>`).
+    - `APP_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
+    - `XERO_CLIENT_ID`: Paste your Xero app's Client ID.
+    - `XERO_CLIENT_SECRET`: Paste your Xero app's Client Secret.
+    - Review other settings and adjust if needed (e.g., `DJANGO_SECRET_KEY` should be changed for any non-local testing).
 
 ### Step 7: Initialize Application & Database Schema
 
@@ -130,6 +130,7 @@ npm install
     python manage.py migrate
     ```
 3.  Load essential configuration and initial data fixtures:
+
     ```bash
     # Load essential company configuration
     python manage.py loaddata apps/workflow/fixtures/company_defaults.json
@@ -141,9 +142,11 @@ npm install
     python manage.py backport_data_restore
 
     ```
+
     **Default Admin Credentials (from initial_data.json):**
-    *   **Username:** `defaultadmin@example.com`
-    *   **Password:** `Default-admin-password`
+
+    - **Username:** `defaultadmin@example.com`
+    - **Password:** `Default-admin-password`
 
 4.  **(Optional) Restore production data:** If you have a production backup to work with:
     ```bash
@@ -157,6 +160,7 @@ npm install
 
 1.  Open a **new, separate terminal window**.
 2.  Run the `ngrok` command using the domain and region you recorded:
+
     ```bash
     # Replace <your-region> with your ngrok region (e.g., au, us, eu)
     # Replace <your-ngrok-domain> with the hostname from Step 3 / your .env file
@@ -166,6 +170,7 @@ npm install
     # Example:
     # ngrok http --region=au --domain=<your-app-name>-dev.ngrok-free.app 8000
     ```
+
 3.  Keep this ngrok terminal open. It forwards traffic from your public ngrok URL to your local development server.
 
 ### Step 9: Start Development Server
@@ -183,7 +188,7 @@ npm install
 1.  **Access Application:** Open your web browser and navigate to your public ngrok URL (e.g., `https://<your-app-name>-dev.ngrok-free.app`).
 2.  **Log In:** Use the default admin credentials (`defaultadmin@example.com` / `Default-admin-password`).
 3.  **Initiate Xero Connection:** Find the "Connect to Xero" or similar option (likely in Settings/Admin). Click it.
-4.  **Authorize in Xero:** You'll be redirected to Xero. Log in if needed. **Crucially, select and authorize the "Demo Company (Global)"**. Do *not* use your live company data for development.
+4.  **Authorize in Xero:** You'll be redirected to Xero. Log in if needed. **Crucially, select and authorize the "Demo Company (Global)"**. Do _not_ use your live company data for development.
 
 ### Important: Create Demo Company Shop Contact
 
@@ -197,32 +202,33 @@ npm install
    - Save the contact
 3. **Verify Creation:** Ensure the contact appears in your Xero contacts list as "Demo Company Shop"
 
-This contact is essential for proper shop hours tracking in KPI reports.
-5.  **Setup Development Xero Connection:** After authorization and creating the shop contact:
-    ```bash
+This contact is essential for proper shop hours tracking in KPI reports. 5. **Setup Development Xero Connection:** After authorization and creating the shop contact:
+`bash
     python manage.py setup_dev_xero
-    ```
-    This command will:
-    * Automatically find the Demo Company tenant ID
-    * Update your CompanyDefaults with the correct tenant ID
-    * Sync the "Demo Company Shop" client to get its Xero contact ID
-    * Skip the full sync (default behavior - use --full-sync if you want to run it)
+    `
+This command will:
+_ Automatically find the Demo Company tenant ID
+_ Update your CompanyDefaults with the correct tenant ID
+_ Sync the "Demo Company Shop" client to get its Xero contact ID
+_ Skip the full sync (default behavior - use --full-sync if you want to run it)
 
 6.  **Create shop jobs:** Create the special internal jobs for tracking shop work:
-Note - only do this if you chose not to restore from production!
-    ```bash
+    Note - only do this if you chose not to restore from production!
+    `bash
     python manage.py create_shop_jobs
-    ```
+    `
 
 7.  **Run full Xero sync:** Now sync all data from Xero:
+
     ```bash
     python manage.py start_xero_sync
     ```
 
     **Alternative Manual Setup:** If you prefer to do this manually:
-    * Get available tenant IDs: `python manage.py interact_with_xero --tenant`
-    * Manually update CompanyDefaults in the admin interface
-    * Run sync manually: `python manage.py start_xero_sync`
+
+    - Get available tenant IDs: `python manage.py interact_with_xero --tenant`
+    - Manually update CompanyDefaults in the admin interface
+    - Run sync manually: `python manage.py start_xero_sync`
 
 You now have a fully configured local development environment.
 
@@ -238,13 +244,14 @@ For running in a mode closer to production:
     ```bash
     gunicorn --bind 0.0.0.0:8000 jobs_manager.wsgi
     ```
-    *(In actual production, this would run behind a reverse proxy like Nginx, which would serve the collected static files).*
+    _(In actual production, this would run behind a reverse proxy like Nginx, which would serve the collected static files)._
 
 ## Resetting the Database (Wipe and Reload)
 
 To wipe the local database and start fresh:
 
 1.  **Create/Ensure Reset Script:** Have a script `scripts/reset_database.sql` containing:
+
     ```sql
     -- WARNING: This script DROPS the database!
     DROP DATABASE IF EXISTS <your-app-name>;
@@ -253,19 +260,23 @@ To wipe the local database and start fresh:
     GRANT ALL PRIVILEGES ON <your-app-name>.* TO '<your-app-name>'@'localhost' IDENTIFIED BY 'your-strong-password';
     FLUSH PRIVILEGES;
     ```
-    *(Replace `<your-app-name>` with your application name and `your-strong-password` with your actual DB password)*.
+
+    _(Replace `<your-app-name>` with your application name and `your-strong-password` with your actual DB password)_.
 
 2.  **Execute Reset Script:** (You might need MariaDB root password)
+
     ```bash
     mariadb -u root -p -e "source scripts/reset_database.sql"
     ```
 
 3.  **Re-install Timezone Data:** (Required for timezone-aware database functions)
+
     ```bash
     sudo mysql_tzinfo_to_sql /usr/share/zoneinfo | sudo mysql mysql
     ```
 
 4.  **Re-initialize Application:** (Activate `poetry shell` if needed)
+
     ```bash
     python manage.py migrate
     python manage.py loaddata apps/workflow/fixtures/company_defaults.json
@@ -274,12 +285,12 @@ To wipe the local database and start fresh:
     ```
 
 5.  **Re-Connect Xero and Setup:** After resetting, you **must** repeat the Xero connection steps:
-    * Log into the app and click "Connect to Xero"
-    * Authorize the Demo Company
-    * Create "Demo Company Shop" contact in Xero (if not already there)
-    * Run `python manage.py setup_dev_xero`
-    * Run `python manage.py create_shop_jobs` (only if you didn't restore from production)
-    * Run `python manage.py start_xero_sync`
+    - Log into the app and click "Connect to Xero"
+    - Authorize the Demo Company
+    - Create "Demo Company Shop" contact in Xero (if not already there)
+    - Run `python manage.py setup_dev_xero`
+    - Run `python manage.py create_shop_jobs` (only if you didn't restore from production)
+    - Run `python manage.py start_xero_sync`
 
 ## Troubleshooting
 
