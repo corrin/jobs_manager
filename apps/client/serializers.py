@@ -215,3 +215,7 @@ class JobContactResponseSerializer(serializers.Serializer):
     position = serializers.CharField(allow_blank=True, allow_null=True)
     is_primary = serializers.BooleanField()
     notes = serializers.CharField(allow_blank=True, allow_null=True)
+
+
+class JobContactUpdateRequestSerializer(JobContactResponseSerializer):
+    """Serializer for job contact update request"""

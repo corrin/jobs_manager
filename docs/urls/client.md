@@ -21,7 +21,7 @@
 ### Jobs Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/jobs/<uuid:job_id>/contact/` | `client_rest_views.JobContactRestView` | `clients:job_contact_rest` | REST view for retrieving contact information for a job. |
+| `/jobs/<uuid:job_id>/contact/` | `client_rest_views.JobContactRestView` | `clients:job_contact_rest` | REST view for contact information operations for a job. |
 
 ### Other
 | URL Pattern | View | Name | Description |

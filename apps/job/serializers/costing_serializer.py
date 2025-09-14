@@ -5,7 +5,9 @@ from pprint import pprint
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
+from apps.accounts.models import Staff
 from apps.job.models import CostLine, CostSet
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -97,8 +99,6 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
     def get_wage_rate(self, obj) -> float:
         """Get staff wage rate from metadata staff_id"""
         try:
-            from apps.accounts.models import Staff
-
             # Get staff_id from metadata
             staff_id = obj.meta.get("staff_id") if obj.meta else None
             if not staff_id:
@@ -202,9 +202,6 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 raise exception
 
             try:
-                from apps.accounts.models import Staff
-                from apps.workflow.models import CompanyDefaults
-
                 staff = Staff.objects.get(id=staff_id)
                 company_defaults = CompanyDefaults.objects.first()
 
@@ -226,7 +223,6 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     raise exception
 
                 final_wage = wage_rate * rate_multiplier
-
                 self.validated_data["unit_cost"] = final_wage
                 logger.info(
                     f"Auto-calculated unit_cost: {final_wage} for staff {staff_id}"
@@ -242,6 +238,15 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 job = self.instance.cost_set.job
                 if job and job.charge_out_rate:
                     self.validated_data["unit_rev"] = job.charge_out_rate
+
+                    is_billable = meta.get("is_billable", None)
+
+                    if is_billable is False:
+                        self.validated_data["unit_rev"] = Decimal("0.00")
+                        logger.info(
+                            f"Entry is non-billable, setting unit_rev to 0.00 for staff {staff_id}"
+                        )
+
                     logger.info(
                         f"Auto-calculated unit_rev: {job.charge_out_rate} from job {job.job_number}"
                     )
