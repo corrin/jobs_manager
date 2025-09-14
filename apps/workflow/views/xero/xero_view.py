@@ -383,12 +383,12 @@ def create_xero_purchase_order(
             extra={
                 "purchase_order_id": str(purchase_order_id),
                 "po_number": purchase_order.po_number,
-                "supplier_id": (
-                    str(purchase_order.supplier.id) if purchase_order.supplier else None
-                ),
-                "user_id": (
-                    str(request.user.id) if request.user.is_authenticated else None
-                ),
+                "supplier_id": str(purchase_order.supplier.id)
+                if purchase_order.supplier
+                else None,
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
             },
         )
         manager = XeroPurchaseOrderManager(purchase_order=purchase_order)
@@ -415,9 +415,9 @@ def create_xero_purchase_order(
                     "purchase_order_id": str(purchase_order_id),
                     "error_type": error_type,
                     "result_data": result_data,
-                    "user_id": (
-                        str(request.user.id) if request.user.is_authenticated else None
-                    ),
+                    "user_id": str(request.user.id)
+                    if request.user.is_authenticated
+                    else None,
                     "request_path": request.path,
                     "request_method": request.method,
                 },
@@ -456,9 +456,9 @@ def create_xero_purchase_order(
             f"Purchase Order not found: {purchase_order_id}",
             extra={
                 "purchase_order_id": str(purchase_order_id),
-                "user_id": (
-                    str(request.user.id) if request.user.is_authenticated else None
-                ),
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
             },
         )
         error_data = {
@@ -472,9 +472,9 @@ def create_xero_purchase_order(
             f"Unexpected error in create_xero_purchase_order view for PO {purchase_order_id}",
             extra={
                 "purchase_order_id": str(purchase_order_id),
-                "user_id": (
-                    str(request.user.id) if request.user.is_authenticated else None
-                ),
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
                 "error_type": type(e).__name__,
                 "error_message": str(e),
             },
@@ -483,9 +483,9 @@ def create_xero_purchase_order(
             e,
             additional_context={
                 "purchase_order_id": str(purchase_order_id),
-                "user_id": (
-                    str(request.user.id) if request.user.is_authenticated else None
-                ),
+                "user_id": str(request.user.id)
+                if request.user.is_authenticated
+                else None,
                 "request_path": request.path,
                 "request_method": request.method,
             },

@@ -437,11 +437,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             extra={
                 "purchase_order_id": str(self.purchase_order.id),
                 "po_number": self.purchase_order.po_number,
-                "supplier_id": (
-                    str(self.purchase_order.supplier.id)
-                    if self.purchase_order.supplier
-                    else None
-                ),
+                "supplier_id": str(self.purchase_order.supplier.id)
+                if self.purchase_order.supplier
+                else None,
                 "has_xero_id": bool(self.get_xero_id()),
             },
         )
@@ -483,11 +481,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 raw_payload,
                 extra={
                     "purchase_order_id": str(self.purchase_order.id),
-                    "raw_payload_keys": (
-                        list(raw_payload.keys())
-                        if isinstance(raw_payload, dict)
-                        else None
-                    ),
+                    "raw_payload_keys": list(raw_payload.keys())
+                    if isinstance(raw_payload, dict)
+                    else None,
                 },
             )
 
@@ -561,11 +557,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     "purchase_order_id": str(self.purchase_order.id),
                     "error_type": type(e).__name__,
                     "error_message": str(e),
-                    "supplier_name": (
-                        self.purchase_order.supplier.name
-                        if self.purchase_order.supplier
-                        else None
-                    ),
+                    "supplier_name": self.purchase_order.supplier.name
+                    if self.purchase_order.supplier
+                    else None,
                 },
             )
 
