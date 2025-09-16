@@ -1,7 +1,6 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -19,22 +18,6 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 # Enable detailed payload logging for debugging
 DEBUG_PAYLOAD = os.getenv("DEBUG_PAYLOAD").lower() == "true"
-
-
-def get_cookie_domain():
-    """Extract the root domain from TUNNEL_URL for cookie sharing between subdomains."""
-    tunnel_url = os.getenv("TUNNEL_URL")
-    if not tunnel_url:
-        return None
-
-    parsed = urlparse(tunnel_url)
-    domain_parts = parsed.hostname.split(".")
-
-    # For domains like msm-corrin.loca.lt, return .loca.lt
-    if len(domain_parts) >= 2:
-        return "." + ".".join(domain_parts[-2:])
-
-    return None
 
 
 def use_secure_cookies():
@@ -263,7 +246,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SECURE": use_secure_cookies(),  # Secure cookies for production, UAT, and tunnels
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_SAMESITE": "Lax",
-    "AUTH_COOKIE_DOMAIN": get_cookie_domain(),  # Allow shared cookies for tunnel subdomains
+    "AUTH_COOKIE_DOMAIN": os.getenv("AUTH_COOKIE_DOMAIN"),
     "REFRESH_COOKIE": "refresh_token",
     "REFRESH_COOKIE_SECURE": use_secure_cookies(),  # Secure cookies for production, UAT, and tunnels
     "REFRESH_COOKIE_HTTP_ONLY": True,
@@ -683,23 +666,43 @@ def validate_required_settings() -> None:
     """Validate that all required settings are properly configured."""
     # Define core required environment variables that must be set
     required_env_vars = [
+        # Django Core
         "SECRET_KEY",
+        "DEBUG",
+        "DEBUG_PAYLOAD",
+        "DJANGO_ENV",
+        "ALLOWED_HOSTS",
+        "DJANGO_SITE_DOMAIN",
+        # Database
         "MYSQL_DATABASE",
         "MYSQL_DB_USER",
         "DB_PASSWORD",
         "DB_HOST",
         "DB_PORT",
+        # File Storage
         "DROPBOX_WORKFLOW_FOLDER",
+        # Xero Integration
         "XERO_CLIENT_ID",
         "XERO_CLIENT_SECRET",
         "XERO_REDIRECT_URI",
         "XERO_DEFAULT_USER_ID",
+        "XERO_SYNC_PROJECTS",
+        "XERO_WEBHOOK_KEY",
+        # Email
         "EMAIL_HOST",
         "EMAIL_PORT",
         "EMAIL_USE_TLS",
         "EMAIL_HOST_USER",
         "EMAIL_HOST_PASSWORD",
         "DEFAULT_FROM_EMAIL",
+        # CORS and Authentication
+        "CORS_ALLOWED_ORIGINS",
+        "CORS_ALLOWED_HEADERS",
+        "CORS_ALLOW_CREDENTIALS",
+        "ENABLE_JWT_AUTH",
+        "AUTH_COOKIE_DOMAIN",
+        # Frontend Integration
+        "FRONT_END_URL",
     ]
 
     # Check which variables are missing or empty
@@ -799,7 +802,6 @@ if PRODUCTION_LIKE:
             "AUTH_COOKIE_SECURE": True,  # Require HTTPS for auth cookies in production
             "AUTH_COOKIE_HTTP_ONLY": True,  # httpOnly for security
             "AUTH_COOKIE_SAMESITE": "Lax",
-            "AUTH_COOKIE_DOMAIN": None,  # Let browser determine based on request domain
             "REFRESH_COOKIE": "refresh_token",
             "REFRESH_COOKIE_SECURE": True,  # Require HTTPS for refresh cookies
             "REFRESH_COOKIE_HTTP_ONLY": True,
