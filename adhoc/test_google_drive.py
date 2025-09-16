@@ -10,7 +10,7 @@ import django
 from googleapiclient.discovery import build
 
 # Setup Django
-sys.path.append("/home/corrin/src/jobs_manager")
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django.setup()
 

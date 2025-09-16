@@ -288,7 +288,7 @@ LOGIN_EXEMPT_URLS = [
 
 # For OpenAPI schema generator
 SPECTACULAR_SETTINGS = {
-    "TITLE": "MSM Jobs Manager API",
+    "TITLE": "Jobs Manager API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }

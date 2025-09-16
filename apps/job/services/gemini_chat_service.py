@@ -23,7 +23,7 @@ from apps.job.models import Job, JobQuoteChat
 from apps.job.services.quote_mode_controller import QuoteModeController
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider
+from apps.workflow.models import AIProvider, CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,8 @@ class GeminiChatService:
 
     def _get_system_prompt(self, job: Job) -> str:
         """Generate system prompt with job context for Gemini."""
-        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works,
+        company = CompanyDefaults.objects.first()
+        return f"""You are an intelligent quoting assistant for {company.company_name},
 a custom metal fabrication business. Your role is to help estimators create accurate
 quotes by using the available tools to find material pricing, compare suppliers,
 and generate estimates.

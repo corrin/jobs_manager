@@ -29,12 +29,16 @@ def create_purchase_order_email(purchase_order: PurchaseOrder) -> dict:
 
     email = purchase_order.supplier.email
 
+    from apps.workflow.models import CompanyDefaults
+
+    company = CompanyDefaults.objects.first()
+
     subject = f"Purchase Order {purchase_order.po_number}"
     body = (
         f"Hi,\n\n"
         f"Please find attached Purchase Order #{purchase_order.po_number}.\n\n"
         f"If you have any questions about this order, please reply to this e-mail.\n\n"
-        f"Thanks,\nMorris Sheetmetals Ltd."
+        f"Thanks,\n{company.company_name}"
     )
 
     mailto_url = f"mailto:{email}?subject={quote(subject)}&body={quote(body)}"
