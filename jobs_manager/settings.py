@@ -17,6 +17,9 @@ load_dotenv(BASE_DIR / ".env")
 # Load DEBUG from environment - should be False in production
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
+# Enable detailed payload logging for debugging
+DEBUG_PAYLOAD = os.getenv("DEBUG_PAYLOAD").lower() == "true"
+
 
 def get_cookie_domain():
     """Extract the root domain from TUNNEL_URL for cookie sharing between subdomains."""
