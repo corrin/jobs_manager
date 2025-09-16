@@ -69,6 +69,7 @@ class JSONToMySQLConverter:
             "job.adjustmententry": "workflow_adjustmententry",
             "job.jobevent": "workflow_jobevent",
             "job.jobfile": "workflow_jobfile",
+            # New pricing model tables
             "job.costset": "job_costset",
             "job.costline": "job_costline",
             "timesheet.timeentry": "workflow_timeentry",
@@ -94,6 +95,7 @@ class JSONToMySQLConverter:
                 "latest_estimate_pricing": "latest_estimate_pricing_id",
                 "latest_quote_pricing": "latest_quote_pricing_id",
                 "latest_reality_pricing": "latest_reality_pricing_id",
+                # New pricing model - map field names to match schema
                 "latest_estimate": "latest_estimate_id",
                 "latest_quote": "latest_quote_id",
                 "latest_actual": "latest_actual_id",
@@ -139,6 +141,7 @@ class JSONToMySQLConverter:
             "quoting_scrapejob": {
                 "supplier": "supplier_id",
             },
+            # New pricing model field mappings
             "job_costset": {
                 "job": "job_id",
             },
