@@ -72,7 +72,7 @@ update_code() {
     cd "$PROJECT_PATH"
 
     # Ensure we're on main branch and clean any local changes
-    git checkout main || git checkout -b main origin/main
+    git checkout main
 
     # Pull latest changes and force sync with remote
     git fetch origin main
