@@ -71,7 +71,10 @@ update_code() {
 
     cd "$PROJECT_PATH"
 
-    # Ensure we're on main branch and clean any local changes
+    # Clean any local changes to tracked files
+    git reset --hard
+
+    # Ensure we're on main branch
     git checkout main
 
     # Pull latest changes and force sync with remote
