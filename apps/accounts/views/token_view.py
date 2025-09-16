@@ -86,31 +86,41 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         import os
 
         simple_jwt_settings = getattr(settings, "SIMPLE_JWT", {})
-        env_samesite = os.getenv("COOKIE_SAMESITE")
+        # Master toggle to force dev-friendly cookie behavior
+        dev_mode = os.getenv("JWT_COOKIE_DEV_MODE", "False").lower() == "true"
+
+        # Base values from settings
         settings_samesite = simple_jwt_settings.get("AUTH_COOKIE_SAMESITE", "Lax")
+        secure_value = simple_jwt_settings.get("AUTH_COOKIE_SECURE", True)
+        http_only = simple_jwt_settings.get("AUTH_COOKIE_HTTP_ONLY", True)
+        cookie_domain = simple_jwt_settings.get("AUTH_COOKIE_DOMAIN")
 
-        if env_samesite:
-            env_samesite = env_samesite.capitalize()
-
-        if env_samesite and env_samesite != settings_samesite:
-            samesite_value = env_samesite
-        else:
-            samesite_value = settings_samesite
+        # Allow legacy env override only when not in dev_mode
+        samesite_value = settings_samesite
+        if not dev_mode:
+            env_samesite = os.getenv("COOKIE_SAMESITE")
+            if env_samesite:
+                env_samesite = env_samesite.capitalize()
+                if env_samesite and env_samesite != settings_samesite:
+                    samesite_value = env_samesite
+        # In dev_mode, we intentionally ignore COOKIE_SAMESITE and trust settings
 
         # Set access token cookie
         if "access" in data:
-            cookie_domain = simple_jwt_settings.get("AUTH_COOKIE_DOMAIN")
-            logger.info(f"Setting access token cookie with domain: {cookie_domain}")
+            logger.info(
+                f"Setting access token cookie with domain: {cookie_domain}, "
+                f"samesite: {samesite_value}, secure: {secure_value}, httponly: {http_only}"
+            )
             response.set_cookie(
                 simple_jwt_settings.get("AUTH_COOKIE", "access_token"),
                 data["access"],
                 max_age=simple_jwt_settings.get(
                     "ACCESS_TOKEN_LIFETIME"
                 ).total_seconds(),
-                httponly=simple_jwt_settings.get("AUTH_COOKIE_HTTP_ONLY", True),
-                secure=simple_jwt_settings.get("AUTH_COOKIE_SECURE", True),
+                httponly=http_only,
+                secure=secure_value,
                 samesite=samesite_value,
-                domain=simple_jwt_settings.get("AUTH_COOKIE_DOMAIN"),
+                domain=cookie_domain,
             )
             del data["access"]
 
