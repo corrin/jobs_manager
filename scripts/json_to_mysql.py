@@ -20,6 +20,7 @@ class JSONToMySQLConverter:
             "action_time",
             "applied",
             "completed_at",
+            "created",
             "created_at",
             "created_date_utc",
             "date",
@@ -30,6 +31,7 @@ class JSONToMySQLConverter:
             "expire_date",
             "history_date",
             "last_login",
+            "last_scraped",
             "last_xero_deep_sync",
             "last_xero_sync",
             "next_run_time",
@@ -53,6 +55,9 @@ class JSONToMySQLConverter:
             "raw_ims_data",
             "additional_contact_persons",
             "all_phones",
+            "ext_refs",
+            "meta",
+            "summary",
         }
 
         # Mapping from Django model names to MySQL table names
@@ -64,6 +69,8 @@ class JSONToMySQLConverter:
             "job.adjustmententry": "workflow_adjustmententry",
             "job.jobevent": "workflow_jobevent",
             "job.jobfile": "workflow_jobfile",
+            "job.costset": "job_costset",
+            "job.costline": "job_costline",
             "timesheet.timeentry": "workflow_timeentry",
             "accounts.staff": "workflow_staff",
             "client.client": "workflow_client",
@@ -87,6 +94,9 @@ class JSONToMySQLConverter:
                 "latest_estimate_pricing": "latest_estimate_pricing_id",
                 "latest_quote_pricing": "latest_quote_pricing_id",
                 "latest_reality_pricing": "latest_reality_pricing_id",
+                "latest_estimate": "latest_estimate_id",
+                "latest_quote": "latest_quote_id",
+                "latest_actual": "latest_actual_id",
             },
             "workflow_jobpricing": {
                 "job": "job_id",
@@ -128,6 +138,12 @@ class JSONToMySQLConverter:
             },
             "quoting_scrapejob": {
                 "supplier": "supplier_id",
+            },
+            "job_costset": {
+                "job": "job_id",
+            },
+            "job_costline": {
+                "cost_set": "cost_set_id",
             },
         }
 
