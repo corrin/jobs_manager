@@ -71,8 +71,8 @@ update_code() {
 
     cd "$PROJECT_PATH"
 
-    # Check if branch exists locally
-    git switch main
+    # Ensure we're on main branch and clean any local changes
+    git checkout main || git checkout -b main origin/main
 
     # Pull latest changes and force sync with remote
     git fetch origin main
