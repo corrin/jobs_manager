@@ -41,7 +41,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids $SCHEDULER_INSTANCE_ID \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=['sudo su - ubuntu -c \"bash $PROJECT_PATH/scripts/deploy_machine.sh main scheduler\"']" \
+            --parameters "commands=['sudo su - ubuntu -c \"$PROJECT_PATH/scripts/deploy_machine.sh main scheduler\"']" \
             --region $AWS_REGION \
             --query 'Command.CommandId' \
             --output text)
@@ -101,7 +101,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids $FRONTEND_INSTANCE_ID \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=['sudo su - ubuntu -c \"bash $PROJECT_PATH/scripts/deploy_machine.sh main frontend\"']" \
+            --parameters "commands=['sudo su - ubuntu -c \"$PROJECT_PATH/scripts/deploy_machine.sh main frontend\"']" \
             --region $AWS_REGION \
             --query 'Command.CommandId' \
             --output text)
