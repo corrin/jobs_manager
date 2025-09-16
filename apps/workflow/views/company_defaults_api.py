@@ -1,4 +1,4 @@
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,7 +11,8 @@ class CompanyDefaultsAPIView(APIView):
     API view for managing company default settings.
 
     This view provides endpoints to retrieve and update the company's default
-    configuration settings. Only admin users are permitted to access these endpoints.
+    configuration settings. All authenticated users can retrieve settings,
+    but only authenticated users can update them.
 
     Endpoints:
         GET: Retrieve current company defaults
@@ -19,13 +20,13 @@ class CompanyDefaultsAPIView(APIView):
         PATCH: Partially update company defaults
 
     Permissions:
-        - IsAdminUser: Only admin users can access this API
+        - IsAuthenticated: Any logged-in user can access this API
 
     Returns:
         Company defaults data serialized using CompanyDefaultsSerializer
     """
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
     serializer_class = CompanyDefaultsSerializer
 
     def get(self, request):

@@ -11,6 +11,8 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Table, TableStyle
 
+from apps.workflow.models.company_defaults import CompanyDefaults
+
 logger = logging.getLogger(__name__)
 
 # A4 page dimensions
@@ -77,10 +79,11 @@ class PurchaseOrderPDFGenerator:
         if not os.path.exists(logo_path):
             logger.warning(f"Logo file not found at: {logo_path}")
             # Add company name as text instead of logo
+            company_name = CompanyDefaults.get_instance().company_name
             self.pdf.setFont("Helvetica-Bold", 16)
             self.pdf.setFillColor(PRIMARY_COLOR)
             self.pdf.drawString(
-                PAGE_WIDTH - MARGIN - 150, y_position - 20, "MSM Company"
+                PAGE_WIDTH - MARGIN - 150, y_position - 20, company_name
             )
             self.pdf.setFillColor(colors.black)
             return y_position - 30
@@ -102,10 +105,11 @@ class PurchaseOrderPDFGenerator:
         except Exception as e:
             logger.warning(f"Failed to load logo from {logo_path}: {str(e)}")
             # Fallback to company name
+            company_name = CompanyDefaults.get_instance().company_name
             self.pdf.setFont("Helvetica-Bold", 16)
             self.pdf.setFillColor(PRIMARY_COLOR)
             self.pdf.drawString(
-                PAGE_WIDTH - MARGIN - 150, y_position - 20, "MSM Company"
+                PAGE_WIDTH - MARGIN - 150, y_position - 20, company_name
             )
             self.pdf.setFillColor(colors.black)
             return y_position - 30
