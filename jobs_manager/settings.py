@@ -13,6 +13,70 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
+
+def validate_required_settings() -> None:
+    """Validate that all required settings are properly configured."""
+    # Define core required environment variables that must be set
+    required_env_vars = [
+        # Django Core
+        "SECRET_KEY",
+        "DEBUG",
+        "DEBUG_PAYLOAD",
+        "DJANGO_ENV",
+        "ALLOWED_HOSTS",
+        "DJANGO_SITE_DOMAIN",
+        # Database
+        "MYSQL_DATABASE",
+        "MYSQL_DB_USER",
+        "DB_PASSWORD",
+        "DB_HOST",
+        "DB_PORT",
+        # File Storage
+        "DROPBOX_WORKFLOW_FOLDER",
+        # Xero Integration
+        "XERO_CLIENT_ID",
+        "XERO_CLIENT_SECRET",
+        "XERO_REDIRECT_URI",
+        "XERO_DEFAULT_USER_ID",
+        "XERO_SYNC_PROJECTS",
+        "XERO_WEBHOOK_KEY",
+        # Email
+        "EMAIL_HOST",
+        "EMAIL_PORT",
+        "EMAIL_USE_TLS",
+        "EMAIL_HOST_USER",
+        "EMAIL_HOST_PASSWORD",
+        "DEFAULT_FROM_EMAIL",
+        # CORS and Authentication
+        "CORS_ALLOWED_ORIGINS",
+        "CORS_ALLOWED_HEADERS",
+        "CORS_ALLOW_CREDENTIALS",
+        "ENABLE_JWT_AUTH",
+        "AUTH_COOKIE_DOMAIN",
+        # Frontend Integration
+        "FRONT_END_URL",
+    ]
+
+    # Check which variables are missing or empty
+    missing_vars = []
+    for var_name in required_env_vars:
+        value = os.getenv(var_name)
+        if not value:
+            missing_vars.append(var_name)
+
+    if missing_vars:
+        error_msg = f"Missing {len(missing_vars)} required environment variable(s):\n"
+        for var in missing_vars:
+            error_msg += f"  • {var}\n"
+
+        error_msg += "Add the missing variables to your .env file\n"
+
+        raise ImproperlyConfigured(error_msg)
+
+
+# Validate required settings BEFORE accessing any environment variables
+validate_required_settings()
+
 # Load DEBUG from environment - should be False in production
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
@@ -662,68 +726,7 @@ CACHES = {
 PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds
 
 
-def validate_required_settings() -> None:
-    """Validate that all required settings are properly configured."""
-    # Define core required environment variables that must be set
-    required_env_vars = [
-        # Django Core
-        "SECRET_KEY",
-        "DEBUG",
-        "DEBUG_PAYLOAD",
-        "DJANGO_ENV",
-        "ALLOWED_HOSTS",
-        "DJANGO_SITE_DOMAIN",
-        # Database
-        "MYSQL_DATABASE",
-        "MYSQL_DB_USER",
-        "DB_PASSWORD",
-        "DB_HOST",
-        "DB_PORT",
-        # File Storage
-        "DROPBOX_WORKFLOW_FOLDER",
-        # Xero Integration
-        "XERO_CLIENT_ID",
-        "XERO_CLIENT_SECRET",
-        "XERO_REDIRECT_URI",
-        "XERO_DEFAULT_USER_ID",
-        "XERO_SYNC_PROJECTS",
-        "XERO_WEBHOOK_KEY",
-        # Email
-        "EMAIL_HOST",
-        "EMAIL_PORT",
-        "EMAIL_USE_TLS",
-        "EMAIL_HOST_USER",
-        "EMAIL_HOST_PASSWORD",
-        "DEFAULT_FROM_EMAIL",
-        # CORS and Authentication
-        "CORS_ALLOWED_ORIGINS",
-        "CORS_ALLOWED_HEADERS",
-        "CORS_ALLOW_CREDENTIALS",
-        "ENABLE_JWT_AUTH",
-        "AUTH_COOKIE_DOMAIN",
-        # Frontend Integration
-        "FRONT_END_URL",
-    ]
-
-    # Check which variables are missing or empty
-    missing_vars = []
-    for var_name in required_env_vars:
-        value = os.getenv(var_name)
-        if not value:
-            missing_vars.append(var_name)
-
-    if missing_vars:
-        error_msg = f"Missing {len(missing_vars)} required environment variable(s):\n"
-        for var in missing_vars:
-            error_msg += f"  • {var}\n"
-
-        error_msg += "Add the missing variables to your .env file\n"
-
-        raise ImproperlyConfigured(error_msg)
-
-
-# Validate required settings after all settings are loaded
-validate_required_settings()
+# Settings validation has been moved to the top of the file
 
 # ==========================================
 # PRODUCTION-LIKE SETTINGS OVERRIDES
