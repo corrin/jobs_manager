@@ -16,7 +16,9 @@ from apps.workflow.models import AIProvider
 
 def test_pdf_parsing():
     """Test PDF parsing functionality with sample files."""
-    pdf_dir = "/home/corrin/src/jobs_manager/docs/test_pdfs/price_lists"
+    # Get the project root directory
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    pdf_dir = os.path.join(project_root, "docs", "test_pdfs", "price_lists")
     pdf_files = [
         "Copy of ST Flat Product Morris sheetmetal 5.05.2025 1.pdf",
         "Morris SM - Extrusions & Rolled Stock.pdf",

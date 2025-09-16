@@ -23,7 +23,7 @@ from django.db import transaction
 from apps.job.models import Job, JobQuoteChat
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
 from apps.workflow.enums import AIProviderTypes  # NEW
-from apps.workflow.models import AIProvider
+from apps.workflow.models import AIProvider, CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,8 @@ class MCPChatService:
 
     def _get_system_prompt(self, job: Job) -> str:
         """Generate system prompt with job context and MCP tool descriptions."""
-        return f"""You are an intelligent quoting assistant for Morris Sheetmetal Works,
+        company = CompanyDefaults.objects.first()
+        return f"""You are an intelligent quoting assistant for {company.company_name},
 a sheet metal jobbing shop.
 
 Current Job Context:
