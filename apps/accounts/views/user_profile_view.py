@@ -30,16 +30,16 @@ class GetCurrentUserAPIView(APIView):
         responses={200: UserProfileSerializer},
     )
     def get(self, request: Request) -> Response:
-        try:
-            user = request.user
-            serializer = UserProfileSerializer(user, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
-            logger.error(f"Error retrieving user profile: {e}")
+        # Defensive guard: return 401 when unauthenticated instead of 500
+        user = getattr(request, "user", None)
+        if user is None or not getattr(user, "is_authenticated", False):
+            logger.info("Unauthorized access to /accounts/me/ (anonymous user)")
             return Response(
-                {"error": f"Error retrieving user profile: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                {"detail": "Authentication credentials were not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
+        serializer = UserProfileSerializer(user, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class LogoutUserAPIView(APIView):
