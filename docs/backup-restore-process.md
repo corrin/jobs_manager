@@ -331,26 +331,7 @@ Is superuser: True
 **Command:**
 
 ```bash
-python manage.py shell -c "
-import os
-from django.conf import settings
-from apps.job.models import JobFile
-
-print('Creating dummy files for JobFile instances...')
-count = 0
-for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(file_path=''):
-    dummy_path = os.path.join(settings.MEDIA_ROOT, str(job_file.file_path))
-    os.makedirs(os.path.dirname(dummy_path), exist_ok=True)
-    with open(dummy_path, 'w') as f:
-        f.write(f'Dummy file for JobFile {job_file.pk}\\n')
-        f.write(f'Original path: {job_file.file_path}\\n')
-        f.write(f'Original filename: {job_file.filename}\\n')
-        f.write(f'Job: {job_file.job.name if job_file.job else \"None\"}\\n')
-    count += 1
-    if count % 10 == 0:
-        print(f'Created {count} dummy files...')
-print(f'Created {count} dummy files total')
-"
+python scripts/recreate_jobfiles.py
 ```
 
 **Check:**
