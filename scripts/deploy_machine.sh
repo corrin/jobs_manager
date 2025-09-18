@@ -81,9 +81,6 @@ update_code() {
     git fetch origin main
     git reset --hard origin/main
 
-    # Ensure deploy script has execute permissions
-    chmod +x "$PROJECT_PATH/scripts/deploy_machine.sh"
-
     log_success "Code update complete"
 }
 
