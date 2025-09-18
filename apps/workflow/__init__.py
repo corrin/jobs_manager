@@ -28,12 +28,7 @@ try:
             PasswordStrengthMiddleware,
         )
         from .permissions import F
-        from .scheduler import (
-            get_scheduler,
-            should_start_scheduler,
-            start_scheduler,
-            stop_scheduler,
-        )
+        from .scheduler import get_scheduler, stop_scheduler
         from .scheduler_jobs import (
             xero_30_day_sync_job,
             xero_heartbeat_job,
@@ -122,8 +117,6 @@ __all__ = [
     "process_webhook_event",
     "process_webhook_queue",
     "service_api_key_required",
-    "should_start_scheduler",
-    "start_scheduler",
     "stop_scheduler",
     "validate_webhook_signature",
     "xero_30_day_sync_job",
