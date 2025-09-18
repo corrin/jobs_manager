@@ -715,3 +715,113 @@ class JobBasicInformationResponseSerializer(serializers.Serializer):
     delivery_date = serializers.DateField(allow_null=True)
     order_number = serializers.CharField(allow_blank=True, allow_null=True)
     notes = serializers.CharField(allow_blank=True, allow_null=True)
+
+
+class JobPatchRequestSerializer(serializers.Serializer):
+    """Serializer for job PATCH request - all updatable fields are optional"""
+
+    # Basic job information
+    name = serializers.CharField(
+        max_length=100, required=False, allow_blank=False, help_text="Job name"
+    )
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, help_text="Job description"
+    )
+    notes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="Internal notes about the job",
+    )
+    order_number = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="Order number",
+    )
+
+    # Status and workflow
+    job_status = serializers.ChoiceField(
+        choices=Job.JOB_STATUS_CHOICES, required=False, help_text="Job status"
+    )
+    paid = serializers.BooleanField(
+        required=False, help_text="Whether the job has been paid"
+    )
+    job_is_valid = serializers.BooleanField(
+        required=False, help_text="Whether the job is valid"
+    )
+
+    # Dates
+    delivery_date = serializers.DateField(
+        required=False, allow_null=True, help_text="Delivery date"
+    )
+    quote_acceptance_date = serializers.DateTimeField(
+        required=False, allow_null=True, help_text="Quote acceptance date"
+    )
+
+    # Financial
+    charge_out_rate = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=False,
+        help_text="Charge out rate",
+    )
+    pricing_methodology = serializers.ChoiceField(
+        choices=Job.PRICING_METHODOLOGY_CHOICES,
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        help_text="Pricing methodology",
+    )
+
+    # Relationships (only IDs, no derived names)
+    client_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="Client ID"
+    )
+    contact_id = serializers.UUIDField(
+        required=False, allow_null=True, help_text="Contact person ID"
+    )
+
+    # Files
+    job_files = serializers.ListField(
+        child=serializers.DictField(), required=False, help_text="Job files"
+    )
+
+    def validate_client_id(self, value):
+        """Validate that client exists if provided"""
+        if value:
+            try:
+                Client.objects.get(id=value)
+            except Client.DoesNotExist:
+                raise serializers.ValidationError("Client not found")
+        return value
+
+    def validate_contact_id(self, value):
+        """Validate that contact exists if provided"""
+        if value:
+            try:
+                ClientContact.objects.get(id=value)
+            except ClientContact.DoesNotExist:
+                raise serializers.ValidationError("Contact not found")
+        return value
+
+    def validate(self, attrs):
+        """Cross-field validation"""
+        # Validate contact belongs to client if both are provided
+        contact_id = attrs.get("contact_id")
+        client_id = attrs.get("client_id")
+
+        if contact_id and client_id:
+            try:
+                contact = ClientContact.objects.get(id=contact_id)
+                client = Client.objects.get(id=client_id)
+                if contact.client != client:
+                    raise serializers.ValidationError(
+                        {"contact_id": "Contact does not belong to the selected client"}
+                    )
+            except (ClientContact.DoesNotExist, Client.DoesNotExist):
+                pass  # Individual field validation will catch these
+
+        return attrs

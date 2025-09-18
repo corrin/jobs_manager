@@ -35,6 +35,7 @@ from apps.job.serializers.job_serializer import (
     JobEventsResponseSerializer,
     JobHeaderResponseSerializer,
     JobInvoicesResponseSerializer,
+    JobPatchRequestSerializer,
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
@@ -277,6 +278,49 @@ class JobDetailRestView(BaseJobRestView):
 
             # Update the job using the service layer
             JobRestService.update_job(job_id, data, request.user)
+
+            # Return complete job data for frontend reactivity
+            job_data = JobRestService.get_job_for_edit(job_id, request)
+
+            # The service returns already-serialized data, so wrap it properly
+            response_data = {"success": True, "data": job_data}
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+    @extend_schema(
+        request=JobPatchRequestSerializer,
+        responses={
+            200: JobDetailResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Partially update Job data. Only updates the fields provided in the request body.",
+        tags=["Jobs"],
+    )
+    def patch(self, request, job_id):
+        """
+        Partially update Job data.
+        Only updates the fields provided in the request body.
+        """
+        try:
+            data = self.parse_json_body(request)
+
+            # Validate input data with PATCH-specific serializer
+            input_serializer = JobPatchRequestSerializer(data=data)
+            if not input_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {input_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update the job using the service layer (supports partial updates)
+            JobRestService.update_job(
+                job_id, input_serializer.validated_data, request.user
+            )
 
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
