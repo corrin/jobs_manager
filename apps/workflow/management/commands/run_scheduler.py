@@ -1,8 +1,6 @@
-import os
-
 from django.core.management.base import BaseCommand
 
-from apps.workflow.scheduler import start_scheduler
+from apps.workflow.scheduler import get_scheduler
 
 
 class Command(BaseCommand):
@@ -12,12 +10,13 @@ class Command(BaseCommand):
         import signal
         import sys
 
-        # instruct scheduler.py that we really want it to run
-        os.environ["DJANGO_RUN_SCHEDULER"] = "1"
-
-        if not start_scheduler():
-            self.stderr.write("Scheduler already running or failed to start.")
+        try:
+            scheduler = get_scheduler()
+            scheduler.start()
+            self.stdout.write(
+                self.style.SUCCESS("APScheduler started. Waiting for jobs…")
+            )
+            signal.pause()  # keep the process alive until SIGTERM/SIGINT
+        except Exception as e:
+            self.stderr.write(f"Failed to start scheduler: {e}")
             sys.exit(1)
-
-        self.stdout.write(self.style.SUCCESS("APScheduler started. Waiting for jobs…"))
-        signal.pause()  # keep the process alive until SIGTERM/SIGINT
