@@ -232,8 +232,8 @@ def get_auth_cookie_samesite():
     )
 
 
-# Control scheduler registration - used to skip scheduler setup for commands like dbshell
-RUN_SCHEDULER = not os.getenv("DJANGO_SKIP_SCHEDULER_INIT")
+# Control scheduler registration - only register jobs when explicitly enabled
+RUN_SCHEDULER = os.getenv("DJANGO_RUN_SCHEDULER")
 
 # Detect production-like environment (for UAT/production)
 # This matches the original settings/__init__.py logic

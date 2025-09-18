@@ -1,3 +1,4 @@
+from django.apps import apps
 from django.core.management.base import BaseCommand
 
 from apps.workflow.scheduler import get_scheduler
@@ -9,6 +10,16 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         import signal
         import sys
+
+        # Register jobs from each app that has them
+        workflow_app = apps.get_app_config("workflow")
+        workflow_app._register_xero_jobs()
+
+        quoting_app = apps.get_app_config("quoting")
+        quoting_app._register_scraper_jobs()
+
+        job_app = apps.get_app_config("job")
+        job_app._register_job_jobs()
 
         try:
             scheduler = get_scheduler()
