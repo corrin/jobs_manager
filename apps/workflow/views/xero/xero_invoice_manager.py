@@ -94,27 +94,33 @@ class XeroInvoiceManager(XeroDocumentManager):
     def get_line_items(self):
         """
         Generate invoice LineItems using only CostSet/CostLine.
-        Uses the latest CostSet of kind 'actual'.
+        Uses the latest CostSet of kind 'quote' for fixed price jobs,
+        or 'actual' for time & materials jobs.
         """
         if not self.job:
             raise ValueError("Job is required to generate invoice line items.")
 
-        latest_actual = (
-            CostSet.objects.filter(job=self.job, kind="actual")
+        # Determine which CostSet kind to use based on pricing methodology
+        cost_set_kind = (
+            "quote" if self.job.pricing_methodology == "fixed_price" else "actual"
+        )
+
+        latest_cost_set = (
+            CostSet.objects.filter(job=self.job, kind=cost_set_kind)
             .order_by("-rev", "-created")
             .first()
         )
-        if not latest_actual:
+        if not latest_cost_set:
             raise ValueError(
-                f"Job {self.job.id} does not have an 'actual' CostSet for invoicing."
+                f"Job {self.job.id} does not have a '{cost_set_kind}' CostSet for invoicing."
             )
 
         # Try to get total revenue from summary, otherwise sum unit_rev from cost lines
         total_revenue = None
-        if latest_actual.summary and isinstance(latest_actual.summary, dict):
-            total_revenue = latest_actual.summary.get("rev")
+        if latest_cost_set.summary and isinstance(latest_cost_set.summary, dict):
+            total_revenue = latest_cost_set.summary.get("rev")
         if total_revenue is None:
-            total_revenue = sum(cl.unit_rev for cl in latest_actual.cost_lines.all())
+            total_revenue = sum(cl.unit_rev for cl in latest_cost_set.cost_lines.all())
         total_revenue = float(total_revenue or 0.0)
 
         description = f"Job: {self.job.job_number}"
