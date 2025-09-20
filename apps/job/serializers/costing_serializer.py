@@ -164,17 +164,15 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_unit_cost(self, value):
-        """Validate unit cost is non-negative"""
+        """Validate unit cost - allow negative values for adjustments"""
         logger.info(f"Validating unit_cost: {value} (type: {type(value)})")
-        if value < 0:
-            raise serializers.ValidationError("Unit cost must be non-negative")
+        # Allow negative values for adjustments, discounts, credits
         return value
 
     def validate_unit_rev(self, value):
-        """Validate unit revenue is non-negative"""
+        """Validate unit revenue - allow negative values for adjustments"""
         logger.info(f"Validating unit_rev: {value} (type: {type(value)})")
-        if value < 0:
-            raise serializers.ValidationError("Unit revenue must be non-negative")
+        # Allow negative values for adjustments, discounts, credits
         return value
 
     def save(self, **kwargs):
