@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from django.contrib.auth import authenticate
@@ -53,36 +54,58 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         raise serializers.ValidationError("Invalid credentials")
 
 
-class StaffSerializer(serializers.ModelSerializer):
+class GenericStaffMethodsMixin:
+    """
+    Utilitary methods shared between StaffSerializer and StaffCreateSerializer
+    - Normalises arrays received as "" (groups, user_permissions)
+    - Normalises decimal fields received as "" to "0.00" (wage_rate, hours_*)
+    """
+
+    ARRAY_FIELDS = ["groups", "user_permissions"]
+    DECIMAL_FIELDS = [
+        "wage_rate",
+        "hours_mon",
+        "hours_tue",
+        "hours_wed",
+        "hours_thu",
+        "hours_fri",
+        "hours_sat",
+        "hours_sun",
+    ]
+
     def to_internal_value(self, data: Any) -> Dict[str, Any]:
-        data = data.copy()  # QueryDict can be immutable, so we copy it
+        is_querydict = hasattr(data, "getlist")
+        if is_querydict:
+            data = data.copy()
 
-        # Handle empty string fields that should be converted to proper values
-        for field in ["groups", "user_permissions"]:
-            # Usually it comes as a QueryDict so we can use getlist directly
-            value = data.getlist(field)
-            if value == [""]:
-                data.setlist(field, [])
+        for field in self.ARRAY_FIELDS:
+            if is_querydict:
+                values = data.getlist(field)
+                if values == [""] or values == [] or not values:
+                    data.setlist(field, [])
+            else:
+                value = data.get(field)
+                if value in ("", None):
+                    data[field] = []
 
-        # Handle decimal fields that might come as empty strings
-        decimal_fields = [
-            "wage_rate",
-            "hours_mon",
-            "hours_tue",
-            "hours_wed",
-            "hours_thu",
-            "hours_fri",
-            "hours_sat",
-            "hours_sun",
-        ]
-        for field in decimal_fields:
-            if field in data and data[field] == "":
-                data[field] = "0.00"
+        for field in self.DECIMAL_FIELDS:
+            if is_querydict:
+                value = data.get(field)
+                if value == "":
+                    data[field] = "0.00"
+            else:
+                if field in data and data[field] == "":
+                    data[field] = str(Decimal("0.00"))
 
         return super().to_internal_value(data)
 
-    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
-        return super().validate(attrs)
+
+class BaseStaffSerializer(GenericStaffMethodsMixin, serializers.ModelSerializer):
+    """Base serializer for Staff model with shared logic for create and update operations."""
+
+
+class StaffSerializer(BaseStaffSerializer):
+    icon = serializers.ImageField(required=False, allow_null=True)
 
     def update(self, instance: Staff, validated_data: Dict[str, Any]) -> Staff:
         password = validated_data.pop("password", None)
@@ -92,9 +115,105 @@ class StaffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Staff
-        fields = "__all__"
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "preferred_name",
+            "password",
+            "wage_rate",
+            "ims_payroll_id",
+            "icon",
+            "raw_ims_data",
+            "xero_user_id",
+            "date_left",
+            "is_staff",
+            "is_superuser",
+            "groups",
+            "user_permissions",
+            "hours_mon",
+            "hours_tue",
+            "hours_wed",
+            "hours_thu",
+            "hours_fri",
+            "hours_sat",
+            "hours_sun",
+            # Read-only fields
+            "last_login",
+            "date_joined",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "last_login",
+            "date_joined",
+            "created_at",
+            "updated_at",
+        ]
         extra_kwargs = {
-            "password": {"required": False},
+            "password": {"required": False, "write_only": True},
+            "groups": {"required": False},
+            "user_permissions": {"required": False},
+            "preferred_name": {"required": False},
+            "ims_payroll_id": {"required": False},
+            "raw_ims_data": {"required": False},
+            "xero_user_id": {"required": False},
+            "date_left": {"required": False},
+            "icon": {"required": False},
+        }
+
+
+class StaffCreateSerializer(BaseStaffSerializer):
+    icon = serializers.ImageField(required=False, allow_null=True)
+
+    def create(self, validated_data: Dict[str, Any]) -> Staff:
+        password = validated_data.pop("password", None)
+
+        instance = super().create(validated_data)
+
+        if password:
+            instance.set_password(password)
+        else:
+            instance.set_unusable_password()
+
+        instance.save()
+
+        return instance
+
+    def to_representation(self, instance):
+        return StaffSerializer(instance, context=self.context).data
+
+    class Meta:
+        model = Staff
+        fields = [
+            "first_name",
+            "last_name",
+            "preferred_name",
+            "email",
+            "password",
+            "wage_rate",
+            "ims_payroll_id",
+            "icon",
+            "hours_mon",
+            "hours_tue",
+            "hours_wed",
+            "hours_thu",
+            "hours_fri",
+            "hours_sat",
+            "hours_sun",
+            "is_staff",
+            "is_superuser",
+            "groups",
+            "user_permissions",
+        ]
+
+        extra_kwargs = {
+            "password": {"required": True, "write_only": True},
+            "groups": {"required": False},
+            "user_permissions": {"required": False},
+            "preferred_name": {"required": False},
         }
 
 

@@ -12,9 +12,12 @@ try:
         from .models import Staff
         from .permissions import IsStaff
         from .serializers import (
+            BaseStaffSerializer,
             CustomTokenObtainPairSerializer,
             EmptySerializer,
+            GenericStaffMethodsMixin,
             KanbanStaffSerializer,
+            StaffCreateSerializer,
             StaffSerializer,
             TokenObtainPairResponseSerializer,
             TokenRefreshResponseSerializer,
@@ -32,12 +35,15 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "AccountsConfig",
+    "BaseStaffSerializer",
     "CustomTokenObtainPairSerializer",
     "EmptySerializer",
+    "GenericStaffMethodsMixin",
     "IsStaff",
     "KanbanStaffSerializer",
     "Staff",
     "StaffChangeForm",
+    "StaffCreateSerializer",
     "StaffCreationForm",
     "StaffManager",
     "StaffSerializer",
