@@ -590,20 +590,16 @@ class JobHeaderRestView(BaseJobRestView):
                 "job_id": str(job.id),
                 "job_number": job.job_number,
                 "name": job.name,
-                "client": (
-                    {"id": str(job.client.id), "name": job.client.name}
-                    if job.client
-                    else None
-                ),
+                "client": {"id": str(job.client.id), "name": job.client.name}
+                if job.client
+                else None,
                 "status": job.status,
                 "pricing_methodology": job.pricing_methodology,
                 "fully_invoiced": job.fully_invoiced,
                 "quoted": job.quoted,
-                "quote_acceptance_date": (
-                    job.quote_acceptance_date.isoformat()
-                    if job.quote_acceptance_date
-                    else None
-                ),
+                "quote_acceptance_date": job.quote_acceptance_date.isoformat()
+                if job.quote_acceptance_date
+                else None,
                 "paid": job.paid,
             }
 
@@ -718,72 +714,48 @@ class JobCostSummaryRestView(BaseJobRestView):
 
             # Build frontend-expected summary data with profitMargin
             summary_data = {
-                "estimate": (
-                    {
-                        "cost": (
-                            estimate.summary.get("cost", 0)
-                            if estimate and estimate.summary
-                            else 0
-                        ),
-                        "rev": (
-                            estimate.summary.get("rev", 0)
-                            if estimate and estimate.summary
-                            else 0
-                        ),
-                        "hours": (
-                            estimate.summary.get("hours", 0)
-                            if estimate and estimate.summary
-                            else 0
-                        ),
-                        "profitMargin": calculate_profit_margin(estimate),
-                    }
+                "estimate": {
+                    "cost": estimate.summary.get("cost", 0)
                     if estimate and estimate.summary
-                    else None
-                ),
-                "quote": (
-                    {
-                        "cost": (
-                            quote.summary.get("cost", 0)
-                            if quote and quote.summary
-                            else 0
-                        ),
-                        "rev": (
-                            quote.summary.get("rev", 0)
-                            if quote and quote.summary
-                            else 0
-                        ),
-                        "hours": (
-                            quote.summary.get("hours", 0)
-                            if quote and quote.summary
-                            else 0
-                        ),
-                        "profitMargin": calculate_profit_margin(quote),
-                    }
+                    else 0,
+                    "rev": estimate.summary.get("rev", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "hours": estimate.summary.get("hours", 0)
+                    if estimate and estimate.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(estimate),
+                }
+                if estimate and estimate.summary
+                else None,
+                "quote": {
+                    "cost": quote.summary.get("cost", 0)
                     if quote and quote.summary
-                    else None
-                ),
-                "actual": (
-                    {
-                        "cost": (
-                            actual.summary.get("cost", 0)
-                            if actual and actual.summary
-                            else 0
-                        ),
-                        "rev": (
-                            actual.summary.get("rev", 0)
-                            if actual and actual.summary
-                            else 0
-                        ),
-                        "hours": (
-                            actual.summary.get("hours", 0)
-                            if actual and actual.summary
-                            else 0
-                        ),
-                        "profitMargin": calculate_profit_margin(actual),
-                    }
+                    else 0,
+                    "rev": quote.summary.get("rev", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "hours": quote.summary.get("hours", 0)
+                    if quote and quote.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(quote),
+                }
+                if quote and quote.summary
+                else None,
+                "actual": {
+                    "cost": actual.summary.get("cost", 0)
                     if actual and actual.summary
-                    else None
-                ),
+                    else 0,
+                    "rev": actual.summary.get("rev", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "hours": actual.summary.get("hours", 0)
+                    if actual and actual.summary
+                    else 0,
+                    "profitMargin": calculate_profit_margin(actual),
+                }
+                if actual and actual.summary
+                else None,
             }
 
             serializer = JobCostSummaryResponseSerializer(summary_data)
