@@ -124,10 +124,7 @@ class CostLine(models.Model):
                 f"CostLine has negative quantity: {self.quantity} for {self.desc}"
             )
 
-        if self.unit_cost < 0:
-            raise ValidationError("Unit cost must be non-negative")
-        if self.unit_rev < 0:
-            raise ValidationError("Unit revenue must be non-negative")
+        # Allow negative values for adjustments, discounts, credits, etc.
 
     def _update_cost_set_summary(self) -> None:
         """Update cost set summary with aggregated data - PRESERVE existing data"""
