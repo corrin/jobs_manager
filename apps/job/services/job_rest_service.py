@@ -215,9 +215,9 @@ class JobRestService:
 
         return {
             "description": job.description or "",
-            "delivery_date": (
-                job.delivery_date.isoformat() if job.delivery_date else None
-            ),
+            "delivery_date": job.delivery_date.isoformat()
+            if job.delivery_date
+            else None,
             "order_number": job.order_number or "",
             "notes": job.notes or "",
         }
@@ -505,7 +505,7 @@ class JobRestService:
     @staticmethod
     def accept_quote(job_id: UUID, user: Staff) -> Dict[str, Any]:
         """
-        Accept a quote for a job by setting the quote_acceptance_date and changing status to approved.
+        Accept a quote for a job by setting the quote_acceptance_date.
 
         Args:
             job_id: Job UUID
@@ -526,15 +526,8 @@ class JobRestService:
         if job.quote_acceptance_date:
             raise ValueError("Quote has already been accepted")
 
-        # Guard clause - only allow acceptance from draft or awaiting_approval states
-        if job.status not in ["draft", "awaiting_approval"]:
-            raise ValueError(
-                f"Cannot accept quote when job status is '{job.status}'. Job must be in 'draft' or 'awaiting_approval' state."
-            )
-
         with transaction.atomic():
             job.quote_acceptance_date = datetime.now()
-            job.status = "approved"
             job.save()
 
             # Log the acceptance
@@ -542,18 +535,15 @@ class JobRestService:
                 job=job,
                 staff=user,
                 event_type="quote_accepted",
-                description="Quote accepted - status changed to approved",
+                description="Quote accepted",
             )
 
-        logger.info(
-            f"Quote accepted for job {job.job_number} by {user.email} - status changed to approved"
-        )
+        logger.info(f"Quote accepted for job {job.job_number} by {user.email}")
 
         return {
             "success": True,
             "job_id": str(job_id),
             "quote_acceptance_date": job.quote_acceptance_date.isoformat(),
-            "status": job.status,
             "message": "Quote accepted successfully",
         }
 
