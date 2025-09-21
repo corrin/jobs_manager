@@ -86,6 +86,9 @@ class CostLine(models.Model):
     )
     meta = models.JSONField(default=dict, help_text="Additional metadata")
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
     # Xero sync fields for bidirectional time/expense tracking
     # This really shouldn't be here. It should be on ext_refs. That's the whole point of ext_refs and the whole costline model.
     # This violates the hexagonal architecture principles.
@@ -97,8 +100,10 @@ class CostLine(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["cost_set_id", "kind"]),
+            models.Index(fields=["cost_set_id", "created_at"]),
+            models.Index(fields=["cost_set_id", "kind", "created_at"]),
         ]
-        ordering = ["id"]
+        ordering = ["-created_at", "-id"]
 
     def __str__(self):
         return f"{self.cost_set} - {self.get_kind_display()}: {self.desc}"

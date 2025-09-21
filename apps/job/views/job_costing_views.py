@@ -8,12 +8,14 @@ import logging
 from datetime import datetime
 
 from django.db import transaction
+from django.db.models import Case, IntegerField, Prefetch, Value, When
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin
+from apps.job.models.costing import CostLine, CostSet
 from apps.job.serializers import CostSetSerializer
 from apps.job.serializers.costing_serializer import (
     QuoteRevisionRequestSerializer,
@@ -22,6 +24,15 @@ from apps.job.serializers.costing_serializer import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+KIND_ORDER = Case(
+    When(kind="material", then=Value(1)),
+    When(kind="adjust", then=Value(2)),
+    When(kind="time", then=Value(3)),
+    default=Value(999),
+    output_field=IntegerField(),
+)
 
 
 class JobCostSetView(JobLookupMixin, APIView):
@@ -62,7 +73,18 @@ class JobCostSetView(JobLookupMixin, APIView):
             return error_response
 
         # Get the latest CostSet using the job's helper method
-        cost_set = job.get_latest(kind)
+        cost_set = (
+            CostSet.objects.filter(job=job, kind=kind)
+            .prefetch_related(
+                Prefetch(
+                    "cost_lines",
+                    queryset=CostLine.objects.order_by(
+                        KIND_ORDER, "-created_at", "-id"
+                    ),
+                )
+            )
+            .first()
+        )
 
         if cost_set is None:
             return Response(
