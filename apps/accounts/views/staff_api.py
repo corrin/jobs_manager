@@ -57,10 +57,10 @@ class StaffListCreateAPIView(generics.ListCreateAPIView):
     def get_queryset(self):
         return Staff.objects.all()
 
-    def get_serializer(self, *args, **kwargs):
+    def get_serializer_class(self):
         if self.request.method == "POST":
-            return StaffCreateSerializer(*args, **kwargs)
-        return StaffSerializer(*args, **kwargs)
+            return StaffCreateSerializer
+        return StaffSerializer
 
     @extend_schema(
         summary="Create a new staff member",
@@ -78,7 +78,7 @@ class StaffListCreateAPIView(generics.ListCreateAPIView):
         except ValidationError as e:
             logger.error(f"[StaffCreate] Error during staff creation: {str(e)}")
             return Response(
-                {"error": f"Error during staff creation: {str(e)}"},
+                e.detail,
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
