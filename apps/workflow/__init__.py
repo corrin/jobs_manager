@@ -26,6 +26,7 @@ try:
             FrontendRedirectMiddleware,
             LoginRequiredMiddleware,
             PasswordStrengthMiddleware,
+            ServerTimingMiddleware,
         )
         from .permissions import F
         from .scheduler import get_scheduler, stop_scheduler
@@ -88,6 +89,7 @@ __all__ = [
     "FrontendRedirectMiddleware",
     "LoginRequiredMiddleware",
     "PasswordStrengthMiddleware",
+    "ServerTimingMiddleware",
     "ServiceAPIKeyAuthentication",
     "WorkflowConfig",
     "XeroAccountSerializer",

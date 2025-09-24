@@ -307,7 +307,8 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "django.middleware.gzip.GZipMiddleware",  # Enable gzip compression for API responses (early in response)
+    "django.middleware.gzip.GZipMiddleware",
+    "apps.workflow.middleware.ServerTimingMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -551,6 +552,9 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT"),
         "TEST": {
             "NAME": "test_msm_workflow",
+        },
+        "OPTIONS": {
+            "charset": "utf8mb4",
         },
     },
 }

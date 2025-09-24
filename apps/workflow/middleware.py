@@ -1,4 +1,6 @@
 import logging
+import time
+import uuid
 from datetime import datetime
 from typing import Callable
 
@@ -7,6 +9,7 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.deprecation import MiddlewareMixin
 
 from apps.workflow.services.error_persistence import persist_app_error
 from jobs_manager.authentication import JWTAuthentication
@@ -332,3 +335,20 @@ class PasswordStrengthMiddleware:
                 return redirect("accounts:password_change")
 
         return self.get_response(request)
+
+
+class ServerTimingMiddleware(MiddlewareMixin):
+    def process_request(self, request):
+        request._t0 = time.perf_counter()
+        request._rid = uuid.uuid4().hex
+
+    def process_response(self, request, response):
+        try:
+            dur_ms = (
+                time.perf_counter() - getattr(request, "_t0", time.perf_counter())
+            ) * 1000
+            response["Server-Timing"] = f'app;desc="django view";dur={dur_ms:.1f}'
+            response["Timing-Allow-Origin"] = "*"
+            response["X-Request-Id"] = getattr(request, "_rid", "")
+        finally:
+            return response
