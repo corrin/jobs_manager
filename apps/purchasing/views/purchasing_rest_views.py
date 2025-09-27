@@ -6,6 +6,8 @@ from decimal import Decimal, InvalidOperation
 
 from django.db.models import OuterRef, Subquery
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
@@ -448,6 +450,12 @@ class DeliveryReceiptRestView(APIView):
             )
 
 
+@method_decorator(
+    cache_page(
+        10
+    ),  # Short cache to de-duplicate immediate double fetches from jobs page
+    name="dispatch",
+)
 class StockListRestView(APIView):
     """
     REST API view for listing and creating stock items.
@@ -455,6 +463,11 @@ class StockListRestView(APIView):
     GET: Returns list of all stock items
     POST: Creates new stock item from provided data
     """
+
+    # Why cached:
+    # - The jobs page triggers two back-to-back GETs to this endpoint on load.
+    # - Caching for 10s removes redundant work and reduces perceived wait without changing frontend.
+    # - Safe to revert by removing the cache_page decorator if behavior changes.
 
     def get_serializer_class(self):
         """Return appropriate serializer class based on request method."""
