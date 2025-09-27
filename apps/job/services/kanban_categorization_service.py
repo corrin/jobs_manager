@@ -73,6 +73,13 @@ class KanbanCategorizationService:
             color_theme="emerald",
             badge_color_class="bg-emerald-500",
         ),
+        "archived": KanbanColumn(
+            column_id="archived",
+            column_title="Archived",
+            status_key="archived",
+            color_theme="gray",
+            badge_color_class="bg-gray-500",
+        ),
     }
 
     # Status to column mapping for quick lookup - simplified 1:1 mapping
@@ -84,6 +91,7 @@ class KanbanCategorizationService:
         "in_progress": "in_progress",
         "unusual": "unusual",
         "recently_completed": "recently_completed",
+        "archived": "archived",
         # Legacy status mappings for backward compatibility (will be migrated)
         "quoting": "awaiting_approval",  # Legacy: map to awaiting_approval
         "accepted_quote": "approved",  # Legacy: map to approved
@@ -132,6 +140,7 @@ class KanbanCategorizationService:
             cls.COLUMN_STRUCTURE["in_progress"],
             cls.COLUMN_STRUCTURE["unusual"],
             cls.COLUMN_STRUCTURE["recently_completed"],
+            cls.COLUMN_STRUCTURE["archived"],
         ]
 
     @classmethod
@@ -193,7 +202,7 @@ class KanbanCategorizationService:
         Returns:
             True if status should be hidden from kanban
         """
-        hidden_statuses = {"special", "rejected", "archived"}
+        hidden_statuses = {"special", "rejected"}
         return status in hidden_statuses
 
     @classmethod
