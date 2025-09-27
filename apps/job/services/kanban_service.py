@@ -140,6 +140,7 @@ class KanbanService:
             "status_key": job.status,
             "rejected_flag": job.rejected_flag,
             "paid": job.paid,
+            "fully_invoiced": job.fully_invoiced,
             "created_by_id": job.created_by.id if job.created_by else None,
             "created_at": (
                 job.created_at.strftime("%d/%m/%Y") if job.created_at else None
@@ -479,6 +480,7 @@ class KanbanService:
                     "status": job.status,
                     "status_key": job.status,
                     "paid": job.paid,
+                    "fully_invoiced": job.fully_invoiced,
                     "created_by_id": (
                         str(job.created_by_id) if job.created_by_id else None
                     ),
