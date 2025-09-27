@@ -134,3 +134,5 @@ steel_and_tube_products.csv
 steel_and_tube_products.json
 cookies.txt
 .env.uat
+adhoc/performance_investigation/*.json
+adhoc/

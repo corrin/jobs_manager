@@ -36,6 +36,7 @@
     "moment": "^2.30.1",
     "pdfmake": "^0.2.18",
     "prettier": "^3.5.1",
+    "puppeteer": "^24.22.3",
     "quill": "^2.0.3",
     "sortablejs": "^1.15.6"
   }

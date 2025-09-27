@@ -15,6 +15,16 @@ YOU MUST RUN EVERY SINGLE STEP IN THE RESTORE. No step can be skipped, including
 Make sure you create an audit log of any run of this script in logs, e.g restore_log_20250711.txt
 Write to this log each step, and the outcome from running that step (e.g. test results). Do this after each step, don't wait until the end.
 
+## CRITICAL ORDER ENFORCEMENT
+
+**NEVER run steps out of order. The following steps MUST be completed before ANY testing:**
+1. Steps 1-16: Basic restore and setup
+2. Step 17: **XERO OAUTH CONNECTION** (MANUAL - CANNOT BE SKIPPED)
+3. Steps 18-21: Xero configuration
+4. Steps 22-24: Testing ONLY AFTER Xero is connected
+
+**Testing (Steps 22-24) is FORBIDDEN until Xero OAuth (Step 17) is complete.**
+
 ## Common mistakes to avoid
 
 1. Always avoid using < to pass SQL scripts. It works for small scripts but not big ones. You MUST stick to --execute="source scripts/file.sql"
@@ -423,6 +433,24 @@ python manage.py runserver 0.0.0.0:8000
 **CRITICAL:** This step CANNOT be skipped or automated. You MUST instruct the user to log into Xero before proceeding.
 **WARNING:** ALL FUTURE STEPS WILL FAIL WITHOUT COMPLETING THIS STEP FIRST.
 **DO NOT PROCEED TO STEP 18 OR ANY SUBSEQUENT STEP WITHOUT COMPLETING THIS STEP.**
+
+**AUTOMATED ENFORCEMENT:** Before proceeding to Step 18, YOU MUST run this verification:
+
+```bash
+# MANDATORY VERIFICATION - DO NOT SKIP
+python manage.py shell -c "
+from apps.workflow.models import XeroToken
+if not XeroToken.objects.filter(is_active=True).exists():
+    print('❌ CRITICAL ERROR: No active Xero token found!')
+    print('❌ You MUST complete Xero OAuth connection before continuing.')
+    print('❌ STOP HERE. Do not proceed to any further steps.')
+    exit(1)
+else:
+    print('✅ Xero OAuth token found. Safe to proceed.')
+"
+```
+
+**If the verification fails, STOP IMMEDIATELY. Do not attempt any workarounds.**
 
 **Steps:**
 
