@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import uuid
+import zipfile
 from collections import defaultdict
 
 from django.conf import settings
@@ -178,7 +179,10 @@ class Command(BaseCommand):
             )
 
             # Step 4: Create schema-only backup using mysqldump
-            self.create_schema_backup(backup_dir, timestamp, env_name)
+            schema_path = self.create_schema_backup(backup_dir, timestamp, env_name)
+
+            # Step 5: Create combined zip file in /tmp
+            self.create_combined_zip(output_path, schema_path, timestamp, env_name)
 
         except subprocess.CalledProcessError as e:
             self.stdout.write(self.style.ERROR(f"dumpdata failed: {e.stderr}"))
@@ -322,11 +326,53 @@ class Command(BaseCommand):
                     f"Schema backup completed successfully to {schema_path}"
                 )
             )
+            return schema_path
 
         except subprocess.CalledProcessError as e:
             self.stdout.write(self.style.ERROR(f"mysqldump failed: {e.stderr}"))
+            raise
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error during schema backup: {e}"))
+            raise
+
+    def create_combined_zip(self, data_path, schema_path, timestamp, env_name):
+        """Create a combined zip file containing both data and schema backups in /tmp"""
+        # Check for failures first
+        if not os.path.exists(data_path):
+            raise FileNotFoundError(f"Data backup file not found: {data_path}")
+
+        if not os.path.exists(schema_path):
+            raise FileNotFoundError(f"Schema backup file not found: {schema_path}")
+
+        # Create zip file in /tmp
+        zip_filename = f"{env_name}_backup_{timestamp}_complete.zip"
+        zip_path = os.path.join("/tmp", zip_filename)
+
+        self.stdout.write(f"Creating combined zip file: {zip_path}")
+
+        try:
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                # Add data backup
+                zipf.write(data_path, os.path.basename(data_path))
+
+                # Add schema backup
+                zipf.write(schema_path, os.path.basename(schema_path))
+
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Combined backup zip created successfully: {zip_path}"
+                )
+            )
+
+            # Show file sizes for confirmation
+            zip_size = os.path.getsize(zip_path) / (1024 * 1024)  # MB
+            self.stdout.write(f"Zip file size: {zip_size:.2f} MB")
+
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Error creating zip file: {e}"))
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise
 
     def analyze_fields(self, sample_size, model_filter):
         """Show field samples to help identify PII"""
