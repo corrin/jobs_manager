@@ -106,33 +106,32 @@ class KanbanService:
         return {"statuses": status_choices, "tooltips": status_tooltips}
 
     @staticmethod
-    def serialize_job_for_api(job: Job, request: HttpRequest) -> Dict[str, Any]:
+    def serialize_job_for_api(job: Job, request: HttpRequest = None) -> Dict[str, Any]:
         """
         Serialize a job object for API response.
 
         Args:
             job: Job instance to serialize
-            request: HTTP request for building absolute URIs
+            request: HTTP request for building absolute URIs (optional, not used)
 
         Returns:
             Dictionary representation of the job
         """
+        # Get badge info
+        badge_info = KanbanCategorizationService.get_badge_info(job.status)
+
         return {
-            "id": job.id,
+            "id": str(job.id),
             "name": job.name,
-            "description": job.description,
+            "description": job.description or "",
             "job_number": job.job_number,
             "client_name": job.client.name if job.client else "",
             "contact_person": job.contact.name if job.contact else "",
             "people": [
                 {
-                    "id": staff.id,
+                    "id": str(staff.id),
                     "display_name": staff.get_display_full_name(),
-                    "icon": (
-                        request.build_absolute_uri(staff.icon.url)
-                        if staff.icon
-                        else None
-                    ),
+                    "icon": staff.icon.url if staff.icon else None,
                 }
                 for staff in job.people.all()
             ],
@@ -141,11 +140,11 @@ class KanbanService:
             "rejected_flag": job.rejected_flag,
             "paid": job.paid,
             "fully_invoiced": job.fully_invoiced,
-            "created_by_id": job.created_by.id if job.created_by else None,
-            "created_at": (
-                job.created_at.strftime("%d/%m/%Y") if job.created_at else None
-            ),
+            "created_by_id": str(job.created_by.id) if job.created_by else None,
+            "created_at": job.created_at.isoformat() if job.created_at else None,
             "priority": job.priority,
+            "badge_label": badge_info["label"],
+            "badge_color": badge_info["color_class"],
         }
 
     @staticmethod
@@ -456,43 +455,8 @@ class KanbanService:
                 f"Jobs fetched for column {column_id} (ordered by priority): {[job.job_number for job in jobs]}"
             )
 
-            # Format jobs with badge information
-            formatted_jobs = []
-            for job in jobs:
-                # Get badge info for the actual job status
-                badge_info = categorization_service.get_badge_info(job.status)
-
-                job_data = {
-                    "id": str(job.id),
-                    "job_number": job.job_number,
-                    "name": job.name,
-                    "description": job.description or "",
-                    "client_name": job.client.name if job.client else "No Client",
-                    "contact_person": job.contact.name if job.contact else "",
-                    "people": [
-                        {
-                            "id": staff.id,
-                            "display_name": staff.get_display_full_name(),
-                            "icon": staff.icon.url if staff.icon else None,
-                        }
-                        for staff in job.people.all()
-                    ],
-                    "status": job.status,
-                    "status_key": job.status,
-                    "paid": job.paid,
-                    "fully_invoiced": job.fully_invoiced,
-                    "created_by_id": (
-                        str(job.created_by_id) if job.created_by_id else None
-                    ),
-                    "created_at": (
-                        job.created.isoformat() if hasattr(job, "created") else None
-                    ),
-                    "priority": job.priority,
-                    # New badge information
-                    "badge_label": badge_info["label"],
-                    "badge_color": badge_info["color_class"],
-                }
-                formatted_jobs.append(job_data)
+            # Format jobs using the unified serializer
+            formatted_jobs = [KanbanService.serialize_job_for_api(job) for job in jobs]
             logger.info(
                 f"Formatted jobs for column {column_id}: {[job['job_number'] for job in formatted_jobs]}"
             )
