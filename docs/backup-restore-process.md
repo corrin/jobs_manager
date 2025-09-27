@@ -189,8 +189,8 @@ MYSQL_PWD=your_dev_password mysql -u django_user -e "
 SELECT 'workflow_job' as table_name, COUNT(*) as count FROM workflow_job
 UNION SELECT 'workflow_staff', COUNT(*) FROM workflow_staff
 UNION SELECT 'workflow_client', COUNT(*) FROM workflow_client
-UNION SELECT 'workflow_timeentry', COUNT(*) FROM workflow_timeentry
-UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
+UNION SELECT 'job_costset', COUNT(*) FROM job_costset
+UNION SELECT 'job_costline', COUNT(*) FROM job_costline;
 " msm_workflow
 ```
 
@@ -200,11 +200,11 @@ UNION SELECT 'workflow_jobpricing', COUNT(*) FROM workflow_jobpricing;
 +-------------------+-------+
 | table_name        | count |
 +-------------------+-------+
-| workflow_job      |   620 |
-| workflow_staff    |    17 |
-| workflow_client   |  3605 |
-| workflow_timeentry|  4104 |
-| workflow_jobpricing|  1896 |
+| workflow_job      |  1054 |
+| workflow_staff    |    20 |
+| workflow_client   |  3739 |
+| job_costset       |  3162 |
+| job_costline      | 10334 |
 +-------------------+-------+
 ```
 
