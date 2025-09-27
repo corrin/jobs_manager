@@ -57,6 +57,7 @@ class JSONToMySQLConverter:
             "all_phones",
             "ext_refs",
             "meta",
+            "metadata",
             "summary",
         }
 
@@ -69,6 +70,7 @@ class JSONToMySQLConverter:
             "job.adjustmententry": "workflow_adjustmententry",
             "job.jobevent": "workflow_jobevent",
             "job.jobfile": "workflow_jobfile",
+            "job.jobquotechat": "job_quote_chat",
             # New pricing model tables
             "job.costset": "job_costset",
             "job.costline": "job_costline",
@@ -122,6 +124,9 @@ class JSONToMySQLConverter:
                 "staff": "staff_id",
             },
             "workflow_jobfile": {
+                "job": "job_id",
+            },
+            "job_quote_chat": {
                 "job": "job_id",
             },
             "workflow_timeentry": {
