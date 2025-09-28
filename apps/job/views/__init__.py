@@ -5,6 +5,7 @@ from .archive_completed_jobs_view import (
     StandardResultsSetPagination,
 )
 from .assign_job_view import AssignJobView
+from .data_quality_report_views import ArchivedJobsComplianceView
 from .job_costing_views import JobCostSetView, JobQuoteRevisionView
 from .job_costline_views import (
     CostLineCreateView,
@@ -75,6 +76,7 @@ __all__ = [
     "AdvancedSearchAPIView",
     "ApplyQuoteAPIView",
     "ArchiveCompleteJobsViews",
+    "ArchivedJobsComplianceView",
     "AssignJobView",
     "BaseJobQuoteChatView",
     "BaseJobRestView",

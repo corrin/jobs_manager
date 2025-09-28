@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.urls import path
 from rest_framework import status
 
+from apps.job.views.data_quality_report_views import ArchivedJobsComplianceView
 from apps.job.views.job_costing_views import JobCostSetView, JobQuoteRevisionView
 from apps.job.views.job_costline_views import (
     CostLineCreateView,
@@ -256,5 +257,11 @@ rest_urlpatterns = [
         "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",
         JobQuoteChatMessageView.as_view(),
         name="job_quote_chat_message",
+    ),
+    # Data Quality Reports
+    path(
+        "rest/data-quality/archived-jobs-compliance/",
+        ArchivedJobsComplianceView.as_view(),
+        name="data_quality_archived_jobs_compliance",
     ),
 ]

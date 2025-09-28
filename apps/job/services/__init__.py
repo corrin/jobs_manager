@@ -5,6 +5,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .data_quality_report import ArchivedJobsComplianceService
         from .file_service import (
             create_thumbnail,
             get_thumbnail_folder,
@@ -58,6 +59,7 @@ except (ImportError, RuntimeError):
     pass
 
 __all__ = [
+    "ArchivedJobsComplianceService",
     "GeminiChatService",
     "JobRestService",
     "JobStaffService",

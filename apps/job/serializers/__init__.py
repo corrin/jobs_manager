@@ -18,6 +18,11 @@ try:
             QuoteRevisionsListSerializer,
             TimesheetCostLineSerializer,
         )
+        from .data_quality_report_serializers import (
+            ArchivedJobIssueSerializer,
+            ArchivedJobsComplianceResponseSerializer,
+            ComplianceSummarySerializer,
+        )
         from .job_file_serializer import (
             JobFileErrorResponseSerializer,
             JobFileSerializer,
@@ -129,10 +134,13 @@ __all__ = [
     "ApplyQuoteResponseSerializer",
     "ArchiveJobsRequestSerializer",
     "ArchiveJobsResponseSerializer",
+    "ArchivedJobIssueSerializer",
+    "ArchivedJobsComplianceResponseSerializer",
     "AssignJobRequestSerializer",
     "AssignJobResponseSerializer",
     "CompanyDefaultsJobDetailSerializer",
     "CompleteJobSerializer",
+    "ComplianceSummarySerializer",
     "CostLineCreateResponseSerializer",
     "CostLineCreateUpdateSerializer",
     "CostLineErrorResponseSerializer",
