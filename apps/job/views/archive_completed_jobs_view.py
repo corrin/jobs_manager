@@ -8,11 +8,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.serializers import (
+from apps.job.serializers.job_serializer import (
     ArchiveJobsRequestSerializer,
     ArchiveJobsResponseSerializer,
+    CompleteJobSerializer,
 )
-from apps.job.serializers.job_serializer import CompleteJobSerializer
 from apps.job.services.job_service import archive_complete_jobs, get_paid_complete_jobs
 
 logger = logging.getLogger(__name__)

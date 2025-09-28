@@ -53,6 +53,7 @@
 |-------------|------|------|-------------|
 | `/rest/cost_lines/<str:cost_line_id>/` | `job_costline_views.CostLineUpdateView` | `jobs:costline_update_rest` | Update an existing CostLine |
 | `/rest/cost_lines/<str:cost_line_id>/delete/` | `job_costline_views.CostLineDeleteView` | `jobs:costline_delete_rest` | Delete an existing CostLine |
+| `/rest/data-quality/archived-jobs-compliance/` | `data_quality_report_views.ArchivedJobsComplianceView` | `jobs:data_quality_archived_jobs_compliance` | API view for checking archived jobs compliance. |
 | `/rest/jobs/` | `job_rest_views.JobCreateRestView` | `jobs:job_create_rest` | REST view for Job creation. |
 | `/rest/jobs/<uuid:job_id>/` | `job_rest_views.JobDetailRestView` | `jobs:job_detail_rest` | REST view for CRUD operations on a specific Job. |
 | `/rest/jobs/<uuid:job_id>/basic-info/` | `job_rest_views.JobBasicInformationRestView` | `jobs:job_basic_info_rest` | REST view for Job basic information. |
