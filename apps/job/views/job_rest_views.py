@@ -605,6 +605,7 @@ class JobHeaderRestView(BaseJobRestView):
                     else None
                 ),
                 "paid": job.paid,
+                "rejected_flag": job.rejected_flag,
             }
 
             return Response(header_data, status=status.HTTP_200_OK)

@@ -214,6 +214,7 @@ class JobSerializer(serializers.ModelSerializer):
             "xero_quote",
             "xero_invoices",
             "shop_job",
+            "rejected_flag",
         ]
 
     def validate(self, attrs):
@@ -671,6 +672,7 @@ class JobHeaderResponseSerializer(serializers.Serializer):
     quoted = serializers.BooleanField()
     quote_acceptance_date = serializers.DateTimeField(allow_null=True)
     paid = serializers.BooleanField()
+    rejected_flag = serializers.BooleanField()
 
 
 class JobStatusChoicesResponseSerializer(serializers.Serializer):
@@ -750,6 +752,10 @@ class JobPatchRequestSerializer(serializers.Serializer):
     )
     job_is_valid = serializers.BooleanField(
         required=False, help_text="Whether the job is valid"
+    )
+    rejected_flag = serializers.BooleanField(
+        required=False,
+        help_text="Whether the job was rejected (quote declined by client)",
     )
 
     # Dates
