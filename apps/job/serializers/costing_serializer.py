@@ -34,6 +34,8 @@ class CostLineSerializer(serializers.ModelSerializer):
             "total_rev",
             "ext_refs",
             "meta",
+            "created_at",
+            "updated_at",
         ]
 
     def get_total_cost(self, obj) -> float:
@@ -124,6 +126,8 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
             "total_rev",
             "ext_refs",
             "meta",
+            "created_at",
+            "updated_at",
             "job_id",
             "job_number",
             "job_name",
@@ -149,6 +153,8 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
             "unit_rev",
             "ext_refs",
             "meta",
+            "created_at",
+            "updated_at",
         ]
 
     def validate(self, data):
