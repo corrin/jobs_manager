@@ -672,6 +672,109 @@ class JobRestService:
         }
 
     @staticmethod
+    def get_job_timeline(job_id: UUID) -> list[Dict[str, Any]]:
+        """
+        Fetches unified timeline combining JobEvents and CostLine data.
+
+        Args:
+            job_id: Job UUID
+
+        Returns:
+            List of timeline entries sorted by timestamp
+
+        Raises:
+            ValueError: If job is not found
+        """
+        try:
+            job = Job.objects.get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+
+        timeline_entries = []
+
+        # Get all JobEvents
+        events = JobEvent.objects.filter(job=job).select_related("staff")
+        for event in events:
+            timeline_entries.append(
+                {
+                    "id": event.id,
+                    "timestamp": event.timestamp,
+                    "entry_type": "event",
+                    "description": event.description,
+                    "staff": (
+                        event.staff.get_display_full_name() if event.staff else None
+                    ),
+                    "event_type": event.event_type,
+                }
+            )
+
+        # Get all CostLines from all CostSets for this job
+        cost_sets = job.cost_sets.all().prefetch_related("cost_lines")
+        for cost_set in cost_sets:
+            for cost_line in cost_set.cost_lines.all():
+                # Get staff name from ext_refs if available
+                staff_name = None
+                if cost_line.ext_refs.get("staff_id"):
+                    try:
+                        staff = Staff.objects.get(id=cost_line.ext_refs["staff_id"])
+                        staff_name = staff.get_display_full_name()
+                    except Staff.DoesNotExist:
+                        pass
+
+                # Build description based on cost line kind
+                description = cost_line.desc
+                if cost_line.kind == "time":
+                    hours = float(cost_line.quantity)
+                    description = f"{description} ({hours:.2f} hours)"
+                elif cost_line.kind == "material":
+                    qty = float(cost_line.quantity)
+                    description = f"{description} (qty: {qty:.3f})"
+
+                # Common fields for both created and updated entries
+                common_fields = {
+                    "id": cost_line.id,
+                    "description": description,
+                    "staff": staff_name,
+                    "event_type": None,
+                    "cost_set_kind": cost_set.kind,
+                    "costline_kind": cost_line.kind,
+                    "quantity": cost_line.quantity,
+                    "unit_cost": cost_line.unit_cost,
+                    "unit_rev": cost_line.unit_rev,
+                    "total_cost": cost_line.total_cost,
+                    "total_rev": cost_line.total_rev,
+                    "created_at": cost_line.created_at,
+                    "updated_at": cost_line.updated_at,
+                }
+
+                # Create entry for costline creation
+                timeline_entries.append(
+                    {
+                        **common_fields,
+                        "timestamp": cost_line.created_at,
+                        "entry_type": "costline_created",
+                    }
+                )
+
+                # Create separate entry for update if it's different from creation
+                # (allowing 1 second tolerance for auto-save timestamps)
+                if cost_line.updated_at and (
+                    cost_line.updated_at - cost_line.created_at
+                ).total_seconds() > 1:
+                    timeline_entries.append(
+                        {
+                            **common_fields,
+                            "timestamp": cost_line.updated_at,
+                            "entry_type": "costline_updated",
+                        }
+                    )
+
+        # Sort by timestamp descending (newest first)
+        timeline_entries.sort(key=lambda x: x["timestamp"], reverse=True)
+
+        return timeline_entries
+
+    @staticmethod
     def get_weekly_metrics(week: date = None) -> list[Dict[str, Any]]:
         """
         Fetches weekly metrics for all active jobs.

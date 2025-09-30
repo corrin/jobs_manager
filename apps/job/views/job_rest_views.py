@@ -39,6 +39,7 @@ from apps.job.serializers.job_serializer import (
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
+    JobTimelineResponseSerializer,
     QuoteSerializer,
     WeeklyMetricsSerializer,
 )
@@ -1071,6 +1072,38 @@ class JobEventListRestView(BaseJobRestView):
 
         except Job.DoesNotExist:
             raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobTimelineRestView(BaseJobRestView):
+    """
+    REST view for unified Job timeline.
+    Returns combined JobEvents and CostLine data in chronological order.
+    """
+
+    serializer_class = JobTimelineResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobTimelineResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch unified job timeline (events + cost lines)",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id):
+        """
+        Fetch unified job timeline combining events and cost line entries.
+        """
+        try:
+            timeline = JobRestService.get_job_timeline(job_id)
+            serializer = JobTimelineResponseSerializer({"timeline": timeline})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            return self.handle_service_error(e)
         except Exception as e:
             return self.handle_service_error(e)
 

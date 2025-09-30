@@ -31,6 +31,7 @@ from .job_rest_views import (
     JobQuoteAcceptRestView,
     JobQuoteRestView,
     JobStatusChoicesRestView,
+    JobTimelineRestView,
     WeeklyMetricsRestView,
     get_company_defaults_api,
 )
@@ -107,6 +108,7 @@ __all__ = [
     "JobQuoteRestView",
     "JobQuoteRevisionView",
     "JobStatusChoicesRestView",
+    "JobTimelineRestView",
     "LinkQuoteSheetAPIView",
     "ModernTimesheetDayView",
     "ModernTimesheetEntryView",
