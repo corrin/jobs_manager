@@ -433,7 +433,9 @@ class ClientRestService:
         output = DecimalField(max_digits=12, decimal_places=2)
 
         return (
-            Client.objects.filter(name__startswith=query)  # Index-friendly
+            Client.objects.filter(
+                name__istartswith=query
+            )  # Index-friendly, case insensitive
             .annotate(
                 last_invoice_date=Max("invoice__date"),
                 total_spend=Coalesce(
