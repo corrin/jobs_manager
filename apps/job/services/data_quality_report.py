@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from apps.job.models import Job
+from apps.job.services.job_service import get_job_total_value
 
 
 class ArchivedJobsComplianceService:
@@ -17,8 +18,8 @@ class ArchivedJobsComplianceService:
         Returns:
             Dict with specific structure for archived jobs compliance.
         """
-        # Get all archived jobs
-        archived_jobs = Job.objects.filter(status="archived")
+        # Get all archived jobs, excluding rejected ones
+        archived_jobs = Job.objects.filter(status="archived", rejected_flag=False)
         total_archived = archived_jobs.count()
 
         # Find non-compliant jobs with detailed categorization
@@ -52,6 +53,9 @@ class ArchivedJobsComplianceService:
 
                 # Add to non-compliant list if there are issues
                 if issues:
+                    # Get job value using the reusable service method and round to 2 decimal places
+                    job_value = get_job_total_value(job).quantize(Decimal("0.01"))
+
                     for issue in issues:
                         non_compliant_list.append(
                             {
@@ -69,6 +73,7 @@ class ArchivedJobsComplianceService:
                                 "outstanding_amount": self._get_outstanding_amount(job)
                                 if issue == "Not paid"
                                 else None,
+                                "job_value": job_value,
                             }
                         )
 
