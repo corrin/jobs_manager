@@ -710,16 +710,35 @@ class JobRestService:
 
         # Get all CostLines from all CostSets for this job
         cost_sets = job.cost_sets.all().prefetch_related("cost_lines")
+
+        # Collect all unique staff IDs from cost lines to fetch in bulk (avoid N+1)
+        staff_ids = set()
         for cost_set in cost_sets:
             for cost_line in cost_set.cost_lines.all():
-                # Get staff name from ext_refs if available
-                staff_name = None
-                if cost_line.ext_refs.get("staff_id"):
+                if staff_id := cost_line.ext_refs.get("staff_id"):
                     try:
-                        staff = Staff.objects.get(id=cost_line.ext_refs["staff_id"])
-                        staff_name = staff.get_display_full_name()
-                    except Staff.DoesNotExist:
-                        pass
+                        # Validate UUID format before adding to set
+                        staff_ids.add(UUID(str(staff_id)))
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            f"Invalid staff_id in cost_line {cost_line.id}: {staff_id}"
+                        )
+
+        # Fetch all staff members in bulk
+        staff_map = Staff.objects.in_bulk(staff_ids) if staff_ids else {}
+
+        # Build timeline entries for cost lines
+        for cost_set in cost_sets:
+            for cost_line in cost_set.cost_lines.all():
+                # Get staff name from bulk-fetched map
+                staff_name = None
+                if staff_id := cost_line.ext_refs.get("staff_id"):
+                    try:
+                        staff_uuid = UUID(str(staff_id))
+                        if staff := staff_map.get(staff_uuid):
+                            staff_name = staff.get_display_full_name()
+                    except (ValueError, TypeError):
+                        pass  # Already logged warning above
 
                 # Build description based on cost line kind
                 description = cost_line.desc
