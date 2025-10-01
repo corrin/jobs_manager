@@ -394,6 +394,14 @@ class KanbanService:
             case "false":
                 jobs_query = jobs_query.filter(paid=False)
 
+        # Handle rejected_flag filter with match-case
+        rejected_flag_filter = filters.get("rejected_flag", "")
+        match rejected_flag_filter:
+            case "true":
+                jobs_query = jobs_query.filter(rejected_flag=True)
+            case "false":
+                jobs_query = jobs_query.filter(rejected_flag=False)
+
         return jobs_query.order_by("-created_at")
 
     @staticmethod

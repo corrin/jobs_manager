@@ -19,6 +19,42 @@ from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
+
+def get_workshop_hours(job: Job) -> float:
+    """
+    Calculate workshop time allocated from the latest estimate or quote.
+
+    Sums all time CostLines except those ending in "office time" (case-insensitive).
+    Falls back to quote if estimate has zero workshop hours.
+    """
+    estimate = job.cost_sets.filter(kind="estimate").order_by("-rev").first()
+    if not estimate:
+        exc = ValueError(f"Job {job.job_number} has no estimate CostSet")
+        persist_app_error(exc)
+        raise exc
+
+    lines = estimate.cost_lines.filter(kind="time").exclude(
+        desc__iendswith=" office time"
+    )
+    workshop_hours = sum(float(line.quantity) for line in lines)
+
+    if workshop_hours <= 0:
+        quote = job.cost_sets.filter(kind="quote").order_by("-rev").first()
+        if not quote:
+            exc = ValueError(
+                f"Job {job.job_number} has no quote CostSet to fall back to"
+            )
+            persist_app_error(exc)
+            raise exc
+
+        lines = quote.cost_lines.filter(kind="time").exclude(
+            desc__iendswith=" office time"
+        )
+        workshop_hours = sum(float(line.quantity) for line in lines)
+
+    return workshop_hours
+
+
 # Page metrics (A4: 210 x 297 mm)
 PAGE_WIDTH, PAGE_HEIGHT = A4
 MARGIN = 50
@@ -261,15 +297,34 @@ def add_job_details_table(pdf, y_position, job: Job):
     client_name = job.client.name if job.client else "N/A"
     contact_name = job.contact.name if job.contact else ""
 
+    contact_phone = (
+        (job.contact.phone if job.contact and job.contact.phone else None)
+        or (job.client.phone if job.client else None)
+        or ""
+    )
+    contact_info = (
+        f"{contact_name}<br/>{contact_phone}" if contact_phone else contact_name
+    )
+
+    workshop_hours = get_workshop_hours(job)
+    pricing_suffix = (
+        " (T&M)" if job.pricing_methodology == "time_materials" else " (Quoted)"
+    )
+    workshop_display = f"{workshop_hours:.1f} hours{pricing_suffix}"
+
     # Use Paragraph styles so header text is white over the blue background
     job_details = [
         [
             Paragraph(client_name, header_client_style),
-            Paragraph(contact_name, header_contact_style),
+            Paragraph(contact_info, header_contact_style),
         ],
         [
             Paragraph("DESCRIPTION", label_style),
             Paragraph(job.description or "N/A", body_style),
+        ],
+        [
+            Paragraph("WORKSHOP TIME ALLOCATED", label_style),
+            Paragraph(workshop_display, body_style),
         ],
         [
             Paragraph("NOTES", label_style),
@@ -277,7 +332,11 @@ def add_job_details_table(pdf, y_position, job: Job):
                 convert_html_to_reportlab(job.notes) if job.notes else "N/A", body_style
             ),
         ],
-        [Paragraph("ENTRY DATE", label_style), job.created_at.strftime("%d %b %Y")],
+        [Paragraph("ENTRY DATE", label_style), job.created_at.strftime("%a, %d %b %Y")],
+        [
+            Paragraph("DUE DATE", label_style),
+            job.delivery_date.strftime("%a, %d %b %Y") if job.delivery_date else "N/A",
+        ],
         [
             Paragraph("ORDER NUMBER", label_style),
             Paragraph(job.order_number or "N/A", body_style),

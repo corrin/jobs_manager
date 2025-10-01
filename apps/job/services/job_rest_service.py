@@ -6,7 +6,9 @@ All business logic for Job REST operations should be implemented here.
 """
 
 import logging
+import math
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any, Dict
 from uuid import UUID
 
@@ -27,6 +29,7 @@ from apps.job.serializers.job_serializer import (
     JobEventSerializer,
     QuoteSerializer,
 )
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -109,6 +112,79 @@ class JobRestService:
                 f"Pricing methodology: {job.get_pricing_methodology_display()}.",
                 staff=user,
             )
+
+            # Create initial estimate CostLines if provided
+            estimated_materials = data.get("estimated_materials")
+            estimated_time = data.get("estimated_time")
+
+            if estimated_materials is None:
+                raise ValueError("estimated_materials is required")
+            if estimated_time is None:
+                raise ValueError("estimated_time is required")
+
+            # Get the estimate CostSet (already created by job.save())
+            estimate_costset = job.cost_sets.get(kind="estimate")
+
+            # Get company defaults for calculations
+            company_defaults = CompanyDefaults.objects.first()
+            if not company_defaults:
+                raise ValueError("CompanyDefaults not found")
+
+            wage_rate = company_defaults.wage_rate
+            charge_out_rate = company_defaults.charge_out_rate
+            materials_markup = company_defaults.materials_markup
+
+            # Create material cost line
+            CostLine.objects.create(
+                cost_set=estimate_costset,
+                kind="material",
+                desc="Estimated materials",
+                quantity=Decimal("1.000"),
+                unit_cost=estimated_materials,
+                unit_rev=estimated_materials * (Decimal("1") + materials_markup),
+            )
+
+            # Create workshop time cost line
+            CostLine.objects.create(
+                cost_set=estimate_costset,
+                kind="time",
+                desc="Estimated workshop time",
+                quantity=estimated_time,
+                unit_cost=wage_rate,
+                unit_rev=charge_out_rate,
+            )
+
+            # Calculate office time (1:8 ratio, rounded up to quarter hours)
+            office_time_decimal = float(estimated_time) / 8
+            office_time_hours = Decimal(str(math.ceil(office_time_decimal * 4) / 4))
+
+            CostLine.objects.create(
+                cost_set=estimate_costset,
+                kind="time",
+                desc="Estimated office time",
+                quantity=office_time_hours,
+                unit_cost=wage_rate,
+                unit_rev=charge_out_rate,
+            )
+
+            # For fixed_price jobs, copy estimate lines to quote CostSet
+            if job.pricing_methodology == "fixed_price":
+                quote_costset = job.cost_sets.get(kind="quote")
+                for estimate_line in estimate_costset.cost_lines.all():
+                    CostLine.objects.create(
+                        cost_set=quote_costset,
+                        kind=estimate_line.kind,
+                        desc=estimate_line.desc,
+                        quantity=estimate_line.quantity,
+                        unit_cost=estimate_line.unit_cost,
+                        unit_rev=estimate_line.unit_rev,
+                        ext_refs=(
+                            estimate_line.ext_refs.copy()
+                            if estimate_line.ext_refs
+                            else {}
+                        ),
+                        meta=estimate_line.meta.copy() if estimate_line.meta else {},
+                    )
 
         return job
 

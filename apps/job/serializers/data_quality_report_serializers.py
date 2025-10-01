@@ -39,6 +39,11 @@ class ArchivedJobIssueSerializer(serializers.Serializer):
         allow_null=True,
         help_text="Outstanding amount if relevant",
     )
+    job_value = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Total job value (invoiced amount or quote/actual revenue)",
+    )
 
 
 class ArchivedJobsComplianceResponseSerializer(serializers.Serializer):

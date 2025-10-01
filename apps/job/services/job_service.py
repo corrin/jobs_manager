@@ -45,6 +45,49 @@ def archive_complete_jobs(job_ids):
     return errors, archived_count
 
 
+def get_job_total_value(job: Job) -> Decimal:
+    """
+    Get the total value of a job using the definitive logic:
+    1. If invoiced: Use total invoice amount (definitive)
+    2. Else if quote job: Use quote revenue
+    3. Else (T&M): Use actual revenue
+
+    Args:
+        job: Job instance
+
+    Returns:
+        Decimal: Total job value
+    """
+    # Check for invoices first - they override everything
+    INVOICE_VALID_STATUSES = [
+        status
+        for (status, _) in InvoiceStatus.choices
+        if status not in ["VOIDED", "DELETED"]
+    ]
+
+    total_invoiced = Decimal(
+        Invoice.objects.filter(
+            job_id=job.id, status__in=INVOICE_VALID_STATUSES
+        ).aggregate(total=Coalesce(Sum("total_excl_tax"), Decimal("0")))["total"]
+    )
+
+    if total_invoiced > 0:
+        return total_invoiced
+
+    # No invoices - check pricing methodology
+    if job.pricing_methodology == "quote":
+        quote = job.get_latest("quote")
+        if quote and quote.summary:
+            return Decimal(str(quote.summary.get("rev", 0)))
+        return Decimal("0.00")
+    else:
+        # T&M job - use actual
+        actual = job.get_latest("actual")
+        if actual and actual.summary:
+            return Decimal(str(actual.summary.get("rev", 0)))
+        return Decimal("0.00")
+
+
 def recalculate_job_invoicing_state(job_id: str) -> None:
     try:
         job = Job.objects.only("id", "fully_invoiced", "latest_actual").get(pk=job_id)

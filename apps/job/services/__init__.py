@@ -26,6 +26,7 @@ try:
         from .job_service import (
             JobStaffService,
             archive_complete_jobs,
+            get_job_total_value,
             get_paid_complete_jobs,
             recalculate_job_invoicing_state,
         )
@@ -50,6 +51,7 @@ try:
             create_workshop_pdf,
             get_image_dimensions,
             get_pdf_file_paths,
+            get_workshop_hours,
             merge_pdfs,
             process_attachments,
             wait_until_file_ready,
@@ -85,9 +87,11 @@ __all__ = [
     "create_thumbnail",
     "create_workshop_pdf",
     "get_image_dimensions",
+    "get_job_total_value",
     "get_paid_complete_jobs",
     "get_pdf_file_paths",
     "get_thumbnail_folder",
+    "get_workshop_hours",
     "import_quote_from_drafts",
     "import_quote_from_file",
     "link_quote_sheet",
