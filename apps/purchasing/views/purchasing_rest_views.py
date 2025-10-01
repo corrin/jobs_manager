@@ -599,9 +599,11 @@ class StockConsumeRestView(APIView):
 
         try:
             if cost_dec and revenue_dec:
-                consume_stock(item, job, qty_dec, request.user, cost_dec, revenue_dec)
+                line = consume_stock(
+                    item, job, qty_dec, request.user, cost_dec, revenue_dec
+                )
             else:
-                consume_stock(item, job, qty_dec, request.user)
+                line = consume_stock(item, job, qty_dec, request.user)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -609,6 +611,7 @@ class StockConsumeRestView(APIView):
             "success": True,
             "message": "Stock consumed successfully",
             "remaining_quantity": item.quantity - qty_dec,
+            "line": line,
         }
         return Response(
             StockConsumeResponseSerializer(payload).data, status=status.HTTP_200_OK

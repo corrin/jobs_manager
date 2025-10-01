@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.job.models import Job
+from apps.job.serializers.costing_serializer import CostLineSerializer
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
 
 
@@ -393,6 +394,7 @@ class StockConsumeResponseSerializer(serializers.Serializer):
     remaining_quantity = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False
     )
+    line = CostLineSerializer()
 
 
 class PurchasingErrorResponseSerializer(serializers.Serializer):
