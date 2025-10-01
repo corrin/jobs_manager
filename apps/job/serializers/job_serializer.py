@@ -393,6 +393,20 @@ class JobCreateRequestSerializer(serializers.Serializer):
     pricing_methodology = serializers.CharField(
         required=False, allow_null=True, allow_blank=True
     )
+    estimated_materials = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=True,
+        min_value=0,
+        help_text="Estimated material costs in dollars",
+    )
+    estimated_time = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=True,
+        min_value=0,
+        help_text="Estimated workshop time in hours",
+    )
 
 
 class JobCreateResponseSerializer(serializers.Serializer):
