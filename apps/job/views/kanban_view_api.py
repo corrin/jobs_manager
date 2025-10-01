@@ -382,6 +382,13 @@ class AdvancedSearchAPIView(APIView):
                 description="Filter by paid status",
             ),
             OpenApiParameter(
+                name="rejected_flag",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Filter by rejected status",
+            ),
+            OpenApiParameter(
                 name="xero_invoice_params",
                 type=str,
                 location=OpenApiParameter.QUERY,
@@ -404,6 +411,7 @@ class AdvancedSearchAPIView(APIView):
                 "created_after": request.GET.get("created_after", ""),
                 "created_before": request.GET.get("created_before", ""),
                 "paid": request.GET.get("paid", ""),
+                "rejected_flag": request.GET.get("rejected_flag", ""),
                 "xero_invoice_params": request.GET.get("xero_invoice_params", ""),
             }
 
