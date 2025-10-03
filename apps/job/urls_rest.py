@@ -28,6 +28,7 @@ from apps.job.views.job_rest_views import (
     JobQuoteAcceptRestView,
     JobQuoteRestView,
     JobStatusChoicesRestView,
+    JobTimelineRestView,
     WeeklyMetricsRestView,
 )
 from apps.job.views.modern_timesheet_views import (
@@ -75,6 +76,12 @@ rest_urlpatterns = [
         "rest/jobs/<uuid:job_id>/events/create/",
         JobEventRestView.as_view(),
         name="job_events_rest",
+    ),
+    # Job timeline (unified events + cost lines)
+    path(
+        "rest/jobs/<uuid:job_id>/timeline/",
+        JobTimelineRestView.as_view(),
+        name="job_timeline_rest",
     ),
     # Job invoices and quotes
     path(
