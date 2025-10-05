@@ -823,21 +823,9 @@ def sync_xero_data(
         try:
             sync_function(items)
             total_processed += len(items)
-            yield {
-                "datetime": timezone.now().isoformat(),
-                "entity": our_entity_type,
-                "severity": "info",
-                "message": f"Synced {len(items)} {our_entity_type}",
-                "progress": None,
-            }
         except XeroValidationError as exc:
             persist_xero_error(exc)
-            yield {
-                "datetime": timezone.now().isoformat(),
-                "severity": "error",
-                "message": str(exc),
-                "progress": None,
-            }
+            raise
         except Exception as exc:
             persist_app_error(
                 exc,
@@ -855,12 +843,7 @@ def sync_xero_data(
                     ),
                 },
             )
-            yield {
-                "datetime": timezone.now().isoformat(),
-                "severity": "error",
-                "message": "Unexpected: " + str(exc),
-                "progress": None,
-            }
+            raise
 
         yield {
             "datetime": timezone.now().isoformat(),
