@@ -127,7 +127,7 @@ class XeroInvoiceManager(XeroDocumentManager):
         if self.job.description:
             description += f" - {self.job.description}"
         else:
-            description += " (Invoice)"
+            description += f" - {self.job.name}"
 
         return [
             LineItem(
