@@ -236,6 +236,13 @@ def transform_invoice(xero_invoice, xero_id):
     set_invoice_or_bill_fields(invoice, "INVOICE")
     if created:
         invoice.save()
+
+    # Recalculate job state if invoice is linked to a job
+    if invoice.job:
+        from apps.job.services.job_service import recalculate_job_invoicing_state
+
+        recalculate_job_invoicing_state(invoice.job.id)
+
     return invoice
 
 
