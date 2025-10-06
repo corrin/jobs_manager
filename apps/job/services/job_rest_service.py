@@ -322,67 +322,72 @@ class JobRestService:
         Updates an existing Job with optimistic concurrency control (ETag).
         Requires If-Match header to match current resource version.
         """
-        # Lock the row to avoid race between compare and update
-        job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-
-        # Concurrency check using normalized ETag value
-        if if_match:
-            current_norm = _current_job_etag_value(job)
-            if current_norm != if_match:
-                raise PreconditionFailed("ETag mismatch: resource has changed")
-
-        # DEBUG: Log incoming data
-        logger.debug(f"JobRestService.update_job - Incoming data: {data}")
-        logger.debug(f"JobRestService.update_job - Current job contact: {job.contact}")
-        logger.debug(
-            f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
-        )
-
-        # CRITICAL FIX: Extract job data from nested structure
-        job_data = data
-        if "data" in data and "job" in data["data"]:
-            job_data = data["data"]["job"]
-            logger.debug(
-                f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
-            )
-
-        # Store original values for comparison
-        original_values = {
-            "name": job.name,
-            "description": job.description,
-            "status": job.status,
-            "priority": job.priority,
-            "client_id": job.client_id,
-            "charge_out_rate": job.charge_out_rate,
-            "order_number": job.order_number,
-            "notes": job.notes,
-            "contact_id": job.contact.id if job.contact else None,
-            "contact_name": job.contact.name if job.contact else None,
-            "contact_email": job.contact.email if job.contact else None,
-            "contact_phone": job.contact.phone if job.contact else None,
-        }
-
-        logger.debug(f"JobRestService.update_job - Original values: {original_values}")
-
-        # Use serialiser for validation and updating
-        serializer = JobSerializer(
-            instance=job,
-            data=job_data,  # Use extracted job_data instead of raw data
-            partial=True,
-            context={"request": type("MockRequest", (), {"user": user})()},
-        )
-
-        if not serializer.is_valid():
-            logger.error(
-                f"JobRestService.update_job - Serializer validation failed: {serializer.errors}"
-            )
-            raise ValueError(f"Invalid data: {serializer.errors}")
-
-        logger.debug(
-            f"JobRestService.update_job - Validated data: {serializer.validated_data}"
-        )
-
         with transaction.atomic():
+            # Lock the row to avoid race between compare and update
+            job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
+
+            # Concurrency check using normalized ETag value
+            if if_match:
+                current_norm = _current_job_etag_value(job)
+                if current_norm != if_match:
+                    raise PreconditionFailed("ETag mismatch: resource has changed")
+
+            # DEBUG: Log incoming data
+            logger.debug(f"JobRestService.update_job - Incoming data: {data}")
+            logger.debug(
+                f"JobRestService.update_job - Current job contact: {job.contact}"
+            )
+            logger.debug(
+                f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
+            )
+
+            # CRITICAL FIX: Extract job data from nested structure
+            job_data = data
+            if "data" in data and "job" in data["data"]:
+                job_data = data["data"]["job"]
+                logger.debug(
+                    f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
+                )
+
+            # Store original values for comparison
+            original_values = {
+                "name": job.name,
+                "description": job.description,
+                "status": job.status,
+                "priority": job.priority,
+                "client_id": job.client_id,
+                "charge_out_rate": job.charge_out_rate,
+                "order_number": job.order_number,
+                "notes": job.notes,
+                "contact_id": job.contact.id if job.contact else None,
+                "contact_name": job.contact.name if job.contact else None,
+                "contact_email": job.contact.email if job.contact else None,
+                "contact_phone": job.contact.phone if job.contact else None,
+            }
+
+            logger.debug(
+                f"JobRestService.update_job - Original values: {original_values}"
+            )
+
+            # Use serializer for validation and updating
+            serializer = JobSerializer(
+                instance=job,
+                data=job_data,  # Use extracted job_data instead of raw data
+                partial=True,
+                context={"request": type("MockRequest", (), {"user": user})()},
+            )
+
+            if not serializer.is_valid():
+                logger.error(
+                    "JobRestService.update_job - Serializer validation failed: "
+                    f"{serializer.errors}"
+                )
+                raise ValueError(f"Invalid data: {serializer.errors}")
+
+            logger.debug(
+                f"JobRestService.update_job - Validated data: {serializer.validated_data}"
+            )
+
             job = serializer.save(staff=user)
 
             # Additional guard to prevent cross-client contact leakage:

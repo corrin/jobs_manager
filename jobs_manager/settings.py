@@ -430,6 +430,9 @@ _missing_cors = [
 if _missing_cors:
     CORS_ALLOWED_HEADERS += _missing_cors
 
+# The django-cors-headers setting name uses CORS_ALLOW_HEADERS; mirror our list.
+CORS_ALLOW_HEADERS = CORS_ALLOWED_HEADERS
+
 # JWT/authentication settings
 ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
 
