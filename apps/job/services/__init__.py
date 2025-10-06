@@ -22,7 +22,7 @@ try:
             serialize_draft_lines,
             serialize_validation_report,
         )
-        from .job_rest_service import JobRestService
+        from .job_rest_service import JobRestService, PreconditionFailed
         from .job_service import (
             JobStaffService,
             archive_complete_jobs,
@@ -72,6 +72,7 @@ __all__ = [
     "MonthEndService",
     "PaidFlagResult",
     "PaidFlagService",
+    "PreconditionFailed",
     "QuoteImportError",
     "QuoteImportResult",
     "QuoteModeController",
