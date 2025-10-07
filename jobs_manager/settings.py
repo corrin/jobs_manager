@@ -401,6 +401,9 @@ else:
         "x-requested-with",
         "x-actual-users",  # Custom header for staff filtering
         "X-Actual-Users",  # Case sensitive version for proper CORS support
+        # For optimistic concurrency control (ETags)
+        "if-match",
+        "if-none-match",
     ]
 
 CORS_ALLOWED_METHODS = [
@@ -413,6 +416,22 @@ CORS_ALLOWED_METHODS = [
 ]
 
 CORS_PREFLIGHT_MAX_AGE = 86400
+
+# Expose ETag so the frontend can read it from responses (for If-Match on mutations)
+CORS_EXPOSE_HEADERS = ["ETag"]
+
+# Ensure ETag request headers are allowed even when overridden via env
+# (Keep case-insensitive comparison)
+_missing_cors = [
+    h
+    for h in ["if-match", "if-none-match"]
+    if h.lower() not in [x.lower() for x in CORS_ALLOWED_HEADERS]
+]
+if _missing_cors:
+    CORS_ALLOWED_HEADERS += _missing_cors
+
+# The django-cors-headers setting name uses CORS_ALLOW_HEADERS; mirror our list.
+CORS_ALLOW_HEADERS = CORS_ALLOWED_HEADERS
 
 # JWT/authentication settings
 ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"

@@ -35,6 +35,22 @@ from apps.workflow.services.error_persistence import persist_app_error
 logger = logging.getLogger(__name__)
 
 
+class PreconditionFailed(Exception):
+    """Raised when ETag precondition fails (HTTP 412)."""
+
+
+def _current_job_etag_value(job: Job) -> str:
+    """
+    Return normalized ETag value for comparison (without W/ and quotes).
+    Mirrors BaseJobRestView._gen_job_etag but normalized.
+    """
+    try:
+        ts_ms = int(job.updated_at.timestamp() * 1000)
+    except Exception:
+        ts_ms = 0
+    return f"job:{job.id}:{ts_ms}"
+
+
 class JobRestService:
     """
     Service layer for Job REST operations.
@@ -299,81 +315,98 @@ class JobRestService:
         }
 
     @staticmethod
-    def update_job(job_id: UUID, data: Dict[str, Any], user: Staff) -> Job:
+    def update_job(
+        job_id: UUID, data: Dict[str, Any], user: Staff, if_match: str | None = None
+    ) -> Job:
         """
-        Updates an existing Job.
-
-        Args:
-            job_id: Job UUID
-            data: Data for updating
-            user: User performing the update
-
-        Returns:
-            Job: Updated instance
+        Updates an existing Job with optimistic concurrency control (ETag).
+        Requires If-Match header to match current resource version.
         """
-        job = get_object_or_404(Job, id=job_id)
-
-        # DEBUG: Log incoming data
-        logger.debug(f"JobRestService.update_job - Incoming data: {data}")
-        logger.debug(f"JobRestService.update_job - Current job contact: {job.contact}")
-        logger.debug(
-            f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
-        )
-
-        # CRITICAL FIX: Extract job data from nested structure
-        job_data = data
-        if "data" in data and "job" in data["data"]:
-            job_data = data["data"]["job"]
-            logger.debug(
-                f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
-            )
-
-        # Store original values for comparison
-        original_values = {
-            "name": job.name,
-            "description": job.description,
-            "status": job.status,
-            "priority": job.priority,
-            "client_id": job.client_id,
-            "charge_out_rate": job.charge_out_rate,
-            "order_number": job.order_number,
-            "notes": job.notes,
-            "contact_id": job.contact.id if job.contact else None,
-            "contact_name": job.contact.name if job.contact else None,
-            "contact_email": job.contact.email if job.contact else None,
-            "contact_phone": job.contact.phone if job.contact else None,
-        }
-
-        logger.debug(f"JobRestService.update_job - Original values: {original_values}")
-
-        # Use serialiser for validation and updating
-        serializer = JobSerializer(
-            instance=job,
-            data=job_data,  # Use extracted job_data instead of raw data
-            partial=True,
-            context={"request": type("MockRequest", (), {"user": user})()},
-        )
-
-        if not serializer.is_valid():
-            logger.error(
-                f"JobRestService.update_job - Serializer validation failed: {serializer.errors}"
-            )
-            raise ValueError(f"Invalid data: {serializer.errors}")
-
-        logger.debug(
-            f"JobRestService.update_job - Validated data: {serializer.validated_data}"
-        )
-
         with transaction.atomic():
+            # Lock the row to avoid race between compare and update
+            job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
+
+            # Concurrency check using normalized ETag value
+            if if_match:
+                current_norm = _current_job_etag_value(job)
+                if current_norm != if_match:
+                    raise PreconditionFailed("ETag mismatch: resource has changed")
+
+            # DEBUG: Log incoming data
+            logger.debug(f"JobRestService.update_job - Incoming data: {data}")
+            logger.debug(
+                f"JobRestService.update_job - Current job contact: {job.contact}"
+            )
+            logger.debug(
+                f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
+            )
+
+            # CRITICAL FIX: Extract job data from nested structure
+            job_data = data
+            if "data" in data and "job" in data["data"]:
+                job_data = data["data"]["job"]
+                logger.debug(
+                    f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
+                )
+
+            # Store original values for comparison
+            original_values = {
+                "name": job.name,
+                "description": job.description,
+                "status": job.status,
+                "priority": job.priority,
+                "client_id": job.client_id,
+                "charge_out_rate": job.charge_out_rate,
+                "order_number": job.order_number,
+                "notes": job.notes,
+                "contact_id": job.contact.id if job.contact else None,
+                "contact_name": job.contact.name if job.contact else None,
+                "contact_email": job.contact.email if job.contact else None,
+                "contact_phone": job.contact.phone if job.contact else None,
+            }
+
+            logger.debug(
+                f"JobRestService.update_job - Original values: {original_values}"
+            )
+
+            # Use serializer for validation and updating
+            serializer = JobSerializer(
+                instance=job,
+                data=job_data,  # Use extracted job_data instead of raw data
+                partial=True,
+                context={"request": type("MockRequest", (), {"user": user})()},
+            )
+
+            if not serializer.is_valid():
+                logger.error(
+                    "JobRestService.update_job - Serializer validation failed: "
+                    f"{serializer.errors}"
+                )
+                raise ValueError(f"Invalid data: {serializer.errors}")
+
+            logger.debug(
+                f"JobRestService.update_job - Validated data: {serializer.validated_data}"
+            )
+
             job = serializer.save(staff=user)
 
-            # DEBUG: Log job state after save
-            logger.debug(
-                f"JobRestService.update_job - After save contact: {job.contact}"
-            )
-            logger.debug(
-                f"JobRestService.update_job - After save contact_id: {job.contact.id if job.contact else None}"
-            )
+            # Additional guard to prevent cross-client contact leakage:
+            # If client changed and current contact belongs to a different client, clear it.
+            try:
+                if (
+                    job.contact
+                    and job.client
+                    and getattr(job.contact, "client_id", None) != job.client_id
+                ):
+                    logger.warning(
+                        "Clearing mismatched contact after client change: "
+                        f"contact.client_id={getattr(job.contact, 'client_id', None)} != job.client_id={job.client_id}"
+                    )
+                    job.contact = None
+                    job.save(staff=user)
+            except Exception as _e:
+                # Persist the error but do not mask the main operation
+                persist_app_error(_e)
 
             # Generate descriptive update message
             description = JobRestService._generate_update_description(
@@ -546,18 +579,20 @@ class JobRestService:
             raise
 
     @staticmethod
-    def delete_job(job_id: UUID, user: Staff) -> Dict[str, Any]:
+    def delete_job(
+        job_id: UUID, user: Staff, if_match: str | None = None
+    ) -> Dict[str, Any]:
         """
-        Deletes a Job if allowed by business rules.
-
-        Args:
-            job_id: Job UUID
-            user: User attempting to delete
-
-        Returns:
-            Dict with operation result
+        Deletes a Job if allowed by business rules and ETag precondition matches.
         """
-        job = get_object_or_404(Job, id=job_id)
+        # Lock row during deletion checks
+        job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
+
+        # Concurrency check
+        if if_match:
+            current_norm = _current_job_etag_value(job)
+            if current_norm != if_match:
+                raise PreconditionFailed("ETag mismatch: resource has changed")
 
         actual_cost_set = job.latest_actual
 
@@ -579,20 +614,23 @@ class JobRestService:
         return {"success": True, "message": f"Job {job_number} deleted successfully"}
 
     @staticmethod
-    def accept_quote(job_id: UUID, user: Staff) -> Dict[str, Any]:
+    def accept_quote(
+        job_id: UUID, user: Staff, if_match: str | None = None
+    ) -> Dict[str, Any]:
         """
         Accept a quote for a job by setting the quote_acceptance_date and changing status to approved.
-
-        Args:
-            job_id: Job UUID
-            user: User accepting the quote
-
-        Returns:
-            Dict with operation result
+        Enforces optimistic concurrency via If-Match (ETag) precondition.
         """
         from datetime import datetime
 
-        job = get_object_or_404(Job, id=job_id)
+        # Lock row to ensure atomic precondition check + update
+        job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
+
+        # Concurrency precondition
+        if if_match:
+            current_norm = _current_job_etag_value(job)
+            if current_norm != if_match:
+                raise PreconditionFailed("ETag mismatch: resource has changed")
 
         # Guard clause - check if job has a quote
         if not job.latest_quote:
@@ -939,8 +977,3 @@ class JobRestService:
             return f"{label} added"
         else:
             return f"{label} removed"
-
-
-# - create_time_entry() - Use CostLine creation with CostSet instead
-# - create_material_entry() - Use CostLine creation with CostSet instead
-# - create_adjustment_entry() - Use CostLine creation with CostSet instead
