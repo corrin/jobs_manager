@@ -107,9 +107,9 @@ class Command(BaseCommand):
             "accounts.Staff",
             "client.Client",
             "client.ClientContact",
-            # 'purchasing.PurchaseOrder',     # Xero-owned, will be synced from Xero
-            # 'purchasing.PurchaseOrderLine', # Xero-owned, will be synced from Xero
-            # 'purchasing.Stock',            # Xero-owned, will be synced from Xero
+            "purchasing.PurchaseOrder",  # Include production POs for restore to UAT
+            "purchasing.PurchaseOrderLine",  # Include PO lines with material details
+            "purchasing.Stock",  # Include stock items - will be synced to Xero after restore
             "quoting.SupplierPriceList",
             "quoting.SupplierProduct",
             "quoting.ScrapeJob",
