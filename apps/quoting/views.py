@@ -15,17 +15,8 @@ from apps.quoting.services.ai_price_extraction import extract_price_data
 from apps.quoting.services.pdf_data_validation import PDFDataValidationService
 from apps.quoting.services.pdf_import_service import PDFImportService
 from apps.quoting.services.product_parser import populate_all_mappings_with_llm
-from apps.workflow.authentication import service_api_key_required
 
 logger = logging.getLogger(__name__)
-
-
-class UploadSupplierPricingView(TemplateView):
-    template_name = "purchasing/upload_supplier_pricing.html"
-
-
-class UploadPriceListView(TemplateView):
-    template_name = "quoting/upload_price_list.html"
 
 
 class PDFPriceListImportView(LoginRequiredMixin, TemplateView):
@@ -527,21 +518,3 @@ def extract_supplier_price_list_data_view(request):
                 logger.warning(
                     f"Failed to cleanup temporary file {temp_file_path}: {e}"
                 )
-
-
-@service_api_key_required
-@require_http_methods(["GET"])
-def search_stock_api(request):
-    return JsonResponse({"stock_items": []})
-
-
-@service_api_key_required
-@require_http_methods(["GET"])
-def search_supplier_prices_api(request):
-    return JsonResponse({"supplier_prices": []})
-
-
-@service_api_key_required
-@require_http_methods(["GET"])
-def job_context_api(request, job_id):
-    return JsonResponse({"error": "Service temporarily disabled"}, status=500)

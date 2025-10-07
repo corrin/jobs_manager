@@ -730,7 +730,7 @@ class TimelineEntrySerializer(serializers.Serializer):
     id = serializers.UUIDField()
     timestamp = serializers.DateTimeField()
     entry_type = serializers.CharField(
-        help_text="Type of entry: 'event', 'time', 'material', 'adjust', 'costline_created', or 'costline_updated'"
+        help_text="Type of entry: 'event', 'costline_created', or 'costline_updated'"
     )
     description = serializers.CharField()
     staff = serializers.CharField(allow_null=True, required=False)

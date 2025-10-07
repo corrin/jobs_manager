@@ -42,12 +42,7 @@ except (ImportError, RuntimeError):
 # EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
 # Import these directly where needed using:
 # from .views import PDFPriceListImportView
-# from .views import UploadPriceListView
-# from .views import UploadSupplierPricingView
 # from .views import extract_supplier_price_list_data_view
-# from .views import job_context_api
-# from .views import search_stock_api
-# from .views import search_supplier_prices_api
 #
 
 __all__ = [
