@@ -59,6 +59,7 @@ class JSONToMySQLConverter:
             "meta",
             "metadata",
             "summary",
+            "raw_line_data",
         }
 
         # Mapping from Django model names to MySQL table names
@@ -81,6 +82,9 @@ class JSONToMySQLConverter:
             "quoting.supplierpricelist": "quoting_supplierpricelist",
             "quoting.supplierproduct": "quoting_supplierproduct",
             "quoting.scrapejob": "quoting_scrapejob",
+            "purchasing.purchaseorder": "workflow_purchaseorder",
+            "purchasing.purchaseorderline": "workflow_purchaseorderline",
+            "purchasing.stock": "workflow_stock",
             "contenttypes.contenttype": "django_content_type",
             "migrations.migration": "django_migrations",
         }
@@ -152,6 +156,19 @@ class JSONToMySQLConverter:
             },
             "job_costline": {
                 "cost_set": "cost_set_id",
+            },
+            "workflow_purchaseorder": {
+                "supplier": "supplier_id",
+                "job": "job_id",
+            },
+            "workflow_purchaseorderline": {
+                "purchase_order": "purchase_order_id",
+                "job": "job_id",
+            },
+            "workflow_stock": {
+                "job": "job_id",
+                "source_parent_stock": "source_parent_stock_id",
+                "source_purchase_order_line": "source_purchase_order_line_id",
             },
         }
 
