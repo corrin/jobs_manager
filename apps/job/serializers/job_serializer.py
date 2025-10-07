@@ -724,6 +724,49 @@ class JobEventsResponseSerializer(serializers.Serializer):
     events = JobEventSerializer(many=True)
 
 
+class TimelineEntrySerializer(serializers.Serializer):
+    """Serializer for unified timeline entry (JobEvent or CostLine)"""
+
+    id = serializers.UUIDField()
+    timestamp = serializers.DateTimeField()
+    entry_type = serializers.CharField(
+        help_text="Type of entry: 'event', 'costline_created', or 'costline_updated'"
+    )
+    description = serializers.CharField()
+    staff = serializers.CharField(allow_null=True, required=False)
+    event_type = serializers.CharField(required=False, allow_null=True)
+    # CostLine specific fields
+    cost_set_kind = serializers.CharField(required=False, allow_null=True)
+    costline_kind = serializers.CharField(
+        required=False,
+        allow_null=True,
+        help_text="Kind of costline: 'time', 'material', or 'adjust'",
+    )
+    quantity = serializers.DecimalField(
+        max_digits=10, decimal_places=3, required=False, allow_null=True
+    )
+    unit_cost = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    unit_rev = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    total_cost = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    total_rev = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    created_at = serializers.DateTimeField(required=False, allow_null=True)
+    updated_at = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class JobTimelineResponseSerializer(serializers.Serializer):
+    """Serializer for job timeline response (events + cost lines)"""
+
+    timeline = TimelineEntrySerializer(many=True)
+
+
 class JobBasicInformationResponseSerializer(serializers.Serializer):
     """Serializer for job basic information response"""
 
