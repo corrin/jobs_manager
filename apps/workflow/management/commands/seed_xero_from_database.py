@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 
 from apps.client.models import Client
 from apps.job.models import Job
+from apps.purchasing.models import Stock
+from apps.workflow.api.xero.stock_sync import sync_all_local_stock_to_xero
 from apps.workflow.api.xero.sync import seed_clients_to_xero, seed_jobs_to_xero
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -25,25 +27,18 @@ class Command(BaseCommand):
             action="store_true",
             help="Show what would be synced without making changes",
         )
-        parser.add_argument(
-            "--clear-xero-ids",
-            action="store_true",
-            help="Clear production Xero IDs before seeding",
-        )
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
-        clear_ids = options["clear_xero_ids"]
 
         mode_text = "DRY RUN - " if dry_run else ""
         self.stdout.write(f"{mode_text}Seeding Xero from Database")
         self.stdout.write("=" * 50)
 
         try:
-            # Phase 0: Clear production Xero IDs (if requested)
-            if clear_ids:
-                self.stdout.write("Phase 0: Clearing Production Xero IDs")
-                self.clear_production_xero_ids(dry_run)
+            # Phase 0: Clear production Xero IDs (always - this is for restore scenarios)
+            self.stdout.write("Phase 0: Clearing Production Xero IDs")
+            self.clear_production_xero_ids(dry_run)
 
             # Phase 1: Link/Create contacts
             self.stdout.write("Phase 1: Processing Contacts")
@@ -59,10 +54,15 @@ class Command(BaseCommand):
                 )
                 projects_processed = 0
 
+            # Phase 3: Sync stock items to Xero
+            self.stdout.write("Phase 3: Processing Stock Items")
+            stock_processed = self.process_stock_items(dry_run)
+
             # Summary
             self.stdout.write("COMPLETED")
             self.stdout.write(f"Contacts processed: {contacts_processed}")
             self.stdout.write(f"Projects processed: {projects_processed}")
+            self.stdout.write(f"Stock items processed: {stock_processed}")
 
             if dry_run:
                 self.stdout.write("Dry run complete - no changes made")
@@ -162,6 +162,50 @@ class Command(BaseCommand):
 
         return results["created"]
 
+    def process_stock_items(self, dry_run):
+        """Phase 3: Sync stock items to Xero inventory."""
+        # Find stock items that need xero_id
+        stock_needing_sync = Stock.objects.filter(
+            xero_id__isnull=True, is_active=True
+        ).order_by("date")
+
+        self.stdout.write(
+            f"Found {stock_needing_sync.count()} stock items needing Xero sync"
+        )
+
+        if not stock_needing_sync.exists():
+            self.stdout.write("All active stock items already have Xero IDs")
+            return 0
+
+        if dry_run:
+            for stock in stock_needing_sync[:10]:  # Show first 10
+                self.stdout.write(
+                    f"  • Would sync: {stock.description} (qty: {stock.quantity}, cost: ${stock.unit_cost})"
+                )
+            if stock_needing_sync.count() > 10:
+                self.stdout.write(f"  ... and {stock_needing_sync.count() - 10} more")
+            return stock_needing_sync.count()
+
+        # Call stock sync module for processing
+        self.stdout.write("Syncing stock items to Xero...")
+        results = sync_all_local_stock_to_xero(limit=None)
+
+        # Report results
+        self.stdout.write(
+            f"Stock Summary: {results['synced_count']} synced, {results['failed_count']} failed"
+        )
+
+        if results["failed_items"]:
+            self.stdout.write(
+                f"Failed to sync {len(results['failed_items'])} stock items:"
+            )
+            for item in results["failed_items"][:5]:  # Show first 5 failures
+                self.stdout.write(f"  • {item['description']} - {item['reason']}")
+            if len(results["failed_items"]) > 5:
+                self.stdout.write(f"  ... and {len(results['failed_items']) - 5} more")
+
+        return results["synced_count"]
+
     def clear_production_xero_ids(self, dry_run):
         """Clear production Xero IDs from all relevant tables."""
         # Safety check - never run on production server
@@ -251,6 +295,18 @@ class Command(BaseCommand):
                     tables_cleared.append(
                         f"purchasing_purchaseorder: {po_count} records"
                     )
+
+            # Clear stock item IDs - allows re-creation in UAT Xero tenant
+            self.stdout.write("Clearing stock xero_id values...")
+            if self._table_exists(cursor, "workflow_stock") and self._column_exists(
+                cursor, "workflow_stock", "xero_id"
+            ):
+                cursor.execute(
+                    "UPDATE workflow_stock SET xero_id = NULL WHERE xero_id IS NOT NULL"
+                )
+                stock_count = cursor.rowcount
+                if stock_count > 0:
+                    tables_cleared.append(f"workflow_stock: {stock_count} records")
 
         # Summary
         if tables_cleared:

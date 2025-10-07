@@ -484,88 +484,44 @@ Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaul
 
 **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
 
-#### Step 19: Clear Production Xero IDs
+#### Step 19: Seed Database to Xero
 
 **Run as:** Development system user
 **Command:**
 
 ```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
-UPDATE workflow_client SET xero_contact_id = NULL WHERE xero_contact_id IS NOT NULL;
-UPDATE workflow_job SET xero_project_id = NULL WHERE xero_project_id IS NOT NULL;
-"
+python manage.py seed_xero_from_database
 ```
 
-**Why this step is critical:** Production Xero IDs won't match the development Xero tenant. Clearing them allows proper re-linking by name during sync.
+**What this does:**
+1. Clears production Xero IDs (clients, jobs, stock, purchase orders)
+2. Links/creates contacts in Xero for all clients
+3. Creates projects in Xero for all jobs
+4. Syncs stock items to Xero inventory
 
-**Check:**
-
-```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
-SELECT 'Clients with Xero ID' as description, COUNT(*) as count FROM workflow_client WHERE xero_contact_id IS NOT NULL
-UNION SELECT 'Jobs with Xero Project ID', COUNT(*) FROM workflow_job WHERE xero_project_id IS NOT NULL;
-"
-```
-
-**Expected:** Both counts should be 0.
-
-#### Step 20: Run Initial Xero Sync
-
-**Run as:** Development system user
-**Command:**
-
-```bash
-python manage.py start_xero_sync
-```
-
-**Why this step is critical:** This fetches contacts FROM Xero and links them to our existing clients by name. With the fixed sync logic, this will not create duplicates.
-
-#### Step 21: Seed Additional Data to Xero
-
-**Run as:** Development system user
-**Command:**
-
-```bash
-python manage.py seed_xero_from_database --skip-clear-xero-ids
-```
-
-**Why this step is critical:** Creates missing contacts and projects in Xero for all clients and jobs. Uses `--skip-clear-xero-ids` since we already cleared IDs in Step 19.
+**Why this step is critical:** Production Xero IDs won't work in UAT tenant. This command clears them and rebuilds all Xero relationships for the UAT environment.
 
 **Check:**
 
 ```bash
 python manage.py shell -c "
 from apps.client.models import Client
-clients_with_xero_id = Client.objects.filter(xero_contact_id__isnull=False).count()
-print(f'Clients linked to Xero: {clients_with_xero_id}')
+from apps.job.models import Job
+from apps.purchasing.models import Stock
+
+clients_with_xero = Client.objects.filter(xero_contact_id__isnull=False).count()
+jobs_with_xero = Job.objects.filter(xero_project_id__isnull=False).count()
+stock_with_xero = Stock.objects.filter(xero_id__isnull=False, is_active=True).count()
+
+print(f'Clients linked to Xero: {clients_with_xero}')
+print(f'Jobs linked to Xero: {jobs_with_xero}')
+print(f'Stock items synced to Xero: {stock_with_xero}')
 "
 ```
 
-**Expected:** Large number (2500+) - clients should now have Xero IDs.
+**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands).
 
-**Verification:**
-
-```bash
-python manage.py shell -c "
-from apps.client.models import Client
-total_clients = Client.objects.count()
-clients_with_xero_id = Client.objects.filter(xero_contact_id__isnull=False).count()
-clients_with_jobs = Client.objects.filter(jobs__isnull=False, xero_contact_id__isnull=True).distinct().count()
-print(f'Total clients: {total_clients}')
-print(f'Clients with Xero contact ID: {clients_with_xero_id}')
-print(f'Clients with jobs but no Xero ID: {clients_with_jobs}')
-"
-```
-
-**Expected output:**
-
-```
-Total clients: 3707
-Clients with Xero contact ID: 2500+ (most clients should now have IDs)
-Clients with jobs but no Xero ID: 0 (or very small number)
-```
-
-#### Step 21: Test Admin User Login
+#### Step 20: Test Admin User Login
 
 **Run as:** Development system user
 **Command:**
@@ -596,7 +552,7 @@ else:
 ✓ Is superuser: True
 ```
 
-#### Step 22: Test Serializers (Before API Testing)
+#### Step 21: Test Serializers (Before API Testing)
 
 **Run as:** Development system user
 **Command:**
@@ -613,7 +569,7 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 23: Test Kanban HTTP API
+#### Step 22: Test Kanban HTTP API
 
 **Run as:** Development system user
 **Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
@@ -643,7 +599,7 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 24: Final Application Test
+#### Step 23: Final Application Test
 
 **Run as:** Development system user
 **Command:**
