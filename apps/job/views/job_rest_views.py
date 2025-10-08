@@ -29,6 +29,7 @@ from apps.job.serializers.job_serializer import (
     JobCreateRequestSerializer,
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
+    JobDeltaEnvelopeSerializer,
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
@@ -202,6 +203,12 @@ class BaseJobRestView(APIView):
             response["ETag"] = etag
         return response
 
+    def _is_delta_payload(self, payload: Any) -> bool:
+        if not isinstance(payload, dict):
+            return False
+        required = {"change_id", "fields", "before", "after", "before_checksum"}
+        return required.issubset(payload.keys())
+
 
 @method_decorator(csrf_exempt, name="dispatch")
 class JobCreateRestView(BaseJobRestView):
@@ -368,6 +375,19 @@ class JobDetailRestView(BaseJobRestView):
         try:
             data = self.parse_json_body(request)
 
+            payload = data
+            if self._is_delta_payload(data):
+                delta_serializer = JobDeltaEnvelopeSerializer(data=data)
+                if not delta_serializer.is_valid():
+                    error_response = {
+                        "error": f"Validation failed: {delta_serializer.errors}"
+                    }
+                    error_serializer = JobRestErrorResponseSerializer(error_response)
+                    return Response(
+                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                    )
+                payload = delta_serializer.validated_data
+
             # Require If-Match for optimistic concurrency control
             if_match = self._get_if_match(request)
             if not if_match:
@@ -375,7 +395,7 @@ class JobDetailRestView(BaseJobRestView):
 
             # Update the job using the service layer with concurrency check
             updated_job = JobRestService.update_job(
-                job_id, data, request.user, if_match=if_match
+                job_id, payload, request.user, if_match=if_match
             )
 
             # Return complete job data for frontend reactivity
@@ -407,16 +427,28 @@ class JobDetailRestView(BaseJobRestView):
         try:
             data = self.parse_json_body(request)
 
-            # Validate input data with PATCH-specific serializer
-            input_serializer = JobPatchRequestSerializer(data=data)
-            if not input_serializer.is_valid():
-                error_response = {
-                    "error": f"Validation failed: {input_serializer.errors}"
-                }
-                error_serializer = JobRestErrorResponseSerializer(error_response)
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
+            if self._is_delta_payload(data):
+                delta_serializer = JobDeltaEnvelopeSerializer(data=data)
+                if not delta_serializer.is_valid():
+                    error_response = {
+                        "error": f"Validation failed: {delta_serializer.errors}"
+                    }
+                    error_serializer = JobRestErrorResponseSerializer(error_response)
+                    return Response(
+                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                    )
+                payload = delta_serializer.validated_data
+            else:
+                input_serializer = JobPatchRequestSerializer(data=data)
+                if not input_serializer.is_valid():
+                    error_response = {
+                        "error": f"Validation failed: {input_serializer.errors}"
+                    }
+                    error_serializer = JobRestErrorResponseSerializer(error_response)
+                    return Response(
+                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                    )
+                payload = input_serializer.validated_data
 
             # Require If-Match for optimistic concurrency control
             if_match = self._get_if_match(request)
@@ -425,7 +457,7 @@ class JobDetailRestView(BaseJobRestView):
 
             # Update the job using the service layer (supports partial updates) with concurrency check
             updated_job = JobRestService.update_job(
-                job_id, input_serializer.validated_data, request.user, if_match=if_match
+                job_id, payload, request.user, if_match=if_match
             )
 
             # Return complete job data for frontend reactivity

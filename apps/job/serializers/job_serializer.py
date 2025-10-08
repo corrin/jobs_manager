@@ -839,6 +839,22 @@ class JobPatchRequestSerializer(serializers.Serializer):
         help_text="Pricing methodology",
     )
 
+
+class JobDeltaEnvelopeSerializer(serializers.Serializer):
+    """Serializer that validates the delta envelope submitted by the frontend."""
+
+    change_id = serializers.UUIDField()
+    actor_id = serializers.UUIDField(required=False, allow_null=True)
+    made_at = serializers.DateTimeField(required=False, allow_null=True)
+    job_id = serializers.UUIDField(required=False, allow_null=True)
+    fields = serializers.ListField(
+        child=serializers.CharField(), allow_empty=False, min_length=1
+    )
+    before = serializers.JSONField()
+    after = serializers.JSONField()
+    before_checksum = serializers.CharField()
+    etag = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     # Relationships (only IDs, no derived names)
     client_id = serializers.UUIDField(
         required=False, allow_null=True, help_text="Client ID"

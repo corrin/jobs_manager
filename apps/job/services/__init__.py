@@ -6,6 +6,11 @@ try:
 
     if apps.ready:
         from .data_quality_report import ArchivedJobsComplianceService
+        from .delta_checksum import (
+            ChecksumInput,
+            compute_job_delta_checksum,
+            normalise_value,
+        )
         from .file_service import (
             create_thumbnail,
             get_thumbnail_folder,
@@ -22,7 +27,11 @@ try:
             serialize_draft_lines,
             serialize_validation_report,
         )
-        from .job_rest_service import JobRestService, PreconditionFailed
+        from .job_rest_service import (
+            JobDeltaPayload,
+            JobRestService,
+            PreconditionFailed,
+        )
         from .job_service import (
             JobStaffService,
             archive_complete_jobs,
@@ -62,7 +71,9 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "ArchivedJobsComplianceService",
+    "ChecksumInput",
     "GeminiChatService",
+    "JobDeltaPayload",
     "JobRestService",
     "JobStaffService",
     "KanbanCategorizationService",
@@ -82,6 +93,7 @@ __all__ = [
     "add_title",
     "apply_quote",
     "archive_complete_jobs",
+    "compute_job_delta_checksum",
     "convert_html_to_reportlab",
     "create_image_document",
     "create_main_document",
@@ -97,6 +109,7 @@ __all__ = [
     "import_quote_from_file",
     "link_quote_sheet",
     "merge_pdfs",
+    "normalise_value",
     "preview_quote",
     "preview_quote_import",
     "preview_quote_import_from_drafts",

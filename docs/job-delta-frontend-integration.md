@@ -34,7 +34,7 @@ Every PATCH/POST that mutates a job must send a JSON payload in the following sh
   - Sort field keys alphabetically.
   - Convert `None` to the literal string `"__NULL__"`.
   - Trim whitespace for string comparisons.
-  - Serialise decimals using the backend precision (e.g., `Decimal('5.10')` -> `"5.10"`).
+  - Serialise decimals as plain strings without exponent or trailing zeros (e.g., `Decimal('5.10')` -> `"5.1"`).
   - Concatenate as `"{job_id}|{field}={value}|..."`, then hash with SHA-256.
 - `change_id` is an opaque UUID scoped to the delta queue; reuse the same ID for retries to avoid duplicate events.
 - `made_at` uses ISO 8601 with millisecond precision and UTC (`Z`) suffix.

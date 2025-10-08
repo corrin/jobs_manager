@@ -7,9 +7,10 @@ All business logic for Job REST operations should be implemented here.
 
 import logging
 import math
-from datetime import date, timedelta
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any, Dict, Iterable, Mapping
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
@@ -29,6 +30,7 @@ from apps.job.serializers.job_serializer import (
     JobEventSerializer,
     QuoteSerializer,
 )
+from apps.job.services.delta_checksum import compute_job_delta_checksum, normalise_value
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -51,11 +53,65 @@ def _current_job_etag_value(job: Job) -> str:
     return f"job:{job.id}:{ts_ms}"
 
 
+@dataclass
+class JobDeltaPayload:
+    """Structured representation of the delta envelope submitted by the client."""
+
+    change_id: str
+    fields: tuple[str, ...]
+    before: Dict[str, Any]
+    after: Dict[str, Any]
+    before_checksum: str
+    job_id: str | None = None
+    actor_id: str | None = None
+    made_at: datetime | None = None
+    source_etag: str | None = None
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "JobDeltaPayload":
+        required_keys = {"change_id", "fields", "before", "after", "before_checksum"}
+        missing = required_keys - payload.keys()
+        if missing:
+            raise ValueError(
+                f"Missing required delta fields: {', '.join(sorted(missing))}"
+            )
+
+        fields_value = payload.get("fields") or []
+        if not isinstance(fields_value, Iterable):
+            raise ValueError("Delta 'fields' must be a list of field names")
+
+        fields_tuple = tuple(str(field) for field in fields_value)
+        if not fields_tuple:
+            raise ValueError("Delta 'fields' cannot be empty")
+
+        before = payload.get("before") or {}
+        after = payload.get("after") or {}
+
+        if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+            raise ValueError("Delta 'before' and 'after' must be objects")
+
+        return cls(
+            change_id=str(payload["change_id"]),
+            fields=fields_tuple,
+            before=dict(before),
+            after=dict(after),
+            before_checksum=str(payload["before_checksum"]),
+            job_id=str(payload.get("job_id")) if payload.get("job_id") else None,
+            actor_id=str(payload.get("actor_id")) if payload.get("actor_id") else None,
+            made_at=payload.get("made_at"),
+            source_etag=str(payload.get("etag")) if payload.get("etag") else None,
+        )
+
+
 class JobRestService:
     """
     Service layer for Job REST operations.
     Implements all business rules related to Job manipulation via REST API.
     """
+
+    _FIELD_ATTRIBUTE_MAP = {
+        "job_status": "status",
+    }
 
     @staticmethod
     def create_job(data: Dict[str, Any], user: Staff) -> Job:
@@ -205,6 +261,66 @@ class JobRestService:
         return job
 
     @staticmethod
+    def _looks_like_delta_payload(data: Any) -> bool:
+        if not isinstance(data, Mapping):
+            return False
+        required_keys = {"change_id", "fields", "before", "after", "before_checksum"}
+        return required_keys.issubset(data.keys())
+
+    @staticmethod
+    def _validate_delta_payload(job: Job, delta: JobDeltaPayload) -> None:
+        fields = set(delta.fields)
+        if not fields:
+            raise ValueError("Delta payload must specify at least one field")
+
+        before_keys = set(delta.before.keys())
+        after_keys = set(delta.after.keys())
+
+        missing_before = fields - before_keys
+        missing_after = fields - after_keys
+
+        if missing_before or missing_after:
+            issues: list[str] = []
+            if missing_before:
+                issues.append(f"missing 'before' values for {sorted(missing_before)}")
+            if missing_after:
+                issues.append(f"missing 'after' values for {sorted(missing_after)}")
+            raise ValueError("Delta payload is inconsistent: " + "; ".join(issues))
+
+        current_values: Dict[str, Any] = {}
+        for field in fields:
+            current_values[field] = JobRestService._get_job_field_value(job, field)
+
+        server_checksum = compute_job_delta_checksum(job.id, current_values, fields)
+        if server_checksum != delta.before_checksum:
+            raise PreconditionFailed(
+                "Delta checksum mismatch: job has changed since the delta was generated"
+            )
+
+        for field in fields:
+            current_norm = normalise_value(current_values[field])
+            before_norm = normalise_value(delta.before[field])
+            if current_norm != before_norm:
+                raise PreconditionFailed(
+                    f"Delta before state mismatch for field '{field}'"
+                )
+
+    @staticmethod
+    def _get_job_field_value(job: Job, field: str) -> Any:
+        attribute_name = JobRestService._FIELD_ATTRIBUTE_MAP.get(field, field)
+
+        if hasattr(job, attribute_name):
+            return getattr(job, attribute_name)
+
+        # Fallback for foreign keys when the delta uses *_id
+        if attribute_name.endswith("_id"):
+            related_attr = attribute_name
+            if hasattr(job, related_attr):
+                return getattr(job, related_attr)
+
+        raise ValueError(f"Unsupported field '{field}' in delta payload")
+
+    @staticmethod
     def get_job_for_edit(job_id: UUID, request) -> Dict[str, Any]:
         """
         Fetches complete Job data for editing.
@@ -341,12 +457,24 @@ class JobRestService:
                 f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
             )
 
-            # CRITICAL FIX: Extract job data from nested structure
-            job_data = data
-            if "data" in data and "job" in data["data"]:
+            delta_payload: JobDeltaPayload | None = None
+
+            # Support both the new delta envelope and legacy payloads for rollout.
+            job_data: Dict[str, Any] = data
+            if JobRestService._looks_like_delta_payload(data):
+                try:
+                    delta_payload = JobDeltaPayload.from_dict(data)
+                    job_data = {
+                        JobRestService._FIELD_ATTRIBUTE_MAP.get(key, key): value
+                        for key, value in delta_payload.after.items()
+                    }
+                except ValueError as exc:
+                    raise ValueError(f"Invalid delta payload: {exc}") from exc
+            elif "data" in data and "job" in data["data"]:
                 job_data = data["data"]["job"]
                 logger.debug(
-                    f"JobRestService.update_job - Extracted job data from nested structure: {job_data}"
+                    "JobRestService.update_job - Extracted job data from nested structure: %s",
+                    job_data,
                 )
 
             # Store original values for comparison
@@ -368,6 +496,13 @@ class JobRestService:
             logger.debug(
                 f"JobRestService.update_job - Original values: {original_values}"
             )
+
+            if delta_payload:
+                JobRestService._validate_delta_payload(job, delta_payload)
+                if delta_payload.job_id and str(job.id) != delta_payload.job_id:
+                    raise ValueError(
+                        f"Delta job_id {delta_payload.job_id} does not match target job {job.id}"
+                    )
 
             # Use serializer for validation and updating
             serializer = JobSerializer(
@@ -777,9 +912,11 @@ class JobRestService:
 
                 # Create separate entry for update if it's different from creation
                 # (allowing 1 second tolerance for auto-save timestamps)
-                if cost_line.updated_at and (
-                    cost_line.updated_at - cost_line.created_at
-                ).total_seconds() > 1:
+                if (
+                    cost_line.updated_at
+                    and (cost_line.updated_at - cost_line.created_at).total_seconds()
+                    > 1
+                ):
                     timeline_entries.append(
                         {
                             **common_fields,
