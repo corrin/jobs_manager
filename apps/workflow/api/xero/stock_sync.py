@@ -16,7 +16,15 @@ SLEEP_TIME = 1  # Sleep after every API call to avoid hitting rate limits
 
 
 def _escape_where_value(v: str) -> str:
-    return v.replace('"', r"\"")
+    """Escape special characters for Xero WHERE clause queries"""
+    # Escape backslashes first to avoid double-escaping
+    v = v.replace("\\", "\\\\")
+    # Escape double quotes
+    v = v.replace('"', r"\"")
+    # Escape parentheses (Xero API treats these as special characters)
+    v = v.replace("(", r"\(")
+    v = v.replace(")", r"\)")
+    return v
 
 
 def get_xero_item_by_code(api: AccountingApi, tenant_id: str, code: str):

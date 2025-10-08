@@ -107,9 +107,9 @@ class Command(BaseCommand):
             "accounts.Staff",
             "client.Client",
             "client.ClientContact",
-            # 'purchasing.PurchaseOrder',     # Xero-owned, will be synced from Xero
-            # 'purchasing.PurchaseOrderLine', # Xero-owned, will be synced from Xero
-            # 'purchasing.Stock',            # Xero-owned, will be synced from Xero
+            "purchasing.PurchaseOrder",  # Include production POs for restore to UAT
+            "purchasing.PurchaseOrderLine",  # Include PO lines with material details
+            "purchasing.Stock",  # Include stock items - will be synced to Xero after restore
             "quoting.SupplierPriceList",
             "quoting.SupplierProduct",
             "quoting.ScrapeJob",
@@ -226,7 +226,18 @@ class Command(BaseCommand):
         elif replacement_type == "phone":
             return fake.phone_number()
         elif replacement_type == "company":
-            return fake.company()
+            # Ensure unique company names - FAIL EARLY if can't find unique
+            max_attempts = 1000
+            for _ in range(max_attempts):
+                company_name = fake.company()
+                if company_name not in self._used_company_names:
+                    self._used_company_names.add(company_name)
+                    return company_name
+            # FAIL EARLY - couldn't generate unique name
+            raise ValueError(
+                f"Failed to generate unique company name after {max_attempts} attempts. "
+                f"Already used {len(self._used_company_names)} company names."
+            )
         elif replacement_type == "address":
             return fake.street_address()
         elif replacement_type == "city":

@@ -13,6 +13,7 @@ class SupplierProductQueryTool(ModelQueryToolset):
     """MCP tool for querying supplier products"""
 
     model = SupplierProduct
+    exclude_fields = ["supplier", "price_list"]
 
     def get_queryset(self):
         return super().get_queryset().select_related("supplier", "price_list")

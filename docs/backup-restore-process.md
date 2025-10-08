@@ -130,9 +130,9 @@ sudo mysql -u root --execute="source scripts/reset_database.sql"
 **Check:**
 
 ```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"
+export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"
 # Should return: Empty set (0.00 sec)
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" -e "SHOW DATABASES;" | grep "$MYSQL_DATABASE"
+export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" -e "SHOW DATABASES;" | grep "$MYSQL_DATABASE"
 # Should show: msm_workflow
 ```
 
@@ -142,7 +142,7 @@ MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" -
 **Command:**
 
 ```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
+export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
 ```
 
 **Check:**
@@ -417,13 +417,24 @@ Shop client: Demo Company Shop
 #### Step 16: Start Development Server
 
 **Run as:** Development system user
-**Command:**
+
+**First, check if server is already running:**
+
+```bash
+# Check if port 8000 is already in use
+lsof -i :8000 || echo "Port 8000 is free"
+```
+
+**If port is free, start server:**
 
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
+Note that in dev user usually prefers to run this using Visual Studio's debug command.
 
 **Check:** Server should start without errors and be accessible at http://localhost:8000
+
+**Note:** If the server is already running, skip this step and proceed to Step 17.
 
 #### Step 17: Connect to Xero OAuth
 
@@ -484,88 +495,77 @@ Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaul
 
 **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
 
-#### Step 19: Clear Production Xero IDs
+#### Step 18.5: Sync Chart of Accounts from Xero
 
 **Run as:** Development system user
 **Command:**
 
 ```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
-UPDATE workflow_client SET xero_contact_id = NULL WHERE xero_contact_id IS NOT NULL;
-UPDATE workflow_job SET xero_project_id = NULL WHERE xero_project_id IS NOT NULL;
-"
+python manage.py start_xero_sync --entity accounts
 ```
 
-**Why this step is critical:** Production Xero IDs won't match the development Xero tenant. Clearing them allows proper re-linking by name during sync.
-
-**Check:**
-
-```bash
-MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
-SELECT 'Clients with Xero ID' as description, COUNT(*) as count FROM workflow_client WHERE xero_contact_id IS NOT NULL
-UNION SELECT 'Jobs with Xero Project ID', COUNT(*) FROM workflow_job WHERE xero_project_id IS NOT NULL;
-"
-```
-
-**Expected:** Both counts should be 0.
-
-#### Step 20: Run Initial Xero Sync
-
-**Run as:** Development system user
-**Command:**
-
-```bash
-python manage.py start_xero_sync
-```
-
-**Why this step is critical:** This fetches contacts FROM Xero and links them to our existing clients by name. With the fixed sync logic, this will not create duplicates.
-
-#### Step 21: Seed Additional Data to Xero
-
-**Run as:** Development system user
-**Command:**
-
-```bash
-python manage.py seed_xero_from_database --skip-clear-xero-ids
-```
-
-**Why this step is critical:** Creates missing contacts and projects in Xero for all clients and jobs. Uses `--skip-clear-xero-ids` since we already cleared IDs in Step 19.
+**What this does:**
+Fetches the chart of accounts from Xero and populates the XeroAccount table with account codes, names, and types. This is required for stock sync to work correctly (needs account codes 200 for Sales and 300 for Purchases).
 
 **Check:**
 
 ```bash
 python manage.py shell -c "
-from apps.client.models import Client
-clients_with_xero_id = Client.objects.filter(xero_contact_id__isnull=False).count()
-print(f'Clients linked to Xero: {clients_with_xero_id}')
-"
-```
-
-**Expected:** Large number (2500+) - clients should now have Xero IDs.
-
-**Verification:**
-
-```bash
-python manage.py shell -c "
-from apps.client.models import Client
-total_clients = Client.objects.count()
-clients_with_xero_id = Client.objects.filter(xero_contact_id__isnull=False).count()
-clients_with_jobs = Client.objects.filter(jobs__isnull=False, xero_contact_id__isnull=True).distinct().count()
-print(f'Total clients: {total_clients}')
-print(f'Clients with Xero contact ID: {clients_with_xero_id}')
-print(f'Clients with jobs but no Xero ID: {clients_with_jobs}')
+from apps.workflow.models import XeroAccount
+print(f'Total accounts synced: {XeroAccount.objects.count()}')
+sales = XeroAccount.objects.filter(account_code='200').first()
+purchases = XeroAccount.objects.filter(account_code='300').first()
+print(f'Sales account (200): {sales.account_name if sales else \"NOT FOUND\"}')
+print(f'Purchases account (300): {purchases.account_name if purchases else \"NOT FOUND\"}')
 "
 ```
 
 **Expected output:**
 
 ```
-Total clients: 3707
-Clients with Xero contact ID: 2500+ (most clients should now have IDs)
-Clients with jobs but no Xero ID: 0 (or very small number)
+Total accounts synced: 50+ accounts
+Sales account (200): Sales
+Purchases account (300): Purchases
 ```
 
-#### Step 21: Test Admin User Login
+#### Step 19: Seed Database to Xero
+
+**Run as:** Development system user
+**Command:**
+
+```bash
+python manage.py seed_xero_from_database
+```
+
+**What this does:**
+1. Clears production Xero IDs (clients, jobs, stock, purchase orders)
+2. Links/creates contacts in Xero for all clients
+3. Creates projects in Xero for all jobs
+4. Syncs stock items to Xero inventory (using account codes from Step 18.5)
+
+**Why this step is critical:** Production Xero IDs won't work in UAT tenant. This command clears them and rebuilds all Xero relationships for the UAT environment.
+
+**Check:**
+
+```bash
+python manage.py shell -c "
+from apps.client.models import Client
+from apps.job.models import Job
+from apps.purchasing.models import Stock
+
+clients_with_xero = Client.objects.filter(xero_contact_id__isnull=False).count()
+jobs_with_xero = Job.objects.filter(xero_project_id__isnull=False).count()
+stock_with_xero = Stock.objects.filter(xero_id__isnull=False, is_active=True).count()
+
+print(f'Clients linked to Xero: {clients_with_xero}')
+print(f'Jobs linked to Xero: {jobs_with_xero}')
+print(f'Stock items synced to Xero: {stock_with_xero}')
+"
+```
+
+**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands).
+
+#### Step 20: Test Admin User Login
 
 **Run as:** Development system user
 **Command:**
@@ -596,7 +596,7 @@ else:
 ✓ Is superuser: True
 ```
 
-#### Step 22: Test Serializers (Before API Testing)
+#### Step 21: Test Serializers (Before API Testing)
 
 **Run as:** Development system user
 **Command:**
@@ -613,7 +613,7 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 23: Test Kanban HTTP API
+#### Step 22: Test Kanban HTTP API
 
 **Run as:** Development system user
 **Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
@@ -643,7 +643,7 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 24: Final Application Test
+#### Step 23: Final Application Test
 
 **Run as:** Development system user
 **Command:**
@@ -668,7 +668,7 @@ coded around them, but they're included to give you a sense of the sort of error
 ### Reset Script Fails
 
 **Symptoms:** Permission denied errors
-**Solution:** Always run the create database as root: `sudo mysql < scripts/reset_database.sql`
+**Solution:** run the create database as root: `sudo mysql --execute="source scripts/reset_database.sql"`
 
 ### Schema Missing Columns
 
@@ -683,7 +683,7 @@ coded around them, but they're included to give you a sense of the sort of error
 
 1. Check JSON file size: `ls -la restore/prod_backup_*.json`
 2. Check SQL file has INSERT statements: `grep "INSERT INTO" restore/prod_backup_final.sql | head -5`
-3. Check for SQL errors: `MYSQL_PWD=password mysql -u django_user -v < restore/prod_backup_final.sql`
+3. Check for SQL errors: `MYSQL_PWD=password mysql -u django_user -v --execute="source restore/prod_backup_final.sql"`
 4. Verify table schema matches data: `MYSQL_PWD=password mysql -u django_user -e "DESCRIBE workflow_job;" msm_workflow`
 
 ### Django ORM Errors
@@ -710,11 +710,6 @@ The `scripts/json_to_mysql.py` script has been enhanced to:
 - **Handle Django migrations table:** Includes `django_migrations` table to preserve exact migration state
 - **Foreign key field mappings:** Correctly maps Django foreign key fields (e.g., `supplier` → `supplier_id`)
 - **Content types support:** Handles `django_content_type` table for Django internals
-
-<!-- FUTURE ENHANCEMENT: Consider adding data filtering to json_to_mysql.py to remove
-     problematic MaterialEntry records with purchase_order_line or source_stock references.
-     This would prevent foreign key constraint errors when Xero purchase order data isn't available.
-     See apps/job/management/commands/backport_data_restore.py lines 51-66 for reference implementation. -->
 
 ### Enhanced Backup Script
 
