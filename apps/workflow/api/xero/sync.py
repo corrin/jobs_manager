@@ -1249,8 +1249,12 @@ def sync_job_to_xero(job):
         return False
 
     # Prepare project data
+    # Include job number in name to ensure uniqueness (multiple jobs can have same name)
+    project_name = (
+        f"Job {job.job_number}: {job.name}" if job.name else f"Job {job.job_number}"
+    )
     project_data = {
-        "name": job.name,
+        "name": project_name,
         "contact_id": job.client.xero_contact_id,
     }
 
