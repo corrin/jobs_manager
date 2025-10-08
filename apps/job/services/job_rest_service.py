@@ -716,13 +716,23 @@ class JobRestService:
         for cost_set in cost_sets:
             for cost_line in cost_set.cost_lines.all():
                 if staff_id := cost_line.ext_refs.get("staff_id"):
+                    # FAIL EARLY: Invalid staff_id indicates data corruption
                     try:
-                        # Validate UUID format before adding to set
                         staff_ids.add(UUID(str(staff_id)))
-                    except (ValueError, TypeError):
-                        logger.warning(
+                    except (ValueError, TypeError) as e:
+                        error_msg = (
                             f"Invalid staff_id in cost_line {cost_line.id}: {staff_id}"
                         )
+                        logger.error(error_msg)
+                        persist_app_error(
+                            e,
+                            additional_context={
+                                "cost_line_id": str(cost_line.id),
+                                "staff_id": staff_id,
+                                "job_id": str(job.id),
+                            },
+                        )
+                        raise ValueError(error_msg) from e
 
         # Fetch all staff members in bulk
         staff_map = Staff.objects.in_bulk(staff_ids) if staff_ids else {}
@@ -777,9 +787,11 @@ class JobRestService:
 
                 # Create separate entry for update if it's different from creation
                 # (allowing 1 second tolerance for auto-save timestamps)
-                if cost_line.updated_at and (
-                    cost_line.updated_at - cost_line.created_at
-                ).total_seconds() > 1:
+                if (
+                    cost_line.updated_at
+                    and (cost_line.updated_at - cost_line.created_at).total_seconds()
+                    > 1
+                ):
                     timeline_entries.append(
                         {
                             **common_fields,
