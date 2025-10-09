@@ -5,11 +5,13 @@ Following SRP (Single Responsibility Principle) and clean code guidelines.
 All business logic for Job REST operations should be implemented here.
 """
 
+import json
 import logging
 import math
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from functools import singledispatch
 from typing import Any, Dict, Iterable, Mapping
 from uuid import UUID
 
@@ -21,7 +23,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
-from apps.job.models import Job, JobEvent
+from apps.job.models import Job, JobDeltaRejection, JobEvent
 from apps.job.models.costing import CostLine
 from apps.job.serializers import JobSerializer
 from apps.job.serializers.job_serializer import (
@@ -39,6 +41,21 @@ logger = logging.getLogger(__name__)
 
 class PreconditionFailed(Exception):
     """Raised when ETag precondition fails (HTTP 412)."""
+
+
+class DeltaValidationError(PreconditionFailed):
+    """Raised when the delta payload fails checksum or before-state validation."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        current_values: Dict[str, Any] | None = None,
+        server_checksum: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.current_values = current_values or {}
+        self.server_checksum = server_checksum
 
 
 def _current_job_etag_value(job: Job) -> str:
@@ -84,7 +101,9 @@ class JobDeltaPayload:
             )
 
         fields_value = payload.get("fields") or []
-        if not isinstance(fields_value, Iterable):
+        if not isinstance(
+            fields_value, Iterable
+        ):  # guard scalar payloads before normalising
             raise ValueError("Delta 'fields' must be a list of field names")
 
         fields_tuple = tuple(str(field) for field in fields_value)
@@ -94,7 +113,9 @@ class JobDeltaPayload:
         before = payload.get("before") or {}
         after = payload.get("after") or {}
 
-        if not isinstance(before, Mapping) or not isinstance(after, Mapping):
+        if not isinstance(before, Mapping) or not isinstance(
+            after, Mapping
+        ):  # ensure JSON objects, not strings/arrays
             raise ValueError("Delta 'before' and 'after' must be objects")
 
         return cls(
@@ -108,6 +129,60 @@ class JobDeltaPayload:
             job_id=str(payload.get("job_id")) if payload.get("job_id") else None,
             etag=str(payload.get("etag")) if payload.get("etag") else None,
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Return a JSON-serialisable representation of the payload contents."""
+        return {
+            "change_id": self.change_id,
+            "fields": list(self.fields),
+            "before": self.before,
+            "after": self.after,
+            "before_checksum": self.before_checksum,
+            "actor_id": self.actor_id,
+            "made_at": self.made_at.isoformat()
+            if isinstance(self.made_at, datetime)
+            else self.made_at,
+            "job_id": self.job_id,
+            "etag": self.etag,
+        }
+
+
+@singledispatch
+def _to_json_safe(value: Any) -> Any:
+    """Best-effort conversion to JSON-serialisable structures (fallback)."""
+    return value
+
+
+@_to_json_safe.register(dict)
+def _json_from_dict(value: Dict[Any, Any]) -> Dict[str, Any]:
+    return {str(key): _to_json_safe(sub_value) for key, sub_value in value.items()}
+
+
+@_to_json_safe.register(list)
+@_to_json_safe.register(tuple)
+@_to_json_safe.register(set)
+def _json_from_iterable(value: Iterable[Any]) -> list[Any]:
+    return [_to_json_safe(item) for item in value]
+
+
+@_to_json_safe.register(datetime)
+def _json_from_datetime(value: datetime) -> str:
+    return value.isoformat()
+
+
+@_to_json_safe.register(date)
+def _json_from_date(value: date) -> str:
+    return value.isoformat()
+
+
+@_to_json_safe.register(Decimal)
+def _json_from_decimal(value: Decimal) -> str:
+    return format(value, "f")
+
+
+@_to_json_safe.register(UUID)
+def _json_from_uuid(value: UUID) -> str:
+    return str(value)
 
 
 class JobRestService:
@@ -268,6 +343,53 @@ class JobRestService:
         return job
 
     @staticmethod
+    def _record_delta_rejection(
+        job: Job | None,
+        staff: Staff | None,
+        *,
+        reason: str,
+        detail: Any = "",
+        envelope: Mapping[str, Any] | None = None,
+        change_id: str | None = None,
+        checksum: str | None = None,
+        request_etag: str | None = None,
+        request_ip: str | None = None,
+    ) -> None:
+        """Persist information about a rejected delta for forensic analysis."""
+        try:
+            JobDeltaRejection.objects.create(
+                job=job,
+                staff=staff,
+                change_id=JobRestService._safe_uuid(change_id),
+                reason=(reason or "")[:255],
+                detail=JobRestService._serialise_detail(detail),
+                envelope=_to_json_safe(envelope or {}),
+                checksum=checksum or "",
+                request_etag=(request_etag or "")[:128],
+                request_ip=request_ip,
+            )
+        except Exception as exc:  # pragma: no cover - defensive persistence
+            persist_app_error(exc)
+
+    @staticmethod
+    def _serialise_detail(detail: Any) -> str:
+        if detail in (None, ""):
+            return ""
+        converted = _to_json_safe(detail)
+        if isinstance(converted, (dict, list)):
+            return json.dumps(converted)
+        return str(converted)[:2000]
+
+    @staticmethod
+    def _safe_uuid(value: Any) -> UUID | None:
+        if not value:
+            return None
+        try:
+            return UUID(str(value))
+        except (ValueError, TypeError, AttributeError):
+            return None
+
+    @staticmethod
     def _looks_like_delta_payload(data: Any) -> bool:
         if not isinstance(data, Mapping):
             return False
@@ -300,22 +422,27 @@ class JobRestService:
 
         server_checksum = compute_job_delta_checksum(job.id, current_values, fields)
         if server_checksum != delta.before_checksum:
-            raise PreconditionFailed(
-                "Delta checksum mismatch: job has changed since the delta was generated"
+            raise DeltaValidationError(
+                "Delta checksum mismatch: job has changed since the delta was generated",
+                current_values=current_values,
+                server_checksum=server_checksum,
             )
 
         for field in fields:
             current_norm = normalise_value(current_values[field])
             before_norm = normalise_value(delta.before[field])
             if current_norm != before_norm:
-                raise PreconditionFailed(
-                    f"Delta before state mismatch for field '{field}'"
+                raise DeltaValidationError(
+                    f"Delta before state mismatch for field '{field}'",
+                    current_values=current_values,
+                    server_checksum=server_checksum,
                 )
 
     @staticmethod
     def _get_job_field_value(job: Job, field: str) -> Any:
         attribute_name = JobRestService._FIELD_ATTRIBUTE_MAP.get(field, field)
 
+        # Access the model attribute directly; getattr keeps the mapping flexible
         if hasattr(job, attribute_name):
             return getattr(job, attribute_name)
 
@@ -445,10 +572,22 @@ class JobRestService:
         Updates an existing Job with optimistic concurrency control (ETag).
         Requires If-Match header to match current resource version.
         """
+        if not JobRestService._looks_like_delta_payload(data):
+            raise ValueError("Delta envelope is required for job updates")
+
+        try:
+            delta_payload = JobDeltaPayload.from_dict(data)
+        except ValueError as exc:
+            raise ValueError(f"Invalid delta payload: {exc}") from exc
+
+        job_data: Dict[str, Any] = {
+            JobRestService._FIELD_ATTRIBUTE_MAP.get(key, key): value
+            for key, value in delta_payload.after.items()
+        }
+
         with transaction.atomic():
             # Lock the row to avoid race between compare and update
             job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-
             # Concurrency check using normalized ETag value
             if if_match:
                 current_norm = _current_job_etag_value(job)
@@ -463,26 +602,6 @@ class JobRestService:
             logger.debug(
                 f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
             )
-
-            delta_payload: JobDeltaPayload | None = None
-
-            # Support both the new delta envelope and legacy payloads for rollout.
-            job_data: Dict[str, Any] = data
-            if JobRestService._looks_like_delta_payload(data):
-                try:
-                    delta_payload = JobDeltaPayload.from_dict(data)
-                    job_data = {
-                        JobRestService._FIELD_ATTRIBUTE_MAP.get(key, key): value
-                        for key, value in delta_payload.after.items()
-                    }
-                except ValueError as exc:
-                    raise ValueError(f"Invalid delta payload: {exc}") from exc
-            elif "data" in data and "job" in data["data"]:
-                job_data = data["data"]["job"]
-                logger.debug(
-                    "JobRestService.update_job - Extracted job data from nested structure: %s",
-                    job_data,
-                )
 
             # Store original values for comparison
             original_values = {
@@ -504,12 +623,53 @@ class JobRestService:
                 f"JobRestService.update_job - Original values: {original_values}"
             )
 
-            if delta_payload:
+            try:
                 JobRestService._validate_delta_payload(job, delta_payload)
-                if delta_payload.job_id and str(job.id) != delta_payload.job_id:
-                    raise ValueError(
-                        f"Delta job_id {delta_payload.job_id} does not match target job {job.id}"
-                    )
+            except DeltaValidationError as exc:
+                JobRestService._record_delta_rejection(
+                    job=job,
+                    staff=user,
+                    reason=str(exc),
+                    detail={
+                        "server_checksum": exc.server_checksum,
+                        "current_values": exc.current_values,
+                    },
+                    envelope=delta_payload.to_dict(),
+                    change_id=delta_payload.change_id,
+                    checksum=delta_payload.before_checksum,
+                    request_etag=delta_payload.etag or if_match,
+                )
+                raise
+            except ValueError as exc:
+                JobRestService._record_delta_rejection(
+                    job=job,
+                    staff=user,
+                    reason="Invalid delta payload",
+                    detail={"error": str(exc), "stage": "validation"},
+                    envelope=delta_payload.to_dict(),
+                    change_id=delta_payload.change_id,
+                    checksum=delta_payload.before_checksum,
+                    request_etag=delta_payload.etag or if_match,
+                )
+                raise
+
+            if delta_payload.job_id and str(job.id) != delta_payload.job_id:
+                JobRestService._record_delta_rejection(
+                    job=job,
+                    staff=user,
+                    reason="Delta job_id mismatch",
+                    detail={
+                        "delta_job_id": delta_payload.job_id,
+                        "target_job_id": str(job.id),
+                    },
+                    envelope=delta_payload.to_dict(),
+                    change_id=delta_payload.change_id,
+                    checksum=delta_payload.before_checksum,
+                    request_etag=delta_payload.etag or if_match,
+                )
+                raise ValueError(
+                    f"Delta job_id {delta_payload.job_id} does not match target job {job.id}"
+                )
 
             # Use serializer for validation and updating
             serializer = JobSerializer(
@@ -535,14 +695,11 @@ class JobRestService:
             # Additional guard to prevent cross-client contact leakage:
             # If client changed and current contact belongs to a different client, clear it.
             try:
-                if (
-                    job.contact
-                    and job.client
-                    and getattr(job.contact, "client_id", None) != job.client_id
-                ):
+                contact_client_id = job.contact.client_id if job.contact else None
+                if job.contact and job.client and contact_client_id != job.client_id:
                     logger.warning(
                         "Clearing mismatched contact after client change: "
-                        f"contact.client_id={getattr(job.contact, 'client_id', None)} != job.client_id={job.client_id}"
+                        f"contact.client_id={contact_client_id} != job.client_id={job.client_id}"
                     )
                     job.contact = None
                     job.save(staff=user)
@@ -557,7 +714,23 @@ class JobRestService:
 
             # Log the update with descriptive message
             JobEvent.objects.create(
-                job=job, staff=user, event_type="job_updated", description=description
+                job=job,
+                staff=user,
+                event_type="job_updated",
+                description=description,
+                schema_version=1,
+                change_id=JobRestService._safe_uuid(delta_payload.change_id),
+                delta_before=_to_json_safe(delta_payload.before),
+                delta_after=_to_json_safe(delta_payload.after),
+                delta_meta=_to_json_safe(
+                    {
+                        "fields": list(delta_payload.fields),
+                        "actor_id": delta_payload.actor_id,
+                        "made_at": delta_payload.made_at,
+                        "etag": delta_payload.etag,
+                    }
+                ),
+                delta_checksum=delta_payload.before_checksum or "",
             )
 
         return job

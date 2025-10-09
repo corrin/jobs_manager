@@ -28,6 +28,7 @@ try:
             serialize_validation_report,
         )
         from .job_rest_service import (
+            DeltaValidationError,
             JobDeltaPayload,
             JobRestService,
             PreconditionFailed,
@@ -72,6 +73,7 @@ except (ImportError, RuntimeError):
 __all__ = [
     "ArchivedJobsComplianceService",
     "ChecksumInput",
+    "DeltaValidationError",
     "GeminiChatService",
     "JobDeltaPayload",
     "JobRestService",

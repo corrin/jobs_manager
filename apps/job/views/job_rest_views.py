@@ -36,7 +36,6 @@ from apps.job.serializers.job_serializer import (
     JobEventsResponseSerializer,
     JobHeaderResponseSerializer,
     JobInvoicesResponseSerializer,
-    JobPatchRequestSerializer,
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
@@ -203,12 +202,6 @@ class BaseJobRestView(APIView):
             response["ETag"] = etag
         return response
 
-    def _is_delta_payload(self, payload: Any) -> bool:
-        if not isinstance(payload, dict):
-            return False
-        required = {"change_id", "fields", "before", "after", "before_checksum"}
-        return required.issubset(payload.keys())
-
 
 @method_decorator(csrf_exempt, name="dispatch")
 class JobCreateRestView(BaseJobRestView):
@@ -360,7 +353,7 @@ class JobDetailRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
     @extend_schema(
-        request=JobDetailResponseSerializer,
+        request=JobDeltaEnvelopeSerializer,
         responses={
             200: JobDetailResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -374,19 +367,16 @@ class JobDetailRestView(BaseJobRestView):
         """
         try:
             data = self.parse_json_body(request)
-
-            payload = data
-            if self._is_delta_payload(data):
-                delta_serializer = JobDeltaEnvelopeSerializer(data=data)
-                if not delta_serializer.is_valid():
-                    error_response = {
-                        "error": f"Validation failed: {delta_serializer.errors}"
-                    }
-                    error_serializer = JobRestErrorResponseSerializer(error_response)
-                    return Response(
-                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                    )
-                payload = delta_serializer.validated_data
+            delta_serializer = JobDeltaEnvelopeSerializer(data=data)
+            if not delta_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {delta_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+            payload = delta_serializer.validated_data
 
             # Require If-Match for optimistic concurrency control
             if_match = self._get_if_match(request)
@@ -411,7 +401,7 @@ class JobDetailRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
     @extend_schema(
-        request=JobPatchRequestSerializer,
+        request=JobDeltaEnvelopeSerializer,
         responses={
             200: JobDetailResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -426,29 +416,16 @@ class JobDetailRestView(BaseJobRestView):
         """
         try:
             data = self.parse_json_body(request)
-
-            if self._is_delta_payload(data):
-                delta_serializer = JobDeltaEnvelopeSerializer(data=data)
-                if not delta_serializer.is_valid():
-                    error_response = {
-                        "error": f"Validation failed: {delta_serializer.errors}"
-                    }
-                    error_serializer = JobRestErrorResponseSerializer(error_response)
-                    return Response(
-                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                    )
-                payload = delta_serializer.validated_data
-            else:
-                input_serializer = JobPatchRequestSerializer(data=data)
-                if not input_serializer.is_valid():
-                    error_response = {
-                        "error": f"Validation failed: {input_serializer.errors}"
-                    }
-                    error_serializer = JobRestErrorResponseSerializer(error_response)
-                    return Response(
-                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                    )
-                payload = input_serializer.validated_data
+            delta_serializer = JobDeltaEnvelopeSerializer(data=data)
+            if not delta_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {delta_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+            payload = delta_serializer.validated_data
 
             # Require If-Match for optimistic concurrency control
             if_match = self._get_if_match(request)

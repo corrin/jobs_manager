@@ -359,10 +359,28 @@ class JobEventSerializer(serializers.ModelSerializer):
         required=False,
     )
     timestamp = serializers.DateTimeField(read_only=True)
+    change_id = serializers.UUIDField(read_only=True, allow_null=True)
+    schema_version = serializers.IntegerField(read_only=True)
+    delta_before = serializers.JSONField(read_only=True, allow_null=True)
+    delta_after = serializers.JSONField(read_only=True, allow_null=True)
+    delta_meta = serializers.JSONField(read_only=True, allow_null=True)
+    delta_checksum = serializers.CharField(read_only=True, allow_blank=True)
 
     class Meta:
         model = JobEvent
-        fields = ["id", "description", "timestamp", "staff", "event_type"]
+        fields = [
+            "id",
+            "description",
+            "timestamp",
+            "staff",
+            "event_type",
+            "schema_version",
+            "change_id",
+            "delta_before",
+            "delta_after",
+            "delta_meta",
+            "delta_checksum",
+        ]
         read_only_fields = fields
 
 
