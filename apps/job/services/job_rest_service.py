@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from functools import singledispatch
 from typing import Any, Dict, Iterable, Mapping
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
@@ -90,6 +90,7 @@ class JobDeltaPayload:
     made_at: datetime | None = None
     job_id: str | None = None
     etag: str | None = None
+    undo_of_change_id: str | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "JobDeltaPayload":
@@ -128,6 +129,9 @@ class JobDeltaPayload:
             made_at=payload.get("made_at"),
             job_id=str(payload.get("job_id")) if payload.get("job_id") else None,
             etag=str(payload.get("etag")) if payload.get("etag") else None,
+            undo_of_change_id=str(payload.get("undo_of_change_id"))
+            if payload.get("undo_of_change_id")
+            else None,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -144,6 +148,7 @@ class JobDeltaPayload:
             else self.made_at,
             "job_id": self.job_id,
             "etag": self.etag,
+            "undo_of_change_id": self.undo_of_change_id,
         }
 
 
@@ -713,6 +718,14 @@ class JobRestService:
             )
 
             # Log the update with descriptive message
+            meta_payload = {
+                "fields": list(delta_payload.fields),
+                "actor_id": delta_payload.actor_id,
+                "made_at": delta_payload.made_at,
+                "etag": delta_payload.etag,
+            }
+            if delta_payload.undo_of_change_id:
+                meta_payload["undo_of_change_id"] = delta_payload.undo_of_change_id
             JobEvent.objects.create(
                 job=job,
                 staff=user,
@@ -722,18 +735,86 @@ class JobRestService:
                 change_id=JobRestService._safe_uuid(delta_payload.change_id),
                 delta_before=_to_json_safe(delta_payload.before),
                 delta_after=_to_json_safe(delta_payload.after),
-                delta_meta=_to_json_safe(
-                    {
-                        "fields": list(delta_payload.fields),
-                        "actor_id": delta_payload.actor_id,
-                        "made_at": delta_payload.made_at,
-                        "etag": delta_payload.etag,
-                    }
-                ),
+                delta_meta=_to_json_safe(meta_payload),
                 delta_checksum=delta_payload.before_checksum or "",
             )
 
         return job
+
+    @staticmethod
+    def undo_job_change(
+        job_id: UUID,
+        change_id: UUID,
+        user: Staff,
+        if_match: str | None = None,
+        undo_change_id: UUID | None = None,
+    ) -> Job:
+        """Undo a previously recorded delta by reverting to its before state."""
+        job = get_object_or_404(Job, id=job_id)
+
+        event = (
+            JobEvent.objects.filter(job_id=job_id, change_id=change_id)
+            .order_by("-timestamp")
+            .first()
+        )
+        if not event:
+            raise ValueError(f"Job event with change_id {change_id} not found")
+        if event.schema_version != 1:
+            raise ValueError("Undo is only supported for schema_version=1 events")
+        if not event.delta_before or not event.delta_after:
+            raise ValueError("Stored event does not contain delta_before/delta_after")
+
+        meta = event.delta_meta or {}
+        fields = meta.get("fields") or list(event.delta_before.keys())
+        if not fields:
+            raise ValueError("Event metadata missing target fields for undo")
+        fields = [str(field) for field in fields]
+
+        current_values: Dict[str, Any] = {}
+        for field in fields:
+            current_values[field] = JobRestService._get_job_field_value(job, field)
+
+        mismatch_fields = []
+        for field in fields:
+            current_norm = normalise_value(current_values[field])
+            expected_norm = normalise_value(event.delta_after.get(field))
+            if current_norm != expected_norm:
+                mismatch_fields.append(field)
+
+        if mismatch_fields:
+            JobRestService._record_delta_rejection(
+                job=job,
+                staff=user,
+                reason="Undo delta mismatch",
+                detail={
+                    "fields": mismatch_fields,
+                    "expected_after": event.delta_after,
+                    "current_values": current_values,
+                },
+                envelope=event.delta_after,
+                change_id=str(change_id),
+                checksum=event.delta_checksum,
+            )
+            raise PreconditionFailed(
+                "Cannot undo change because the current job state no longer matches the original delta"
+            )
+
+        checksum = compute_job_delta_checksum(job.id, current_values, fields)
+        undo_identifier = undo_change_id or uuid4()
+        payload: Dict[str, Any] = {
+            "change_id": str(undo_identifier),
+            "job_id": str(job.id),
+            "fields": fields,
+            "before": current_values,
+            "after": event.delta_before,
+            "before_checksum": checksum,
+            "actor_id": str(user.id),
+            "made_at": timezone.now().isoformat(),
+            "etag": _current_job_etag_value(job),
+            "undo_of_change_id": str(change_id),
+        }
+
+        return JobRestService.update_job(job_id, payload, user, if_match=if_match)
 
     @staticmethod
     def toggle_complex_job(

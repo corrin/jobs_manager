@@ -922,3 +922,10 @@ class JobDeltaEnvelopeSerializer(serializers.Serializer):
     after = serializers.JSONField()
     before_checksum = serializers.CharField()
     etag = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class JobUndoRequestSerializer(serializers.Serializer):
+    """Request serializer for undoing a job delta."""
+
+    change_id = serializers.UUIDField()
+    undo_change_id = serializers.UUIDField(required=False, allow_null=True)

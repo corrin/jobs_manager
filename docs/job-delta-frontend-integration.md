@@ -203,7 +203,7 @@ Every PATCH/POST that mutates a job must send a JSON payload in the following sh
 ### 4. Undo Support
 
 - Fetch job events including `schema_version`, `change_id`, `delta_before`, `delta_after`, `delta_meta`, and `delta_checksum`. For `schema_version == 1` the payload will always contain the envelope metadata (`fields`, `actor_id`, `made_at`, `etag`) under `delta_meta`.
-- When the user selects "Undo", POST to `/job-rest/jobs/{job_id}/undo-change/` with the `change_id`.
+- When the user selects "Undo", POST to `/job-rest/jobs/{job_id}/undo-change/` with a JSON body `{"change_id": "...", "undo_change_id": "..." (optional)}` and the standard `If-Match` header. The backend generates the delta envelope automatically, re-validates the checksum, and applies the reversal.
 - Refresh the job and reset the local queue after a successful undo to avoid conflicting state.
 
 ## Implementation Checklist
