@@ -55,17 +55,24 @@ def _current_job_etag_value(job: Job) -> str:
 
 @dataclass
 class JobDeltaPayload:
-    """Structured representation of the delta envelope submitted by the client."""
+    """
+    Structured representation of the delta envelope submitted by the client.
+
+    We keep this lightweight dataclass (instead of passing DRF serializer
+    instances around) so the service layer can remain decoupled from REST
+    dependencies when used internally and always operate on a normalised,
+    immutable structure regardless of the caller.
+    """
 
     change_id: str
     fields: tuple[str, ...]
     before: Dict[str, Any]
     after: Dict[str, Any]
     before_checksum: str
-    job_id: str | None = None
     actor_id: str | None = None
     made_at: datetime | None = None
-    source_etag: str | None = None
+    job_id: str | None = None
+    etag: str | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "JobDeltaPayload":
@@ -96,10 +103,10 @@ class JobDeltaPayload:
             before=dict(before),
             after=dict(after),
             before_checksum=str(payload["before_checksum"]),
-            job_id=str(payload.get("job_id")) if payload.get("job_id") else None,
             actor_id=str(payload.get("actor_id")) if payload.get("actor_id") else None,
             made_at=payload.get("made_at"),
-            source_etag=str(payload.get("etag")) if payload.get("etag") else None,
+            job_id=str(payload.get("job_id")) if payload.get("job_id") else None,
+            etag=str(payload.get("etag")) if payload.get("etag") else None,
         )
 
 
