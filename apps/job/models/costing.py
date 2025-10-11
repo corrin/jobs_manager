@@ -57,6 +57,31 @@ class CostLine(models.Model):
     """
     Represents a cost line within a CostSet.
     Can be time, material or adjustment.
+
+    Meta Field Structure by Kind:
+
+    TIME (kind='time'):
+        - staff_id (str, UUID): Reference to Staff member who performed the work
+        - date (str, ISO date): Date the work was performed (legacy, use accounting_date field)
+        - is_billable (bool): Whether this time is billable to the client
+        - wage_rate_multiplier (float): Multiplier for staff wage rate (e.g., 1.5 for overtime)
+        - rate_multiplier (float): Alternative name for wage_rate_multiplier (legacy)
+        - note (str): Optional notes about the time entry
+        - created_from_timesheet (bool): True if created via modern timesheet interface
+        - wage_rate (float): Wage rate at time of entry (for timesheet entries)
+        - charge_out_rate (float): Charge-out rate at time of entry (for timesheet entries)
+
+    MATERIAL (kind='material'):
+        - item_code (str): Stock item code reference
+        - comments (str): Notes about the material usage
+        - source (str): Origin of the material entry ('delivery_receipt' for PO deliveries)
+        - retail_rate (float): Retail markup rate applied (e.g., 0.2 for 20%)
+        - po_number (str): Purchase order reference number
+        - consumed_by (str): Reference to what consumed this material
+
+    ADJUSTMENT (kind='adjust'):
+        - comments (str): Explanation of the adjustment
+        - source (str): Origin of adjustment ('manual_adjustment' for user-created)
     """
 
     KIND_CHOICES = [
@@ -84,7 +109,10 @@ class CostLine(models.Model):
         default=dict,
         help_text="External references (e.g., time entry IDs, material IDs)",
     )
-    meta = models.JSONField(default=dict, help_text="Additional metadata")
+    meta = models.JSONField(
+        default=dict,
+        help_text="Additional metadata - structure varies by kind (see class docstring)",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

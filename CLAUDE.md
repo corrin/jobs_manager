@@ -163,9 +163,32 @@ Client → Job (1:many)
 - SimpleHistory for audit trails on critical models
 - Soft deletes where appropriate
 - JSON ext_refs for flexible external references (stock, purchase orders)
-- JSON meta for entry-specific data (dates, staff IDs, billability)
+- JSON meta for entry-specific data (structure varies by CostLine kind - see below)
 - Bidirectional Xero synchronization with conflict resolution
 - `accounting_date` field on CostLine for proper KPI reporting
+
+**CostLine Meta Field Structure:**
+
+TIME entries (kind='time'):
+- staff_id (str, UUID): Reference to Staff member
+- date (str, ISO): Date work performed (legacy - use accounting_date field instead)
+- is_billable (bool): Whether billable to client
+- wage_rate_multiplier/rate_multiplier (float): Rate multiplier (e.g., 1.5 for overtime)
+- note (str): Optional notes
+- created_from_timesheet (bool): True if from modern timesheet UI
+- wage_rate, charge_out_rate (float): Rates at time of entry
+
+MATERIAL entries (kind='material'):
+- item_code (str): Stock item code reference
+- comments (str): Notes about material usage
+- source (str): Origin ('delivery_receipt' for PO deliveries)
+- retail_rate (float): Retail markup rate (e.g., 0.2 for 20%)
+- po_number (str): Purchase order reference
+- consumed_by (str): What consumed this material
+
+ADJUSTMENT entries (kind='adjust'):
+- comments (str): Explanation of adjustment
+- source (str): Origin ('manual_adjustment' for user-created)
 
 ## Development Workflow
 
