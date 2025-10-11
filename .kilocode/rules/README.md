@@ -46,15 +46,14 @@ This set of rules defines the mandatory standards for backend development in the
 
 ## Critical Rules (MANDATORY)
 
-### 🚨 Mandatory Modern Architecture
+### 🚨 Database Architecture
 
 ```python
-# ✅ ALWAYS USE - Modern architecture
 Job → CostSet (1:many) → CostLine (1:many)
 CostLine → external references via ext_refs JSON field
-
-# ❌ FORBIDDEN - Legacy models
-Job → JobPricing (1:many) → TimeEntry/MaterialEntry/AdjustmentEntry (1:many)
+CostLine → entry metadata via meta JSON field
+CostLine → accounting_date for KPI reporting
+Staff → CostLine (time entries via meta.staff_id)
 ```
 
 ### 🚨 Mandatory Error Persistence

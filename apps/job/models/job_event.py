@@ -20,6 +20,12 @@ class JobEvent(models.Model):
         max_length=100, null=False, blank=False, default="automatic_event"
     )  # e.g., "status_change", "manual_note"
     description = models.TextField()
+    schema_version = models.PositiveSmallIntegerField(default=0)
+    change_id = models.UUIDField(null=True, blank=True)
+    delta_before = models.JSONField(null=True, blank=True)
+    delta_after = models.JSONField(null=True, blank=True)
+    delta_meta = models.JSONField(null=True, blank=True)
+    delta_checksum = models.CharField(max_length=128, blank=True, default="")
 
     # Field for deduplication hash
     dedup_hash = models.CharField(
@@ -57,6 +63,7 @@ class JobEvent(models.Model):
                 fields=["staff", "-timestamp"], name="jobevent_staff_timestamp_idx"
             ),
             models.Index(fields=["dedup_hash"], name="jobevent_dedup_hash_idx"),
+            models.Index(fields=["change_id"], name="jobevent_change_idx"),
         ]
 
     def clean(self):

@@ -29,17 +29,18 @@ from apps.job.serializers.job_serializer import (
     JobCreateRequestSerializer,
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
+    JobDeltaEnvelopeSerializer,
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
     JobEventsResponseSerializer,
     JobHeaderResponseSerializer,
     JobInvoicesResponseSerializer,
-    JobPatchRequestSerializer,
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
     JobTimelineResponseSerializer,
+    JobUndoRequestSerializer,
     QuoteSerializer,
     WeeklyMetricsSerializer,
 )
@@ -353,7 +354,7 @@ class JobDetailRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
     @extend_schema(
-        request=JobDetailResponseSerializer,
+        request=JobDeltaEnvelopeSerializer,
         responses={
             200: JobDetailResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -367,6 +368,16 @@ class JobDetailRestView(BaseJobRestView):
         """
         try:
             data = self.parse_json_body(request)
+            delta_serializer = JobDeltaEnvelopeSerializer(data=data)
+            if not delta_serializer.is_valid():
+                error_response = {
+                    "error": f"Validation failed: {delta_serializer.errors}"
+                }
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+            payload = delta_serializer.validated_data
 
             # Require If-Match for optimistic concurrency control
             if_match = self._get_if_match(request)
@@ -375,7 +386,7 @@ class JobDetailRestView(BaseJobRestView):
 
             # Update the job using the service layer with concurrency check
             updated_job = JobRestService.update_job(
-                job_id, data, request.user, if_match=if_match
+                job_id, payload, request.user, if_match=if_match
             )
 
             # Return complete job data for frontend reactivity
@@ -391,7 +402,7 @@ class JobDetailRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
     @extend_schema(
-        request=JobPatchRequestSerializer,
+        request=JobDeltaEnvelopeSerializer,
         responses={
             200: JobDetailResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -406,17 +417,16 @@ class JobDetailRestView(BaseJobRestView):
         """
         try:
             data = self.parse_json_body(request)
-
-            # Validate input data with PATCH-specific serializer
-            input_serializer = JobPatchRequestSerializer(data=data)
-            if not input_serializer.is_valid():
+            delta_serializer = JobDeltaEnvelopeSerializer(data=data)
+            if not delta_serializer.is_valid():
                 error_response = {
-                    "error": f"Validation failed: {input_serializer.errors}"
+                    "error": f"Validation failed: {delta_serializer.errors}"
                 }
                 error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
+            payload = delta_serializer.validated_data
 
             # Require If-Match for optimistic concurrency control
             if_match = self._get_if_match(request)
@@ -425,7 +435,7 @@ class JobDetailRestView(BaseJobRestView):
 
             # Update the job using the service layer (supports partial updates) with concurrency check
             updated_job = JobRestService.update_job(
-                job_id, input_serializer.validated_data, request.user, if_match=if_match
+                job_id, payload, request.user, if_match=if_match
             )
 
             # Return complete job data for frontend reactivity
@@ -1104,6 +1114,57 @@ class JobTimelineRestView(BaseJobRestView):
 
         except ValueError as e:
             return self.handle_service_error(e)
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobUndoChangeRestView(BaseJobRestView):
+    """Undo a previously applied job delta."""
+
+    serializer_class = JobUndoRequestSerializer
+
+    @extend_schema(
+        request=JobUndoRequestSerializer,
+        responses={
+            200: JobDetailResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Undo a previously applied job delta (requires delta envelope undo support).",
+        tags=["Jobs"],
+    )
+    def post(self, request, job_id):
+        try:
+            data = self.parse_json_body(request)
+            serializer = JobUndoRequestSerializer(data=data)
+            if not serializer.is_valid():
+                error_response = {"error": f"Validation failed: {serializer.errors}"}
+                error_serializer = JobRestErrorResponseSerializer(error_response)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if_match = self._get_if_match(request)
+            if not if_match:
+                return self._precondition_required_response()
+
+            undo_change_id = serializer.validated_data.get("undo_change_id")
+            change_id = serializer.validated_data["change_id"]
+
+            updated_job = JobRestService.undo_job_change(
+                job_id,
+                change_id,
+                request.user,
+                if_match=if_match,
+                undo_change_id=undo_change_id,
+            )
+
+            job_data = JobRestService.get_job_for_edit(job_id, request)
+            response_data = {"success": True, "data": job_data}
+            resp = Response(response_data, status=status.HTTP_200_OK)
+            resp = self._set_etag(resp, self._gen_job_etag(updated_job))
+            return resp
+
         except Exception as e:
             return self.handle_service_error(e)
 

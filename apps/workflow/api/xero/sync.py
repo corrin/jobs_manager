@@ -1459,21 +1459,19 @@ def map_costline_to_time_entry(costline, task_id: str) -> TimeEntryCreateOrUpdat
 
     minutes = int(float(costline.quantity) * 60)
 
-    # Get date from costline meta - must exist
-    date_str = costline.meta.get("date")
-    if not date_str:
-        error = ValueError(f"CostLine {costline.id} has no date in meta")
+    # Get date from accounting_date field - must exist
+    if not costline.accounting_date:
+        error = ValueError(f"CostLine {costline.id} has no accounting_date")
         persist_app_error(
             error,
             additional_context={
                 "operation": "map_costline_to_time_entry",
                 "costline_id": str(costline.id),
-                "meta": costline.meta,
             },
         )
         raise error
 
-    date_utc = datetime.fromisoformat(date_str)
+    date_utc = datetime.combine(costline.accounting_date, datetime.min.time())
 
     time_entry = TimeEntryCreateOrUpdate(
         description=costline.desc,
