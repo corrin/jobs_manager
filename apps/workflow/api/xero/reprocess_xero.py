@@ -279,10 +279,10 @@ def set_client_fields(client, new_from_xero=False):
                 last_name = person.get("_last_name") or ""
                 name = first_name + (" " + last_name if last_name else "")
                 email = person.get("_email_address", "")
-                ClientContact.objects.create(
+                ClientContact.objects.update_or_create(
                     client=client,
                     name=name,
-                    email=email,
+                    defaults={"email": email},
                 )
 
     phones = raw_json.get("_phones", [])
