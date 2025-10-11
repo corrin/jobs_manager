@@ -2,25 +2,15 @@
 
 ## Database Architecture
 
-### 🚨 MANDATORY MODERN ARCHITECTURE 🚨
-
-**For ALL new development, ONLY use:**
+### Database Architecture
 
 ```python
-# Modern CostSet/CostLine architecture
 Job → CostSet (1:many) → CostLine (1:many)
 CostLine → external references via ext_refs JSON field
+CostLine → entry metadata via meta JSON field (dates, staff, billability)
+CostLine → accounting_date for KPI reporting
 PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
-Staff → CostLine (time entries via ext_refs)
-```
-
-**STRICTLY FORBIDDEN in new code:**
-
-```python
-# Legacy models - DO NOT USE
-Job → JobPricing (1:many) → TimeEntry/MaterialEntry/AdjustmentEntry (1:many)
-Staff → TimeEntry (1:many)
-PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
+Staff → CostLine (time entries via meta.staff_id)
 ```
 
 ### Model Design Patterns

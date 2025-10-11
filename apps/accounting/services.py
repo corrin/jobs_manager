@@ -156,18 +156,12 @@ class KPIService:
         # Get cost lines for the target date from 'actual' cost sets
         cost_lines = (
             CostLine.objects.annotate(
-                # Extract staff_id and date from meta JSONField
+                # Extract staff_id and is_billable from meta JSONField
                 staff_id=RawSQL(
                     "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
                     (),
                     output_field=models.CharField(),
                 ),
-                line_date=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                    (),
-                    output_field=models.CharField(),
-                ),
-                # Extract is_billable flag
                 is_billable=RawSQL(
                     "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
                     (),
@@ -176,7 +170,7 @@ class KPIService:
             )
             .filter(
                 cost_set__kind="actual",
-                line_date=target_date.isoformat(),
+                accounting_date=target_date,
             )
             .select_related("cost_set__job")
         )

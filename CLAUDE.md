@@ -147,31 +147,25 @@ Django-based job/project management system for custom metal fabrication business
 
 ### Database Design Patterns
 
-**Modern Relationships (USE THESE):**
+**Core Relationships:**
 
 ```
 Job → CostSet (1:many) → CostLine (1:many)
 CostLine → external references via ext_refs JSON field
 PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
-Staff → CostLine (time entries via ext_refs)
+Staff → CostLine (time entries via meta.staff_id)
 Client → Job (1:many)
 ```
 
-**Legacy Relationships (DEPRECATED - DO NOT USE):**
-
-```
-Job → JobPricing (1:many) → TimeEntry/MaterialEntry/AdjustmentEntry (1:many)
-Staff → TimeEntry (1:many)
-PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
-```
-
-**Design Patterns:**
+**Key Design Patterns:**
 
 - UUID primary keys throughout for security
 - SimpleHistory for audit trails on critical models
 - Soft deletes where appropriate
-- **NEW**: JSON ext_refs for flexible external references
+- JSON ext_refs for flexible external references (stock, purchase orders)
+- JSON meta for entry-specific data (dates, staff IDs, billability)
 - Bidirectional Xero synchronization with conflict resolution
+- `accounting_date` field on CostLine for proper KPI reporting
 
 ## Development Workflow
 
