@@ -119,16 +119,11 @@ class ModernTimesheetEntryView(APIView):
                 f"Starting timesheet entries fetch for staff {staff_id}, date {entry_date}"
             )
 
-            # Query CostLines with kind='time' for the staff/date using MariaDB-compatible JSONField queries
+            # Query CostLines with kind='time' for the staff/date
             cost_lines = (
                 CostLine.objects.annotate(
                     staff_id_meta=RawSQL(
                         "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                    date_meta=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
                         (),
                         output_field=models.CharField(),
                     ),
@@ -139,7 +134,7 @@ class ModernTimesheetEntryView(APIView):
                     cost_set__kind="actual",
                     kind="time",
                     staff_id_meta=str(staff_id),
-                    date_meta=entry_date,
+                    accounting_date=parsed_date,
                 )
                 .select_related("cost_set__job")
                 .order_by("id")
@@ -377,6 +372,7 @@ class ModernTimesheetEntryView(APIView):
                     quantity=hours_decimal,
                     unit_cost=unit_cost,
                     unit_rev=unit_rev,
+                    accounting_date=entry_date,
                     ext_refs={},
                     meta={
                         "staff_id": str(staff_id),
@@ -452,16 +448,11 @@ class ModernTimesheetDayView(APIView):
                 f"Starting timesheet retrieval for staff {staff_id}, date {entry_date}"
             )
 
-            # Find all cost lines for this staff on this date using MariaDB-compatible queries
+            # Find all cost lines for this staff on this date
             cost_lines = (
                 CostLine.objects.annotate(
                     staff_id_meta=RawSQL(
                         "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                    date_meta=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
                         (),
                         output_field=models.CharField(),
                     ),
@@ -472,7 +463,7 @@ class ModernTimesheetDayView(APIView):
                     cost_set__kind="actual",
                     kind="time",
                     staff_id_meta=str(staff_id),
-                    date_meta=entry_date,
+                    accounting_date=parsed_date,
                 )
                 .select_related("cost_set__job")
                 .order_by("id")

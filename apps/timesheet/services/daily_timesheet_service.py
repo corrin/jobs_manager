@@ -117,17 +117,12 @@ class DailyTimesheetService:
                     (),
                     output_field=models.CharField(),
                 ),
-                date=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                    (),
-                    output_field=models.CharField(),
-                ),
             )
 
             cost_lines = qs.filter(
                 kind="time",
                 staff_id=str(staff.id),
-                date=target_date.isoformat(),
+                accounting_date=target_date,
             ).select_related("cost_set__job")
 
             logger.info(f"meta__date filter: {target_date.isoformat()}")

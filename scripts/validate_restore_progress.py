@@ -4,19 +4,20 @@ Validate restore progress and enforce critical step order.
 This script ensures Xero OAuth is completed before testing steps.
 """
 
-import sys
 import os
+import sys
+
 import django
 
 # Setup Django
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jobs_manager.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
 django.setup()
 
-from apps.workflow.models import XeroToken, CompanyDefaults
 from apps.accounts.models import Staff
-from apps.job.models import Job
 from apps.client.models import Client
+from apps.job.models import Job
+from apps.workflow.models import CompanyDefaults, XeroToken
 
 
 def check_basic_restore():
@@ -28,26 +29,50 @@ def check_basic_restore():
     staff_count = Staff.objects.count()
     client_count = Client.objects.count()
 
-    checks.append(('Database populated', job_count > 0 and staff_count > 0 and client_count > 0,
-                   f'Jobs: {job_count}, Staff: {staff_count}, Clients: {client_count}'))
+    checks.append(
+        (
+            "Database populated",
+            job_count > 0 and staff_count > 0 and client_count > 0,
+            f"Jobs: {job_count}, Staff: {staff_count}, Clients: {client_count}",
+        )
+    )
 
     # Check company defaults
     try:
         company = CompanyDefaults.get_instance()
-        checks.append(('Company defaults loaded', company.company_name == 'Demo Company',
-                       f'Company: {company.company_name}'))
+        checks.append(
+            (
+                "Company defaults loaded",
+                company.company_name == "Demo Company",
+                f"Company: {company.company_name}",
+            )
+        )
     except:
-        checks.append(('Company defaults loaded', False, 'Not found'))
+        checks.append(("Company defaults loaded", False, "Not found"))
 
     # Check admin user
-    admin_exists = Staff.objects.filter(email='defaultadmin@example.com', is_superuser=True).exists()
-    checks.append(('Admin user created', admin_exists,
-                   'defaultadmin@example.com exists' if admin_exists else 'Not found'))
+    admin_exists = Staff.objects.filter(
+        email="defaultadmin@example.com", is_superuser=True
+    ).exists()
+    checks.append(
+        (
+            "Admin user created",
+            admin_exists,
+            "defaultadmin@example.com exists" if admin_exists else "Not found",
+        )
+    )
 
     # Check shop client
-    shop_exists = Client.objects.filter(id='00000000-0000-0000-0000-000000000001').exists()
-    checks.append(('Shop client exists', shop_exists,
-                   'Shop client found' if shop_exists else 'Not found'))
+    shop_exists = Client.objects.filter(
+        id="00000000-0000-0000-0000-000000000001"
+    ).exists()
+    checks.append(
+        (
+            "Shop client exists",
+            shop_exists,
+            "Shop client found" if shop_exists else "Not found",
+        )
+    )
 
     return checks
 
@@ -56,8 +81,7 @@ def check_xero_oauth():
     """Check if Xero OAuth is completed (Step 17)."""
     # XeroToken exists and has required fields means OAuth is complete
     active_token = XeroToken.objects.filter(
-        access_token__isnull=False,
-        refresh_token__isnull=False
+        access_token__isnull=False, refresh_token__isnull=False
     ).exists()
     return active_token
 
@@ -70,17 +94,27 @@ def check_xero_config():
     try:
         company = CompanyDefaults.get_instance()
         has_tenant = bool(company.xero_tenant_id)
-        checks.append(('Xero tenant ID set', has_tenant,
-                       'Tenant ID configured' if has_tenant else 'Not set'))
+        checks.append(
+            (
+                "Xero tenant ID set",
+                has_tenant,
+                "Tenant ID configured" if has_tenant else "Not set",
+            )
+        )
     except:
-        checks.append(('Xero tenant ID set', False, 'Company defaults not found'))
+        checks.append(("Xero tenant ID set", False, "Company defaults not found"))
 
     # Check if Xero IDs are cleared (they should be null or have new IDs)
     clients_with_xero = Client.objects.filter(xero_contact_id__isnull=False).count()
     jobs_with_xero = Job.objects.filter(xero_project_id__isnull=False).count()
 
-    checks.append(('Xero sync status', True,
-                   f'Clients with Xero ID: {clients_with_xero}, Jobs with Xero ID: {jobs_with_xero}'))
+    checks.append(
+        (
+            "Xero sync status",
+            True,
+            f"Clients with Xero ID: {clients_with_xero}, Jobs with Xero ID: {jobs_with_xero}",
+        )
+    )
 
     return checks
 
@@ -169,9 +203,13 @@ def validate_restore_state(allow_testing=False):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Validate restore progress')
-    parser.add_argument('--allow-testing', action='store_true',
-                        help='Check if testing steps (22-24) are allowed')
+
+    parser = argparse.ArgumentParser(description="Validate restore progress")
+    parser.add_argument(
+        "--allow-testing",
+        action="store_true",
+        help="Check if testing steps (22-24) are allowed",
+    )
     args = parser.parse_args()
 
     is_valid, message = validate_restore_state(allow_testing=args.allow_testing)

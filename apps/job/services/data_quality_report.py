@@ -61,18 +61,20 @@ class ArchivedJobsComplianceService:
                             {
                                 "job_id": str(job.id),
                                 "job_number": job.job_number,
-                                "client_name": job.client.name
-                                if job.client
-                                else "Shop Job",
-                                "archived_date": job.updated_at.date()
-                                if job.updated_at
-                                else None,
+                                "client_name": (
+                                    job.client.name if job.client else "Shop Job"
+                                ),
+                                "archived_date": (
+                                    job.updated_at.date() if job.updated_at else None
+                                ),
                                 "current_status": job.status,
                                 "issue": issue,
                                 "invoice_status": self._get_invoice_status(job),
-                                "outstanding_amount": self._get_outstanding_amount(job)
-                                if issue == "Not paid"
-                                else None,
+                                "outstanding_amount": (
+                                    self._get_outstanding_amount(job)
+                                    if issue == "Not paid"
+                                    else None
+                                ),
                                 "job_value": job_value,
                             }
                         )

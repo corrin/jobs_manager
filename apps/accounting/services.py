@@ -365,14 +365,9 @@ class KPIService:
         # Get time entries aggregated by date
         time_entries_by_date = {}
 
-        # Use RawSQL to extract date and staff_id from meta JSONField
+        # Extract staff_id and is_billable from meta JSONField
         cost_lines_time = (
             CostLine.objects.annotate(
-                line_date=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                    (),
-                    output_field=models.CharField(),
-                ),
                 staff_id=RawSQL(
                     "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
                     (),
@@ -387,8 +382,8 @@ class KPIService:
             .filter(
                 cost_set__kind="actual",
                 kind="time",
-                line_date__gte=start_date.isoformat(),
-                line_date__lte=end_date.isoformat(),
+                accounting_date__gte=start_date,
+                accounting_date__lte=end_date,
             )
             .exclude(staff_id__in=[str(sid) for sid in excluded_staff_ids])
             .select_related("cost_set__job")
@@ -396,7 +391,7 @@ class KPIService:
 
         # Group time entries by date for aggregation
         for line in cost_lines_time:
-            line_date = datetime.datetime.fromisoformat(line.line_date).date()
+            line_date = line.accounting_date
 
             if line_date not in time_entries_by_date:
                 time_entries_by_date[line_date] = {
@@ -426,21 +421,15 @@ class KPIService:
 
         # Get material entries aggregated by date
         material_entries = {}
-        cost_lines_material = CostLine.objects.annotate(
-            line_date=RawSQL(
-                "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                (),
-                output_field=models.CharField(),
-            ),
-        ).filter(
+        cost_lines_material = CostLine.objects.filter(
             cost_set__kind="actual",
             kind="material",
-            line_date__gte=start_date.isoformat(),
-            line_date__lte=end_date.isoformat(),
+            accounting_date__gte=start_date,
+            accounting_date__lte=end_date,
         )
 
         for line in cost_lines_material:
-            line_date = datetime.datetime.fromisoformat(line.line_date).date()
+            line_date = line.accounting_date
             if line_date not in material_entries:
                 material_entries[line_date] = {
                     "revenue": Decimal("0"),
@@ -452,21 +441,15 @@ class KPIService:
 
         # Get adjustment entries aggregated by date
         adjustment_entries = {}
-        cost_lines_adjustment = CostLine.objects.annotate(
-            line_date=RawSQL(
-                "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                (),
-                output_field=models.CharField(),
-            ),
-        ).filter(
+        cost_lines_adjustment = CostLine.objects.filter(
             cost_set__kind="actual",
             kind="adjust",
-            line_date__gte=start_date.isoformat(),
-            line_date__lte=end_date.isoformat(),
+            accounting_date__gte=start_date,
+            accounting_date__lte=end_date,
         )
 
         for line in cost_lines_adjustment:
-            line_date = datetime.datetime.fromisoformat(line.line_date).date()
+            line_date = line.accounting_date
             if line_date not in adjustment_entries:
                 adjustment_entries[line_date] = {
                     "revenue": Decimal("0"),
@@ -1195,7 +1178,6 @@ class StaffPerformanceService:
                     staff_id_meta=RawSQL(
                         "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))", ()
                     ),
-                    date_meta=RawSQL("JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))", ()),
                     is_billable_meta=RawSQL(
                         "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
                         (),
@@ -1205,8 +1187,8 @@ class StaffPerformanceService:
                 .filter(
                     cost_set__kind="actual",
                     kind="time",
-                    date_meta__gte=start_date.isoformat(),
-                    date_meta__lte=end_date.isoformat(),
+                    accounting_date__gte=start_date,
+                    accounting_date__lte=end_date,
                 )
                 .select_related("cost_set__job__client")
             )
