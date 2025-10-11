@@ -119,10 +119,8 @@ class CostLine(models.Model):
 
     # Accounting date - the date this cost should be attributed to for reporting
     accounting_date = models.DateField(
-        null=True,
-        blank=True,
         help_text="The date this cost should be attributed to for accounting purposes",
-    )  # Note blank for now, will be changed next PR
+    )
 
     # Xero sync fields for bidirectional time/expense tracking
     # This really shouldn't be here. It should be on ext_refs. That's the whole point of ext_refs and the whole costline model.
