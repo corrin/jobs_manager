@@ -418,23 +418,21 @@ Shop client: Demo Company Shop
 
 **Run as:** Development system user
 
-**First, check if server is already running:**
+**Check if server is already running:**
 
 ```bash
-# Check if port 8000 is already in use
-lsof -i :8000 || echo "Port 8000 is free"
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000
 ```
 
-**If port is free, start server:**
+If you get a valid HTTP response (200, 301, 302, etc.), **SKIP this step** - server is already running.
+
+**If curl fails, ask the user to start the server:**
 
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
-Note that in dev user usually prefers to run this using Visual Studio's debug command.
 
-**Check:** Server should start without errors and be accessible at http://localhost:8000
-
-**Note:** If the server is already running, skip this step and proceed to Step 17.
+**Check:** Server should be accessible at http://localhost:8000
 
 #### Step 17: Connect to Xero OAuth
 
@@ -531,10 +529,14 @@ Purchases account (300): Purchases
 #### Step 19: Seed Database to Xero
 
 **Run as:** Development system user
+
+**WARNING:** This step takes 10+ minutes. Run in background.
+
 **Command:**
 
 ```bash
-python manage.py seed_xero_from_database
+nohup python manage.py seed_xero_from_database > logs/seed_xero_output.log 2>&1 &
+echo "Background process started, PID: $!"
 ```
 
 **What this does:**
@@ -543,9 +545,14 @@ python manage.py seed_xero_from_database
 3. Creates projects in Xero for all jobs
 4. Syncs stock items to Xero inventory (using account codes from Step 18.5)
 
-**Why this step is critical:** Production Xero IDs won't work in UAT tenant. This command clears them and rebuilds all Xero relationships for the UAT environment.
+**Monitor progress:**
 
-**Check:**
+```bash
+tail -f logs/seed_xero_output.log
+# Press Ctrl+C to stop watching
+```
+
+**Check completion:**
 
 ```bash
 python manage.py shell -c "
