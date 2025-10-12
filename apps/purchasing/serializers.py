@@ -473,3 +473,65 @@ class AllocationDetailsResponseSerializer(serializers.Serializer):
     # Optional fields for job allocations
     unit_cost = serializers.FloatField(required=False)
     unit_revenue = serializers.FloatField(required=False)
+
+
+# Product Mapping serializers
+class ProductMappingSerializer(serializers.Serializer):
+    """Serializer for ProductParsingMapping model."""
+
+    id = serializers.UUIDField()
+    input_hash = serializers.CharField()
+    input_data = serializers.JSONField()
+    derived_key = serializers.CharField(allow_null=True)
+    mapped_item_code = serializers.CharField(allow_null=True)
+    mapped_description = serializers.CharField(allow_null=True)
+    mapped_metal_type = serializers.CharField(allow_null=True)
+    mapped_alloy = serializers.CharField(allow_null=True)
+    mapped_specifics = serializers.CharField(allow_null=True)
+    mapped_dimensions = serializers.CharField(allow_null=True)
+    mapped_unit_cost = serializers.DecimalField(
+        max_digits=10, decimal_places=2, allow_null=True
+    )
+    mapped_price_unit = serializers.CharField(allow_null=True)
+    parser_version = serializers.CharField(allow_null=True)
+    parser_confidence = serializers.DecimalField(
+        max_digits=3, decimal_places=2, allow_null=True
+    )
+    is_validated = serializers.BooleanField()
+    validated_at = serializers.DateTimeField(allow_null=True)
+    validation_notes = serializers.CharField(allow_null=True)
+    item_code_is_in_xero = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+
+
+class ProductMappingListResponseSerializer(serializers.Serializer):
+    """Serializer for product mapping list response."""
+
+    items = ProductMappingSerializer(many=True)
+    total_count = serializers.IntegerField()
+    validated_count = serializers.IntegerField()
+    unvalidated_count = serializers.IntegerField()
+
+
+class ProductMappingValidateRequestSerializer(serializers.Serializer):
+    """Serializer for product mapping validation request."""
+
+    mapped_item_code = serializers.CharField(required=False, allow_blank=True)
+    mapped_description = serializers.CharField(required=False, allow_blank=True)
+    mapped_metal_type = serializers.CharField(required=False, allow_blank=True)
+    mapped_alloy = serializers.CharField(required=False, allow_blank=True)
+    mapped_specifics = serializers.CharField(required=False, allow_blank=True)
+    mapped_dimensions = serializers.CharField(required=False, allow_blank=True)
+    mapped_unit_cost = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    mapped_price_unit = serializers.CharField(required=False, allow_blank=True)
+    validation_notes = serializers.CharField(required=False, allow_blank=True)
+
+
+class ProductMappingValidateResponseSerializer(serializers.Serializer):
+    """Serializer for product mapping validation response."""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField()
+    updated_products_count = serializers.IntegerField(required=False)

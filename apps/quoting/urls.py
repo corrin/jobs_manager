@@ -21,9 +21,4 @@ urlpatterns = [
         views.extract_supplier_price_list_data_view,
         name="extract_supplier_price_list_data",
     ),
-    path(
-        "pdf-import/",
-        views.PDFPriceListImportView.as_view(),
-        name="pdf_price_list_import",
-    ),
 ] + router.urls

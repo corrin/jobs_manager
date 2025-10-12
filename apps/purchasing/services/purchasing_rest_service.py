@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from apps.client.models import Supplier
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.quoting.services.stock_parser import auto_parse_stock_item
 
 logger = logging.getLogger(__name__)
 
@@ -228,7 +229,6 @@ class PurchasingRestService:
         )
 
         # Parse the stock item to extract additional metadata
-        from apps.quoting.signals import auto_parse_stock_item
 
         auto_parse_stock_item(stock_item)
 

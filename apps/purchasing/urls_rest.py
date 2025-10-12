@@ -5,6 +5,8 @@ from apps.purchasing.views.purchasing_rest_views import (
     AllocationDeleteAPIView,
     AllocationDetailsAPIView,
     DeliveryReceiptRestView,
+    ProductMappingListView,
+    ProductMappingValidateView,
     PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
     PurchaseOrderListCreateRestView,
@@ -65,5 +67,15 @@ urlpatterns = [
         "purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/",
         AllocationDetailsAPIView.as_view(),
         name="allocation_details_rest",
+    ),
+    path(
+        "product-mappings/",
+        ProductMappingListView.as_view(),
+        name="product_mappings_rest",
+    ),
+    path(
+        "product-mappings/<uuid:mapping_id>/validate/",
+        ProductMappingValidateView.as_view(),
+        name="product_mapping_validate_rest",
     ),
 ]

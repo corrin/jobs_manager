@@ -7,6 +7,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 from apps.quoting.services.product_parser import create_mapping_record
+from apps.workflow.services.error_persistence import persist_app_error
 
 
 class BaseScraper(ABC):
@@ -200,6 +201,20 @@ class BaseScraper(ABC):
             # Save remaining data
             if batch_data:
                 self.save_products(batch_data)
+
+            # Process any unparsed products with LLM
+            self.logger.info("Processing unparsed products with LLM...")
+            try:
+                from apps.quoting.services.product_parser import (
+                    populate_all_mappings_with_llm,
+                )
+
+                populate_all_mappings_with_llm()
+                self.logger.info("LLM parsing completed")
+            except Exception as e:
+                persist_app_error(e)
+                self.logger.error(f"LLM parsing failed: {e}", exc_info=True)
+                # Don't fail the entire job if LLM parsing fails
 
             # Update job status
             job.status = "completed"

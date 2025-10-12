@@ -5,6 +5,8 @@ from .purchasing_rest_views import (
     AllocationDeleteAPIView,
     AllocationDetailsAPIView,
     DeliveryReceiptRestView,
+    ProductMappingListView,
+    ProductMappingValidateView,
     PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
     PurchaseOrderListCreateRestView,
@@ -16,52 +18,20 @@ from .purchasing_rest_views import (
     XeroItemList,
 )
 
-# Conditional imports (only when Django is ready)
-try:
-    from django.apps import apps
-
-    if apps.ready:
-        from .delivery_receipt import DeliveryReceiptCreateView, DeliveryReceiptListView
-        from .product_mapping import product_mapping_validation, validate_mapping
-        from .purchase_order import (
-            PurchaseOrderCreateView,
-            PurchaseOrderEmailView,
-            PurchaseOrderListView,
-            PurchaseOrderPDFView,
-            autosave_purchase_order_view,
-            delete_purchase_order_view,
-            extract_supplier_quote_data_view,
-        )
-        from .stock import search_available_stock_api, use_stock_view
-except (ImportError, RuntimeError):
-    # Django not ready or circular import, skip conditional imports
-    pass
-
 __all__ = [
     "AllJobsAPIView",
     "AllocationDeleteAPIView",
     "AllocationDetailsAPIView",
-    "DeliveryReceiptCreateView",
-    "DeliveryReceiptListView",
     "DeliveryReceiptRestView",
+    "ProductMappingListView",
+    "ProductMappingValidateView",
     "PurchaseOrderAllocationsAPIView",
-    "PurchaseOrderCreateView",
     "PurchaseOrderDetailRestView",
-    "PurchaseOrderEmailView",
     "PurchaseOrderListCreateRestView",
-    "PurchaseOrderListView",
-    "PurchaseOrderPDFView",
     "PurchasingJobsAPIView",
     "StockConsumeRestView",
     "StockDeactivateRestView",
     "StockListRestView",
     "SupplierPriceStatusAPIView",
     "XeroItemList",
-    "autosave_purchase_order_view",
-    "delete_purchase_order_view",
-    "extract_supplier_quote_data_view",
-    "product_mapping_validation",
-    "search_available_stock_api",
-    "use_stock_view",
-    "validate_mapping",
 ]

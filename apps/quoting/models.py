@@ -235,11 +235,13 @@ class ProductParsingMapping(models.Model):
     mapped_price_unit = models.CharField(max_length=50, blank=True, null=True)
 
     # Parser metadata
-    parser_version = models.CharField(max_length=50)
+    parser_version = models.CharField(max_length=50, blank=True, null=True)
     parser_confidence = models.DecimalField(
         max_digits=3, decimal_places=2, blank=True, null=True
     )
-    llm_response = models.JSONField(help_text="Full LLM response for debugging")
+    llm_response = models.JSONField(
+        blank=True, null=True, help_text="Full LLM response for debugging"
+    )
 
     # Validation fields
     is_validated = models.BooleanField(
