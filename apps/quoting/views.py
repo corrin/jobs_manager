@@ -2,10 +2,48 @@ import logging
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
+
+from apps.quoting.serializers import (
+    ExtractSupplierPriceListErrorSerializer,
+    ExtractSupplierPriceListResponseSerializer,
+    SupplierPriceListUploadSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(
+    operation_id="extractSupplierPriceList",
+    summary="Upload and extract supplier price list PDF",
+    description="""
+Complete pipeline to upload supplier PDF, extract pricing with AI, validate, and import to database.
+
+The endpoint:
+1. Accepts a PDF file upload (max 10MB)
+2. Extracts product pricing using AI (Gemini)
+3. Validates the extracted data
+4. Imports valid products to the database
+5. Returns statistics and any warnings
+
+The AI extraction identifies:
+- Supplier name (or inferred from filename)
+- Product names, descriptions, and item numbers
+- Prices and units
+- Available stock quantities
+""",
+    request={
+        "multipart/form-data": SupplierPriceListUploadSerializer,
+    },
+    responses={
+        status.HTTP_200_OK: ExtractSupplierPriceListResponseSerializer,
+        status.HTTP_400_BAD_REQUEST: ExtractSupplierPriceListErrorSerializer,
+        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: ExtractSupplierPriceListErrorSerializer,
+        status.HTTP_500_INTERNAL_SERVER_ERROR: ExtractSupplierPriceListErrorSerializer,
+    },
+    tags=["Purchasing"],
+)
 @require_http_methods(["POST"])
 def extract_supplier_price_list_data_view(request):
     """
