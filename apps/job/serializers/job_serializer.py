@@ -359,10 +359,28 @@ class JobEventSerializer(serializers.ModelSerializer):
         required=False,
     )
     timestamp = serializers.DateTimeField(read_only=True)
+    change_id = serializers.UUIDField(read_only=True, allow_null=True)
+    schema_version = serializers.IntegerField(read_only=True)
+    delta_before = serializers.JSONField(read_only=True, allow_null=True)
+    delta_after = serializers.JSONField(read_only=True, allow_null=True)
+    delta_meta = serializers.JSONField(read_only=True, allow_null=True)
+    delta_checksum = serializers.CharField(read_only=True, allow_blank=True)
 
     class Meta:
         model = JobEvent
-        fields = ["id", "description", "timestamp", "staff", "event_type"]
+        fields = [
+            "id",
+            "description",
+            "timestamp",
+            "staff",
+            "event_type",
+            "schema_version",
+            "change_id",
+            "delta_before",
+            "delta_after",
+            "delta_meta",
+            "delta_checksum",
+        ]
         read_only_fields = fields
 
 
@@ -888,3 +906,26 @@ class JobPatchRequestSerializer(serializers.Serializer):
                 pass  # Individual field validation will catch these
 
         return attrs
+
+
+class JobDeltaEnvelopeSerializer(serializers.Serializer):
+    """Serializer that validates the delta envelope submitted by the frontend."""
+
+    change_id = serializers.UUIDField()
+    actor_id = serializers.UUIDField(required=False, allow_null=True)
+    made_at = serializers.DateTimeField(required=False, allow_null=True)
+    job_id = serializers.UUIDField(required=False, allow_null=True)
+    fields = serializers.ListField(
+        child=serializers.CharField(), allow_empty=False, min_length=1
+    )
+    before = serializers.JSONField()
+    after = serializers.JSONField()
+    before_checksum = serializers.CharField()
+    etag = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class JobUndoRequestSerializer(serializers.Serializer):
+    """Request serializer for undoing a job delta."""
+
+    change_id = serializers.UUIDField()
+    undo_change_id = serializers.UUIDField(required=False, allow_null=True)

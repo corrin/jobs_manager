@@ -2,6 +2,7 @@
 
 from .costing import CostLine, CostSet
 from .job import Job
+from .job_delta_rejection import JobDeltaRejection
 from .job_event import JobEvent
 from .job_file import JobFile
 from .job_quote_chat import JobQuoteChat
@@ -11,6 +12,7 @@ __all__ = [
     "CostLine",
     "CostSet",
     "Job",
+    "JobDeltaRejection",
     "JobEvent",
     "JobFile",
     "JobQuoteChat",

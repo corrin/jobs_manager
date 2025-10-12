@@ -29,6 +29,7 @@ from apps.job.views.job_rest_views import (
     JobQuoteRestView,
     JobStatusChoicesRestView,
     JobTimelineRestView,
+    JobUndoChangeRestView,
     WeeklyMetricsRestView,
 )
 from apps.job.views.modern_timesheet_views import (
@@ -52,6 +53,11 @@ rest_urlpatterns = [
     path("rest/month-end/", MonthEndRestView.as_view(), name="month_end_rest"),
     path(
         "rest/jobs/<uuid:job_id>/", JobDetailRestView.as_view(), name="job_detail_rest"
+    ),
+    path(
+        "rest/jobs/<uuid:job_id>/undo-change/",
+        JobUndoChangeRestView.as_view(),
+        name="job_undo_change_rest",
     ),
     # Job header (essential info only)
     path(

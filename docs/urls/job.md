@@ -71,6 +71,7 @@
 | `/rest/jobs/<uuid:job_id>/quote/import/preview/` | `<lambda>` | `jobs:quote_import_preview_deprecated` | Lambda function endpoint |
 | `/rest/jobs/<uuid:job_id>/quote/status/` | `quote_import_views.QuoteImportStatusView` | `jobs:quote_import_status` | Get current quote import status and latest quote information. |
 | `/rest/jobs/<uuid:job_id>/timeline/` | `job_rest_views.JobTimelineRestView` | `jobs:job_timeline_rest` | REST view for unified Job timeline. |
+| `/rest/jobs/<uuid:job_id>/undo-change/` | `job_rest_views.JobUndoChangeRestView` | `jobs:job_undo_change_rest` | Undo a previously applied job delta. |
 | `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
 | `/rest/jobs/<uuid:pk>/cost_sets/<str:kind>/` | `job_costing_views.JobCostSetView` | `jobs:job_cost_set_rest` | Retrieve the latest CostSet for a specific job and kind. |
 | `/rest/jobs/<uuid:pk>/quote/apply/` | `quote_sync_views.ApplyQuoteAPIView` | `jobs:quote_apply` | Apply quote import from linked Google Sheet. |
