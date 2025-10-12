@@ -198,11 +198,6 @@ class WeeklyTimesheetService:
                         (),
                         output_field=models.CharField(),
                     ),
-                    line_date=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
                     is_billable=RawSQL(
                         "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
                         (),
@@ -213,7 +208,7 @@ class WeeklyTimesheetService:
                     cost_set__kind="actual",
                     kind="time",
                     staff_id=str(staff_member.id),
-                    line_date=day.isoformat(),
+                    accounting_date=day,
                 )
                 .select_related("cost_set__job")
             )
@@ -273,11 +268,6 @@ class WeeklyTimesheetService:
                         (),
                         output_field=models.CharField(),
                     ),
-                    line_date=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
                     rate_multiplier=RawSQL(
                         "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.rate_multiplier'))",
                         (),
@@ -288,7 +278,7 @@ class WeeklyTimesheetService:
                     cost_set__kind="actual",
                     kind="time",
                     staff_id=str(staff_member.id),
-                    line_date=day.isoformat(),
+                    accounting_date=day,
                 )
                 .exclude(cost_set__job__name__icontains="Leave")
             )
@@ -322,16 +312,11 @@ class WeeklyTimesheetService:
                     (),
                     output_field=models.CharField(),
                 ),
-                line_date=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                    (),
-                    output_field=models.CharField(),
-                ),
             ).filter(
                 cost_set__kind="actual",
                 kind="time",
                 staff_id=str(staff_member.id),
-                line_date=day.isoformat(),
+                accounting_date=day,
                 cost_set__job__name__icontains="Leave",
             )
 
@@ -413,21 +398,11 @@ class WeeklyTimesheetService:
             ).count()
 
             # Get all cost lines for the week (not just time)
-            cost_lines_week = (
-                CostLine.objects.annotate(
-                    line_date=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                        (),
-                        output_field=models.CharField(),
-                    )
-                )
-                .filter(
-                    cost_set__kind="actual",
-                    line_date__gte=start_date.isoformat(),
-                    line_date__lte=end_date.isoformat(),
-                )
-                .select_related("cost_set__job")
-            )
+            cost_lines_week = CostLine.objects.filter(
+                cost_set__kind="actual",
+                accounting_date__gte=start_date,
+                accounting_date__lte=end_date,
+            ).select_related("cost_set__job")
 
             jobs_with_entries = (
                 cost_lines_week.values("cost_set__job").distinct().count()
@@ -567,16 +542,11 @@ class WeeklyTimesheetService:
                         (),
                         output_field=models.CharField(),
                     ),
-                    line_date=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
                 ).filter(
                     cost_set=cost_set,
                     kind="time",
                     staff_id=str(staff_id),
-                    line_date=current_date.isoformat(),
+                    accounting_date=current_date,
                 )
 
                 if not existing_lines.exists():
@@ -587,6 +557,7 @@ class WeeklyTimesheetService:
                         quantity=Decimal(str(hours_per_day)),
                         unit_cost=staff.wage_rate,  # Use staff wage rate
                         unit_rev=Decimal("0"),  # Leave is not billable
+                        accounting_date=current_date,
                         meta={
                             "staff_id": str(staff_id),
                             "date": current_date.isoformat(),

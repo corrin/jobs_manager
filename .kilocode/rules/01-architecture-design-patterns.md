@@ -79,8 +79,7 @@ except Exception as exc:
 
 **`job`** – Job Lifecycle Management
 
-- **NEW**: CostSet/CostLine architecture for flexible cost tracking – **USE FOR ALL NEW DEVELOPMENT**
-- **FULLY DEPRECATED**: JobPricing, MaterialEntry, AdjustmentEntry, TimeEntry – **DO NOT USE IN NEW CODE**
+- CostSet/CostLine architecture for flexible cost tracking
 - Kanban-style status tracking
 - Comprehensive audit trails
 
@@ -97,8 +96,8 @@ except Exception as exc:
 
 **`timesheet`** – Time Tracking
 
-- **MIGRATE TO**: CostLine with kind='time' for time tracking – **ALL NEW TIME ENTRIES**
-- **DEPRECATED**: TimeEntry model – **DO NOT CREATE NEW TimeEntry RECORDS**
+- CostLine with kind='time' for time tracking
+- Staff references stored in meta JSON field
 
 **`purchasing`** – Purchase Order Management
 
@@ -117,24 +116,14 @@ except Exception as exc:
 
 ## Data Model Patterns
 
-### Modern Relationships (USE THESE)
+### Core Data Relationships
 
 ```python
-# Mandatory modern architecture
 Job → CostSet (1:many) → CostLine (1:many)
 CostLine → external references via ext_refs JSON field
 PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
-Staff → CostLine (time entries via ext_refs)
+Staff → CostLine (time entries via meta.staff_id)
 Client → Job (1:many)
-```
-
-### Legacy Relationships (DEPRECATED – DO NOT USE)
-
-```python
-# NEVER use in new development
-Job → JobPricing (1:many) → TimeEntry/MaterialEntry/AdjustmentEntry (1:many)
-Staff → TimeEntry (1:many)
-PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 ```
 
 ### Mandatory Design Patterns
@@ -142,8 +131,10 @@ PurchaseOrder → PurchaseOrderLine → Stock → MaterialEntry
 - **UUID primary keys** everywhere for security
 - **SimpleHistory** for audit trails in critical models
 - **Soft deletes** where appropriate
-- **NEW**: JSON ext_refs for flexible external references
-- **NEW**: CostSet/CostLine architecture for all cost tracking
+- JSON ext_refs for flexible external references
+- JSON meta for entry-specific data (dates, staff, billability)
+- CostSet/CostLine architecture for all cost tracking
+- accounting_date field on CostLine for KPI reporting
 - Bidirectional Xero sync with conflict resolution
 
 ## Service Layer Patterns
@@ -179,22 +170,15 @@ class JobRestService:
 - **XeroSyncService**: Manages bidirectional sync with Xero
 - **ErrorPersistenceService**: Handles mandatory error persistence
 
-## For ALL New Development
+## Development Patterns
 
-### Job Creation
+### Job Costing Workflow
 
 1. Create initial CostSet with kind='estimate'
 2. **Quotation**: Create CostSet with kind='quote' and appropriate CostLine entries
-3. **Time Tracking**: Create CostLine with kind='time' and staff reference in ext_refs
-4. **Material Usage**: Create CostLine with kind='material' and Stock reference in ext_refs
-5. **Adjustments**: Create CostLine with kind='adjust' for manual cost modifications
-
-### Legacy Model Handling
-
-- **Read**: Legacy models may be read for migration and reporting purposes
-- **Write**: **ABSOLUTELY NO new records in legacy models**
-- **Migration**: Gradually migrate existing data to CostSet/CostLine
-- **Service Layer**: Abstract legacy/new model differences in service classes
+3. **Time Tracking**: Create CostLine with kind='time', staff reference in meta.staff_id, date in meta.date and accounting_date
+4. **Material Usage**: Create CostLine with kind='material', Stock reference in ext_refs, accounting_date set
+5. **Adjustments**: Create CostLine with kind='adjust', accounting_date set to when adjustment was made
 
 ## Dependency Injection and IoC
 

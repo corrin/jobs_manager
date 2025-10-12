@@ -16,8 +16,7 @@ from typing import Any, Dict, Iterable, Mapping
 from uuid import UUID, uuid4
 
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, models, transaction
-from django.db.models.expressions import RawSQL
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -129,9 +128,11 @@ class JobDeltaPayload:
             made_at=payload.get("made_at"),
             job_id=str(payload.get("job_id")) if payload.get("job_id") else None,
             etag=str(payload.get("etag")) if payload.get("etag") else None,
-            undo_of_change_id=str(payload.get("undo_of_change_id"))
-            if payload.get("undo_of_change_id")
-            else None,
+            undo_of_change_id=(
+                str(payload.get("undo_of_change_id"))
+                if payload.get("undo_of_change_id")
+                else None
+            ),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -143,9 +144,11 @@ class JobDeltaPayload:
             "after": self.after,
             "before_checksum": self.before_checksum,
             "actor_id": self.actor_id,
-            "made_at": self.made_at.isoformat()
-            if isinstance(self.made_at, datetime)
-            else self.made_at,
+            "made_at": (
+                self.made_at.isoformat()
+                if isinstance(self.made_at, datetime)
+                else self.made_at
+            ),
             "job_id": self.job_id,
             "etag": self.etag,
             "undo_of_change_id": self.undo_of_change_id,
@@ -1231,18 +1234,11 @@ class JobRestService:
         )
 
         job_ids_with_time_entries = (
-            CostLine.objects.annotate(
-                date_meta=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.date'))",
-                    (),
-                    output_field=models.CharField(),
-                )
-            )
-            .filter(
+            CostLine.objects.filter(
                 cost_set__kind="actual",
                 kind="time",
-                date_meta__gte=week_start.strftime("%Y-%m-%d"),
-                date_meta__lte=week_end.strftime("%Y-%m-%d"),
+                accounting_date__gte=week_start,
+                accounting_date__lte=week_end,
             )
             .values_list("cost_set__job_id", flat=True)
             .distinct()

@@ -41,7 +41,7 @@ python manage.py run_scheduler         # APScheduler background jobs
 
 - **Fail early:** guard unhappy paths first and never add silent fallbacks.
 - **Persist every exception** with `persist_app_error(exc, ...)`, then re-raise.
-- Only use the modern `Job -> CostSet -> CostLine` architecture with JSON `ext_refs`; never add new logic to legacy models such as `JobPricing` or `TimeEntry`.
+- Use the `Job -> CostSet -> CostLine` architecture with JSON `ext_refs` for external references and `meta` for entry-specific data.
 - Keep business rules inside services; keep views and serializers lean.
 - Maintain UUID primary keys, SimpleHistory auditing, and soft deletes where the models require them.
 
@@ -51,7 +51,7 @@ python manage.py run_scheduler         # APScheduler background jobs
 - `job`: job lifecycle, Kanban statuses, CostSet/CostLine costing, JobEvent audit trail.
 - `accounts`: custom Staff model, password policy (min length 10), role-based permissions.
 - `client`: CRM and bidirectional Xero contact sync.
-- `timesheet`: time tracking migrating into CostLine with `kind='time'` via `ext_refs`.
+- `timesheet`: time tracking using CostLine with `kind='time'` and staff references in `meta`.
 - `purchasing`: purchase orders, stock management, and Xero integration linked to CostLine via `ext_refs`.
 - `accounting`: KPI dashboards, invoice reporting.
 - `quoting`: quote generation, supplier price management, AI/Gemini extraction.
