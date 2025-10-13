@@ -749,7 +749,7 @@ LOGGING = {
         "django.db.backends": {
             "handlers": ["sql_file"],
             "level": "DEBUG",
-            "propagate": True,
+            "propagate": False,
         },
         "xero": {
             "handlers": ["xero_file"],

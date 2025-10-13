@@ -200,6 +200,7 @@ class JobRestService:
     """
 
     _FIELD_ATTRIBUTE_MAP = {
+        # Map payload field names to model attribute names for validation
         "job_status": "status",
     }
 
@@ -406,6 +407,11 @@ class JobRestService:
 
     @staticmethod
     def _validate_delta_payload(job: Job, delta: JobDeltaPayload) -> None:
+        logger.info(
+            f"[DELTA_VALIDATION] Starting validation for job {job.id}, change_id: {delta.change_id}"
+        )
+        logger.info(f"[DELTA_VALIDATION] Fields to validate: {list(delta.fields)}")
+
         fields = set(delta.fields)
         if not fields:
             raise ValueError("Delta payload must specify at least one field")
@@ -424,27 +430,80 @@ class JobRestService:
                 issues.append(f"missing 'after' values for {sorted(missing_after)}")
             raise ValueError("Delta payload is inconsistent: " + "; ".join(issues))
 
+        logger.info(
+            "[DELTA_VALIDATION] Payload structure validated. Getting current job values..."
+        )
+
         current_values: Dict[str, Any] = {}
         for field in fields:
             current_values[field] = JobRestService._get_job_field_value(job, field)
+            logger.debug(
+                f"[DELTA_VALIDATION] Current value for '{field}': {current_values[field]} (type: {type(current_values[field])})"
+            )
 
+        logger.info(f"[DELTA_VALIDATION] Current job values: {current_values}")
+        logger.info(f"[DELTA_VALIDATION] Delta before values: {delta.before}")
+        logger.info(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
+
+        # Compute server checksum
+        logger.info("[DELTA_VALIDATION] Computing server checksum...")
         server_checksum = compute_job_delta_checksum(job.id, current_values, fields)
+        logger.info(f"[DELTA_VALIDATION] Server computed checksum: {server_checksum}")
+
         if server_checksum != delta.before_checksum:
+            logger.error("[DELTA_VALIDATION] CHECKSUM MISMATCH!")
+            logger.error(f"[DELTA_VALIDATION] Server checksum: {server_checksum}")
+            logger.error(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
+            logger.error(f"[DELTA_VALIDATION] Job ID: {job.id}")
+            logger.error(f"[DELTA_VALIDATION] Fields: {sorted(fields)}")
+            logger.error(f"[DELTA_VALIDATION] Current values: {current_values}")
+            logger.error(f"[DELTA_VALIDATION] Delta before: {delta.before}")
+
             raise DeltaValidationError(
                 "Delta checksum mismatch: job has changed since the delta was generated",
                 current_values=current_values,
                 server_checksum=server_checksum,
             )
 
+        logger.info(
+            "[DELTA_VALIDATION] Checksum validation passed. Checking individual field values..."
+        )
+
+        # Validate individual field values
         for field in fields:
-            current_norm = normalise_value(current_values[field])
-            before_norm = normalise_value(delta.before[field])
+            current_value = current_values[field]
+            before_value = delta.before[field]
+
+            current_norm = normalise_value(current_value)
+            before_norm = normalise_value(before_value)
+
+            logger.debug(f"[DELTA_VALIDATION] Field '{field}':")
+            logger.debug(
+                f"[DELTA_VALIDATION]   Current raw: {current_value} (type: {type(current_value)})"
+            )
+            logger.debug(
+                f"[DELTA_VALIDATION]   Before raw: {before_value} (type: {type(before_value)})"
+            )
+            logger.debug(f"[DELTA_VALIDATION]   Current normalized: {current_norm}")
+            logger.debug(f"[DELTA_VALIDATION]   Before normalized: {before_norm}")
+            logger.debug(f"[DELTA_VALIDATION]   Match: {current_norm == before_norm}")
+
             if current_norm != before_norm:
+                logger.error(f"[DELTA_VALIDATION] FIELD MISMATCH for '{field}'!")
+                logger.error(f"[DELTA_VALIDATION]   Current normalized: {current_norm}")
+                logger.error(f"[DELTA_VALIDATION]   Before normalized: {before_norm}")
+                logger.error(f"[DELTA_VALIDATION]   Current raw: {current_value}")
+                logger.error(f"[DELTA_VALIDATION]   Before raw: {before_value}")
+
                 raise DeltaValidationError(
                     f"Delta before state mismatch for field '{field}'",
                     current_values=current_values,
                     server_checksum=server_checksum,
                 )
+
+        logger.info(
+            f"[DELTA_VALIDATION] All validations passed successfully for job {job.id}"
+        )
 
     @staticmethod
     def _get_job_field_value(job: Job, field: str) -> Any:
@@ -588,19 +647,78 @@ class JobRestService:
         except ValueError as exc:
             raise ValueError(f"Invalid delta payload: {exc}") from exc
 
-        job_data: Dict[str, Any] = {
-            JobRestService._FIELD_ATTRIBUTE_MAP.get(key, key): value
-            for key, value in delta_payload.after.items()
-        }
+        # Transform delta payload fields to serializer field names
+        job_data: Dict[str, Any] = {}
+        for key, value in delta_payload.after.items():
+            # Keep job_status as job_status for serializer compatibility
+            job_data[key] = value
+
+        logger.info(
+            f"[JOB_UPDATE] Starting job update for job {job_id}, change_id: {delta_payload.change_id}"
+        )
+        logger.info(f"[JOB_UPDATE] Fields being updated: {list(delta_payload.fields)}")
+        logger.info(f"[JOB_UPDATE] If-Match header: {if_match}")
 
         with transaction.atomic():
             # Lock the row to avoid race between compare and update
+            logger.info("[JOB_UPDATE] Locking job row for update...")
             job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-            # Concurrency check using normalized ETag value
+            logger.info(
+                f"[JOB_UPDATE] Job locked. Current updated_at: {job.updated_at}"
+            )
+
+            # **VALIDATE DELTA FIRST** - before any other checks that might modify the job
+            logger.info("[JOB_UPDATE] Starting delta payload validation...")
+            try:
+                JobRestService._validate_delta_payload(job, delta_payload)
+                logger.info("[JOB_UPDATE] Delta validation passed successfully")
+            except DeltaValidationError as exc:
+                logger.error(f"[JOB_UPDATE] Delta validation failed: {exc}")
+                JobRestService._record_delta_rejection(
+                    job=job,
+                    staff=user,
+                    reason=str(exc),
+                    detail={
+                        "server_checksum": exc.server_checksum,
+                        "current_values": exc.current_values,
+                    },
+                    envelope=delta_payload.to_dict(),
+                    change_id=delta_payload.change_id,
+                    checksum=delta_payload.before_checksum,
+                    request_etag=delta_payload.etag or if_match,
+                )
+                raise
+            except ValueError as exc:
+                logger.error(f"[JOB_UPDATE] Delta validation error: {exc}")
+                JobRestService._record_delta_rejection(
+                    job=job,
+                    staff=user,
+                    reason="Invalid delta payload",
+                    detail={"error": str(exc), "stage": "validation"},
+                    envelope=delta_payload.to_dict(),
+                    change_id=delta_payload.change_id,
+                    checksum=delta_payload.before_checksum,
+                    request_etag=delta_payload.etag or if_match,
+                )
+                raise
+
+            # Concurrency check using normalized ETag value - AFTER delta validation
+            logger.info("[JOB_UPDATE] Checking ETag precondition...")
             if if_match:
                 current_norm = _current_job_etag_value(job)
+                logger.info(f"[JOB_UPDATE] Current ETag: {current_norm}")
+                logger.info(f"[JOB_UPDATE] Client ETag: {if_match}")
                 if current_norm != if_match:
+                    logger.error(
+                        f"[JOB_UPDATE] ETag mismatch! Current: {current_norm}, Expected: {if_match}"
+                    )
                     raise PreconditionFailed("ETag mismatch: resource has changed")
+                else:
+                    logger.info("[JOB_UPDATE] ETag validation passed")
+            else:
+                logger.warning(
+                    "[JOB_UPDATE] No If-Match header provided - skipping ETag validation"
+                )
 
             # DEBUG: Log incoming data
             logger.debug(f"JobRestService.update_job - Incoming data: {data}")
@@ -630,36 +748,6 @@ class JobRestService:
             logger.debug(
                 f"JobRestService.update_job - Original values: {original_values}"
             )
-
-            try:
-                JobRestService._validate_delta_payload(job, delta_payload)
-            except DeltaValidationError as exc:
-                JobRestService._record_delta_rejection(
-                    job=job,
-                    staff=user,
-                    reason=str(exc),
-                    detail={
-                        "server_checksum": exc.server_checksum,
-                        "current_values": exc.current_values,
-                    },
-                    envelope=delta_payload.to_dict(),
-                    change_id=delta_payload.change_id,
-                    checksum=delta_payload.before_checksum,
-                    request_etag=delta_payload.etag or if_match,
-                )
-                raise
-            except ValueError as exc:
-                JobRestService._record_delta_rejection(
-                    job=job,
-                    staff=user,
-                    reason="Invalid delta payload",
-                    detail={"error": str(exc), "stage": "validation"},
-                    envelope=delta_payload.to_dict(),
-                    change_id=delta_payload.change_id,
-                    checksum=delta_payload.before_checksum,
-                    request_etag=delta_payload.etag or if_match,
-                )
-                raise
 
             if delta_payload.job_id and str(job.id) != delta_payload.job_id:
                 JobRestService._record_delta_rejection(
@@ -717,7 +805,7 @@ class JobRestService:
 
             # Generate descriptive update message
             description = JobRestService._generate_update_description(
-                original_values, serializer.validated_data
+                original_values, delta_payload.after
             )
 
             # Log the update with descriptive message
@@ -1094,6 +1182,53 @@ class JobRestService:
         # Get all JobEvents
         events = JobEvent.objects.filter(job=job).select_related("staff")
         for event in events:
+            # Calculate undo support for this event
+            can_undo = (
+                event.schema_version == 1
+                and event.change_id is not None
+                and event.delta_before is not None
+                and event.delta_after is not None
+            )
+
+            undo_description = None
+            if can_undo:
+                # Extract field information from delta_meta if available
+                meta = event.delta_meta or {}
+                fields = meta.get("fields", [])
+
+                if not fields:
+                    undo_description = f"Undo '{event.description}'"
+                else:
+                    field_names = []
+                    for field in fields:
+                        # Map internal field names to user-friendly labels
+                        field_labels = {
+                            "name": "job name",
+                            "description": "description",
+                            "status": "status",
+                            "order_number": "order number",
+                            "notes": "notes",
+                            "client_id": "client",
+                            "contact_id": "contact",
+                            "delivery_date": "delivery date",
+                            "charge_out_rate": "charge out rate",
+                            "job_status": "status",
+                            "paid": "payment status",
+                            "job_is_valid": "validity",
+                            "rejected_flag": "rejection status",
+                            "pricing_methodology": "pricing method",
+                        }
+                        field_names.append(
+                            field_labels.get(field, field.replace("_", " "))
+                        )
+
+                    if len(field_names) == 1:
+                        undo_description = f"Undo change to {field_names[0]}"
+                    elif len(field_names) <= 3:
+                        undo_description = f"Undo changes to {', '.join(field_names[:-1])} and {field_names[-1]}"
+                    else:
+                        undo_description = f"Undo changes to {len(field_names)} fields"
+
             timeline_entries.append(
                 {
                     "id": event.id,
@@ -1104,6 +1239,15 @@ class JobRestService:
                         event.staff.get_display_full_name() if event.staff else None
                     ),
                     "event_type": event.event_type,
+                    "can_undo": can_undo,
+                    "undo_description": undo_description,
+                    # Include additional fields for undo support
+                    "schema_version": event.schema_version,
+                    "change_id": str(event.change_id) if event.change_id else None,
+                    "delta_before": event.delta_before,
+                    "delta_after": event.delta_after,
+                    "delta_meta": event.delta_meta,
+                    "delta_checksum": event.delta_checksum,
                 }
             )
 

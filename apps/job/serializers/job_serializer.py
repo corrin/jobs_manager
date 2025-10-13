@@ -305,7 +305,11 @@ class JobSerializer(serializers.ModelSerializer):
                 "latest_reality_pricing",
             ]:
                 logger.debug(f"JobSerializer update - Setting {attr} = {value}")
-                setattr(instance, attr, value)
+                # Handle job_status -> status mapping
+                if attr == "job_status":
+                    setattr(instance, "status", value)
+                else:
+                    setattr(instance, attr, value)
 
         # DEBUG: Log contact after setting attributes
         logger.debug(
@@ -348,8 +352,8 @@ class JobQuoteAcceptanceSerializer(serializers.Serializer):
 class JobEventSerializer(serializers.ModelSerializer):
     """Serializer for JobEvent model - read-only for frontend consumption
 
-    Merged from duplicate definition - uses get_display_full_name for better
-    staff display (respects preferred names vs just first_name)
+    Enhanced to expose complete delta envelope data for undo operations.
+    Includes all fields necessary for frontend to implement undo functionality.
     """
 
     staff = serializers.CharField(
@@ -366,6 +370,65 @@ class JobEventSerializer(serializers.ModelSerializer):
     delta_meta = serializers.JSONField(read_only=True, allow_null=True)
     delta_checksum = serializers.CharField(read_only=True, allow_blank=True)
 
+    # Enhanced fields for undo support
+    can_undo = serializers.SerializerMethodField(
+        help_text="Whether this event can be undone"
+    )
+    undo_description = serializers.SerializerMethodField(
+        help_text="Human-readable description of what undoing this event would do"
+    )
+
+    def get_can_undo(self, obj) -> bool:
+        """Check if this event supports undo operations."""
+        return (
+            obj.schema_version == 1
+            and obj.change_id is not None
+            and obj.delta_before is not None
+            and obj.delta_after is not None
+        )
+
+    def get_undo_description(self, obj) -> str | None:
+        """Generate description of what undoing this event would accomplish."""
+        if not self.get_can_undo(obj):
+            return None
+
+        # Extract field information from delta_meta if available
+        meta = obj.delta_meta or {}
+        fields = meta.get("fields", [])
+
+        if not fields:
+            return f"Undo '{obj.description}'"
+
+        field_names = []
+        for field in fields:
+            # Map internal field names to user-friendly labels
+            field_labels = {
+                "name": "job name",
+                "description": "description",
+                "status": "status",
+                "order_number": "order number",
+                "notes": "notes",
+                "client_id": "client",
+                "contact_id": "contact",
+                "delivery_date": "delivery date",
+                "charge_out_rate": "charge out rate",
+                "job_status": "status",
+                "paid": "payment status",
+                "job_is_valid": "validity",
+                "rejected_flag": "rejection status",
+                "pricing_methodology": "pricing method",
+            }
+            field_names.append(field_labels.get(field, field.replace("_", " ")))
+
+        if len(field_names) == 1:
+            return f"Undo change to {field_names[0]}"
+        elif len(field_names) <= 3:
+            return (
+                f"Undo changes to {', '.join(field_names[:-1])} and {field_names[-1]}"
+            )
+        else:
+            return f"Undo changes to {len(field_names)} fields"
+
     class Meta:
         model = JobEvent
         fields = [
@@ -380,6 +443,8 @@ class JobEventSerializer(serializers.ModelSerializer):
             "delta_after",
             "delta_meta",
             "delta_checksum",
+            "can_undo",
+            "undo_description",
         ]
         read_only_fields = fields
 
@@ -753,6 +818,25 @@ class TimelineEntrySerializer(serializers.Serializer):
     description = serializers.CharField()
     staff = serializers.CharField(allow_null=True, required=False)
     event_type = serializers.CharField(required=False, allow_null=True)
+
+    # Enhanced fields for undo support (only for event entries)
+    can_undo = serializers.SerializerMethodField(
+        help_text="Whether this event can be undone (only for event entries)"
+    )
+    undo_description = serializers.SerializerMethodField(
+        help_text="Human-readable description of what undoing this event would do (only for event entries)"
+    )
+
+    # JobEvent specific fields for undo functionality (only populated for event entries)
+    change_id = serializers.UUIDField(required=False, allow_null=True)
+    schema_version = serializers.IntegerField(required=False, allow_null=True)
+    delta_before = serializers.JSONField(required=False, allow_null=True)
+    delta_after = serializers.JSONField(required=False, allow_null=True)
+    delta_meta = serializers.JSONField(required=False, allow_null=True)
+    delta_checksum = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
+
     # CostLine specific fields
     cost_set_kind = serializers.CharField(required=False, allow_null=True)
     costline_kind = serializers.CharField(
@@ -777,6 +861,74 @@ class TimelineEntrySerializer(serializers.Serializer):
     )
     created_at = serializers.DateTimeField(required=False, allow_null=True)
     updated_at = serializers.DateTimeField(required=False, allow_null=True)
+
+    def get_can_undo(self, obj) -> bool | None:
+        """Check if this event supports undo operations (only for event entries)."""
+        # First check if the value is already calculated in the object
+        if "can_undo" in obj:
+            return obj["can_undo"]
+
+        if obj.get("entry_type") != "event":
+            return None
+
+        # Use the serialized fields directly
+        schema_version = obj.get("schema_version")
+        change_id = obj.get("change_id")
+        delta_before = obj.get("delta_before")
+        delta_after = obj.get("delta_after")
+
+        return (
+            schema_version == 1
+            and change_id is not None
+            and delta_before is not None
+            and delta_after is not None
+        )
+
+    def get_undo_description(self, obj) -> str | None:
+        """Generate description of what undoing this event would accomplish (only for event entries)."""
+        # First check if the value is already calculated in the object
+        if "undo_description" in obj:
+            return obj["undo_description"]
+
+        if obj.get("entry_type") != "event" or not self.get_can_undo(obj):
+            return None
+
+        # Extract field information from delta_meta if available
+        meta = obj.get("delta_meta", {})
+        fields = meta.get("fields", [])
+
+        if not fields:
+            return f"Undo '{obj.get('description', '')}'"
+
+        field_names = []
+        for field in fields:
+            # Map internal field names to user-friendly labels
+            field_labels = {
+                "name": "job name",
+                "description": "description",
+                "status": "status",
+                "order_number": "order number",
+                "notes": "notes",
+                "client_id": "client",
+                "contact_id": "contact",
+                "delivery_date": "delivery date",
+                "charge_out_rate": "charge out rate",
+                "job_status": "status",
+                "paid": "payment status",
+                "job_is_valid": "validity",
+                "rejected_flag": "rejection status",
+                "pricing_methodology": "pricing method",
+            }
+            field_names.append(field_labels.get(field, field.replace("_", " ")))
+
+        if len(field_names) == 1:
+            return f"Undo change to {field_names[0]}"
+        elif len(field_names) <= 3:
+            return (
+                f"Undo changes to {', '.join(field_names[:-1])} and {field_names[-1]}"
+            )
+        else:
+            return f"Undo changes to {len(field_names)} fields"
 
 
 class JobTimelineResponseSerializer(serializers.Serializer):
