@@ -187,6 +187,9 @@ class XeroQuoteManager(XeroDocumentManager):
                     raw_json=json.dumps(xero_quote_data.to_dict(), default=str),
                 )
 
+                # Update job.updated_at to invalidate ETags and prevent 304 responses
+                self.job.save(update_fields=["updated_at"])
+
                 logger.info(
                     f"Quote {quote.id} created successfully for job {self.job.id}"
                 )
@@ -338,6 +341,9 @@ class XeroQuoteManager(XeroDocumentManager):
             logger.info(
                 f"Quote {local_quote_id} deleted successfully for job {self.job.id}"
             )
+
+            # Update job.updated_at to invalidate ETags and prevent 304 responses
+            self.job.save(update_fields=["updated_at"])
 
             # Create a job event for quote deletion
             from apps.job.models import JobEvent

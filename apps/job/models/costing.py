@@ -188,6 +188,10 @@ class CostLine(models.Model):
         cost_set.summary = current_summary  # Preserves revisions[]
         cost_set.save()
 
+        # Update job.updated_at to ensure ETag changes when cost data changes
+        # This prevents 304 Not Modified responses when quotes/costs are modified
+        cost_set.job.save(update_fields=["updated_at"])
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         self._update_cost_set_summary()

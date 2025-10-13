@@ -229,6 +229,9 @@ class XeroInvoiceManager(XeroDocumentManager):
                     raw_json=invoice_json,
                 )
 
+                # Update job.updated_at to invalidate ETags and prevent 304 responses
+                self.job.save(update_fields=["updated_at"])
+
                 logger.info(
                     f"Invoice {invoice.id} created successfully for job {self.job.id}"
                 )
@@ -359,6 +362,9 @@ class XeroInvoiceManager(XeroDocumentManager):
                     logger.info(
                         f"Invoice {xero_invoice_id} deleted in Xero and {deleted_count} local record(s) removed."
                     )
+
+                    # Update job.updated_at to invalidate ETags and prevent 304 responses
+                    self.job.save(update_fields=["updated_at"])
 
                     # Create a job event for invoice deletion
                     from apps.job.models import JobEvent
