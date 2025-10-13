@@ -305,6 +305,7 @@ class JobRestService:
                 quantity=Decimal("1.000"),
                 unit_cost=estimated_materials,
                 unit_rev=estimated_materials * (Decimal("1") + materials_markup),
+                accounting_date=timezone.now().date(),
             )
 
             # Create workshop time cost line
@@ -315,6 +316,7 @@ class JobRestService:
                 quantity=estimated_time,
                 unit_cost=wage_rate,
                 unit_rev=charge_out_rate,
+                accounting_date=timezone.now().date(),
             )
 
             # Calculate office time (1:8 ratio, rounded up to quarter hours)
@@ -328,6 +330,7 @@ class JobRestService:
                 quantity=office_time_hours,
                 unit_cost=wage_rate,
                 unit_rev=charge_out_rate,
+                accounting_date=timezone.now().date(),
             )
 
             # For fixed_price jobs, copy estimate lines to quote CostSet
@@ -341,6 +344,7 @@ class JobRestService:
                         quantity=estimate_line.quantity,
                         unit_cost=estimate_line.unit_cost,
                         unit_rev=estimate_line.unit_rev,
+                        accounting_date=estimate_line.accounting_date,
                         ext_refs=(
                             estimate_line.ext_refs.copy()
                             if estimate_line.ext_refs

@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Dict, List, Optional, Set, Tuple
 
+from django.utils import timezone
+
 from apps.job.importers.draft import DraftLine
 from apps.job.models import CostLine, CostSet
 
@@ -310,6 +312,7 @@ def _create_cost_line_from_draft(
         quantity=draft.quantity,
         unit_cost=draft.unit_cost,
         unit_rev=draft.unit_rev,
+        accounting_date=timezone.now().date(),
         ext_refs=ext_refs,
         meta=draft.meta,
     )
@@ -324,6 +327,7 @@ def _copy_cost_line(old_line: CostLine, new_cost_set: CostSet) -> CostLine:
         quantity=old_line.quantity,
         unit_cost=old_line.unit_cost,
         unit_rev=old_line.unit_rev,
+        accounting_date=old_line.accounting_date,
         ext_refs=old_line.ext_refs,
         meta=old_line.meta,
     )
