@@ -113,7 +113,7 @@ class BaseJobRestView(APIView):
                 error_response = {"error": "Resource not found"}
                 error_serializer = JobRestErrorResponseSerializer(error_response)
                 return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-            case "PreconditionFailed":
+            case "PreconditionFailed" | "DeltaValidationError":
                 # ETag mismatch -> Optimistic concurrency conflict
                 error_response = {
                     "error": "Precondition failed (ETag mismatch). Reload the job and retry."

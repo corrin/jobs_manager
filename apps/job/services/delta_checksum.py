@@ -56,19 +56,43 @@ def compute_job_delta_checksum(
     Raises:
         ValueError: If ``job_id`` is falsy or a requested field is missing.
     """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    logger.debug(f"[CHECKSUM_COMPUTE] Starting checksum computation for job {job_id}")
+    logger.debug(f"[CHECKSUM_COMPUTE] Input field_values: {dict(field_values)}")
+
     job_id_str = _normalise_job_id(job_id)
     selected_fields = _determine_fields(field_values, fields)
+
+    logger.debug(f"[CHECKSUM_COMPUTE] Selected fields: {sorted(selected_fields)}")
+
     components = []
 
     for field in sorted(selected_fields):
         if field not in field_values:
             raise ValueError(f"Field '{field}' missing from provided values")
         value = field_values.get(field)
-        components.append((field, normalise_value(value)))
+        normalized_value = normalise_value(value)
+
+        logger.debug(
+            f"[CHECKSUM_COMPUTE] Field '{field}': raw='{value}' (type: {type(value)}) -> normalized='{normalized_value}'"
+        )
+
+        components.append((field, normalized_value))
 
     payload = ChecksumInput(job_id=job_id_str, components=tuple(components))
-    raw = payload.serialise().encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
+    serialized = payload.serialise()
+
+    logger.debug(f"[CHECKSUM_COMPUTE] Serialized payload: '{serialized}'")
+
+    raw = serialized.encode("utf-8")
+    checksum = hashlib.sha256(raw).hexdigest()
+
+    logger.debug(f"[CHECKSUM_COMPUTE] Final checksum: {checksum}")
+
+    return checksum
 
 
 def _normalise_job_id(job_id: UUID | str) -> str:
