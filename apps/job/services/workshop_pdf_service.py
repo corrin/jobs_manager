@@ -5,6 +5,7 @@ import time
 from io import BytesIO
 
 from django.conf import settings
+from django.utils import timezone
 from PIL import Image, ImageFile
 from PyPDF2 import PdfWriter
 from reportlab.lib import colors
@@ -332,10 +333,19 @@ def add_job_details_table(pdf, y_position, job: Job):
                 convert_html_to_reportlab(job.notes) if job.notes else "N/A", body_style
             ),
         ],
-        [Paragraph("ENTRY DATE", label_style), job.created_at.strftime("%a, %d %b %Y")],
+        [
+            Paragraph("ENTRY DATE", label_style),
+            timezone.localtime(
+                job.created_at, timezone.get_current_timezone()
+            ).strftime("%a, %d %b %Y"),
+        ],
         [
             Paragraph("DUE DATE", label_style),
-            job.delivery_date.strftime("%a, %d %b %Y") if job.delivery_date else "N/A",
+            timezone.localtime(
+                job.delivery_date, timezone.get_current_timezone()
+            ).strftime("%a, %d %b %Y")
+            if job.delivery_date
+            else "N/A",
         ],
         [
             Paragraph("ORDER NUMBER", label_style),
