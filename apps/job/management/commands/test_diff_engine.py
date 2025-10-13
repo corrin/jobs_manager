@@ -7,6 +7,7 @@ Tests the diff functionality with sample data to verify it works correctly.
 from decimal import Decimal
 
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from apps.job.diff import apply_diff, diff_costset
 from apps.job.importers.draft import DraftLine
@@ -113,6 +114,7 @@ class Command(BaseCommand):
                 "quantity": Decimal("16.00"),
                 "unit_cost": Decimal("32.00"),
                 "unit_rev": Decimal("110.00"),
+                "accounting_date": timezone.now().date(),
                 "ext_refs": {"source_row": "1"},
             },
             {
@@ -121,6 +123,7 @@ class Command(BaseCommand):
                 "quantity": Decimal("2.00"),
                 "unit_cost": Decimal("389.50"),
                 "unit_rev": Decimal("467.40"),
+                "accounting_date": timezone.now().date(),
                 "ext_refs": {"source_row": "2"},
             },
             {
@@ -129,6 +132,7 @@ class Command(BaseCommand):
                 "quantity": Decimal("1.00"),
                 "unit_cost": Decimal("100.00"),
                 "unit_rev": Decimal("120.00"),
+                "accounting_date": timezone.now().date(),
                 "ext_refs": {"source_row": "10"},
             },
         ]

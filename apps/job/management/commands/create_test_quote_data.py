@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from apps.job.models import CostLine, CostSet, Job
 
@@ -70,6 +71,7 @@ class Command(BaseCommand):
                         "quantity": Decimal("8.0"),
                         "unit_cost": Decimal("50.00"),
                         "unit_rev": Decimal("85.00"),
+                        "accounting_date": timezone.now().date(),
                     },
                     {
                         "kind": "time",
@@ -77,6 +79,7 @@ class Command(BaseCommand):
                         "quantity": Decimal("24.0"),
                         "unit_cost": Decimal("55.00"),
                         "unit_rev": Decimal("90.00"),
+                        "accounting_date": timezone.now().date(),
                     },
                     {
                         "kind": "time",
@@ -84,6 +87,7 @@ class Command(BaseCommand):
                         "quantity": Decimal("6.0"),
                         "unit_cost": Decimal("45.00"),
                         "unit_rev": Decimal("75.00"),
+                        "accounting_date": timezone.now().date(),
                     },
                     {
                         "kind": "material",
@@ -91,6 +95,7 @@ class Command(BaseCommand):
                         "quantity": Decimal("3.0"),
                         "unit_cost": Decimal("120.00"),
                         "unit_rev": Decimal("180.00"),
+                        "accounting_date": timezone.now().date(),
                     },
                     {
                         "kind": "material",
@@ -98,6 +103,7 @@ class Command(BaseCommand):
                         "quantity": Decimal("5.0"),
                         "unit_cost": Decimal("75.00"),
                         "unit_rev": Decimal("120.00"),
+                        "accounting_date": timezone.now().date(),
                     },
                     {
                         "kind": "material",
@@ -105,6 +111,7 @@ class Command(BaseCommand):
                         "quantity": Decimal("1.0"),
                         "unit_cost": Decimal("85.50"),
                         "unit_rev": Decimal("125.00"),
+                        "accounting_date": timezone.now().date(),
                     },
                 ]
 

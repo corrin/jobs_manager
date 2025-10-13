@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from django.db import transaction
+from django.utils import timezone
 
 from apps.job.models import CostLine, CostSet, Job
 from apps.purchasing.models import Stock
@@ -67,6 +68,7 @@ def consume_stock(
             quantity=qty,
             unit_cost=unit_cost,
             unit_rev=unit_rev,
+            accounting_date=timezone.now().date(),
             ext_refs={"stock_id": str(item.id)},
             meta={
                 "consumed_by": (
