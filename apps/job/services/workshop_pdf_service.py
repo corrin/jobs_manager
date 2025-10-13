@@ -341,9 +341,9 @@ def add_job_details_table(pdf, y_position, job: Job):
         ],
         [
             Paragraph("DUE DATE", label_style),
-            timezone.localtime(
-                job.delivery_date, timezone.get_current_timezone()
-            ).strftime("%a, %d %b %Y")
+            job.delivery_date.strftime(
+                "%a, %d %b %Y"
+            )  # Defined by the user + date object, doesn't need TZ conversion.
             if job.delivery_date
             else "N/A",
         ],
