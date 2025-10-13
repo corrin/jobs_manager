@@ -32,6 +32,7 @@ class CostLineSerializer(serializers.ModelSerializer):
             "unit_rev",
             "total_cost",
             "total_rev",
+            "accounting_date",
             "ext_refs",
             "meta",
             "created_at",
@@ -124,6 +125,7 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
             "unit_rev",
             "total_cost",
             "total_rev",
+            "accounting_date",
             "ext_refs",
             "meta",
             "created_at",
@@ -340,6 +342,7 @@ class CostLineCreateResponseSerializer(serializers.Serializer):
     unit_rev = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_cost = serializers.ReadOnlyField()
     total_rev = serializers.ReadOnlyField()
+    accounting_date = serializers.DateField()
     ext_refs = serializers.JSONField(required=False)
     meta = serializers.JSONField(required=False)
 
