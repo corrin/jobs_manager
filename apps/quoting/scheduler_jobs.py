@@ -14,12 +14,13 @@ logger = logging.getLogger(__name__)
 def run_all_scrapers_job():
     """
     This job runs the Django management command to execute all scrapers.
+    Uses --refresh-old flag to update existing products instead of only scraping new ones.
     """
     logger.info("Attempting to run all scrapers via scheduled job.")
     try:
         close_old_connections()  # Close old DB connections to prevent issues
         call_command(
-            "run_scrapers"
+            "run_scrapers", refresh_old=True
         )  # This calls the existing quoting/management/commands/run_scrapers.py
         logger.info("Successfully completed scheduled scraper run.")
     except Exception as e:

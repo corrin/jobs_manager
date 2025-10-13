@@ -177,7 +177,7 @@ def _create_stock_from_allocation(
     )
 
     # Parse extra metadata
-    from apps.quoting.signals import auto_parse_stock_item
+    from apps.quoting.services.stock_parser import auto_parse_stock_item
 
     auto_parse_stock_item(stock)
 

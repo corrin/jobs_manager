@@ -28,25 +28,32 @@ class ProductParser:
     BATCH_SIZE = 100
 
     def __init__(self):
-        self._gemini_client = None
+        """Initialize parser and validate AI provider configuration upfront."""
+        # Fail early - check AI provider configuration immediately
+        # Prefer Flash models (cheaper, faster, sufficient for parsing)
+        ai_provider = AIProvider.objects.filter(
+            provider_type=AIProviderTypes.GOOGLE, model_name__icontains="flash"
+        ).first()
+
+        # Fall back to any Gemini provider if no Flash model configured
+        if not ai_provider:
+            ai_provider = AIProvider.objects.filter(
+                provider_type=AIProviderTypes.GOOGLE
+            ).first()
+
+        if not ai_provider or not ai_provider.api_key:
+            raise ValueError("No Gemini AI provider configured with API key")
+
+        if not ai_provider.model_name:
+            raise ValueError("Gemini AI provider model name not configured")
+
+        # Configure and create client immediately
+        genai.configure(api_key=ai_provider.api_key)
+        self._gemini_client = genai.GenerativeModel(ai_provider.model_name)
 
     @property
     def gemini_client(self):
-        """Lazy initialization of Gemini client."""
-        if self._gemini_client is None:
-            ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.GOOGLE, default=True
-            ).first()
-
-            if not ai_provider or not ai_provider.api_key:
-                raise ValueError("No active Gemini AI provider configured")
-
-            if not ai_provider.model_name:
-                raise ValueError("Gemini AI provider model name not configured")
-
-            genai.configure(api_key=ai_provider.api_key)
-            self._gemini_client = genai.GenerativeModel(ai_provider.model_name)
-
+        """Get the Gemini client (already initialized in __init__)."""
         return self._gemini_client
 
     def _calculate_input_hash(self, product_data: Dict[str, Any]) -> str:

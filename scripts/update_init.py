@@ -29,6 +29,7 @@ def get_import_type(module_path: str, module_name: str) -> str:
     # Django automatically discovers these modules
     always_excluded_modules = {
         "admin",  # Django auto-discovers admin.py, importing causes double registration
+        "views",  # URL routing imports views directly when needed
     }
 
     # ALWAYS conditional - these definitely import models or problematic Django components

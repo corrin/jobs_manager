@@ -22,6 +22,10 @@ from apps.purchasing.serializers import (
     AllocationDetailsResponseSerializer,
     DeliveryReceiptRequestSerializer,
     DeliveryReceiptResponseSerializer,
+    ProductMappingListResponseSerializer,
+    ProductMappingSerializer,
+    ProductMappingValidateRequestSerializer,
+    ProductMappingValidateResponseSerializer,
     PurchaseOrderAllocationsResponseSerializer,
     PurchaseOrderCreateResponseSerializer,
     PurchaseOrderCreateSerializer,
@@ -876,5 +880,181 @@ class AllocationDetailsAPIView(APIView):
             logger.error(f"Error getting allocation details: {str(e)}")
             return Response(
                 {"error": f"Failed to get allocation details: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ProductMappingListView(APIView):
+    """
+    REST API view for listing product parsing mappings.
+
+    GET: Returns list of all product mappings with stats
+    """
+
+    serializer_class = ProductMappingListResponseSerializer
+
+    @extend_schema(
+        operation_id="listProductMappings",
+        responses={
+            status.HTTP_200_OK: ProductMappingListResponseSerializer,
+        },
+        tags=["Product Mapping"],
+    )
+    def get(self, request):
+        """Get list of product mappings prioritizing unvalidated ones."""
+        try:
+            from apps.quoting.models import ProductParsingMapping
+
+            # Get all mappings, prioritizing unvalidated ones first
+            unvalidated = list(
+                ProductParsingMapping.objects.filter(is_validated=False).order_by(
+                    "-created_at"
+                )
+            )
+            validated = list(
+                ProductParsingMapping.objects.filter(is_validated=True).order_by(
+                    "-validated_at"
+                )
+            )
+
+            all_mappings = unvalidated + validated
+
+            # Update Xero status for all mappings
+            for mapping in all_mappings:
+                mapping.update_xero_status()
+
+            # Calculate stats
+            total_count = len(all_mappings)
+            validated_count = len(validated)
+            unvalidated_count = len(unvalidated)
+
+            # Serialize mappings
+            mapping_serializer = ProductMappingSerializer(all_mappings, many=True)
+
+            response_data = {
+                "items": mapping_serializer.data,
+                "total_count": total_count,
+                "validated_count": validated_count,
+                "unvalidated_count": unvalidated_count,
+            }
+
+            serializer = self.serializer_class(response_data)
+            return Response(serializer.data)
+
+        except Exception as e:
+            logger.error(f"Error fetching product mappings: {str(e)}")
+            return Response(
+                {"error": "Failed to fetch product mappings", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ProductMappingValidateView(APIView):
+    """
+    REST API view for validating a product parsing mapping.
+
+    POST: Mark a mapping as validated and update related products
+    """
+
+    serializer_class = ProductMappingValidateResponseSerializer
+
+    @extend_schema(
+        operation_id="validateProductMapping",
+        request=ProductMappingValidateRequestSerializer,
+        responses={
+            status.HTTP_200_OK: ProductMappingValidateResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: ProductMappingValidateResponseSerializer,
+            status.HTTP_404_NOT_FOUND: ProductMappingValidateResponseSerializer,
+        },
+        tags=["Product Mapping"],
+    )
+    def post(self, request, mapping_id):
+        """Validate a product parsing mapping."""
+        try:
+            from django.utils import timezone
+
+            from apps.quoting.models import ProductParsingMapping, SupplierProduct
+
+            # Validate input data
+            serializer = ProductMappingValidateRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid input data",
+                        "details": serializer.errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Get mapping
+            mapping = get_object_or_404(ProductParsingMapping, id=mapping_id)
+
+            # Update validation status
+            mapping.is_validated = True
+            mapping.validated_by = request.user
+            mapping.validated_at = timezone.now()
+
+            # Update mapping fields from request
+            validated_data = serializer.validated_data
+            if "mapped_item_code" in validated_data:
+                mapping.mapped_item_code = validated_data["mapped_item_code"]
+            if "mapped_description" in validated_data:
+                mapping.mapped_description = validated_data["mapped_description"]
+            if "mapped_metal_type" in validated_data:
+                mapping.mapped_metal_type = validated_data["mapped_metal_type"]
+            if "mapped_alloy" in validated_data:
+                mapping.mapped_alloy = validated_data["mapped_alloy"]
+            if "mapped_specifics" in validated_data:
+                mapping.mapped_specifics = validated_data["mapped_specifics"]
+            if "mapped_dimensions" in validated_data:
+                mapping.mapped_dimensions = validated_data["mapped_dimensions"]
+            if "mapped_unit_cost" in validated_data:
+                mapping.mapped_unit_cost = validated_data["mapped_unit_cost"]
+            if "mapped_price_unit" in validated_data:
+                mapping.mapped_price_unit = validated_data["mapped_price_unit"]
+            if "validation_notes" in validated_data:
+                mapping.validation_notes = validated_data["validation_notes"]
+
+            # Update Xero status
+            mapping.update_xero_status()
+            mapping.save()
+
+            # Backflow: Update all SupplierProducts that use this mapping
+            update_count = SupplierProduct.objects.filter(
+                mapping_hash=mapping.input_hash
+            ).update(
+                parsed_item_code=mapping.mapped_item_code,
+                parsed_description=mapping.mapped_description,
+                parsed_metal_type=mapping.mapped_metal_type,
+                parsed_alloy=mapping.mapped_alloy,
+                parsed_specifics=mapping.mapped_specifics,
+                parsed_dimensions=mapping.mapped_dimensions,
+                parsed_unit_cost=mapping.mapped_unit_cost,
+                parsed_price_unit=mapping.mapped_price_unit,
+            )
+
+            logger.info(
+                f"Validated mapping {mapping_id}, updated {update_count} related products"
+            )
+
+            response_data = {
+                "success": True,
+                "message": f"Mapping validated successfully. Updated {update_count} related products.",
+                "updated_products_count": update_count,
+            }
+
+            response_serializer = self.serializer_class(response_data)
+            return Response(response_serializer.data)
+
+        except ProductParsingMapping.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Mapping not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"Error validating mapping {mapping_id}: {str(e)}")
+            return Response(
+                {"success": False, "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
