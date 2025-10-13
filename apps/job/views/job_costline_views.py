@@ -61,6 +61,12 @@ class CostLineCreateView(APIView):
             error_serializer = CostLineErrorResponseSerializer(error_response)
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
+        # Guard clause - accounting_date is REQUIRED
+        if "accounting_date" not in request.data:
+            error_response = {"error": "accounting_date is required"}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             with transaction.atomic():
                 # Get or create CostSet for the specified kind

@@ -151,6 +151,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
             "quantity",
             "unit_cost",
             "unit_rev",
+            "accounting_date",
             "ext_refs",
             "meta",
             "created_at",
