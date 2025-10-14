@@ -278,7 +278,7 @@ def get_allowed_tools(mode: str) -> list:
         ValueError: If mode is not recognized
     """
     tools = {
-        "CALC": ["emit_calc_result"],  # Only emit tool for structured output
+        "CALC": ["calc_sheet_tenths", "emit_calc_result"],
         "PRICE": [
             "search_products",
             "get_pricing_for_material",
