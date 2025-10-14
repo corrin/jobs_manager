@@ -11,15 +11,14 @@ CALC_SCHEMA = {
     "properties": {
         "inputs": {
             "type": "object",
-            "required": [],
             "properties": {
                 "raw_input": {
                     "type": "string",
                     "description": "The user's original input",
                 },
                 "parsed": {
-                    "type": "object",
-                    "description": "What was extracted from the input",
+                    "type": "string",
+                    "description": "What was extracted from the input as text",
                 },
             },
         },
@@ -46,8 +45,8 @@ CALC_SCHEMA = {
                                 "description": "Unit of measure (e.g., 'mm x mm', 'each', 'mm')",
                             },
                             "specs": {
-                                "type": "object",
-                                "description": "Additional specifications (material, thickness, dimensions, etc.)",
+                                "type": "string",
+                                "description": "Additional specifications as text (e.g., 'material: 1.2mm steel, dimensions: 312mm')",
                             },
                         },
                     },
@@ -61,7 +60,6 @@ CALC_SCHEMA = {
         "questions": {
             "type": "array",
             "items": {"type": "string"},
-            "maxItems": 3,
             "description": "Clarifying questions for missing/ambiguous data",
         },
     },
@@ -280,7 +278,7 @@ def get_allowed_tools(mode: str) -> list:
         ValueError: If mode is not recognized
     """
     tools = {
-        "CALC": ["emit_calc_result"],  # Only emit tool for structured output
+        "CALC": ["calc_sheet_tenths", "emit_calc_result"],
         "PRICE": [
             "search_products",
             "get_pricing_for_material",

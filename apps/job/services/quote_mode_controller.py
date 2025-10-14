@@ -43,7 +43,7 @@ class QuoteModeController:
             The system prompt string
         """
         return """You are a quoting helper. Process requests in the specified MODE.
-- MODE=CALC: Calculate quantities and dimensions. MUST call emit_calc_result with your final results.
+- MODE=CALC: Calculate quantities and dimensions. For sheet materials, use calc_sheet_tenths tool. MUST call emit_calc_result with your final results.
 - MODE=PRICE: Search for materials and pricing. MUST call emit_price_result with your final results.
 - MODE=TABLE: Format quote tables. MUST call emit_table_result with your final results.
 
@@ -224,6 +224,32 @@ Consider the full conversation context when processing this input."""
 
         # Define all available tools
         all_tools = {
+            "calc_sheet_tenths": FunctionDeclaration(
+                name="calc_sheet_tenths",
+                description="Calculate how many 'tenths' of a sheet a part occupies. Sheet divided into 5x2 grid (600x480mm sections for 1200x2400mm sheet). Returns number of sections needed.",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "part_width_mm": {
+                            "type": "number",
+                            "description": "Width of part in mm",
+                        },
+                        "part_height_mm": {
+                            "type": "number",
+                            "description": "Height of part in mm",
+                        },
+                        "sheet_width_mm": {
+                            "type": "number",
+                            "description": "Sheet width in mm (default 1200)",
+                        },
+                        "sheet_height_mm": {
+                            "type": "number",
+                            "description": "Sheet height in mm (default 2400)",
+                        },
+                    },
+                    "required": ["part_width_mm", "part_height_mm"],
+                },
+            ),
             "search_products": FunctionDeclaration(
                 name="search_products",
                 description="Search supplier products by description or specifications",
@@ -570,6 +596,7 @@ Consider the full conversation context when processing this input."""
         try:
             quoting_tool = QuotingTool()
             tool_map = {
+                "calc_sheet_tenths": quoting_tool.calc_sheet_tenths,
                 "search_products": quoting_tool.search_products,
                 "get_pricing_for_material": quoting_tool.get_pricing_for_material,
                 "compare_suppliers": quoting_tool.compare_suppliers,

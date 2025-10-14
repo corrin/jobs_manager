@@ -7,6 +7,7 @@ from apps.client.models import Client
 from apps.job.models import Job
 
 from .models import ScrapeJob, SupplierPriceList, SupplierProduct
+from .utils import calculate_sheet_tenths
 
 
 class SupplierProductQueryTool(ModelQueryToolset):
@@ -225,3 +226,54 @@ class QuotingTool(MCPToolset):
                 results.append(result)
 
         return "\n".join(results)
+
+    def calc_sheet_tenths(
+        self,
+        part_width_mm: float,
+        part_height_mm: float,
+        sheet_width_mm: float = 1200.0,
+        sheet_height_mm: float = 2400.0,
+    ) -> str:
+        """
+        Calculate how many "tenths" of a sheet a part will occupy.
+
+        A sheet is divided into a 5x2 grid (10 sections). For a standard 1200x2400mm
+        sheet, each section is 600mm x 480mm. If any part of a cut touches a section,
+        that section counts as used. This is used for quoting sheet material costs.
+
+        Args:
+            part_width_mm: Width of the part in millimeters
+            part_height_mm: Height of the part in millimeters
+            sheet_width_mm: Width of the full sheet (default: 1200mm)
+            sheet_height_mm: Height of the full sheet (default: 2400mm)
+
+        Returns:
+            Formatted string with the calculation results
+
+        Example:
+            700mm x 700mm part on standard sheet = 4 tenths (spans 2x2 grid)
+        """
+        try:
+            tenths = calculate_sheet_tenths(
+                part_width_mm, part_height_mm, sheet_width_mm, sheet_height_mm
+            )
+
+            section_width = sheet_width_mm / 2
+            section_height = sheet_height_mm / 5
+
+            result = [
+                "Sheet Tenths Calculation:",
+                f"Part dimensions: {part_width_mm}mm × {part_height_mm}mm",
+                f"Sheet dimensions: {sheet_width_mm}mm × {sheet_height_mm}mm",
+                f"Section size: {section_width}mm × {section_height}mm",
+                "",
+                f"**Result: {tenths} tenths of a sheet required**",
+                "",
+                f"This part will span across {tenths} sections of the sheet grid.",
+                f"Bill the customer for {tenths}/10ths of the sheet cost.",
+            ]
+
+            return "\n".join(result)
+
+        except ValueError as e:
+            return f"Error calculating sheet tenths: {str(e)}"
