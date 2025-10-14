@@ -120,9 +120,9 @@ class TestQuoteModeSchemas(TestCase):
 
     def test_get_allowed_tools(self):
         """Test tool gating for each mode."""
-        # CALC mode should have only emit tool
+        # CALC mode should have sheet tenths tool and emit tool
         calc_tools = quote_mode_schemas.get_allowed_tools("CALC")
-        self.assertEqual(calc_tools, ["emit_calc_result"])
+        self.assertEqual(calc_tools, ["calc_sheet_tenths", "emit_calc_result"])
 
         # PRICE mode should have pricing tools plus emit tool
         price_tools = quote_mode_schemas.get_allowed_tools("PRICE")
@@ -290,3 +290,85 @@ class TestQuoteModeController(TestCase):
         with self.assertRaises(ValueError) as context:
             self.controller.run(mode="INVALID", user_input="Test", job=None)
         self.assertIn("Invalid mode", str(context.exception))
+
+
+class TestSheetTenthsIntegration(TestCase):
+    """Integration tests for sheet tenths calculation in CALC mode."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        # Create test job
+        self.client_obj = Client.objects.create(
+            name="Test Client",
+            email="test@example.com",
+            xero_last_modified=timezone.now(),
+        )
+        self.job = Job.objects.create(
+            name="Sheet Tenths Test Job",
+            client=self.client_obj,
+        )
+
+    def test_calc_mode_sheet_tenths_700x700(self):
+        """
+        Integration test: LLM should use calc_sheet_tenths for sheet parts.
+
+        This test verifies the end-to-end flow:
+        1. User asks about sheet usage for a 700x700mm part
+        2. LLM calls calc_sheet_tenths tool
+        3. Result correctly shows 4 tenths
+
+        Note: This is an integration test that requires a valid Gemini API key.
+        Skip if API key is not configured.
+        """
+        from apps.job.services.gemini_chat_service import GeminiChatService
+        from apps.workflow.enums import AIProviderTypes
+        from apps.workflow.models import AIProvider
+
+        # Check if Gemini is configured
+        try:
+            ai_provider = AIProvider.objects.filter(
+                provider_type=AIProviderTypes.GOOGLE
+            ).first()
+            if not ai_provider or not ai_provider.api_key:
+                self.skipTest("Gemini API not configured")
+        except Exception:
+            self.skipTest("Gemini API not configured")
+
+        # Run the test
+        chat_service = GeminiChatService()
+        response = chat_service.generate_mode_response(
+            job_id=str(self.job.id),
+            user_message="Calculate sheet usage for 700x700mm part",
+            mode="CALC",
+        )
+
+        # Verify response
+        self.assertIsNotNone(response)
+        self.assertEqual(response.role, "assistant")
+
+        # Check that the response mentions 4 tenths
+        content_lower = response.content.lower()
+        self.assertTrue(
+            "4" in content_lower and "tenth" in content_lower,
+            f"Response should mention 4 tenths. Got: {response.content}",
+        )
+
+        # Check metadata if available
+        if response.metadata and "response_data" in response.metadata:
+            response_data = response.metadata["response_data"]
+            if "results" in response_data and "items" in response_data["results"]:
+                items = response_data["results"]["items"]
+                # Should have at least one item about sheet usage
+                self.assertGreater(len(items), 0)
+                # Look for the 4 tenths result
+                found_tenths = False
+                for item in items:
+                    if "tenth" in item.get("unit", "").lower():
+                        self.assertEqual(
+                            item["quantity"], 4.0, "700x700mm part should use 4 tenths"
+                        )
+                        found_tenths = True
+                        break
+                self.assertTrue(
+                    found_tenths, "Should have tenths calculation in results"
+                )
