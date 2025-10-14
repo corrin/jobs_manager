@@ -43,6 +43,12 @@ class Command(BaseCommand):
         parser.add_argument(
             "message", type=str, help="The message to send to the AI assistant."
         )
+        parser.add_argument(
+            "--mode",
+            type=str,
+            choices=["CALC", "PRICE", "TABLE"],
+            help="Use mode-based response generation (CALC, PRICE, or TABLE)",
+        )
 
     def handle(self, *args, **options):
         """
@@ -51,6 +57,7 @@ class Command(BaseCommand):
         """
         job_id = options["job_id"]
         user_message = options["message"]
+        mode = options.get("mode")
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -58,6 +65,8 @@ class Command(BaseCommand):
             )
         )
         self.stdout.write(f"User Message: '{user_message}'")
+        if mode:
+            self.stdout.write(f"Mode: {mode}")
 
         try:
             # 1. Verify the job exists
@@ -76,9 +85,15 @@ class Command(BaseCommand):
                     "Sending message to AI and waiting for response..."
                 )
             )
-            assistant_message = chat_service.generate_ai_response(
-                job_id=job_id, user_message=user_message
-            )
+
+            if mode:
+                assistant_message = chat_service.generate_mode_response(
+                    job_id=job_id, user_message=user_message, mode=mode
+                )
+            else:
+                assistant_message = chat_service.generate_ai_response(
+                    job_id=job_id, user_message=user_message
+                )
 
             # 4. Print the results
             self.stdout.write(self.style.SUCCESS("--- AI Response Received ---"))

@@ -11,15 +11,14 @@ CALC_SCHEMA = {
     "properties": {
         "inputs": {
             "type": "object",
-            "required": [],
             "properties": {
                 "raw_input": {
                     "type": "string",
                     "description": "The user's original input",
                 },
                 "parsed": {
-                    "type": "object",
-                    "description": "What was extracted from the input",
+                    "type": "string",
+                    "description": "What was extracted from the input as text",
                 },
             },
         },
@@ -46,8 +45,8 @@ CALC_SCHEMA = {
                                 "description": "Unit of measure (e.g., 'mm x mm', 'each', 'mm')",
                             },
                             "specs": {
-                                "type": "object",
-                                "description": "Additional specifications (material, thickness, dimensions, etc.)",
+                                "type": "string",
+                                "description": "Additional specifications as text (e.g., 'material: 1.2mm steel, dimensions: 312mm')",
                             },
                         },
                     },
@@ -61,7 +60,6 @@ CALC_SCHEMA = {
         "questions": {
             "type": "array",
             "items": {"type": "string"},
-            "maxItems": 3,
             "description": "Clarifying questions for missing/ambiguous data",
         },
     },
