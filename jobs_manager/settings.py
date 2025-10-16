@@ -807,6 +807,11 @@ LOGGING = {
             "level": "DEBUG",
             "propagate": True,
         },
+        "mcp_server": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
     },
     "root": {
         "handlers": ["console", "app_file", "mail_admins"],
