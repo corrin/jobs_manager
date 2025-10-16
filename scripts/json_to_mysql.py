@@ -60,6 +60,9 @@ class JSONToMySQLConverter:
             "metadata",
             "summary",
             "raw_line_data",
+            "delta_before",
+            "delta_after",
+            "delta_meta",
         }
 
         # Mapping from Django model names to MySQL table names
