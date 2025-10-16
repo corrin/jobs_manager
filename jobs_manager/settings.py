@@ -307,6 +307,7 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "apps.workflow.middleware.DisallowedHostMiddleware",  # Handle break-in attempts cleanly
     "django.middleware.gzip.GZipMiddleware",  # Enable gzip compression for API responses (early in response)
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
