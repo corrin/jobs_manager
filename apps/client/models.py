@@ -265,6 +265,12 @@ class ClientContact(models.Model):
         db_table = "client_contact"
         verbose_name = "Client Contact"
         verbose_name_plural = "Client Contacts"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "name"],
+                name="unique_client_contact_name",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.client.name})"
