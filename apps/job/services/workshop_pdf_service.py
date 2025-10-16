@@ -341,11 +341,13 @@ def add_job_details_table(pdf, y_position, job: Job):
         ],
         [
             Paragraph("DUE DATE", label_style),
-            job.delivery_date.strftime(
-                "%a, %d %b %Y"
-            )  # Defined by the user + date object, doesn't need TZ conversion.
-            if job.delivery_date
-            else "N/A",
+            (
+                job.delivery_date.strftime(
+                    "%a, %d %b %Y"
+                )  # Defined by the user + date object, doesn't need TZ conversion.
+                if job.delivery_date
+                else "N/A"
+            ),
         ],
         [
             Paragraph("ORDER NUMBER", label_style),

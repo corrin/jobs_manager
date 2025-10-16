@@ -277,13 +277,36 @@ def set_client_fields(client, new_from_xero=False):
             if isinstance(person, dict):
                 first_name = person.get("_first_name") or ""
                 last_name = person.get("_last_name") or ""
-                name = first_name + (" " + last_name if last_name else "")
+                name = (first_name + (" " + last_name if last_name else "")).strip()
+
+                # Skip contacts with empty names - they're pointless
+                if not name:
+                    logger.debug(
+                        f"Skipping contact with empty name for client {client.name}"
+                    )
+                    continue
+
                 email = person.get("_email_address", "")
-                ClientContact.objects.update_or_create(
-                    client=client,
-                    name=name,
-                    defaults={"email": email},
-                )
+
+                try:
+                    contact, created = ClientContact.objects.get_or_create(
+                        client=client,
+                        name=name,
+                        defaults={"email": email},
+                    )
+                    # Update email if contact exists and email changed
+                    if not created and contact.email != email:
+                        contact.email = email
+                        contact.save()
+                except ClientContact.MultipleObjectsReturned as exc:
+                    # Should NEVER happen after migrations + constraint
+                    # If we hit this, data integrity is broken - fail fast
+                    from apps.workflow.services.error_persistence import (
+                        persist_app_error,
+                    )
+
+                    persist_app_error(exc)
+                    raise  # Crash - don't mask the problem
 
     phones = raw_json.get("_phones", [])
     if phones:
