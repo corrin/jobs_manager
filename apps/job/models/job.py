@@ -358,18 +358,25 @@ class Job(models.Model):
                 logger.debug("Creating initial CostSet entries.")
                 from .costing import CostSet
 
+                # Initialize summary for new cost sets to avoid serialization errors
+                initial_summary = {"cost": 0.0, "rev": 0.0, "hours": 0.0}
+
                 # Create estimate cost set
                 estimate_cost_set = CostSet.objects.create(
-                    job=self, kind="estimate", rev=1
+                    job=self, kind="estimate", rev=1, summary=initial_summary
                 )
                 self.latest_estimate = estimate_cost_set
 
                 # Create quote cost set
-                quote_cost_set = CostSet.objects.create(job=self, kind="quote", rev=1)
+                quote_cost_set = CostSet.objects.create(
+                    job=self, kind="quote", rev=1, summary=initial_summary
+                )
                 self.latest_quote = quote_cost_set
 
                 # Create actual cost set
-                actual_cost_set = CostSet.objects.create(job=self, kind="actual", rev=1)
+                actual_cost_set = CostSet.objects.create(
+                    job=self, kind="actual", rev=1, summary=initial_summary
+                )
                 self.latest_actual = actual_cost_set
 
                 logger.debug("Initial CostSets created successfully.")

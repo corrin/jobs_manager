@@ -24,7 +24,10 @@ class CostSet(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="cost_sets")
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
-    summary = models.JSONField(default=dict, help_text="Summary data for this cost set")
+    summary = models.JSONField(
+        default=lambda: {"cost": 0.0, "rev": 0.0, "hours": 0.0},
+        help_text="Summary data for this cost set (cost, rev, hours)",
+    )
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
