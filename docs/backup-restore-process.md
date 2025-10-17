@@ -449,13 +449,24 @@ python manage.py runserver 0.0.0.0:8000
 # MANDATORY VERIFICATION - DO NOT SKIP
 python manage.py shell -c "
 from apps.workflow.models import XeroToken
-if not XeroToken.objects.filter(is_active=True).exists():
-    print('❌ CRITICAL ERROR: No active Xero token found!')
+from django.utils import timezone
+
+token_count = XeroToken.objects.count()
+if token_count == 0:
+    print('❌ CRITICAL ERROR: No Xero token found!')
     print('❌ You MUST complete Xero OAuth connection before continuing.')
     print('❌ STOP HERE. Do not proceed to any further steps.')
     exit(1)
-else:
-    print('✅ Xero OAuth token found. Safe to proceed.')
+
+# Check if token is expired
+token = XeroToken.objects.first()
+if token.expires_at and token.expires_at < timezone.now():
+    print('❌ CRITICAL ERROR: Xero token is expired!')
+    print('❌ You MUST reconnect to Xero before continuing.')
+    exit(1)
+
+print('✅ Xero OAuth token found. Safe to proceed.')
+print(f'✅ Token expires at: {token.expires_at}')
 "
 ```
 
