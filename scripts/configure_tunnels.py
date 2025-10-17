@@ -210,45 +210,25 @@ def update_frontend_env(backend_url: str, frontend_url: str, env_path: Path) -> 
 
 
 def update_vite_config(backend_url: str, frontend_url: str, vite_config_path: Path) -> None:
-    """Update vite.config.ts allowedHosts array."""
+    """
+    Verify vite.config.ts structure is correct.
+
+    Does NOT hardcode hosts - they should come from VITE_ALLOWED_HOSTS env var only.
+    This keeps the config portable across dev/uat/prod environments.
+    """
     if not vite_config_path.exists():
         raise FileNotFoundError(f"vite.config.ts not found at {vite_config_path}")
 
-    backend_host = extract_hostname(backend_url)
-    frontend_host = extract_hostname(frontend_url)
-
     content = vite_config_path.read_text()
-    lines = content.split("\n")
-    new_lines = []
 
-    in_allowed_hosts = False
-    skip_until_close_bracket = False
+    # Check that it's using VITE_ALLOWED_HOSTS from env
+    if "env.VITE_ALLOWED_HOSTS" not in content:
+        print("Warning: vite.config.ts does not read VITE_ALLOWED_HOSTS from env")
+        print("  Hosts should be configured via VITE_ALLOWED_HOSTS in .env")
+        return
 
-    for line in lines:
-        # Found the start of allowedHosts array
-        if "const allowedHosts = [" in line:
-            in_allowed_hosts = True
-            skip_until_close_bracket = True
-            # Replace entire array
-            new_lines.append("  const allowedHosts = [")
-            new_lines.append("    'localhost',")
-            new_lines.append(f"    '{backend_host}',")
-            new_lines.append(f"    '{frontend_host}',")
-            new_lines.append("    ...(env.VITE_ALLOWED_HOSTS ? env.VITE_ALLOWED_HOSTS.split(',').map((host) => host.trim()) : []),")
-            new_lines.append("  ]")
-            continue
-
-        # Skip lines until we find the closing bracket
-        if skip_until_close_bracket:
-            if "]" in line and in_allowed_hosts:
-                skip_until_close_bracket = False
-                in_allowed_hosts = False
-            continue
-
-        new_lines.append(line)
-
-    vite_config_path.write_text("\n".join(new_lines))
-    print(f"Set vite.config.ts allowedHosts to: localhost, {backend_host}, {frontend_host}")
+    print("vite.config.ts correctly reads hosts from VITE_ALLOWED_HOSTS env var")
+    print("  (Hosts are set via .env, not hardcoded in vite.config.ts)")
 
 
 def main():
