@@ -26,10 +26,8 @@ See [docs/initial_install.md](docs/initial_install.md) for installation instruct
 
 ### Starting
 
-1. Launch the backend: python manage.py runserver
-2. Launch the frontend: npm run dev
-
-Note - both are documented properly in their respective folders (e.g. npm install)
+1. **Backend**: `python manage.py runserver`
+2. **Frontend**: See the [frontend repository](https://github.com/corrin/jobs_manager_front) for setup and launch instructions
 
 ## License
 

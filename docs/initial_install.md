@@ -114,10 +114,20 @@ npm install
 2.  Open the `.env` file in a text editor.
 3.  **Populate with Recorded Details:** Fill in the following values using the details you recorded in Phase 1:
     - `DATABASE_URL`: Construct using your DB user, password, and name (e.g., `mysql://<your-app-name>:your-strong-password@localhost:3306/<your-app-name>`).
-    - `APP_DOMAIN`: Enter your chosen ngrok static domain (e.g., `<your-app-name>-dev.ngrok-free.app`).
     - `XERO_CLIENT_ID`: Paste your Xero app's Client ID.
     - `XERO_CLIENT_SECRET`: Paste your Xero app's Client Secret.
     - Review other settings and adjust if needed (e.g., `DJANGO_SECRET_KEY` should be changed for any non-local testing).
+4.  **Configure Tunnel URLs:** Use the configuration script to set up all tunnel-related environment variables:
+    ```bash
+    # Replace with your actual backend and frontend ngrok domains
+    python scripts/configure_tunnels.py --backend https://<your-app-name>-dev.ngrok-free.app --frontend https://<your-app-name>-front.ngrok-free.app
+    ```
+    This script automatically updates:
+    - Backend `.env` file (11 variables including CORS, CSRF, Xero redirect URI, etc.)
+    - Frontend `.env` file (API URL and allowed hosts)
+    - Frontend `vite.config.ts` (allowed hosts array)
+
+    You can run this script anytime to switch between different tunnel providers (ngrok, localtunnel, etc.).
 
 ### Step 7: Initialize Application & Database Schema
 
@@ -156,7 +166,7 @@ npm install
 
 ## Phase 3: Running the Application & Connecting Xero
 
-### Step 8: Start Ngrok Tunnel
+### Step 8: Start Ngrok Tunnel (Backend)
 
 1.  Open a **new, separate terminal window**.
 2.  Run the `ngrok` command using the domain and region you recorded:
@@ -172,6 +182,8 @@ npm install
     ```
 
 3.  Keep this ngrok terminal open. It forwards traffic from your public ngrok URL to your local development server.
+
+**Frontend Tunnel:** If you need to expose the frontend remotely as well, set `NGROK_DOMAIN` in your `.env` to the frontend's tunnel URL. This will automatically be added to CORS and CSRF configurations. See the [frontend repository](https://github.com/corrin/jobs_manager_front) for frontend tunnel setup instructions.
 
 ### Step 9: Start Development Server
 

@@ -4,6 +4,7 @@ from typing import Callable
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.exceptions import DisallowedHost
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -13,6 +14,38 @@ from jobs_manager.authentication import JWTAuthentication
 
 # Get access logger configured in Django settings
 access_logger = logging.getLogger("access")
+
+
+class DisallowedHostMiddleware:
+    """
+    Middleware to catch DisallowedHost exceptions and return a clean 400 response.
+
+    This prevents break-in attempts from filling logs with tracebacks while still
+    rejecting the requests appropriately.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        """Handle DisallowedHost exceptions without traceback."""
+        if isinstance(exception, DisallowedHost):
+            # Extract IP from the exception message
+            msg = str(exception)
+            if "'" in msg:
+                ip = msg.split("'")[1]
+                access_logger.warning(f"Request from unknown IP {ip}")
+            else:
+                access_logger.warning(f"Request from unknown host: {msg}")
+
+            # Return 400 Bad Request without traceback
+            return HttpResponse("Bad Request", status=400)
+
+        # Let other exceptions propagate normally
+        return None
 
 
 class AccessLoggingMiddleware:
