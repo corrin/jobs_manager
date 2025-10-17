@@ -37,9 +37,9 @@ class DisallowedHostMiddleware:
             msg = str(exception)
             if "'" in msg:
                 ip = msg.split("'")[1]
-                access_logger.warning(f"Login attempt from unknown IP {ip}")
+                access_logger.warning(f"Request from unknown IP {ip}")
             else:
-                access_logger.warning(f"Login attempt from unknown host: {msg}")
+                access_logger.warning(f"Request from unknown host: {msg}")
 
             # Return 400 Bad Request without traceback
             return HttpResponse("Bad Request", status=400)
