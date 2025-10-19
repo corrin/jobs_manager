@@ -8,6 +8,11 @@ from django.utils import timezone
 from .job import Job
 
 
+def get_default_cost_set_summary():
+    """Default summary structure for CostSet."""
+    return {"cost": 0.0, "rev": 0.0, "hours": 0.0}
+
+
 class CostSet(models.Model):
     """
     Represents a set of costs for a job in a specific revision.
@@ -25,7 +30,7 @@ class CostSet(models.Model):
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
     summary = models.JSONField(
-        default=lambda: {"cost": 0.0, "rev": 0.0, "hours": 0.0},
+        default=get_default_cost_set_summary,
         help_text="Summary data for this cost set (cost, rev, hours)",
     )
     created = models.DateTimeField(auto_now_add=True)

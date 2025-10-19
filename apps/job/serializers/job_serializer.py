@@ -256,15 +256,8 @@ class JobSerializer(serializers.ModelSerializer):
         return validated
 
     def update(self, instance, validated_data):
-        logger.debug(f"JobSerializer update called for instance {instance.id}")
-        logger.debug(f"Validated data received: {validated_data}")
-
-        # DEBUG: Log contact-related data specifically
-        contact_obj = validated_data.get("contact")
-        logger.debug(f"JobSerializer update - contact in validated_data: {contact_obj}")
-        logger.debug(
-            f"JobSerializer update - current instance contact: {instance.contact}"
-        )
+        # Store original values for change detection
+        original_contact = instance.contact if "contact" in validated_data else None
 
         # Remove read-only/computed fields to avoid AttributeError
         validated_data.pop("quoted", None)
@@ -296,46 +289,37 @@ class JobSerializer(serializers.ModelSerializer):
                 serializer.is_valid(raise_exception=True)
                 serializer.save()
 
-        # Handle basic job fields
+        # Handle basic job fields - only set and log if actually changed
         for attr, value in validated_data.items():
-            # Skip legacy pricing fields
+            # Skip fields that aren't actual Job model fields
             if attr not in [
                 "latest_estimate_pricing",
                 "latest_quote_pricing",
                 "latest_reality_pricing",
+                "staff",  # staff comes from request context, not validated_data
             ]:
-                logger.debug(f"JobSerializer update - Setting {attr} = {value}")
                 # Handle job_status -> status mapping
-                if attr == "job_status":
-                    setattr(instance, "status", value)
-                else:
-                    setattr(instance, attr, value)
+                target_attr = "status" if attr == "job_status" else attr
 
-        # DEBUG: Log contact after setting attributes
-        logger.debug(
-            f"JobSerializer update - instance contact after setattr: {instance.contact}"
-        )
+                current_value = getattr(instance, target_attr)
+                if current_value != value:
+                    logger.debug(f"JobSerializer update - Setting {attr} = {value}")
+                    setattr(instance, target_attr, value)
 
-        # Special handling for contact field to ensure it's properly set
-        if "contact" in validated_data:
-            contact_value = validated_data["contact"]
-            logger.debug(
-                f"JobSerializer update - Explicitly setting contact to: {contact_value}"
-            )
-            instance.contact = contact_value
-            logger.debug(
-                f"JobSerializer update - Contact after explicit set: {instance.contact}"
-            )
-
-        # No longer processing pricing data - use CostSet/CostLine endpoints instead
-
+        # Get staff from context
         staff = self.context["request"].user if "request" in self.context else None
+
+        # Save the instance
         instance.save(staff=staff)
 
-        # DEBUG: Log contact after save
-        logger.debug(
-            f"JobSerializer update - instance contact after save: {instance.contact}"
-        )
+        # Log contact change after save if it actually changed
+        if (
+            "contact" in validated_data
+            and original_contact != validated_data["contact"]
+        ):
+            logger.debug(
+                f"JobSerializer update - contact changed from {original_contact} to {instance.contact}"
+            )
 
         return instance
 
