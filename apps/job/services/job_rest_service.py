@@ -456,19 +456,15 @@ class JobRestService:
 
         if server_checksum != delta.before_checksum:
             logger.warning(
-                "[DELTA_TELEMETRY] CHECKSUM MISMATCH DETECTED (non-blocking)"
+                "[DELTA_TELEMETRY] CHECKSUM MISMATCH (non-blocking): "
+                f"job_id={job.id} change_id={delta.change_id} "
+                f"server_checksum={server_checksum} client_checksum={delta.before_checksum} "
+                f"fields={sorted(fields)} current_values={current_values} delta_before={delta.before}"
             )
-            logger.warning(f"[DELTA_TELEMETRY] Server checksum: {server_checksum}")
-            logger.warning(
-                f"[DELTA_TELEMETRY] Client checksum: {delta.before_checksum}"
-            )
-            logger.warning(f"[DELTA_TELEMETRY] Job ID: {job.id}")
-            logger.warning(f"[DELTA_TELEMETRY] Change ID: {delta.change_id}")
-            logger.warning(f"[DELTA_TELEMETRY] Fields: {sorted(fields)}")
-            logger.warning(f"[DELTA_TELEMETRY] Current values: {current_values}")
-            logger.warning(f"[DELTA_TELEMETRY] Delta before: {delta.before}")
         else:
-            logger.info("[DELTA_TELEMETRY] Checksum match - state is consistent")
+            logger.info(
+                f"[DELTA_TELEMETRY] Checksum match for job {job.id} change {delta.change_id}"
+            )
 
         logger.info(f"[DELTA_VALIDATION] Structural validation passed for job {job.id}")
 
