@@ -114,7 +114,9 @@ def check_for_untouched_tunnels(env_path: Path, update_rules: dict) -> None:
         # Check if value contains tunnel patterns
         for pattern in tunnel_patterns:
             if pattern in value:
-                print(f"Warning: Line {i} has tunnel URL but key '{key}' not in update rules:")
+                print(
+                    f"Warning: Line {i} has tunnel URL but key '{key}' not in update rules:"
+                )
                 print(f"  {line}")
                 break
 
@@ -190,7 +192,9 @@ def apply_update_rules(
 def update_backend_env(backend_url: str, frontend_url: str, env_path: Path) -> None:
     """Update backend .env file with tunnel URLs."""
     check_for_untouched_tunnels(env_path, BACKEND_UPDATE_RULES)
-    updated = apply_update_rules(env_path, BACKEND_UPDATE_RULES, backend_url, frontend_url)
+    updated = apply_update_rules(
+        env_path, BACKEND_UPDATE_RULES, backend_url, frontend_url
+    )
 
     print(f"Updated {len(updated)} variables in backend .env:")
     for key in sorted(updated):
@@ -202,14 +206,18 @@ def update_backend_env(backend_url: str, frontend_url: str, env_path: Path) -> N
 def update_frontend_env(backend_url: str, frontend_url: str, env_path: Path) -> None:
     """Update frontend .env file with tunnel URLs."""
     check_for_untouched_tunnels(env_path, FRONTEND_UPDATE_RULES)
-    updated = apply_update_rules(env_path, FRONTEND_UPDATE_RULES, backend_url, frontend_url)
+    updated = apply_update_rules(
+        env_path, FRONTEND_UPDATE_RULES, backend_url, frontend_url
+    )
 
     print(f"Updated {len(updated)} variables in frontend .env:")
     for key in sorted(updated):
         print(f"  - {key}")
 
 
-def update_vite_config(backend_url: str, frontend_url: str, vite_config_path: Path) -> None:
+def update_vite_config(
+    backend_url: str, frontend_url: str, vite_config_path: Path
+) -> None:
     """
     Verify vite.config.ts structure is correct.
 
