@@ -819,7 +819,7 @@ class JobDeltaRejectionSerializer(serializers.Serializer):
     request_ip = serializers.CharField(allow_blank=True, allow_null=True)
     created_at = serializers.DateTimeField()
     envelope = serializers.JSONField()
-    staff_id = serializers.UUIDField(source="staff_id", allow_null=True)
+    staff_id = serializers.UUIDField(allow_null=True)
     staff_email = serializers.SerializerMethodField()
 
     def get_staff_email(self, obj):
