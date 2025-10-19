@@ -46,6 +46,7 @@ from apps.workflow.views.ai_provider_viewset import AIProviderViewSet
 from apps.workflow.views.app_error_view import (
     AppErrorDetailAPIView,
     AppErrorListAPIView,
+    AppErrorRestListView,
     AppErrorViewSet,
 )
 from apps.workflow.views.aws_instance_view import (
@@ -162,6 +163,11 @@ urlpatterns = [
         "app-errors/<uuid:pk>/",
         AppErrorDetailAPIView.as_view(),
         name="app-error-detail",
+    ),
+    path(
+        "rest/app-errors/",
+        AppErrorRestListView.as_view(),
+        name="app-error-rest-list",
     ),
     path(
         "xero-errors/",

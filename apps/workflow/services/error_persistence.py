@@ -4,6 +4,7 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict
 
+from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from apps.workflow.exceptions import XeroValidationError
@@ -120,3 +121,50 @@ def persist_app_error(
         job_id=job_id,
         user_id=user_id,
     )
+
+
+def list_app_errors(
+    *,
+    limit: int = 50,
+    offset: int = 0,
+    app: str | None = None,
+    severity: int | None = None,
+    resolved: bool | None = None,
+    job_id: str | None = None,
+    user_id: str | None = None,
+) -> Dict[str, Any]:
+    """Return paginated AppError records with optional filtering."""
+    if limit <= 0:
+        limit = 1
+    limit = min(limit, 200)
+    offset = max(offset, 0)
+
+    queryset: QuerySet[AppError] = AppError.objects.all().order_by("-timestamp")
+
+    if app:
+        queryset = queryset.filter(app__icontains=app.strip())
+    if severity is not None:
+        queryset = queryset.filter(severity=severity)
+    if resolved is not None:
+        queryset = queryset.filter(resolved=resolved)
+    if job_id:
+        queryset = queryset.filter(job_id=job_id)
+    if user_id:
+        queryset = queryset.filter(user_id=user_id)
+
+    total = queryset.count()
+    results = list(queryset[offset : offset + limit])
+
+    next_offset: str | None = None
+    prev_offset: str | None = None
+    if offset + limit < total:
+        next_offset = str(offset + limit)
+    if offset > 0:
+        prev_offset = str(max(offset - limit, 0))
+
+    return {
+        "count": total,
+        "next": next_offset,
+        "previous": prev_offset,
+        "results": results,
+    }

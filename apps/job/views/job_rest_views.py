@@ -11,6 +11,7 @@ REST views for the Job module following clean code principles:
 import json
 import logging
 from typing import Any, Dict
+from uuid import UUID
 
 from django.core.cache import cache
 from django.http import JsonResponse
@@ -30,6 +31,7 @@ from apps.job.serializers.job_serializer import (
     JobCreateResponseSerializer,
     JobDeleteResponseSerializer,
     JobDeltaEnvelopeSerializer,
+    JobDeltaRejectionListResponseSerializer,
     JobDetailResponseSerializer,
     JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
@@ -1084,6 +1086,71 @@ class JobEventListRestView(BaseJobRestView):
             raise ValueError(f"Job with id {job_id} not found")
         except Exception as e:
             return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobDeltaRejectionListRestView(BaseJobRestView):
+    """REST view for listing job delta rejections (admin/debug)."""
+
+    serializer_class = JobDeltaRejectionListResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobDeltaRejectionListResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Maximum number of records to return (default 50, max 200).",
+            ),
+            OpenApiParameter(
+                name="offset",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Offset for pagination (default 0).",
+            ),
+            OpenApiParameter(
+                name="job_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Optional job UUID to filter results.",
+            ),
+        ],
+        description="Fetch rejected job delta envelopes for forensic analysis.",
+        tags=["Jobs"],
+    )
+    def get(self, request):
+        try:
+            limit_raw = request.query_params.get("limit", "50")
+            offset_raw = request.query_params.get("offset", "0")
+            limit = int(limit_raw)
+            offset = int(offset_raw)
+        except (TypeError, ValueError):
+            return self.handle_service_error(
+                ValueError("Invalid pagination parameters")
+            )
+
+        job_filter = request.query_params.get("job_id") or None
+        job_id: str | None = None
+        if job_filter:
+            try:
+                job_id = str(UUID(str(job_filter)))
+            except ValueError:
+                return self.handle_service_error(ValueError("Invalid job_id parameter"))
+
+        try:
+            payload = JobRestService.list_job_delta_rejections(
+                job_id=job_id, limit=limit, offset=offset
+            )
+        except Exception as exc:
+            return self.handle_service_error(exc)
+
+        serializer = JobDeltaRejectionListResponseSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

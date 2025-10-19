@@ -636,6 +636,36 @@ class JobRestService:
         }
 
     @staticmethod
+    def list_job_delta_rejections(
+        *, job_id: UUID | str | None = None, limit: int = 50, offset: int = 0
+    ) -> Dict[str, Any]:
+        """Return paginated delta rejection records, optionally filtered by job."""
+        if limit <= 0:
+            limit = 1
+        limit = min(limit, 200)
+        offset = max(offset, 0)
+
+        queryset = JobDeltaRejection.objects.all().order_by("-created_at")
+        if job_id:
+            queryset = queryset.filter(job_id=job_id)
+        total = queryset.count()
+        results = list(queryset[offset : offset + limit])
+
+        next_offset: str | None = None
+        prev_offset: str | None = None
+        if offset + limit < total:
+            next_offset = str(offset + limit)
+        if offset > 0:
+            prev_offset = str(max(offset - limit, 0))
+
+        return {
+            "count": total,
+            "next": next_offset,
+            "previous": prev_offset,
+            "results": results,
+        }
+
+    @staticmethod
     def update_job(
         job_id: UUID, data: Dict[str, Any], user: Staff, if_match: str | None = None
     ) -> Job:
@@ -663,178 +693,195 @@ class JobRestService:
         logger.info(f"[JOB_UPDATE] Fields being updated: {list(delta_payload.fields)}")
         logger.info(f"[JOB_UPDATE] If-Match header: {if_match}")
 
-        with transaction.atomic():
-            # Lock the row to avoid race between compare and update
-            logger.info("[JOB_UPDATE] Locking job row for update...")
-            job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-            logger.info(
-                f"[JOB_UPDATE] Job locked. Current updated_at: {job.updated_at}"
-            )
-
-            # **VALIDATE DELTA FIRST** - before any other checks that might modify the job
-            logger.info("[JOB_UPDATE] Starting delta payload validation...")
-            try:
-                JobRestService._validate_delta_payload(job, delta_payload)
-                logger.info("[JOB_UPDATE] Delta validation passed successfully")
-            except DeltaValidationError as exc:
-                logger.error(f"[JOB_UPDATE] Delta validation failed: {exc}")
-                JobRestService._record_delta_rejection(
-                    job=job,
-                    staff=user,
-                    reason=str(exc),
-                    detail={
-                        "server_checksum": exc.server_checksum,
-                        "current_values": exc.current_values,
-                    },
-                    envelope=delta_payload.to_dict(),
-                    change_id=delta_payload.change_id,
-                    checksum=delta_payload.before_checksum,
-                    request_etag=delta_payload.etag or if_match,
+        job: Job | None = None
+        try:
+            with transaction.atomic():
+                # Lock the row to avoid race between compare and update
+                logger.info("[JOB_UPDATE] Locking job row for update...")
+                job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
+                logger.info(
+                    f"[JOB_UPDATE] Job locked. Current updated_at: {job.updated_at}"
                 )
-                raise
-            except ValueError as exc:
-                logger.error(f"[JOB_UPDATE] Delta validation error: {exc}")
-                JobRestService._record_delta_rejection(
-                    job=job,
-                    staff=user,
-                    reason="Invalid delta payload",
-                    detail={"error": str(exc), "stage": "validation"},
-                    envelope=delta_payload.to_dict(),
-                    change_id=delta_payload.change_id,
-                    checksum=delta_payload.before_checksum,
-                    request_etag=delta_payload.etag or if_match,
-                )
-                raise
 
-            # Concurrency check using normalized ETag value - AFTER delta validation
-            logger.info("[JOB_UPDATE] Checking ETag precondition...")
-            if if_match:
-                current_norm = _current_job_etag_value(job)
-                logger.info(f"[JOB_UPDATE] Current ETag: {current_norm}")
-                logger.info(f"[JOB_UPDATE] Client ETag: {if_match}")
-                if current_norm != if_match:
-                    logger.error(
-                        f"[JOB_UPDATE] ETag mismatch! Current: {current_norm}, Expected: {if_match}"
+                # **VALIDATE DELTA FIRST** - before any other checks that might modify the job
+                logger.info("[JOB_UPDATE] Starting delta payload validation...")
+                try:
+                    JobRestService._validate_delta_payload(job, delta_payload)
+                    logger.info("[JOB_UPDATE] Delta validation passed successfully")
+                except DeltaValidationError as exc:
+                    logger.error(f"[JOB_UPDATE] Delta validation failed: {exc}")
+                    exc.delta_rejection_context = {
+                        "reason": str(exc),
+                        "detail": {
+                            "server_checksum": exc.server_checksum,
+                            "current_values": exc.current_values,
+                        },
+                    }
+                    raise
+                except ValueError as exc:
+                    logger.error(f"[JOB_UPDATE] Delta validation error: {exc}")
+                    exc.delta_rejection_context = {
+                        "reason": "Invalid delta payload",
+                        "detail": {"error": str(exc), "stage": "validation"},
+                    }
+                    raise
+
+                # Concurrency check using normalized ETag value - AFTER delta validation
+                logger.info("[JOB_UPDATE] Checking ETag precondition...")
+                if not if_match:
+                    logger.warning(
+                        "[JOB_UPDATE] No If-Match header provided - skipping ETag validation"
                     )
-                    raise PreconditionFailed("ETag mismatch: resource has changed")
                 else:
+                    current_norm = _current_job_etag_value(job)
+                    logger.info(f"[JOB_UPDATE] Current ETag: {current_norm}")
+                    logger.info(f"[JOB_UPDATE] Client ETag: {if_match}")
+                    if current_norm != if_match:
+                        logger.error(
+                            f"[JOB_UPDATE] ETag mismatch! Current: {current_norm}, Expected: {if_match}"
+                        )
+                        raise PreconditionFailed("ETag mismatch: resource has changed")
                     logger.info("[JOB_UPDATE] ETag validation passed")
-            else:
-                logger.warning(
-                    "[JOB_UPDATE] No If-Match header provided - skipping ETag validation"
+
+                # DEBUG: Log incoming data
+                logger.debug(f"JobRestService.update_job - Incoming data: {data}")
+                logger.debug(
+                    f"JobRestService.update_job - Current job contact: {job.contact}"
+                )
+                logger.debug(
+                    f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
                 )
 
-            # DEBUG: Log incoming data
-            logger.debug(f"JobRestService.update_job - Incoming data: {data}")
-            logger.debug(
-                f"JobRestService.update_job - Current job contact: {job.contact}"
-            )
-            logger.debug(
-                f"JobRestService.update_job - Current job contact_id: {job.contact.id if job.contact else None}"
-            )
+                # Store original values for comparison
+                original_values = {
+                    "name": job.name,
+                    "description": job.description,
+                    "status": job.status,
+                    "priority": job.priority,
+                    "client_id": job.client_id,
+                    "charge_out_rate": job.charge_out_rate,
+                    "order_number": job.order_number,
+                    "notes": job.notes,
+                    "contact_id": job.contact.id if job.contact else None,
+                    "contact_name": job.contact.name if job.contact else None,
+                    "contact_email": job.contact.email if job.contact else None,
+                    "contact_phone": job.contact.phone if job.contact else None,
+                }
 
-            # Store original values for comparison
-            original_values = {
-                "name": job.name,
-                "description": job.description,
-                "status": job.status,
-                "priority": job.priority,
-                "client_id": job.client_id,
-                "charge_out_rate": job.charge_out_rate,
-                "order_number": job.order_number,
-                "notes": job.notes,
-                "contact_id": job.contact.id if job.contact else None,
-                "contact_name": job.contact.name if job.contact else None,
-                "contact_email": job.contact.email if job.contact else None,
-                "contact_phone": job.contact.phone if job.contact else None,
-            }
+                logger.debug(
+                    f"JobRestService.update_job - Original values: {original_values}"
+                )
 
-            logger.debug(
-                f"JobRestService.update_job - Original values: {original_values}"
-            )
-
-            if delta_payload.job_id and str(job.id) != delta_payload.job_id:
-                JobRestService._record_delta_rejection(
-                    job=job,
-                    staff=user,
-                    reason="Delta job_id mismatch",
-                    detail={
+                if delta_payload.job_id and str(job.id) != delta_payload.job_id:
+                    detail = {
                         "delta_job_id": delta_payload.job_id,
                         "target_job_id": str(job.id),
-                    },
+                    }
+                    exc = ValueError(
+                        f"Delta job_id {delta_payload.job_id} does not match target job {job.id}"
+                    )
+                    exc.delta_rejection_context = {
+                        "reason": "Delta job_id mismatch",
+                        "detail": detail,
+                    }
+                    raise exc
+
+                # Use serializer for validation and updating
+                serializer = JobSerializer(
+                    instance=job,
+                    data=job_data,  # Use extracted job_data instead of raw data
+                    partial=True,
+                    context={"request": type("MockRequest", (), {"user": user})()},
+                )
+
+                if not serializer.is_valid():
+                    logger.error(
+                        "JobRestService.update_job - Serializer validation failed: "
+                        f"{serializer.errors}"
+                    )
+                    raise ValueError(f"Invalid data: {serializer.errors}")
+
+                logger.debug(
+                    f"JobRestService.update_job - Validated data: {serializer.validated_data}"
+                )
+
+                job = serializer.save(staff=user)
+
+                # Additional guard to prevent cross-client contact leakage:
+                # If client changed and current contact belongs to a different client, clear it.
+                try:
+                    contact_client_id = job.contact.client_id if job.contact else None
+                    if (
+                        job.contact
+                        and job.client
+                        and contact_client_id != job.client_id
+                    ):
+                        logger.warning(
+                            "Clearing mismatched contact after client change: "
+                            f"contact.client_id={contact_client_id} != job.client_id={job.client_id}"
+                        )
+                        job.contact = None
+                        job.save(staff=user)
+                except Exception as _e:
+                    # Persist the error but do not mask the main operation
+                    persist_app_error(_e)
+
+                # Generate descriptive update message
+                description = JobRestService._generate_update_description(
+                    original_values, delta_payload.after
+                )
+
+                # Log the update with descriptive message
+                meta_payload = {
+                    "fields": list(delta_payload.fields),
+                    "actor_id": delta_payload.actor_id,
+                    "made_at": delta_payload.made_at,
+                    "etag": delta_payload.etag,
+                }
+                if delta_payload.undo_of_change_id:
+                    meta_payload["undo_of_change_id"] = delta_payload.undo_of_change_id
+                JobEvent.objects.create(
+                    job=job,
+                    staff=user,
+                    event_type="job_updated",
+                    description=description,
+                    schema_version=1,
+                    change_id=JobRestService._safe_uuid(delta_payload.change_id),
+                    delta_before=_to_json_safe(delta_payload.before),
+                    delta_after=_to_json_safe(delta_payload.after),
+                    delta_meta=_to_json_safe(meta_payload),
+                    delta_checksum=delta_payload.before_checksum or "",
+                )
+
+                return job
+        except DeltaValidationError as exc:
+            JobRestService._record_delta_rejection(
+                job=job,
+                staff=user,
+                reason=getattr(exc, "delta_rejection_context", {}).get(
+                    "reason", str(exc)
+                ),
+                detail=getattr(exc, "delta_rejection_context", {}).get("detail"),
+                envelope=delta_payload.to_dict(),
+                change_id=delta_payload.change_id,
+                checksum=delta_payload.before_checksum,
+                request_etag=delta_payload.etag or if_match,
+            )
+            raise
+        except ValueError as exc:
+            context = getattr(exc, "delta_rejection_context", None)
+            if context is not None:
+                JobRestService._record_delta_rejection(
+                    job=job,
+                    staff=user,
+                    reason=context.get("reason", "Invalid delta payload"),
+                    detail=context.get("detail"),
                     envelope=delta_payload.to_dict(),
                     change_id=delta_payload.change_id,
                     checksum=delta_payload.before_checksum,
                     request_etag=delta_payload.etag or if_match,
                 )
-                raise ValueError(
-                    f"Delta job_id {delta_payload.job_id} does not match target job {job.id}"
-                )
-
-            # Use serializer for validation and updating
-            serializer = JobSerializer(
-                instance=job,
-                data=job_data,  # Use extracted job_data instead of raw data
-                partial=True,
-                context={"request": type("MockRequest", (), {"user": user})()},
-            )
-
-            if not serializer.is_valid():
-                logger.error(
-                    "JobRestService.update_job - Serializer validation failed: "
-                    f"{serializer.errors}"
-                )
-                raise ValueError(f"Invalid data: {serializer.errors}")
-
-            logger.debug(
-                f"JobRestService.update_job - Validated data: {serializer.validated_data}"
-            )
-
-            job = serializer.save(staff=user)
-
-            # Additional guard to prevent cross-client contact leakage:
-            # If client changed and current contact belongs to a different client, clear it.
-            try:
-                contact_client_id = job.contact.client_id if job.contact else None
-                if job.contact and job.client and contact_client_id != job.client_id:
-                    logger.warning(
-                        "Clearing mismatched contact after client change: "
-                        f"contact.client_id={contact_client_id} != job.client_id={job.client_id}"
-                    )
-                    job.contact = None
-                    job.save(staff=user)
-            except Exception as _e:
-                # Persist the error but do not mask the main operation
-                persist_app_error(_e)
-
-            # Generate descriptive update message
-            description = JobRestService._generate_update_description(
-                original_values, delta_payload.after
-            )
-
-            # Log the update with descriptive message
-            meta_payload = {
-                "fields": list(delta_payload.fields),
-                "actor_id": delta_payload.actor_id,
-                "made_at": delta_payload.made_at,
-                "etag": delta_payload.etag,
-            }
-            if delta_payload.undo_of_change_id:
-                meta_payload["undo_of_change_id"] = delta_payload.undo_of_change_id
-            JobEvent.objects.create(
-                job=job,
-                staff=user,
-                event_type="job_updated",
-                description=description,
-                schema_version=1,
-                change_id=JobRestService._safe_uuid(delta_payload.change_id),
-                delta_before=_to_json_safe(delta_payload.before),
-                delta_after=_to_json_safe(delta_payload.after),
-                delta_meta=_to_json_safe(meta_payload),
-                delta_checksum=delta_payload.before_checksum or "",
-            )
-
-        return job
+            raise
 
     @staticmethod
     def undo_job_change(

@@ -77,6 +77,7 @@
 | `/rest/jobs/<uuid:pk>/quote/apply/` | `quote_sync_views.ApplyQuoteAPIView` | `jobs:quote_apply` | Apply quote import from linked Google Sheet. |
 | `/rest/jobs/<uuid:pk>/quote/link/` | `quote_sync_views.LinkQuoteSheetAPIView` | `jobs:quote_link_sheet` | Link a job to a Google Sheets quote template. |
 | `/rest/jobs/<uuid:pk>/quote/preview/` | `quote_sync_views.PreviewQuoteAPIView` | `jobs:quote_preview` | Preview quote import from linked Google Sheet. |
+| `/rest/jobs/delta-rejections/` | `job_rest_views.JobDeltaRejectionListRestView` | `jobs:job_delta_rejections_rest` | REST view for listing job delta rejections (admin/debug). |
 | `/rest/jobs/files/` | `job_file_view.JobFileView` | `jobs:job_file_base` | API view for managing job files including upload, download, update, and deletion. |
 | `/rest/jobs/files/<int:file_path>/` | `job_file_view.JobFileView` | `jobs:job_file_delete` | API view for managing job files including upload, download, update, and deletion. |
 | `/rest/jobs/files/<int:job_number>/` | `job_file_view.JobFileView` | `jobs:job_files_list` | API view for managing job files including upload, download, update, and deletion. |

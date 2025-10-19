@@ -43,6 +43,11 @@
 | `/app-errors/` | `app_error_view.AppErrorListAPIView` | `app-error-list` | API view for listing application errors. |
 | `/app-errors/<uuid:pk>/` | `app_error_view.AppErrorDetailAPIView` | `app-error-detail` | API view for retrieving a single application error. |
 
+### Rest Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/rest/app-errors/` | `app_error_view.AppErrorRestListView` | `app-error-rest-list` | REST-style view that exposes AppError telemetry for admin monitoring. |
+
 ### System
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|

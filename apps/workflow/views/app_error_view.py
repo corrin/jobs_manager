@@ -1,13 +1,17 @@
+from uuid import UUID
+
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
+from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
 from apps.workflow.api.pagination import FiftyPerPagePagination
 from apps.workflow.models import AppError
-from apps.workflow.serializers import AppErrorSerializer
+from apps.workflow.serializers import AppErrorListResponseSerializer, AppErrorSerializer
+from apps.workflow.services.error_persistence import list_app_errors
 
 
 class AppErrorListAPIView(ListAPIView):
@@ -42,6 +46,82 @@ class AppErrorDetailAPIView(RetrieveAPIView):
 
     queryset = AppError.objects.all()
     serializer_class = AppErrorSerializer
+
+
+class AppErrorRestListView(APIView):
+    """
+    REST-style view that exposes AppError telemetry for admin monitoring.
+
+    Supports pagination via ``limit``/``offset`` query params and optional filters:
+    - ``app`` (icontains match)
+    - ``severity`` (exact integer)
+    - ``resolved`` (boolean)
+    - ``job_id`` / ``user_id`` (UUID strings)
+    """
+
+    serializer_class = AppErrorListResponseSerializer
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get("limit", "50"))
+            offset = int(request.query_params.get("offset", "0"))
+        except (TypeError, ValueError):
+            return Response(
+                {"error": "Invalid pagination parameters"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        resolved_param = request.query_params.get("resolved")
+        resolved: bool | None = None
+        if resolved_param is not None:
+            value = resolved_param.strip().lower()
+            if value in {"true", "1", "yes"}:
+                resolved = True
+            elif value in {"false", "0", "no"}:
+                resolved = False
+            else:
+                return Response(
+                    {"error": "Invalid resolved parameter"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        severity_param = request.query_params.get("severity")
+        severity: int | None = None
+        if severity_param is not None:
+            try:
+                severity = int(severity_param)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid severity parameter"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        def _cast_uuid(value: str | None, field: str) -> str | None:
+            if not value:
+                return None
+            try:
+                return str(UUID(str(value)))
+            except ValueError:
+                raise ValueError(f"Invalid {field} parameter")
+
+        try:
+            job_id = _cast_uuid(request.query_params.get("job_id"), "job_id")
+            user_id = _cast_uuid(request.query_params.get("user_id"), "user_id")
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        payload = list_app_errors(
+            limit=limit,
+            offset=offset,
+            app=request.query_params.get("app"),
+            severity=severity,
+            resolved=resolved,
+            job_id=job_id,
+            user_id=user_id,
+        )
+
+        serializer = self.serializer_class(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AppErrorViewSet(ReadOnlyModelViewSet):

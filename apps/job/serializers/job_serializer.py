@@ -807,6 +807,46 @@ class JobEventsResponseSerializer(serializers.Serializer):
     events = JobEventSerializer(many=True)
 
 
+class JobDeltaRejectionSerializer(serializers.Serializer):
+    """Serializer for delta rejection records (read-only)."""
+
+    id = serializers.UUIDField()
+    change_id = serializers.UUIDField(allow_null=True)
+    reason = serializers.CharField()
+    detail = serializers.SerializerMethodField()
+    checksum = serializers.CharField(allow_blank=True)
+    request_etag = serializers.CharField(allow_blank=True)
+    request_ip = serializers.CharField(allow_blank=True, allow_null=True)
+    created_at = serializers.DateTimeField()
+    envelope = serializers.JSONField()
+    staff_id = serializers.UUIDField(source="staff_id", allow_null=True)
+    staff_email = serializers.SerializerMethodField()
+
+    def get_staff_email(self, obj):
+        staff = getattr(obj, "staff", None)
+        return getattr(staff, "email", None) if staff else None
+
+    def get_detail(self, obj):
+        raw = getattr(obj, "detail", "") or ""
+        if not raw:
+            return None
+        try:
+            import json as _json
+
+            return _json.loads(raw)
+        except Exception:
+            return raw
+
+
+class JobDeltaRejectionListResponseSerializer(serializers.Serializer):
+    """Serializer for paginated delta rejection responses."""
+
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True, required=False)
+    previous = serializers.CharField(allow_null=True, required=False)
+    results = JobDeltaRejectionSerializer(many=True)
+
+
 class TimelineEntrySerializer(serializers.Serializer):
     """Serializer for unified timeline entry (JobEvent or CostLine)"""
 
