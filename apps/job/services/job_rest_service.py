@@ -449,65 +449,28 @@ class JobRestService:
         logger.info(f"[DELTA_VALIDATION] Delta before values: {delta.before}")
         logger.info(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
 
-        # Compute server checksum
-        logger.info("[DELTA_VALIDATION] Computing server checksum...")
+        # Compute server checksum for telemetry (non-blocking)
+        logger.info("[DELTA_VALIDATION] Computing server checksum for telemetry...")
         server_checksum = compute_job_delta_checksum(job.id, current_values, fields)
         logger.info(f"[DELTA_VALIDATION] Server computed checksum: {server_checksum}")
 
         if server_checksum != delta.before_checksum:
-            logger.error("[DELTA_VALIDATION] CHECKSUM MISMATCH!")
-            logger.error(f"[DELTA_VALIDATION] Server checksum: {server_checksum}")
-            logger.error(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
-            logger.error(f"[DELTA_VALIDATION] Job ID: {job.id}")
-            logger.error(f"[DELTA_VALIDATION] Fields: {sorted(fields)}")
-            logger.error(f"[DELTA_VALIDATION] Current values: {current_values}")
-            logger.error(f"[DELTA_VALIDATION] Delta before: {delta.before}")
-
-            raise DeltaValidationError(
-                "Delta checksum mismatch: job has changed since the delta was generated",
-                current_values=current_values,
-                server_checksum=server_checksum,
+            logger.warning(
+                "[DELTA_TELEMETRY] CHECKSUM MISMATCH DETECTED (non-blocking)"
             )
-
-        logger.info(
-            "[DELTA_VALIDATION] Checksum validation passed. Checking individual field values..."
-        )
-
-        # Validate individual field values
-        for field in fields:
-            current_value = current_values[field]
-            before_value = delta.before[field]
-
-            current_norm = normalise_value(current_value)
-            before_norm = normalise_value(before_value)
-
-            logger.debug(f"[DELTA_VALIDATION] Field '{field}':")
-            logger.debug(
-                f"[DELTA_VALIDATION]   Current raw: {current_value} (type: {type(current_value)})"
+            logger.warning(f"[DELTA_TELEMETRY] Server checksum: {server_checksum}")
+            logger.warning(
+                f"[DELTA_TELEMETRY] Client checksum: {delta.before_checksum}"
             )
-            logger.debug(
-                f"[DELTA_VALIDATION]   Before raw: {before_value} (type: {type(before_value)})"
-            )
-            logger.debug(f"[DELTA_VALIDATION]   Current normalized: {current_norm}")
-            logger.debug(f"[DELTA_VALIDATION]   Before normalized: {before_norm}")
-            logger.debug(f"[DELTA_VALIDATION]   Match: {current_norm == before_norm}")
+            logger.warning(f"[DELTA_TELEMETRY] Job ID: {job.id}")
+            logger.warning(f"[DELTA_TELEMETRY] Change ID: {delta.change_id}")
+            logger.warning(f"[DELTA_TELEMETRY] Fields: {sorted(fields)}")
+            logger.warning(f"[DELTA_TELEMETRY] Current values: {current_values}")
+            logger.warning(f"[DELTA_TELEMETRY] Delta before: {delta.before}")
+        else:
+            logger.info("[DELTA_TELEMETRY] Checksum match - state is consistent")
 
-            if current_norm != before_norm:
-                logger.error(f"[DELTA_VALIDATION] FIELD MISMATCH for '{field}'!")
-                logger.error(f"[DELTA_VALIDATION]   Current normalized: {current_norm}")
-                logger.error(f"[DELTA_VALIDATION]   Before normalized: {before_norm}")
-                logger.error(f"[DELTA_VALIDATION]   Current raw: {current_value}")
-                logger.error(f"[DELTA_VALIDATION]   Before raw: {before_value}")
-
-                raise DeltaValidationError(
-                    f"Delta before state mismatch for field '{field}'",
-                    current_values=current_values,
-                    server_checksum=server_checksum,
-                )
-
-        logger.info(
-            f"[DELTA_VALIDATION] All validations passed successfully for job {job.id}"
-        )
+        logger.info(f"[DELTA_VALIDATION] Structural validation passed for job {job.id}")
 
     @staticmethod
     def _get_job_field_value(job: Job, field: str) -> Any:
@@ -683,8 +646,8 @@ class JobRestService:
                     staff=user,
                     reason=str(exc),
                     detail={
-                        "server_checksum": exc.server_checksum,
-                        "current_values": exc.current_values,
+                        "server_checksum": getattr(exc, "server_checksum", None),
+                        "current_values": getattr(exc, "current_values", {}),
                     },
                     envelope=delta_payload.to_dict(),
                     change_id=delta_payload.change_id,
