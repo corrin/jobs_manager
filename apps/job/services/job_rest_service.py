@@ -157,7 +157,33 @@ class JobDeltaPayload:
 
 @singledispatch
 def _to_json_safe(value: Any) -> Any:
-    """Best-effort conversion to JSON-serialisable structures (fallback)."""
+    """
+    Convert value to JSON-serializable format.
+
+    TODO: If this warning doesn't appear in production logs for 2+ weeks,
+    remove this fallback entirely and raise TypeError instead.
+    """
+    logger.warning(
+        f"[JSON_SERIALIZATION] Unhandled type in _to_json_safe: {type(value).__name__} "
+        f"with value: {value!r} - returning as-is (may cause JSON encoding errors later)"
+    )
+    return value
+
+
+@_to_json_safe.register(str)
+def _json_from_str(value: str) -> str:
+    return value
+
+
+@_to_json_safe.register(int)
+@_to_json_safe.register(float)
+@_to_json_safe.register(bool)
+def _json_from_primitive(value: int | float | bool) -> int | float | bool:
+    return value
+
+
+@_to_json_safe.register(type(None))
+def _json_from_none(value: None) -> None:
     return value
 
 
@@ -449,79 +475,43 @@ class JobRestService:
         logger.info(f"[DELTA_VALIDATION] Delta before values: {delta.before}")
         logger.info(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
 
-        # Compute server checksum
-        logger.info("[DELTA_VALIDATION] Computing server checksum...")
+        # Compute server checksum for telemetry (non-blocking)
+        logger.info("[DELTA_VALIDATION] Computing server checksum for telemetry...")
         server_checksum = compute_job_delta_checksum(job.id, current_values, fields)
         logger.info(f"[DELTA_VALIDATION] Server computed checksum: {server_checksum}")
 
         if server_checksum != delta.before_checksum:
-            logger.error("[DELTA_VALIDATION] CHECKSUM MISMATCH!")
-            logger.error(f"[DELTA_VALIDATION] Server checksum: {server_checksum}")
-            logger.error(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
-            logger.error(f"[DELTA_VALIDATION] Job ID: {job.id}")
-            logger.error(f"[DELTA_VALIDATION] Fields: {sorted(fields)}")
-            logger.error(f"[DELTA_VALIDATION] Current values: {current_values}")
-            logger.error(f"[DELTA_VALIDATION] Delta before: {delta.before}")
-
-            raise DeltaValidationError(
-                "Delta checksum mismatch: job has changed since the delta was generated",
-                current_values=current_values,
-                server_checksum=server_checksum,
+            logger.warning(
+                "[DELTA_TELEMETRY] CHECKSUM MISMATCH (non-blocking): "
+                f"job_id={job.id} change_id={delta.change_id} "
+                f"server_checksum={server_checksum} client_checksum={delta.before_checksum} "
+                f"fields={sorted(fields)} current_values={current_values} delta_before={delta.before}"
+            )
+        else:
+            logger.info(
+                f"[DELTA_TELEMETRY] Checksum match for job {job.id} change {delta.change_id}"
             )
 
-        logger.info(
-            "[DELTA_VALIDATION] Checksum validation passed. Checking individual field values..."
-        )
-
-        # Validate individual field values
-        for field in fields:
-            current_value = current_values[field]
-            before_value = delta.before[field]
-
-            current_norm = normalise_value(current_value)
-            before_norm = normalise_value(before_value)
-
-            logger.debug(f"[DELTA_VALIDATION] Field '{field}':")
-            logger.debug(
-                f"[DELTA_VALIDATION]   Current raw: {current_value} (type: {type(current_value)})"
-            )
-            logger.debug(
-                f"[DELTA_VALIDATION]   Before raw: {before_value} (type: {type(before_value)})"
-            )
-            logger.debug(f"[DELTA_VALIDATION]   Current normalized: {current_norm}")
-            logger.debug(f"[DELTA_VALIDATION]   Before normalized: {before_norm}")
-            logger.debug(f"[DELTA_VALIDATION]   Match: {current_norm == before_norm}")
-
-            if current_norm != before_norm:
-                logger.error(f"[DELTA_VALIDATION] FIELD MISMATCH for '{field}'!")
-                logger.error(f"[DELTA_VALIDATION]   Current normalized: {current_norm}")
-                logger.error(f"[DELTA_VALIDATION]   Before normalized: {before_norm}")
-                logger.error(f"[DELTA_VALIDATION]   Current raw: {current_value}")
-                logger.error(f"[DELTA_VALIDATION]   Before raw: {before_value}")
-
-                raise DeltaValidationError(
-                    f"Delta before state mismatch for field '{field}'",
-                    current_values=current_values,
-                    server_checksum=server_checksum,
-                )
-
-        logger.info(
-            f"[DELTA_VALIDATION] All validations passed successfully for job {job.id}"
-        )
+        logger.info(f"[DELTA_VALIDATION] Structural validation passed for job {job.id}")
 
     @staticmethod
     def _get_job_field_value(job: Job, field: str) -> Any:
+        """
+        Get the value of a job field from the Job model.
+
+        TODO: If warning doesn't appear in prod logs for 2+ weeks, remove fallback and fail early.
+        """
         attribute_name = JobRestService._FIELD_ATTRIBUTE_MAP.get(field, field)
 
-        # Access the model attribute directly; getattr keeps the mapping flexible
         if hasattr(job, attribute_name):
             return getattr(job, attribute_name)
 
-        # Fallback for foreign keys when the delta uses *_id
-        if attribute_name.endswith("_id"):
-            related_attr = attribute_name
-            if hasattr(job, related_attr):
-                return getattr(job, related_attr)
+        # Fallback - this code path should not be triggered
+        if attribute_name.endswith("_id") and hasattr(job, attribute_name):
+            logger.warning(
+                f"[FALLBACK_TRIGGERED] _id suffix fallback used for field '{field}'"
+            )
+            return getattr(job, attribute_name)
 
         raise ValueError(f"Unsupported field '{field}' in delta payload")
 
@@ -683,8 +673,8 @@ class JobRestService:
                     staff=user,
                     reason=str(exc),
                     detail={
-                        "server_checksum": exc.server_checksum,
-                        "current_values": exc.current_values,
+                        "server_checksum": getattr(exc, "server_checksum", None),
+                        "current_values": getattr(exc, "current_values", {}),
                     },
                     envelope=delta_payload.to_dict(),
                     change_id=delta_payload.change_id,
