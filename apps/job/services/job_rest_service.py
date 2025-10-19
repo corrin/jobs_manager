@@ -157,7 +157,33 @@ class JobDeltaPayload:
 
 @singledispatch
 def _to_json_safe(value: Any) -> Any:
-    """Best-effort conversion to JSON-serialisable structures (fallback)."""
+    """
+    Convert value to JSON-serializable format.
+
+    TODO: If this warning doesn't appear in production logs for 2+ weeks,
+    remove this fallback entirely and raise TypeError instead.
+    """
+    logger.warning(
+        f"[JSON_SERIALIZATION] Unhandled type in _to_json_safe: {type(value).__name__} "
+        f"with value: {value!r} - returning as-is (may cause JSON encoding errors later)"
+    )
+    return value
+
+
+@_to_json_safe.register(str)
+def _json_from_str(value: str) -> str:
+    return value
+
+
+@_to_json_safe.register(int)
+@_to_json_safe.register(float)
+@_to_json_safe.register(bool)
+def _json_from_primitive(value: int | float | bool) -> int | float | bool:
+    return value
+
+
+@_to_json_safe.register(type(None))
+def _json_from_none(value: None) -> None:
     return value
 
 
@@ -470,17 +496,22 @@ class JobRestService:
 
     @staticmethod
     def _get_job_field_value(job: Job, field: str) -> Any:
+        """
+        Get the value of a job field from the Job model.
+
+        TODO: If warning doesn't appear in prod logs for 2+ weeks, remove fallback and fail early.
+        """
         attribute_name = JobRestService._FIELD_ATTRIBUTE_MAP.get(field, field)
 
-        # Access the model attribute directly; getattr keeps the mapping flexible
         if hasattr(job, attribute_name):
             return getattr(job, attribute_name)
 
-        # Fallback for foreign keys when the delta uses *_id
-        if attribute_name.endswith("_id"):
-            related_attr = attribute_name
-            if hasattr(job, related_attr):
-                return getattr(job, related_attr)
+        # Fallback - this code path should not be triggered
+        if attribute_name.endswith("_id") and hasattr(job, attribute_name):
+            logger.warning(
+                f"[FALLBACK_TRIGGERED] _id suffix fallback used for field '{field}'"
+            )
+            return getattr(job, attribute_name)
 
         raise ValueError(f"Unsupported field '{field}' in delta payload")
 
