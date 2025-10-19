@@ -20,6 +20,7 @@ from apps.job.views.job_rest_views import (
     JobBasicInformationRestView,
     JobCostSummaryRestView,
     JobCreateRestView,
+    JobDeltaRejectionAdminRestView,
     JobDeltaRejectionListRestView,
     JobDetailRestView,
     JobEventListRestView,
@@ -80,9 +81,14 @@ rest_urlpatterns = [
     ),
     # Job delta rejections (readonly)
     path(
-        "rest/jobs/delta-rejections/",
+        "rest/jobs/<uuid:job_id>/delta-rejections/",
         JobDeltaRejectionListRestView.as_view(),
         name="job_delta_rejections_rest",
+    ),
+    path(
+        "rest/jobs/delta-rejections/",
+        JobDeltaRejectionAdminRestView.as_view(),
+        name="job_delta_rejections_admin_rest",
     ),
     # Job events (create)
     path(

@@ -1,4 +1,5 @@
 import logging
+from typing import Any, Optional
 
 from django.core.exceptions import ObjectDoesNotExist
 from drf_spectacular.utils import extend_schema_field
@@ -822,11 +823,11 @@ class JobDeltaRejectionSerializer(serializers.Serializer):
     staff_id = serializers.UUIDField(allow_null=True)
     staff_email = serializers.SerializerMethodField()
 
-    def get_staff_email(self, obj):
+    def get_staff_email(self, obj) -> Optional[str]:
         staff = getattr(obj, "staff", None)
         return getattr(staff, "email", None) if staff else None
 
-    def get_detail(self, obj):
+    def get_detail(self, obj) -> Any:
         raw = getattr(obj, "detail", "") or ""
         if not raw:
             return None

@@ -370,17 +370,34 @@ class JobRestService:
     ) -> None:
         """Persist information about a rejected delta for forensic analysis."""
         try:
-            JobDeltaRejection.objects.create(
-                job=job,
-                staff=staff,
-                change_id=JobRestService._safe_uuid(change_id),
-                reason=(reason or "")[:255],
-                detail=JobRestService._serialise_detail(detail),
-                envelope=_to_json_safe(envelope or {}),
-                checksum=checksum or "",
-                request_etag=(request_etag or "")[:128],
-                request_ip=request_ip,
-            )
+            change_uuid = JobRestService._safe_uuid(change_id)
+            defaults = {
+                "job": job,
+                "staff": staff,
+                "reason": (reason or "")[:255],
+                "detail": JobRestService._serialise_detail(detail),
+                "envelope": _to_json_safe(envelope or {}),
+                "checksum": checksum or "",
+                "request_etag": (request_etag or "")[:128],
+                "request_ip": request_ip,
+            }
+
+            if job and change_uuid:
+                JobDeltaRejection.objects.update_or_create(
+                    job=job, change_id=change_uuid, defaults=defaults
+                )
+            else:
+                JobDeltaRejection.objects.create(
+                    job=job,
+                    staff=staff,
+                    change_id=change_uuid,
+                    reason=defaults["reason"],
+                    detail=defaults["detail"],
+                    envelope=defaults["envelope"],
+                    checksum=defaults["checksum"],
+                    request_etag=defaults["request_etag"],
+                    request_ip=request_ip,
+                )
         except Exception as exc:  # pragma: no cover - defensive persistence
             persist_app_error(exc)
 

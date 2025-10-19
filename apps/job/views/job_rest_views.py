@@ -22,8 +22,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import Staff
 from apps.job.helpers import get_company_defaults
-from apps.job.models import Job
+from apps.job.models import Job, JobDeltaRejection
 from apps.job.serializers.job_serializer import (
     JobBasicInformationResponseSerializer,
     JobCostSummaryResponseSerializer,
@@ -46,7 +47,7 @@ from apps.job.serializers.job_serializer import (
     QuoteSerializer,
     WeeklyMetricsSerializer,
 )
-from apps.job.services.job_rest_service import JobRestService
+from apps.job.services.job_rest_service import DeltaValidationError, JobRestService
 
 logger = logging.getLogger(__name__)
 
@@ -387,9 +388,41 @@ class JobDetailRestView(BaseJobRestView):
                 return self._precondition_required_response()
 
             # Update the job using the service layer with concurrency check
-            updated_job = JobRestService.update_job(
-                job_id, payload, request.user, if_match=if_match
-            )
+            try:
+                updated_job = JobRestService.update_job(
+                    job_id, payload, request.user, if_match=if_match
+                )
+            except DeltaValidationError as exc:
+                change_id = payload.get("change_id")
+                job_instance = Job.objects.filter(id=job_id).only("id").first()
+                change_uuid = change_id if change_id else None
+                already_recorded = (
+                    JobDeltaRejection.objects.filter(
+                        job=job_instance, change_id=change_uuid
+                    ).exists()
+                    if job_instance and change_uuid
+                    else False
+                )
+
+                if not already_recorded:
+                    staff_member = (
+                        request.user if isinstance(request.user, Staff) else None
+                    )
+                    JobRestService._record_delta_rejection(
+                        job=job_instance,
+                        staff=staff_member,
+                        reason=str(exc),
+                        detail={
+                            "server_checksum": getattr(exc, "server_checksum", None),
+                            "current_values": getattr(exc, "current_values", {}),
+                        },
+                        envelope=payload,
+                        change_id=str(change_id) if change_id else None,
+                        checksum=payload.get("before_checksum"),
+                        request_etag=payload.get("etag") or if_match,
+                        request_ip=request.META.get("REMOTE_ADDR"),
+                    )
+                raise
 
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
@@ -436,9 +469,41 @@ class JobDetailRestView(BaseJobRestView):
                 return self._precondition_required_response()
 
             # Update the job using the service layer (supports partial updates) with concurrency check
-            updated_job = JobRestService.update_job(
-                job_id, payload, request.user, if_match=if_match
-            )
+            try:
+                updated_job = JobRestService.update_job(
+                    job_id, payload, request.user, if_match=if_match
+                )
+            except DeltaValidationError as exc:
+                change_id = payload.get("change_id")
+                job_instance = Job.objects.filter(id=job_id).only("id").first()
+                change_uuid = change_id if change_id else None
+                already_recorded = (
+                    JobDeltaRejection.objects.filter(
+                        job=job_instance, change_id=change_uuid
+                    ).exists()
+                    if job_instance and change_uuid
+                    else False
+                )
+
+                if not already_recorded:
+                    staff_member = (
+                        request.user if isinstance(request.user, Staff) else None
+                    )
+                    JobRestService._record_delta_rejection(
+                        job=job_instance,
+                        staff=staff_member,
+                        reason=str(exc),
+                        detail={
+                            "server_checksum": getattr(exc, "server_checksum", None),
+                            "current_values": getattr(exc, "current_values", {}),
+                        },
+                        envelope=payload,
+                        change_id=str(change_id) if change_id else None,
+                        checksum=payload.get("before_checksum"),
+                        request_etag=payload.get("etag") or if_match,
+                        request_ip=request.META.get("REMOTE_ADDR"),
+                    )
+                raise
 
             # Return complete job data for frontend reactivity
             job_data = JobRestService.get_job_for_edit(job_id, request)
@@ -1090,7 +1155,56 @@ class JobEventListRestView(BaseJobRestView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class JobDeltaRejectionListRestView(BaseJobRestView):
-    """REST view for listing job delta rejections (admin/debug)."""
+    """REST view that returns delta rejections for a specific job."""
+
+    serializer_class = JobDeltaRejectionListResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobDeltaRejectionListResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        parameters=[
+            OpenApiParameter(
+                name="limit",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Maximum number of records to return (default 50, max 200).",
+            ),
+            OpenApiParameter(
+                name="offset",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Offset for pagination (default 0).",
+            ),
+        ],
+        description="Fetch delta rejections recorded for this job.",
+        tags=["Jobs"],
+    )
+    def get(self, request, job_id: UUID):
+        try:
+            job = Job.objects.only("id").get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+
+        try:
+            limit = int(request.query_params.get("limit", "50"))
+            offset = int(request.query_params.get("offset", "0"))
+        except (TypeError, ValueError):
+            return self.handle_service_error(
+                ValueError("Invalid pagination parameters")
+            )
+
+        payload = JobRestService.list_job_delta_rejections(
+            job_id=str(job.id), limit=limit, offset=offset
+        )
+        serializer = JobDeltaRejectionListResponseSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobDeltaRejectionAdminRestView(BaseJobRestView):
+    """Global listing of delta rejections for admin/monitoring usage."""
 
     serializer_class = JobDeltaRejectionListResponseSerializer
 
@@ -1117,24 +1231,22 @@ class JobDeltaRejectionListRestView(BaseJobRestView):
                 type=OpenApiTypes.UUID,
                 location=OpenApiParameter.QUERY,
                 required=False,
-                description="Optional job UUID to filter results.",
+                description="Optional job UUID filter.",
             ),
         ],
-        description="Fetch rejected job delta envelopes for forensic analysis.",
+        description="Fetch rejected job delta envelopes (global admin view).",
         tags=["Jobs"],
     )
     def get(self, request):
         try:
-            limit_raw = request.query_params.get("limit", "50")
-            offset_raw = request.query_params.get("offset", "0")
-            limit = int(limit_raw)
-            offset = int(offset_raw)
+            limit = int(request.query_params.get("limit", "50"))
+            offset = int(request.query_params.get("offset", "0"))
         except (TypeError, ValueError):
             return self.handle_service_error(
                 ValueError("Invalid pagination parameters")
             )
 
-        job_filter = request.query_params.get("job_id") or None
+        job_filter = request.query_params.get("job_id")
         job_id: str | None = None
         if job_filter:
             try:
@@ -1142,13 +1254,9 @@ class JobDeltaRejectionListRestView(BaseJobRestView):
             except ValueError:
                 return self.handle_service_error(ValueError("Invalid job_id parameter"))
 
-        try:
-            payload = JobRestService.list_job_delta_rejections(
-                job_id=job_id, limit=limit, offset=offset
-            )
-        except Exception as exc:
-            return self.handle_service_error(exc)
-
+        payload = JobRestService.list_job_delta_rejections(
+            job_id=job_id, limit=limit, offset=offset
+        )
         serializer = JobDeltaRejectionListResponseSerializer(payload)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
