@@ -16,10 +16,12 @@ from functools import singledispatch
 from typing import Any, Dict, Iterable, Mapping
 from uuid import UUID, uuid4
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from dotenv import load_dotenv
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
@@ -238,8 +240,9 @@ class JobRestService:
         Controlled via env var JOB_DELTA_SOFT_FAIL (default: true).
         Accepted truthy values: 1, true, yes, on.
         """
-        value = (os.getenv("JOB_DELTA_SOFT_FAIL", "true") or "").strip().lower()
-        return value in {"1", "true", "yes", "on"}
+        load_dotenv(settings.BASE_DIR / ".env")
+
+        return bool((os.getenv("JOB_DELTA_SOFT_FAIL", True) or "").strip())
 
     @staticmethod
     def create_job(data: Dict[str, Any], user: Staff) -> Job:
