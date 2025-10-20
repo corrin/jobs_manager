@@ -10,6 +10,7 @@ try:
         from .error_persistence import (
             extract_job_context,
             extract_request_context,
+            list_app_errors,
             persist_app_error,
             persist_xero_error,
         )
@@ -25,6 +26,7 @@ __all__ = [
     "extract_job_context",
     "extract_request_context",
     "get_company_defaults",
+    "list_app_errors",
     "persist_app_error",
     "persist_xero_error",
     "validate_required_fields",

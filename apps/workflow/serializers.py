@@ -280,8 +280,8 @@ class AppErrorListResponseSerializer(serializers.Serializer):
     """Serializer for paginated AppError list response."""
 
     count = serializers.IntegerField()
-    next = serializers.URLField(allow_null=True)
-    previous = serializers.URLField(allow_null=True)
+    next = serializers.CharField(allow_null=True, required=False)
+    previous = serializers.CharField(allow_null=True, required=False)
     results = AppErrorSerializer(many=True)
 
 
