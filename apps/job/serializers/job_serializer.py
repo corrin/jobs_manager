@@ -797,6 +797,8 @@ class JobDeltaRejectionSerializer(serializers.Serializer):
 
     id = serializers.UUIDField()
     change_id = serializers.UUIDField(allow_null=True)
+    job_id = serializers.UUIDField(allow_null=True)
+    job_name = serializers.SerializerMethodField()
     reason = serializers.CharField()
     detail = serializers.SerializerMethodField()
     checksum = serializers.CharField(allow_blank=True)
@@ -821,6 +823,10 @@ class JobDeltaRejectionSerializer(serializers.Serializer):
             return _json.loads(raw)
         except Exception:
             return raw
+
+    def get_job_name(self, obj) -> Optional[str]:
+        job = getattr(obj, "job", None)
+        return getattr(job, "name", None) if job else None
 
 
 class JobDeltaRejectionListResponseSerializer(serializers.Serializer):

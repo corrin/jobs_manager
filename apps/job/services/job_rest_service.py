@@ -738,7 +738,11 @@ class JobRestService:
         limit = min(limit, 200)
         offset = max(offset, 0)
 
-        queryset = JobDeltaRejection.objects.all().order_by("-created_at")
+        queryset = (
+            JobDeltaRejection.objects.select_related("job")
+            .all()
+            .order_by("-created_at")
+        )
         if job_id:
             queryset = queryset.filter(job_id=job_id)
         total = queryset.count()

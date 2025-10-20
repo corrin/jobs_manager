@@ -1160,6 +1160,7 @@ class JobDeltaRejectionListRestView(BaseJobRestView):
     serializer_class = JobDeltaRejectionListResponseSerializer
 
     @extend_schema(
+        operation_id="job_rest_job_delta_rejections_list",
         responses={
             200: JobDeltaRejectionListResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -1209,6 +1210,7 @@ class JobDeltaRejectionAdminRestView(BaseJobRestView):
     serializer_class = JobDeltaRejectionListResponseSerializer
 
     @extend_schema(
+        operation_id="job_rest_jobs_delta_rejections_admin_list",
         responses={
             200: JobDeltaRejectionListResponseSerializer,
             400: JobRestErrorResponseSerializer,
