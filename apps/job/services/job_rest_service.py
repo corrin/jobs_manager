@@ -8,7 +8,6 @@ All business logic for Job REST operations should be implemented here.
 import json
 import logging
 import math
-import os
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -21,7 +20,6 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from dotenv import load_dotenv
 
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
@@ -237,12 +235,10 @@ class JobRestService:
     def _is_soft_fail_enabled() -> bool:
         """Return True when checksum/field mismatches should not raise.
 
-        Controlled via env var JOB_DELTA_SOFT_FAIL (default: true).
-        Accepted truthy values: 1, true, yes, on.
+        Controlled via env var JOB_DELTA_SOFT_FAIL (default: True).
+        Only "True" enables soft-fail; any other value (including "False") disables it.
         """
-        load_dotenv(settings.BASE_DIR / ".env")
-
-        return bool((os.getenv("JOB_DELTA_SOFT_FAIL") or "True").strip())
+        return settings.JOB_DELTA_SOFT_FAIL
 
     @staticmethod
     def create_job(data: Dict[str, Any], user: Staff) -> Job:

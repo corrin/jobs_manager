@@ -84,6 +84,9 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 # Enable detailed payload logging for debugging
 DEBUG_PAYLOAD = os.getenv("DEBUG_PAYLOAD").lower() == "true"
 
+# Job delta soft fail setting - controls whether checksum mismatches are logged but not raised
+JOB_DELTA_SOFT_FAIL = os.getenv("JOB_DELTA_SOFT_FAIL", "True").strip() == "True"
+
 
 def use_secure_cookies():
     """

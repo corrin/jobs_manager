@@ -15,6 +15,7 @@ from uuid import UUID
 
 from django.core.cache import cache
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
@@ -48,6 +49,7 @@ from apps.job.serializers.job_serializer import (
     WeeklyMetricsSerializer,
 )
 from apps.job.services.job_rest_service import DeltaValidationError, JobRestService
+from apps.workflow.utils import parse_pagination_params
 
 logger = logging.getLogger(__name__)
 
@@ -1184,14 +1186,13 @@ class JobDeltaRejectionListRestView(BaseJobRestView):
     )
     def get(self, request, job_id: UUID):
         try:
-            job = Job.objects.only("id").get(id=job_id)
-        except Job.DoesNotExist:
+            job = get_object_or_404(Job.objects.only("id"), id=job_id)
+        except Exception:
             raise ValueError(f"Job with id {job_id} not found")
 
         try:
-            limit = int(request.query_params.get("limit", "50"))
-            offset = int(request.query_params.get("offset", "0"))
-        except (TypeError, ValueError):
+            limit, offset = parse_pagination_params(request)
+        except ValueError:
             return self.handle_service_error(
                 ValueError("Invalid pagination parameters")
             )

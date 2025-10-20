@@ -65,3 +65,24 @@ def get_machine_id(path: str = "/etc/machine-id") -> Optional[str]:
     except Exception as e:
         logger.error(f"Error reading machine ID file {path}: {e}")
         return None
+
+
+def parse_pagination_params(request) -> tuple[int, int]:
+    """
+    Parse and validate pagination parameters from request.
+
+    Args:
+        request: HTTP request object with query_params
+
+    Returns:
+        tuple[int, int]: (limit, offset) with defaults and validation
+
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    try:
+        limit = int(request.query_params.get("limit", "50"))
+        offset = int(request.query_params.get("offset", "0"))
+    except (TypeError, ValueError):
+        raise ValueError("Invalid pagination parameters")
+    return limit, offset

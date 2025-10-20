@@ -12,6 +12,7 @@ from apps.workflow.api.pagination import FiftyPerPagePagination
 from apps.workflow.models import AppError
 from apps.workflow.serializers import AppErrorListResponseSerializer, AppErrorSerializer
 from apps.workflow.services.error_persistence import list_app_errors
+from apps.workflow.utils import parse_pagination_params
 
 
 class AppErrorListAPIView(ListAPIView):
@@ -63,9 +64,8 @@ class AppErrorRestListView(APIView):
 
     def get(self, request):
         try:
-            limit = int(request.query_params.get("limit", "50"))
-            offset = int(request.query_params.get("offset", "0"))
-        except (TypeError, ValueError):
+            limit, offset = parse_pagination_params(request)
+        except ValueError:
             return Response(
                 {"error": "Invalid pagination parameters"},
                 status=status.HTTP_400_BAD_REQUEST,
