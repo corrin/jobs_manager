@@ -64,7 +64,7 @@ def consume_stock(
         cost_line = CostLine.objects.create(
             cost_set=cost_set,
             kind="material",
-            desc=f"Consumed: {item.description}",
+            desc=item.description,
             quantity=qty,
             unit_cost=unit_cost,
             unit_rev=unit_rev,
