@@ -74,7 +74,8 @@ class PurchasingRestService:
             po.supplier = supplier
             logger.info(f"Updated supplier for PO {po.id} to {supplier.name}")
         except Supplier.DoesNotExist:
-            logger.warning(f"Invalid supplier_id {supplier_id} for PO {po.id}")
+            logger.error(f"Invalid supplier_id {supplier_id} for PO {po.id}")
+            raise
 
     @staticmethod
     def _update_line(line: PurchaseOrderLine, line_data: dict[str, Any]) -> None:
