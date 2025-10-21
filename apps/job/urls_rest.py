@@ -3,6 +3,7 @@ from django.urls import path
 from rest_framework import status
 
 from apps.job.views.data_quality_report_views import ArchivedJobsComplianceView
+from apps.job.views.delivery_docket_view import DeliveryDocketView
 from apps.job.views.job_costing_views import JobCostSetView, JobQuoteRevisionView
 from apps.job.views.job_costline_views import (
     CostLineCreateView,
@@ -187,6 +188,12 @@ rest_urlpatterns = [
         "rest/jobs/<uuid:job_id>/workshop-pdf/",
         WorkshopPDFView.as_view(),
         name="workshop-pdf",
+    ),
+    # Delivery Docket PDF
+    path(
+        "rest/jobs/<uuid:job_id>/delivery-docket/",
+        DeliveryDocketView.as_view(),
+        name="delivery-docket",
     ),
     # Job files
     path(

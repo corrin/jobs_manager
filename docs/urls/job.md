@@ -61,6 +61,7 @@
 | `/rest/jobs/<uuid:job_id>/cost_sets/actual/cost_lines/` | `job_costline_views.CostLineCreateView` | `jobs:costline_create_rest` | Create a new CostLine in the specified job's CostSet |
 | `/rest/jobs/<uuid:job_id>/cost_sets/quote/revise/` | `job_costing_views.JobQuoteRevisionView` | `jobs:job_quote_revision_rest` | Manage quote revisions for jobs. |
 | `/rest/jobs/<uuid:job_id>/costs/summary/` | `job_rest_views.JobCostSummaryRestView` | `jobs:job_cost_summary_rest` | REST view for Job cost summary. |
+| `/rest/jobs/<uuid:job_id>/delivery-docket/` | `delivery_docket_view.DeliveryDocketView` | `jobs:delivery-docket` | API view for generating and serving delivery docket PDFs. |
 | `/rest/jobs/<uuid:job_id>/delta-rejections/` | `job_rest_views.JobDeltaRejectionListRestView` | `jobs:job_delta_rejections_rest` | REST view that returns delta rejections for a specific job. |
 | `/rest/jobs/<uuid:job_id>/events/` | `job_rest_views.JobEventListRestView` | `jobs:job_events_list_rest` | REST view for Job events list. |
 | `/rest/jobs/<uuid:job_id>/events/create/` | `job_rest_views.JobEventRestView` | `jobs:job_events_rest` | REST view for Job events. |

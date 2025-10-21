@@ -6,6 +6,7 @@ try:
 
     if apps.ready:
         from .data_quality_report import ArchivedJobsComplianceService
+        from .delivery_docket_service import generate_delivery_docket
         from .delta_checksum import (
             ChecksumInput,
             compute_job_delta_checksum,
@@ -101,6 +102,7 @@ __all__ = [
     "create_main_document",
     "create_thumbnail",
     "create_workshop_pdf",
+    "generate_delivery_docket",
     "get_image_dimensions",
     "get_job_total_value",
     "get_paid_complete_jobs",

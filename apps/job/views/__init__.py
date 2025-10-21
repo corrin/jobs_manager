@@ -6,6 +6,7 @@ from .archive_completed_jobs_view import (
 )
 from .assign_job_view import AssignJobView
 from .data_quality_report_views import ArchivedJobsComplianceView
+from .delivery_docket_view import DeliveryDocketView
 from .job_costing_views import JobCostSetView, JobQuoteRevisionView
 from .job_costline_views import (
     CostLineCreateView,
@@ -88,6 +89,7 @@ __all__ = [
     "CostLineCreateView",
     "CostLineDeleteView",
     "CostLineUpdateView",
+    "DeliveryDocketView",
     "FetchAllJobsAPIView",
     "FetchJobsAPIView",
     "FetchJobsByColumnAPIView",
