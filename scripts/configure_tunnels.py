@@ -141,15 +141,20 @@ def apply_update_rules(
 
     # Process each line
     new_lines = []
-    for line in lines:
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
         # Skip empty lines and comments
         if not line.strip() or line.strip().startswith("#"):
             new_lines.append(line)
+            i += 1
             continue
 
         # Parse key=value
         if "=" not in line:
             new_lines.append(line)
+            i += 1
             continue
 
         key, value = line.split("=", 1)
@@ -160,13 +165,23 @@ def apply_update_rules(
             rule = update_rules[key]
 
             if rule is None:
-                # Skip this key (remove it)
+                # Skip this key (remove it) and its preceding comment if it's our warning
+                if new_lines and new_lines[-1].strip() == "# Managed by configure_tunnels.py - do not edit directly":
+                    new_lines.pop()
                 updated.add(key)
+                i += 1
                 continue
 
             # Evaluate rule if it's a callable
             if callable(rule):
                 rule = rule(backend_url, frontend_url)
+
+            # Remove old warning comment if present
+            if new_lines and new_lines[-1].strip() == "# Managed by configure_tunnels.py - do not edit directly":
+                new_lines.pop()
+
+            # Add warning comment before the variable
+            new_lines.append("# Managed by configure_tunnels.py - do not edit directly")
 
             if isinstance(rule, list):
                 # Add items to comma-separated list
@@ -182,6 +197,8 @@ def apply_update_rules(
         else:
             # Keep line unchanged
             new_lines.append(line)
+
+        i += 1
 
     # Write back to file
     env_path.write_text("\n".join(new_lines))

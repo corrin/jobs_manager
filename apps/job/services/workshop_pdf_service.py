@@ -237,10 +237,10 @@ def convert_html_to_reportlab(html_content):
 
 def create_workshop_pdf(job):
     """
-    Generate the main PDF and, if any, append marked images and PDFs.
+    Generate the workshop PDF with materials table and attachments.
     """
     try:
-        main_buffer = create_main_document(job)
+        main_buffer = create_workshop_main_document(job)
 
         files_to_print = job.files.filter(print_on_jobsheet=True)
         if not files_to_print.exists():
@@ -255,16 +255,68 @@ def create_workshop_pdf(job):
         raise e
 
 
-def create_main_document(job):
-    """Create the cover document with header, details, and materials table."""
+def create_delivery_docket_pdf(job):
+    """
+    Generate a delivery docket PDF (no materials, workshop time, or internal notes).
+    Includes handover section with signature, date, and notes fields.
+    """
+    try:
+        main_buffer = create_delivery_docket_main_document(job)
+
+        files_to_print = job.files.filter(print_on_jobsheet=True)
+        if not files_to_print.exists():
+            return main_buffer
+
+        image_files = [f for f in files_to_print if f.mime_type.startswith("image/")]
+        pdf_files = [f for f in files_to_print if f.mime_type == "application/pdf"]
+
+        return process_attachments(main_buffer, image_files, pdf_files)
+    except Exception as e:
+        logger.error(f"Error creating delivery docket PDF: {str(e)}")
+        raise e
+
+
+def create_workshop_main_document(job):
+    """Create the workshop cover document with header, details, and materials table."""
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
 
     y_position = PAGE_HEIGHT - MARGIN
     y_position = add_logo(pdf, y_position)
     y_position = add_title(pdf, y_position, job)
-    y_position = add_job_details_table(pdf, y_position, job)
+    y_position = add_workshop_details_table(pdf, y_position, job)
     add_materials_table(pdf, y_position)
+
+    pdf.save()
+    buffer.seek(0)
+    return buffer
+
+
+def create_delivery_docket_main_document(job):
+    """Create the delivery docket document with two copies: MSM Copy and Client Copy."""
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+
+    # First page - MSM Copy
+    y_position = PAGE_HEIGHT - MARGIN
+    y_position = add_logo(pdf, y_position)
+    y_position = add_title(
+        pdf, y_position, job, title_prefix="DELIVERY DOCKET - MSM Copy"
+    )
+    y_position = add_delivery_docket_details_table(pdf, y_position, job)
+    add_handover_section(pdf, job)
+
+    # Start new page for Client Copy
+    pdf.showPage()
+
+    # Second page - Client Copy
+    y_position = PAGE_HEIGHT - MARGIN
+    y_position = add_logo(pdf, y_position)
+    y_position = add_title(
+        pdf, y_position, job, title_prefix="DELIVERY DOCKET - Client Copy"
+    )
+    y_position = add_delivery_docket_details_table(pdf, y_position, job)
+    add_handover_section(pdf, job)
 
     pdf.save()
     buffer.seek(0)
@@ -282,19 +334,36 @@ def add_logo(pdf, y_position):
     return y_position - 200
 
 
-def add_title(pdf, y_position, job):
-    """Render the job title with consistent palette."""
+def add_title(pdf, y_position, job, title_prefix=None):
+    """
+    Render the job title with consistent palette.
+
+    Args:
+        pdf: The canvas object
+        y_position: Current vertical position
+        job: The Job instance
+        title_prefix: Optional prefix to add before "Job - {number} - {name}"
+    """
     pdf.setFillColor(PRIMARY)
     pdf.setFont("Helvetica-Bold", 18)
     job_number = str(job.job_number) if job.job_number else "N/A"
     job_name = job.name or "N/A"
-    pdf.drawString(MARGIN, y_position, f"Job - {job_number} - {job_name}")
+
+    if title_prefix:
+        # Draw prefix on first line
+        pdf.drawString(MARGIN, y_position, title_prefix)
+        y_position -= 24
+        # Draw job info on second line
+        pdf.drawString(MARGIN, y_position, f"Job - {job_number} - {job_name}")
+    else:
+        pdf.drawString(MARGIN, y_position, f"Job - {job_number} - {job_name}")
+
     pdf.setFillColor(colors.black)
     return y_position - 28
 
 
-def add_job_details_table(pdf, y_position, job: Job):
-    """Render the job details with a coloured header row and improved spacing."""
+def add_workshop_details_table(pdf, y_position, job: Job):
+    """Render the workshop job details with workshop time and internal notes."""
     client_name = job.client.name if job.client else "N/A"
     contact_name = job.contact.name if job.contact else ""
 
@@ -380,6 +449,128 @@ def add_job_details_table(pdf, y_position, job: Job):
     _, table_height = details_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
     details_table.drawOn(pdf, MARGIN, y_position - table_height)
     return y_position - table_height - 36
+
+
+def add_delivery_docket_details_table(pdf, y_position, job: Job):
+    """Render the delivery docket details (excludes workshop time and internal notes)."""
+    client_name = job.client.name if job.client else "N/A"
+    contact_name = job.contact.name if job.contact else ""
+
+    contact_phone = (
+        (job.contact.phone if job.contact and job.contact.phone else None)
+        or (job.client.phone if job.client else None)
+        or ""
+    )
+    contact_info = (
+        f"{contact_name}<br/>{contact_phone}" if contact_phone else contact_name
+    )
+
+    # Delivery docket details - no workshop time or internal notes
+    job_details = [
+        [
+            Paragraph(client_name, header_client_style),
+            Paragraph(contact_info, header_contact_style),
+        ],
+        [
+            Paragraph("DESCRIPTION", label_style),
+            Paragraph(job.description or "N/A", body_style),
+        ],
+        [
+            Paragraph("ENTRY DATE", label_style),
+            timezone.localtime(
+                job.created_at, timezone.get_current_timezone()
+            ).strftime("%a, %d %b %Y"),
+        ],
+        [
+            Paragraph("DUE DATE", label_style),
+            (
+                job.delivery_date.strftime("%a, %d %b %Y")
+                if job.delivery_date
+                else "N/A"
+            ),
+        ],
+        [
+            Paragraph("ORDER NUMBER", label_style),
+            Paragraph(job.order_number or "N/A", body_style),
+        ],
+    ]
+
+    details_table = Table(job_details, colWidths=[180, CONTENT_WIDTH - 180])
+    details_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), PRIMARY),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("TOPPADDING", (0, 0), (-1, 0), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 10),
+                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                ("TEXTCOLOR", (0, 1), (0, -1), TEXT_MUTED),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 1), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 1), (-1, -1), 6),
+            ]
+        )
+    )
+
+    _, table_height = details_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
+    details_table.drawOn(pdf, MARGIN, y_position - table_height)
+    return y_position - table_height - 36
+
+
+def add_handover_section(pdf, job):
+    """Add delivery details and handover fields at the bottom of the page."""
+    # Position at bottom of page with margin
+    y_position = MARGIN + 180
+
+    # Autogenerated fields first
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFillColor(TEXT_MUTED)
+    pdf.drawString(MARGIN, y_position, "Delivery Date:")
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(TEXT_DARK)
+    delivery_date = timezone.localtime(
+        timezone.now(), timezone.get_current_timezone()
+    ).strftime("%a, %d %b %Y")
+    pdf.drawString(MARGIN + 100, y_position, delivery_date)
+    y_position -= 20
+
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFillColor(TEXT_MUTED)
+    pdf.drawString(MARGIN, y_position, "Delivery Docket Number:")
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(TEXT_DARK)
+    pdf.drawString(MARGIN + 140, y_position, str(job.job_number))
+    y_position -= 30
+
+    # "Received" header
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.setFillColor(TEXT_DARK)
+    pdf.drawString(MARGIN, y_position, "Received")
+    y_position -= 30
+
+    # Manual fill-in fields
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFillColor(TEXT_MUTED)
+    pdf.drawString(MARGIN, y_position, "Signature:")
+    pdf.setStrokeColor(BORDER)
+    pdf.line(MARGIN + 70, y_position, MARGIN + 250, y_position)
+    y_position -= 25
+
+    pdf.drawString(MARGIN, y_position, "Date:")
+    pdf.line(MARGIN + 70, y_position, MARGIN + 250, y_position)
+    y_position -= 25
+
+    pdf.drawString(MARGIN, y_position, "Notes:")
+    pdf.line(MARGIN + 70, y_position, PAGE_WIDTH - MARGIN, y_position)
+    y_position -= 20
+    pdf.line(MARGIN + 70, y_position, PAGE_WIDTH - MARGIN, y_position)
+    y_position -= 20
+    pdf.line(MARGIN + 70, y_position, PAGE_WIDTH - MARGIN, y_position)
 
 
 def add_materials_table(pdf, y_position):

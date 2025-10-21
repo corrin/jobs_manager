@@ -1,7 +1,6 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -104,135 +103,29 @@ def use_secure_cookies():
     return False  # Local development (localhost)
 
 
-def resolve_auth_cookie_domain():
-    """
-    Determine the cookie Domain attribute to use.
-
-    Policy:
-    - In production-like environments (DJANGO_ENV=production_like) without tunnels,
-      honor AUTH_COOKIE_DOMAIN when safe; fallback to DJANGO_SITE_DOMAIN; else host-only.
-    - In non-production or when using tunnels (NGROK_DOMAIN/TUNNEL_URL present) or DEBUG=True,
-      ALWAYS use host-only cookies (return None) to avoid public suffix and cross-site issues.
-    - If JWT_COOKIE_DEV_MODE=True, force host-only cookie regardless of other flags.
-    - Never return a public suffix as cookie domain.
-    """
-    # Master dev override: force host-only cookies
-    if os.getenv("JWT_COOKIE_DEV_MODE", "False").lower() == "true":
-        return None
-
-    # Force host-only cookies for development/tunnel scenarios
-    if (
-        DEBUG
-        or os.getenv("TUNNEL_URL")
-        or os.getenv("NGROK_DOMAIN")
-        or not PRODUCTION_LIKE
-    ):
-        return None
-
-    env_value = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
-    site_domain = os.getenv("DJANGO_SITE_DOMAIN", "").strip()
-
-    # Normalize input (strip any leading dot)
-    env_value = env_value.lstrip(".") if env_value else ""
-    site_domain = site_domain.lstrip(".") if site_domain else ""
-
-    # Guard against public suffixes (browsers reject Set-Cookie with these)
-    public_suffixes = {"ngrok-free.app", "ngrok.io", "ngrok.app"}
-
-    # Prefer explicitly configured domain if provided and safe
-    if env_value and env_value not in public_suffixes:
-        return env_value
-
-    # Fallback to configured site domain if safe
-    if site_domain and site_domain not in public_suffixes:
-        return site_domain
-
-    # Final fallback: host-only cookie
-    return None
-
-
-def resolve_auth_cookie_samesite():
-    """
-    Determine SameSite for auth cookies.
-
-    Rules:
-    - If DEBUG or not PRODUCTION_LIKE or using tunnels (NGROK_DOMAIN/TUNNEL_URL), return "None"
-      so that cross-site requests (frontend on a different ngrok subdomain) can include cookies.
-    - If JWT_COOKIE_DEV_MODE=True, force "None".
-    - In production-like without tunnels:
-        * If FRONT_END_URL host equals DJANGO_SITE_DOMAIN host, return "Lax"
-        * Otherwise, return "None"
-    """
-    try:
-        # Master dev override: force SameSite=None
-        if os.getenv("JWT_COOKIE_DEV_MODE", "False").lower() == "true":
-            return "None"
-
-        if (
-            DEBUG
-            or not PRODUCTION_LIKE
-            or os.getenv("TUNNEL_URL")
-            or os.getenv("NGROK_DOMAIN")
-        ):
-            return "None"
-
-        fe = os.getenv("FRONT_END_URL", "").strip()
-        api = os.getenv("DJANGO_SITE_DOMAIN", "").strip()
-
-        if not fe or not api:
-            return "Lax"
-
-        fe_host = (urlparse(fe).hostname or "").lower()
-        api_host = api.lower().lstrip(".")
-
-        if fe_host == api_host:
-            return "Lax"
-        return "None"
-    except Exception:
-        # Fail-safe default
-        return "Lax"
-
-
 # =======================
-# Cookie Strategy Helpers
+# Cookie Configuration
 # =======================
-def get_cookie_strategy() -> str:
+def get_auth_cookie_domain():
     """
-    Returns the cookie strategy:
-    - "auto" (default): use safe/tunnel-aware behavior (host-only on tunnels, avoid public suffix).
-    - "legacy": honor envs as they are (restores old behavior).
+    Get cookie domain from AUTH_COOKIE_DOMAIN env var.
+
+    Now that configure_tunnels.py automatically manages this value,
+    we trust it directly instead of trying to auto-detect tunnels.
     """
-    return os.getenv("JWT_COOKIE_STRATEGY", "auto").strip().lower()
-
-
-def legacy_auth_cookie_domain():
-    """Legacy: directly use AUTH_COOKIE_DOMAIN (may be unsafe for tunnels/public suffix)."""
     value = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
     return value or None
 
 
-def legacy_auth_cookie_samesite():
-    """Legacy: directly use COOKIE_SAMESITE (default Lax)."""
+def get_auth_cookie_samesite():
+    """
+    Get SameSite attribute for auth cookies.
+
+    Uses COOKIE_SAMESITE env var if set, otherwise defaults to "Lax".
+    For cross-origin scenarios (different ngrok subdomains), you should set COOKIE_SAMESITE=None.
+    """
     env = os.getenv("COOKIE_SAMESITE")
     return env.capitalize() if env else "Lax"
-
-
-def get_auth_cookie_domain():
-    """Select cookie domain based on strategy."""
-    return (
-        legacy_auth_cookie_domain()
-        if get_cookie_strategy() == "legacy"
-        else resolve_auth_cookie_domain()
-    )
-
-
-def get_auth_cookie_samesite():
-    """Select cookie SameSite based on strategy."""
-    return (
-        legacy_auth_cookie_samesite()
-        if get_cookie_strategy() == "legacy"
-        else resolve_auth_cookie_samesite()
-    )
 
 
 # Control scheduler registration - only register jobs when explicitly enabled
@@ -510,6 +403,17 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Jobs Manager API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # DRF Spectacular auto-generates enum names based on content hashes when multiple
+    # models have fields with the same name (e.g., "status", "type", "kind").
+    # These hashes are deterministic and stable - they only change if enum values change.
+    # We override them here for better API documentation readability.
+    "ENUM_NAME_OVERRIDES": {
+        "TypeC98Enum": "AllocationTypeEnum",  # job/stock allocation type
+        "Kind332Enum": "CostLineKindEnum",  # time/material/adjust
+        "Status1beEnum": "PurchaseOrderStatusEnum",  # DRAFT/SUBMITTED/AUTHORISED/DELETED
+        "Status7aeEnum": "QuoteStatusEnum",  # DRAFT/SENT/DECLINED/ACCEPTED
+        "Status7b9Enum": "JobStatusEnum",  # draft/quoting/in_progress/etc
+    },
 }
 
 ROOT_URLCONF = "jobs_manager.urls"

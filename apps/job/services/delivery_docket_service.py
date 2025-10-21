@@ -8,7 +8,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.job.models import Job, JobEvent, JobFile
-from apps.job.services.workshop_pdf_service import create_workshop_pdf
+from apps.job.services.workshop_pdf_service import create_delivery_docket_pdf
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -18,8 +18,9 @@ def generate_delivery_docket(job: Job) -> tuple[BytesIO, JobFile]:
     """
     Generate a delivery docket PDF for a job and save it as a JobFile.
 
-    Creates a PDF identical to the workshop sheet, saves it to the Dropbox
-    workflow folder, and creates a JobEvent to track the generation.
+    Creates a PDF similar to the workshop sheet but without the materials notes
+    section and with "DELIVERY DOCKET" header. Saves it to the Dropbox workflow
+    folder and creates a JobEvent to track the generation.
 
     Args:
         job: The Job instance to generate the delivery docket for
@@ -38,8 +39,8 @@ def generate_delivery_docket(job: Job) -> tuple[BytesIO, JobFile]:
         raise exc
 
     try:
-        # Generate the PDF using the existing workshop PDF service
-        pdf_buffer = create_workshop_pdf(job)
+        # Generate the PDF as a delivery docket (no materials table, with prefix)
+        pdf_buffer = create_delivery_docket_pdf(job)
 
         # Read the buffer content for saving
         pdf_content = pdf_buffer.read()
@@ -79,7 +80,7 @@ def generate_delivery_docket(job: Job) -> tuple[BytesIO, JobFile]:
             job=job,
             event_type="delivery_docket_generated",
             description=f"Delivery docket generated: {filename}",
-            metadata={
+            delta_meta={
                 "filename": filename,
                 "file_id": str(job_file.id),
                 "generated_at": timezone.now().isoformat(),
