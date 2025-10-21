@@ -304,7 +304,6 @@ class PurchaseOrderListCreateRestView(APIView):
         operation_id="listPurchaseOrders",
         responses={
             status.HTTP_200_OK: PurchaseOrderListSerializer(many=True),
-            status.HTTP_400_BAD_REQUEST: "Invalid input data",
         },
     )
     def get(self, request):
@@ -857,7 +856,6 @@ class AllocationDetailsAPIView(APIView):
     @extend_schema(
         responses={
             status.HTTP_200_OK: AllocationDetailsResponseSerializer,
-            status.HTTP_404_NOT_FOUND: "Allocation not found",
         },
         operation_id="getAllocationDetails",
         description="Get details about a specific allocation before deletion.",
