@@ -136,7 +136,7 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return [
                 LineItem(
-                    description="Quote Total",
+                    description=self.job.description,
                     quantity=1.0,
                     unit_amount=float(total_amount),
                     account_code=self._get_account_code(),
