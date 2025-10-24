@@ -123,9 +123,18 @@ def get_auth_cookie_samesite():
 
     Uses COOKIE_SAMESITE env var if set, otherwise defaults to "Lax".
     For cross-origin scenarios (different ngrok subdomains), you should set COOKIE_SAMESITE=None.
+
+    Returns:
+        None (Python value) if COOKIE_SAMESITE=None (for SameSite=None cookies)
+        "Lax", "Strict", or other string values otherwise
     """
     env = os.getenv("COOKIE_SAMESITE")
-    return env.capitalize() if env else "Lax"
+    if not env:
+        return "Lax"
+    # Handle "None" specially - return Python None, not string "None"
+    if env.lower() == "none":
+        return None
+    return env.capitalize()
 
 
 # Control scheduler registration - only register jobs when explicitly enabled

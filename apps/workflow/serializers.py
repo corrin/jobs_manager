@@ -143,6 +143,18 @@ class XeroOperationResponseSerializer(serializers.Serializer):
     xero_id = serializers.UUIDField(required=True)
 
 
+class XeroQuoteCreateRequestSerializer(serializers.Serializer):
+    """
+    Request serializer for creating a Xero quote.
+    Requires explicit choice of breakdown format.
+    """
+
+    breakdown = serializers.BooleanField(
+        required=True,
+        help_text="If true, sends detailed line items. If false, sends single total line.",
+    )
+
+
 class XeroDocumentSuccessResponseSerializer(serializers.Serializer):
     """
     Standardized serializer for a successful Xero document operation.
