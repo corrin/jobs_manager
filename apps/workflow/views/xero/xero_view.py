@@ -41,6 +41,7 @@ from apps.workflow.serializers import (
     XeroDocumentSuccessResponseSerializer,
     XeroErrorSerializer,
     XeroPingResponseSerializer,
+    XeroQuoteCreateRequestSerializer,
     XeroSseEventSerializer,
     XeroSyncInfoResponseSerializer,
     XeroSyncStartResponseSerializer,
@@ -498,9 +499,10 @@ def create_xero_purchase_order(
 @csrf_exempt
 @extend_schema(
     tags=["Xero"],
-    request=None,
+    request=XeroQuoteCreateRequestSerializer,
     responses={
         201: XeroDocumentSuccessResponseSerializer,
+        400: XeroDocumentErrorResponseSerializer,
         404: XeroDocumentErrorResponseSerializer,
         500: XeroDocumentErrorResponseSerializer,
     },
@@ -513,10 +515,22 @@ def create_xero_quote(request: Request, job_id: uuid.UUID) -> Response:
     if isinstance(tenant_id, JsonResponse):
         return Response(json.loads(tenant_id.content), status=tenant_id.status_code)
 
+    # Validate request body
+    request_serializer = XeroQuoteCreateRequestSerializer(data=request.data)
+    if not request_serializer.is_valid():
+        error_data = {
+            "success": False,
+            "error": "Invalid request data.",
+            "messages": [str(request_serializer.errors)],
+        }
+        return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+
+    breakdown = request_serializer.validated_data["breakdown"]
+
     try:
         job = Job.objects.get(id=job_id)
         manager = XeroQuoteManager(client=job.client, job=job)
-        result_data = manager.create_document()
+        result_data = manager.create_document(breakdown=breakdown)
 
         if result_data.get("success"):
             messages.success(request, "Quote created successfully.")

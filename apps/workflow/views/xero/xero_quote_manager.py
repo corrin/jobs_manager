@@ -19,6 +19,9 @@ from apps.accounting.enums import QuoteStatus
 from apps.accounting.models import Quote
 from apps.job.models.costing import CostSet
 
+# Import error persistence service
+from apps.workflow.services.error_persistence import persist_app_error
+
 # Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import (  # Assuming format_date is needed
@@ -45,6 +48,8 @@ class XeroQuoteManager(XeroDocumentManager):
             raise ValueError("Client and Job are required for XeroQuoteManager")
         # Call the base class __init__ with the client and the job
         super().__init__(client=client, job=job)
+        # Initialize breakdown flag (will be set when create_document is called)
+        self._breakdown = True
 
     def get_xero_id(self):
         # self.job is guaranteed to exist here due to the __init__ check
@@ -78,11 +83,15 @@ class XeroQuoteManager(XeroDocumentManager):
         if self.job.quoted:
             raise ValueError(f"Job {self.job.id} is already quoted.")
 
-    def get_line_items(self):
+    def get_line_items(self, breakdown: bool = True):
         """
         Generate quote LineItems using only CostSet/CostLine.
         Uses the latest CostSet of kind 'quote'.
         Rejects if not present or if the job is T&M.
+
+        Args:
+            breakdown: If True, returns detailed line items (one per CostLine).
+                      If False, returns a single line item with the total.
         """
         if not self.job:
             raise ValueError("Job is required to generate quote line items.")
@@ -98,25 +107,52 @@ class XeroQuoteManager(XeroDocumentManager):
             raise ValueError(
                 f"Job {self.job.id} does not have a 'quote' CostSet for quoting."
             )
-        line_items = []
-        for cl in latest_quote.cost_lines.all():
-            line_items.append(
+
+        if breakdown:
+            # Return detailed breakdown - one line item per CostLine
+            line_items = []
+            for cl in latest_quote.cost_lines.all():
+                line_items.append(
+                    LineItem(
+                        description=cl.desc,
+                        quantity=float(cl.quantity),
+                        unit_amount=float(cl.unit_rev),
+                        account_code=self._get_account_code(),
+                    )
+                )
+            if not line_items:
+                raise ValueError(
+                    f"'quote' CostSet for job {self.job.id} has no cost lines."
+                )
+            return line_items
+        else:
+            # Return single total line item
+            if not latest_quote.summary or "rev" not in latest_quote.summary:
+                raise ValueError(
+                    f"'quote' CostSet for job {self.job.id} missing summary data."
+                )
+
+            total_amount = Decimal(str(latest_quote.summary.get("rev", 0)))
+
+            return [
                 LineItem(
-                    description=cl.desc or "Quote item",
-                    quantity=float(cl.quantity),
-                    unit_amount=float(cl.unit_rev),
+                    description="Quote Total",
+                    quantity=1.0,
+                    unit_amount=float(total_amount),
                     account_code=self._get_account_code(),
                 )
-            )
-        if not line_items:
-            raise ValueError(
-                f"'quote' CostSet for job {self.job.id} has no cost lines."
-            )
-        return line_items
+            ]
 
     def get_xero_document(self, type: str) -> XeroQuote:
         """
         Creates a quote object for Xero creation or deletion.
+
+        Args:
+            type: Either "create" or "delete"
+
+        Note:
+            The breakdown parameter is read from self._breakdown which is set
+            in create_document() before calling the base class method.
         """
         # Ensure job exists before accessing attributes
         if not self.job:
@@ -126,7 +162,8 @@ class XeroQuoteManager(XeroDocumentManager):
             case "create":
                 # Use job.client which is guaranteed by __init__
                 contact = self.get_xero_contact()
-                line_items = self.get_line_items()
+                # Use the stored _breakdown attribute set in create_document
+                line_items = self.get_line_items(breakdown=self._breakdown)
                 base_data = {
                     "contact": contact,
                     "line_items": line_items,
@@ -156,9 +193,16 @@ class XeroQuoteManager(XeroDocumentManager):
             case _:
                 raise ValueError(f"Unknown document type for Quote: {type}")
 
-    def create_document(self):
-        """Creates a quote, processes response, stores locally and returns the quote URL."""
+    def create_document(self, breakdown: bool = True):
+        """
+        Creates a quote, processes response, stores locally and returns the quote URL.
+
+        Args:
+            breakdown: If True, sends detailed line items. If False, sends single total.
+        """
         try:
+            # Store breakdown for use in get_xero_document
+            self._breakdown = breakdown
             # Calls the base class create_document to handle API call
             response = super().create_document()
 
@@ -204,9 +248,8 @@ class XeroQuoteManager(XeroDocumentManager):
                         description="Quote created in Xero",
                     )
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to create job event for quote creation: {e}"
-                    )
+                    logger.error(f"Failed to create job event for quote creation: {e}")
+                    persist_app_error(e, job_id=str(self.job.id))
 
                 # Return success details for the view
                 return {
@@ -241,8 +284,6 @@ class XeroQuoteManager(XeroDocumentManager):
 
                 return {"success": False, "message": error_msg, "status": 400}
         except AccountingBadRequestException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(
                 (
                     f"Xero API BadRequest during quote creation for job "
@@ -265,8 +306,6 @@ class XeroQuoteManager(XeroDocumentManager):
                 {"success": False, "message": error_message}, status=e.status
             )
         except ApiException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(
                 f"Xero API Exception during quote creation for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
                 exc_info=True,
@@ -281,8 +320,6 @@ class XeroQuoteManager(XeroDocumentManager):
                 "status": e.status,
             }
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.exception(
                 f"Unexpected error during quote creation for job {self.job.id if self.job else 'Unknown'}"
             )
@@ -363,8 +400,6 @@ class XeroQuoteManager(XeroDocumentManager):
                 "xero_id": str(xero_quote_data.quote_id),
             }
         except AccountingBadRequestException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(
                 f"Xero API BadRequest during quote deletion for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
                 exc_info=True,
@@ -379,8 +414,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
             return {"success": False, "message": error_message, "status": e.status}
         except ApiException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(
                 f"Xero API Exception during quote deletion for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
                 exc_info=True,
@@ -395,8 +428,6 @@ class XeroQuoteManager(XeroDocumentManager):
                 "status": e.status,
             }
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.exception(
                 f"Unexpected error during quote deletion for job {self.job.id if self.job else 'Unknown'}"
             )
