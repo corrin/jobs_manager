@@ -103,7 +103,9 @@ class CostLine(models.Model):
         CostSet, on_delete=models.CASCADE, related_name="cost_lines"
     )
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
-    desc = models.CharField(max_length=255, help_text="Description of this cost line")
+    desc = models.CharField(
+        max_length=255, help_text="Description of this cost line", blank=True
+    )
     quantity = models.DecimalField(
         max_digits=10, decimal_places=3, default=Decimal("1.000")
     )
