@@ -199,7 +199,7 @@ class WeeklyTimesheetService:
                         output_field=models.CharField(),
                     ),
                     is_billable=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.is_billable'))",
+                        "JSON_EXTRACT(meta, '$.is_billable') = true",
                         (),
                         output_field=models.BooleanField(),
                     ),
