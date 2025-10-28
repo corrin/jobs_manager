@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 from typing import Dict
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F, Sum, Value
 from django.db.models.functions import Coalesce
@@ -35,16 +36,29 @@ def _to_decimal(value, *, field_label: str) -> Decimal:
 def _load_po_and_lines(
     purchase_order_id: str, line_allocations: Dict
 ) -> tuple[PurchaseOrder, dict[str, PurchaseOrderLine]]:
-    po = PurchaseOrder.objects.select_related("supplier").get(id=purchase_order_id)
+    connection = transaction.get_connection()
+    if not connection.in_atomic_block:
+        raise RuntimeError(
+            "process_delivery_receipt must run inside an atomic transaction"
+        )
+
+    lock_po = getattr(settings, "ENABLE_PO_RECEIPT_LOCKS", True)
+
+    # Lock the PO row (when enabled) to avoid concurrent requests creating
+    # duplicate stock entries before the first transaction commits.
+    po_qs = PurchaseOrder.objects.select_related("supplier")
+    if lock_po:
+        po_qs = po_qs.select_for_update()
+    po = po_qs.get(id=purchase_order_id)
     logger.debug("Found PO %s", po.po_number)
 
     requested_ids = set(line_allocations.keys())
-    lines = {
-        str(line.id): line
-        for line in PurchaseOrderLine.objects.filter(
-            id__in=requested_ids, purchase_order=po
-        )
-    }
+    # Lock each referenced PO line as well to prevent double submissions running
+    # in parallel and recreating the same stock entries.
+    line_qs = PurchaseOrderLine.objects.filter(id__in=requested_ids, purchase_order=po)
+    if lock_po:
+        line_qs = line_qs.select_for_update()
+    lines = {str(line.id): line for line in line_qs}
     if len(lines) != len(requested_ids):
         missing = requested_ids - set(lines.keys())
         raise DeliveryReceiptValidationError(

@@ -439,6 +439,12 @@ CORS_ALLOW_HEADERS = CORS_ALLOWED_HEADERS
 
 # JWT/authentication settings
 ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
+ENABLE_PO_RECEIPT_LOCKS = (
+    os.getenv("ENABLE_PO_RECEIPT_LOCKS", "False").lower() == "true"
+)
+ENABLE_XERO_STOCK_DUPLICATE_GUARD = (
+    os.getenv("ENABLE_XERO_STOCK_DUPLICATE_GUARD", "False").lower() == "true"
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
