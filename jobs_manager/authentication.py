@@ -18,6 +18,13 @@ class JWTAuthentication(BaseJWTAuthentication):
     def authenticate(self, request):
         if not getattr(settings, "ENABLE_JWT_AUTH", False):
             return None
+
+        # If user already authenticated by middleware (e.g., BearerIdentityMiddleware), use that
+        # Use underlying Django request to avoid triggering DRF's _authenticate() recursion
+        django_request = getattr(request, "_request", request)
+        if hasattr(django_request, "user") and django_request.user.is_authenticated:
+            return (django_request.user, None)
+
         try:
             # Debug logging for client create endpoint
             if request.path_info == "/clients/create/":
@@ -31,15 +38,14 @@ class JWTAuthentication(BaseJWTAuthentication):
                     f"DEBUG: Content-Type: {request.headers.get('Content-Type', 'None')}"
                 )
 
-            # First try to get token from Authorization header (default behavior)
-            result = super().authenticate(request)
-            # If no token in header, try to get from httpOnly cookie
-            if result is None:
-                raw_token = self.get_raw_token_from_cookie(request)
-                if raw_token is not None:
-                    validated_token = self.get_validated_token(raw_token)
-                    user = self.get_user(validated_token)
-                    result = (user, validated_token)
+            # Only look at cookies, not Authorization header
+            # Authorization: Bearer is handled by BearerIdentityMiddleware
+            raw_token = self.get_raw_token_from_cookie(request)
+            result = None
+            if raw_token is not None:
+                validated_token = self.get_validated_token(raw_token)
+                user = self.get_user(validated_token)
+                result = (user, validated_token)
             if result is None:
                 cookie_name = getattr(settings, "SIMPLE_JWT", {}).get(
                     "AUTH_COOKIE", "access_token"

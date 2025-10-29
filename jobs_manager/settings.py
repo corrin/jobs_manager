@@ -53,6 +53,8 @@ def validate_required_settings() -> None:
         "CORS_ALLOW_CREDENTIALS",
         "ENABLE_JWT_AUTH",
         "AUTH_COOKIE_DOMAIN",
+        "ALLOW_BEARER_TOKEN_AUTHENTICATION",
+        "BEARER_TOKEN_SECRET",
         # Frontend Integration
         "FRONT_END_URL",
     ]
@@ -212,12 +214,13 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "apps.workflow.middleware.DisallowedHostMiddleware",  # Handle break-in attempts cleanly
-    "django.middleware.gzip.GZipMiddleware",  # Enable gzip compression for API responses (early in response)
+    "apps.workflow.middleware.DisallowedHostMiddleware",
+    "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.workflow.middleware_bearer.BearerIdentityMiddleware",
     "apps.workflow.middleware.FrontendRedirectMiddleware",
     "apps.workflow.middleware.AccessLoggingMiddleware",
     "apps.workflow.middleware.LoginRequiredMiddleware",
@@ -341,6 +344,11 @@ CORS_ALLOW_HEADERS = CORS_ALLOWED_HEADERS
 
 # JWT/authentication settings
 ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
+
+ALLOW_BEARER_TOKEN_AUTHENTICATION = (
+    os.getenv("ALLOW_BEARER_TOKEN_AUTHENTICATION").lower() == "true"
+)
+BEARER_TOKEN_SECRET = os.getenv("BEARER_TOKEN_SECRET")
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],

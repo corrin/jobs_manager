@@ -29,6 +29,7 @@ try:
             LoginRequiredMiddleware,
             PasswordStrengthMiddleware,
         )
+        from .middleware_bearer import BearerIdentityMiddleware
         from .permissions import F
         from .scheduler import get_scheduler, stop_scheduler
         from .scheduler_jobs import (
@@ -85,6 +86,7 @@ __all__ = [
     "AppErrorDetailResponseSerializer",
     "AppErrorListResponseSerializer",
     "AppErrorSerializer",
+    "BearerIdentityMiddleware",
     "CompanyDefaultsSerializer",
     "DecimalEncoder",
     "DisallowedHostMiddleware",
