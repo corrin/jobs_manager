@@ -19,7 +19,10 @@ try:
             PurchaseOrderPDFGenerator,
             create_purchase_order_pdf,
         )
-        from .purchasing_rest_service import PurchasingRestService
+        from .purchasing_rest_service import (
+            PreconditionFailedError,
+            PurchasingRestService,
+        )
         from .quote_to_po_service import (
             calculate_unit_cost,
             clean_json_response,
@@ -46,6 +49,7 @@ __all__ = [
     "AllocationService",
     "DeletionResult",
     "DeliveryReceiptValidationError",
+    "PreconditionFailedError",
     "PurchaseOrderPDFGenerator",
     "PurchasingRestService",
     "calculate_unit_cost",

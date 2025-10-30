@@ -7,6 +7,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .etag import generate_po_etag, normalize_etag
         from .forms import PurchaseOrderForm, PurchaseOrderLineForm
         from .models import (
             PurchaseOrder,
@@ -56,6 +57,7 @@ try:
             XeroItemListResponseSerializer,
             XeroItemSerializer,
         )
+        from .stock_cleanup import consolidate_duplicate_stock
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -114,4 +116,7 @@ __all__ = [
     "SupplierPriceStatusResponseSerializer",
     "XeroItemListResponseSerializer",
     "XeroItemSerializer",
+    "consolidate_duplicate_stock",
+    "generate_po_etag",
+    "normalize_etag",
 ]

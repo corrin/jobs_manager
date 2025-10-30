@@ -4,14 +4,16 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.core.cache import cache
-from django.db import models
+from django.db import models, transaction
 from django.db.models.expressions import RawSQL
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.client.models import Supplier
 from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
+from apps.purchasing.etag import generate_po_etag, normalize_etag
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 from apps.purchasing.services.delivery_receipt_service import (
     _create_costline_from_allocation,
@@ -21,6 +23,10 @@ from apps.quoting.services.stock_parser import auto_parse_stock_item
 from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
+
+
+class PreconditionFailedError(Exception):
+    """Raised when optimistic concurrency check fails."""
 
 
 class PurchasingRestService:
@@ -296,8 +302,27 @@ class PurchasingRestService:
         return po
 
     @staticmethod
-    def update_purchase_order(po_id: str, data: Dict[str, Any]) -> PurchaseOrder:
-        po = get_object_or_404(PurchaseOrder, id=po_id)
+    def update_purchase_order(
+        po_id: str, data: Dict[str, Any], *, expected_etag: str | None = None
+    ) -> PurchaseOrder:
+        expected_normalized = normalize_etag(expected_etag) if expected_etag else None
+
+        with transaction.atomic():
+            try:
+                po = (
+                    PurchaseOrder.objects.select_for_update()
+                    .select_related("supplier")
+                    .prefetch_related("po_lines")
+                    .get(id=po_id)
+                )
+            except PurchaseOrder.DoesNotExist as exc:
+                raise Http404(f"PurchaseOrder {po_id} not found") from exc
+
+            current_etag = normalize_etag(generate_po_etag(po))
+            if expected_normalized is not None and expected_normalized != current_etag:
+                raise PreconditionFailedError(
+                    "Purchase order modified since it was fetched."
+                )
 
         # Handle line deletion
         lines_to_delete = data.get("lines_to_delete")
@@ -328,6 +353,7 @@ class PurchasingRestService:
                 PurchasingRestService._process_field(po, field, data)
 
         po.save()
+        po.refresh_from_db()
 
         from pprint import pprint
 

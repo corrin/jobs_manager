@@ -460,5 +460,12 @@ class Stock(models.Model):
     class Meta:
         db_table = "workflow_stock"
         constraints = [
-            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock")
+            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock"),
+            models.UniqueConstraint(
+                fields=["source_purchase_order_line"],
+                condition=models.Q(
+                    is_active=True, source_purchase_order_line__isnull=False
+                ),
+                name="unique_active_stock_per_po_line",
+            ),
         ]
