@@ -468,11 +468,12 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
             )
 
 
-class DeliveryReceiptRestView(APIView):
+class DeliveryReceiptRestView(PurchaseOrderETagMixin, APIView):
     """
     REST API view for processing delivery receipts.
 
-    POST: Processes delivery receipt for a purchase order with stock allocations
+    POST: Processes delivery receipt for a purchase order with stock allocations.
+    Concurrency is controlled in this endpoint (ETag/If-Match).
     """
 
     serializer_class = DeliveryReceiptRequestSerializer
@@ -485,6 +486,7 @@ class DeliveryReceiptRestView(APIView):
     )
     def post(self, request):
         try:
+            purchase_order_id = None
             # Validate input data
             serializer = self.serializer_class(data=request.data)
             if not serializer.is_valid():
@@ -497,13 +499,39 @@ class DeliveryReceiptRestView(APIView):
             purchase_order_id = validated_data["purchase_order_id"]
             allocations = validated_data["allocations"]
 
-            # Process the delivery receipt
-            process_delivery_receipt(purchase_order_id, allocations)
+            if_match = self._get_if_match(request)
+            if not if_match:
+                return self._precondition_required_response()
 
-            # Return success response
+            # Process the delivery receipt with optimistic concurrency
+            po = process_delivery_receipt(
+                purchase_order_id,
+                allocations,
+                expected_etag=if_match,
+            )
+
+            # Return success response with refreshed ETag
             response_data = {"success": True}
             response_serializer = DeliveryReceiptResponseSerializer(response_data)
-            return Response(response_serializer.data)
+            response = Response(response_serializer.data)
+            self._set_etag(response, generate_po_etag(po))
+            return response
+
+        except PreconditionFailedError as exc:
+            logger.warning(
+                "ETag mismatch processing delivery receipt for PO %s: %s",
+                purchase_order_id,
+                str(exc),
+            )
+            response_data = {
+                "success": False,
+                "error": "Precondition failed (ETag mismatch). Reload and retry.",
+            }
+            response_serializer = DeliveryReceiptResponseSerializer(response_data)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_412_PRECONDITION_FAILED,
+            )
 
         except Exception as e:
             logger.error(f"Error processing delivery receipt: {str(e)}")

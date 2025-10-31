@@ -2,7 +2,6 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
-from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from xero_python.accounting import AccountingApi
@@ -130,9 +129,6 @@ def _ensure_unique_xero_link(
     """
     Guard against assigning the same Xero item to multiple stock records.
     """
-    if not getattr(settings, "ENABLE_XERO_STOCK_DUPLICATE_GUARD", True):
-        return True
-
     code_display = item_code or "<missing>"
     duplicate = (
         Stock.objects.filter(xero_id=xero_item_id).exclude(id=stock_item.id).first()

@@ -14,6 +14,7 @@ from apps.client.models import Supplier
 from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
+from apps.purchasing.exceptions import PreconditionFailedError
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 from apps.purchasing.services.delivery_receipt_service import (
     _create_costline_from_allocation,
@@ -23,10 +24,6 @@ from apps.quoting.services.stock_parser import auto_parse_stock_item
 from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
-
-
-class PreconditionFailedError(Exception):
-    """Raised when optimistic concurrency check fails."""
 
 
 class PurchasingRestService:

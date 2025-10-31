@@ -149,7 +149,8 @@ Change log
 - ETag helpers: `PurchaseOrderETagMixin._get_if_match/_get_if_none_match/_set_etag/_precondition_required_response` in `apps/purchasing/views/purchasing_rest_views.py`.
 - GET endpoint: `PurchaseOrderDetailRestView.get()` returns ETag and honours `If-None-Match`.
 - Mutation: `PurchaseOrderDetailRestView.patch()` requires `If-Match` and propagates ETag to the response.
-- Service layer check: `PurchasingRestService.update_purchase_order` performs `select_for_update` and raises `PreconditionFailedError` on ETag mismatch.
+- Delivery receipt ingestion: `DeliveryReceiptRestView.post()` now requires `If-Match` and refreshes the PO ETag after processing.
+- Service layer checks: `PurchasingRestService.update_purchase_order` and `process_delivery_receipt` both perform `select_for_update` and raise `PreconditionFailedError` on ETag mismatch.
 
 ### Why this is required
 - Prevents PO overwrites when two users edit simultaneously (e.g., updating lines or status).
@@ -158,17 +159,13 @@ Change log
 ### Client responsibilities
 - Fetch PO detail via GET, store the returned ETag (per `purchase_order_id`).
 - Include `If-Match: <etag>` on every PATCH to `/purchasing/rest/purchase-orders/{id}/`.
+- Include the same header when posting delivery receipts to `/purchasing/rest/delivery-receipts/` (the body still carries `purchase_order_id` and allocations).
 - Optionally send `If-None-Match` on GET to leverage 304 responses.
 - Handle `412` by reloading the PO and asking the user to retry.
 
-### Minimal implementation strategy
-- Maintain a map `etagByPo[poId] = etag`.
-- After each successful GET/PATCH, read the `ETag` header and update the map.
-- Before PATCH, read the stored ETag; if missing, fetch the PO first.
-
 ### UI handling recommendations
-- When receiving `412`, display a message such as: “This purchase order was updated elsewhere. We reloaded the latest data; please review and resubmit.”
-- Disable the submit button while a PATCH is in-flight to avoid accidental duplicate requests.
+- When receiving `412`, display a message such as: “This purchase order was updated elsewhere. We reloaded the latest data; please review and resubmit.” Apply the same flow after a delivery receipt submission fails with `412`.
+- Disable the submit button while a PATCH or delivery receipt POST is in-flight to avoid accidental duplicate requests.
 - Consider showing a diff of changed lines if that improves usability.
 
 ### HTTP status reference for PO endpoints
@@ -180,12 +177,7 @@ Change log
 ### CORS considerations
 - Ensure `If-Match`, `If-None-Match` are allowed request headers and `ETag` is exposed in responses, matching the existing job configuration.
 
-### Testing checklist
-- GET PO detail, capture ETag, repeat with `If-None-Match` to confirm 304.
-- Update PO from two browser tabs: first PATCH succeeds, second using stale ETag responds 412, followed by successful retry after refresh.
-- Verify that ETag values change when PO lines or status are updated.
-
 ### Change log
 - ETag mixin introduced in `apps/purchasing/views/purchasing_rest_views.py`.
-- Service layer now enforces optimistic concurrency via `PurchasingRestService.update_purchase_order`.
+- Service layer now enforces optimistic concurrency via `PurchasingRestService.update_purchase_order` and `process_delivery_receipt`.
 - New helper module `apps/purchasing/etag.py` for generating/normalizing PO ETags.
