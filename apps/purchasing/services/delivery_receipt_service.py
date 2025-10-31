@@ -38,12 +38,12 @@ def _to_decimal(value, *, field_label: str) -> Decimal:
 def _load_po_and_lines(
     purchase_order_id: str, line_allocations: Dict
 ) -> tuple[PurchaseOrder, dict[str, PurchaseOrderLine]]:
-    connection = transaction.get_connection()
-    if not connection.in_atomic_block:
-        raise RuntimeError(
-            "process_delivery_receipt must run inside an atomic transaction"
-        )
+    """
+    Fetch and lock the purchase order plus requested lines.
 
+    Caller must already be inside an atomic block; this helper assumes the
+    surrounding transaction context (see process_delivery_receipt).
+    """
     # Lock the PO row to avoid concurrent requests creating duplicate stock entries
     # before the first transaction commits.
     po = (
