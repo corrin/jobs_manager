@@ -143,9 +143,7 @@ def _validate_and_prepare_allocations(
     return total_received, prepared
 
 
-def _delete_previous_stock_for_line(
-    line: PurchaseOrderLine, *, run_id: str
-) -> None:
+def _delete_previous_stock_for_line(line: PurchaseOrderLine, *, run_id: str) -> None:
     existing = Stock.objects.filter(
         source="purchase_order", source_purchase_order_line=line
     )

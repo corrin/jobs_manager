@@ -4,7 +4,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models
 from django.db.models import IntegerField, Max
 from django.db.models.functions import Cast, Substr
 from django.utils import timezone
@@ -426,6 +426,20 @@ class Stock(models.Model):
         """
         logger.debug(f"Saving stock item: {self.description}")
 
+        if self.is_active and self.source_purchase_order_line_id:
+            conflict_exists = (
+                Stock.objects.filter(
+                    is_active=True,
+                    source_purchase_order_line_id=self.source_purchase_order_line_id,
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if conflict_exists:
+                raise IntegrityError(
+                    "An active stock entry already exists for this purchase order line."
+                )
+
         # Log negative quantities but allow them (backorders, emergency usage, etc.)
         if self.quantity < 0:
             logger.info(
@@ -460,12 +474,5 @@ class Stock(models.Model):
     class Meta:
         db_table = "workflow_stock"
         constraints = [
-            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock"),
-            models.UniqueConstraint(
-                fields=["source_purchase_order_line"],
-                condition=models.Q(
-                    is_active=True, source_purchase_order_line__isnull=False
-                ),
-                name="unique_active_stock_per_po_line",
-            ),
+            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock")
         ]
