@@ -54,6 +54,7 @@ class BearerIdentityMiddleware:
             request._cached_user = user
 
         except (jwt.InvalidTokenError, jwt.ExpiredSignatureError, User.DoesNotExist):
+            # Bearer token authentication failed; fall through to other authentication methods.
             pass
 
         return self.get_response(request)
