@@ -78,7 +78,7 @@ class PurchaseOrderETagMixin:
         error = {"error": "Missing If-Match header (precondition required)"}
         return Response(
             error,
-            status=getattr(status, "HTTP_428_PRECONDITION_REQUIRED", 428),
+            status=status.HTTP_428_PRECONDITION_REQUIRED,
         )
 
     def _set_etag(self, response, etag: str):
