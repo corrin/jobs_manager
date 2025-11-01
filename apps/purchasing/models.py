@@ -446,11 +446,11 @@ class Stock(models.Model):
         self.active_source_purchase_order_line_id = desired_active_ref
 
         update_fields = kwargs.get("update_fields")
-        if update_fields is not None:
-            update_field_set = set(update_fields)
-            if needs_active_ref_update:
-                update_field_set.add("active_source_purchase_order_line_id")
-            kwargs["update_fields"] = update_field_set
+        if update_fields is not None and needs_active_ref_update:
+            field_name = "active_source_purchase_order_line_id"
+            merged = tuple(update_fields) + (field_name,)
+            deduped = tuple(dict.fromkeys(merged))
+            kwargs["update_fields"] = deduped
 
         # Log negative quantities but allow them (backorders, emergency usage, etc.)
         if self.quantity < 0:
