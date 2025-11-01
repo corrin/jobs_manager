@@ -40,7 +40,6 @@ class JobFilesCollectionView(JobLookupMixin, APIView):
     """
 
     parser_classes = [MultiPartParser, FormParser]
-    serializer_class = JobFileSerializer
 
     def save_file(self, job, file_obj, print_on_jobsheet, request):
         """Save file to disk and create JobFile record."""
@@ -103,6 +102,19 @@ class JobFilesCollectionView(JobLookupMixin, APIView):
 
     @extend_schema(
         operation_id="uploadJobFiles",
+        request={
+            "multipart/form-data": {
+                "type": "object",
+                "properties": {
+                    "files": {
+                        "type": "array",
+                        "items": {"type": "string", "format": "binary"},
+                        "description": "Files to upload",
+                    }
+                },
+                "required": ["files"],
+            }
+        },
         responses={
             201: JobFileUploadSuccessResponseSerializer,
             207: JobFileUploadPartialResponseSerializer,

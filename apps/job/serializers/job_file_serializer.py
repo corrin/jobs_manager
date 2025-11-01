@@ -32,16 +32,20 @@ class JobFileSerializer(serializers.ModelSerializer):
 
     def get_download_url(self, obj: JobFile) -> str:
         request = self.context["request"]
-        # Use the correct namespace from jobs_manager/urls.py
-        path = reverse("jobs:job_file_download", args=[obj.file_path])
+        # Use the new REST endpoint: /rest/jobs/{job_id}/files/{file_id}/
+        path = reverse(
+            "jobs:job_file_detail", kwargs={"job_id": obj.job.id, "file_id": obj.id}
+        )
         return request.build_absolute_uri(path)
 
     def get_thumbnail_url(self, obj: JobFile) -> str | None:
         if not obj.thumbnail_path:
             return None
         request = self.context["request"]
-        # Use the correct namespace from jobs_manager/urls.py
-        path = reverse("jobs:job_file_thumbnail", args=[str(obj.id)])
+        # Use the new REST endpoint: /rest/jobs/{job_id}/files/{file_id}/thumbnail/
+        path = reverse(
+            "jobs:job_file_thumbnail", kwargs={"job_id": obj.job.id, "file_id": obj.id}
+        )
         return request.build_absolute_uri(path)
 
 
