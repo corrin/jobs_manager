@@ -9,12 +9,13 @@ from datetime import datetime
 
 from django.db import transaction
 from django.db.models import Case, IntegerField, Prefetch, Value, When
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.mixins import JobLookupMixin
+from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
 from apps.job.serializers import CostSetSerializer
 from apps.job.serializers.costing_serializer import (
@@ -35,7 +36,7 @@ KIND_ORDER = Case(
 )
 
 
-class JobCostSetView(JobLookupMixin, APIView):
+class JobCostSetView(APIView):
     """
     Retrieve the latest CostSet for a specific job and kind.
 
@@ -45,7 +46,6 @@ class JobCostSetView(JobLookupMixin, APIView):
     for the given job, or 404 if not found.
     """
 
-    lookup_url_kwarg = "pk"  # Match the URL parameter name
     serializer_class = CostSetSerializer
 
     def get(self, request, pk, kind):
@@ -68,9 +68,7 @@ class JobCostSetView(JobLookupMixin, APIView):
             )
 
         # Get the job
-        job, error_response = self.get_job_or_404_response(error_format="legacy")
-        if error_response:
-            return error_response
+        job = get_object_or_404(Job, id=pk)
 
         # Get the latest CostSet using the job's helper method
         cost_set = (
@@ -97,7 +95,7 @@ class JobCostSetView(JobLookupMixin, APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class JobQuoteRevisionView(JobLookupMixin, APIView):
+class JobQuoteRevisionView(APIView):
     """
     Manage quote revisions for jobs.
 
@@ -116,7 +114,6 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
     Only works with kind='quote' CostSets.
     """
 
-    lookup_url_kwarg = "job_id"
     serializer_class = QuoteRevisionRequestSerializer
 
     @extend_schema(
@@ -134,10 +131,7 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
         Returns:
             Response: List of archived quote revisions or empty list
         """
-        # Get the job
-        job, error_response = self.get_job_or_404_response(error_format="legacy")
-        if error_response:
-            return error_response
+        job = get_object_or_404(Job, id=job_id)
 
         # Get the current quote CostSet
         current_quote = job.get_latest("quote")
@@ -195,9 +189,7 @@ class JobQuoteRevisionView(JobLookupMixin, APIView):
             )
 
         # Get the job
-        job, error_response = self.get_job_or_404_response(error_format="legacy")
-        if error_response:
-            return error_response
+        job = get_object_or_404(Job, id=job_id)
 
         # Get the current quote CostSet
         current_quote = job.get_latest("quote")
