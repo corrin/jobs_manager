@@ -274,12 +274,17 @@ def _recompute_po_status(po: PurchaseOrder) -> None:
     else:
         new_status = "fully_received"
 
+    updated_fields: list[str] = []
     if new_status != po.status:
         po.status = new_status
-        po.save(update_fields=["status"])
+        updated_fields.append("status")
         logger.debug("Updated PO %s status to %s", po.po_number, po.status)
     else:
         logger.debug("PO %s status unchanged: %s", po.po_number, po.status)
+
+    po.updated_at = timezone.now()
+    updated_fields.append("updated_at")
+    po.save(update_fields=updated_fields)
 
 
 def process_delivery_receipt(
