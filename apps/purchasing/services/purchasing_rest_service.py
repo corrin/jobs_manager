@@ -321,44 +321,44 @@ class PurchasingRestService:
                     "Purchase order modified since it was fetched."
                 )
 
-        # Handle line deletion
-        lines_to_delete = data.get("lines_to_delete")
-        if lines_to_delete:
-            PurchasingRestService._delete_lines(lines_to_delete, po)
+            # Handle line deletion
+            lines_to_delete = data.get("lines_to_delete")
+            if lines_to_delete:
+                PurchasingRestService._delete_lines(lines_to_delete, po)
 
-        # Handle supplier updates
-        supplier_id = data.get("supplier_id")
-        if supplier_id:
-            PurchasingRestService._update_supplier(supplier_id, po)
+            # Handle supplier updates
+            supplier_id = data.get("supplier_id")
+            if supplier_id:
+                PurchasingRestService._update_supplier(supplier_id, po)
 
-        existing_lines = {str(line.id): line for line in po.po_lines.all()}
-        updated_line_ids = set()
+            existing_lines = {str(line.id): line for line in po.po_lines.all()}
+            updated_line_ids = set()
 
-        logger.info(f"Processing {len(data.get('lines', []))} lines for PO {po.id}")
-        logger.info(f"Existing lines: {list(existing_lines.keys())}")
+            logger.info(f"Processing {len(data.get('lines', []))} lines for PO {po.id}")
+            logger.info(f"Existing lines: {list(existing_lines.keys())}")
 
-        for line_data in data.get("lines", []):
-            line_id = line_data.get("id")
-            logger.info(f"Processing line with id: {line_id}")
-            logger.info(f"Line data keys: {list(line_data.keys())}")
-            PurchasingRestService._process_line(
-                line_data, existing_lines, updated_line_ids, po
-            )
+            for line_data in data.get("lines", []):
+                line_id = line_data.get("id")
+                logger.info(f"Processing line with id: {line_id}")
+                logger.info(f"Line data keys: {list(line_data.keys())}")
+                PurchasingRestService._process_line(
+                    line_data, existing_lines, updated_line_ids, po
+                )
 
-        for field in ["reference", "expected_delivery", "status"]:
-            if field in data:
-                PurchasingRestService._process_field(po, field, data)
+            for field in ["reference", "expected_delivery", "status"]:
+                if field in data:
+                    PurchasingRestService._process_field(po, field, data)
 
-        po.save()
-        po.refresh_from_db()
+            po.save()
+            po.refresh_from_db()
 
-        from pprint import pprint
+            from pprint import pprint
 
-        logger.info("PO after update:")
-        pprint(po.__dict__)
+            logger.info("PO after update:")
+            pprint(po.__dict__)
 
-        logger.info(f"Update complete. Updated line IDs: {updated_line_ids}")
-        return po
+            logger.info(f"Update complete. Updated line IDs: {updated_line_ids}")
+            return po
 
     @staticmethod
     def list_stock() -> List[Dict[str, Any]]:
