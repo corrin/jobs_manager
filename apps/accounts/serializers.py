@@ -294,22 +294,19 @@ class TokenObtainPairResponseSerializer(serializers.Serializer):
     """
 
     access = serializers.CharField(
-        read_only=True,
         required=False,
         help_text="JWT access token (only present when not using httpOnly cookies)",
     )
     refresh = serializers.CharField(
-        read_only=True,
         required=False,
         help_text="JWT refresh token (only present when not using httpOnly cookies)",
     )
     password_needs_reset = serializers.BooleanField(
-        read_only=True,
         required=False,
         help_text="Indicates if the user needs to reset their password",
     )
     password_reset_url = serializers.URLField(
-        read_only=True, required=False, help_text="URL to reset password if needed"
+        required=False, help_text="URL to reset password if needed"
     )
 
 
@@ -323,7 +320,29 @@ class TokenRefreshResponseSerializer(serializers.Serializer):
     """
 
     access = serializers.CharField(
-        read_only=True,
         required=False,
         help_text="New JWT access token (only present when not using httpOnly cookies)",
+    )
+
+
+class BearerTokenRequestSerializer(serializers.Serializer):
+    """
+    Serializer for bearer token generation request.
+    """
+
+    username = serializers.CharField(
+        required=True, help_text="Username or email address"
+    )
+    password = serializers.CharField(
+        required=True, help_text="User password", write_only=True
+    )
+
+
+class BearerTokenResponseSerializer(serializers.Serializer):
+    """
+    Serializer for bearer token generation response.
+    """
+
+    token = serializers.CharField(
+        required=True, help_text="Bearer token for API authentication"
     )

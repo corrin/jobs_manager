@@ -1,7 +1,6 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -54,6 +53,8 @@ def validate_required_settings() -> None:
         "CORS_ALLOW_CREDENTIALS",
         "ENABLE_JWT_AUTH",
         "AUTH_COOKIE_DOMAIN",
+        "ALLOW_BEARER_TOKEN_AUTHENTICATION",
+        "BEARER_TOKEN_SECRET",
         # Frontend Integration
         "FRONT_END_URL",
     ]
@@ -104,135 +105,38 @@ def use_secure_cookies():
     return False  # Local development (localhost)
 
 
-def resolve_auth_cookie_domain():
-    """
-    Determine the cookie Domain attribute to use.
-
-    Policy:
-    - In production-like environments (DJANGO_ENV=production_like) without tunnels,
-      honor AUTH_COOKIE_DOMAIN when safe; fallback to DJANGO_SITE_DOMAIN; else host-only.
-    - In non-production or when using tunnels (NGROK_DOMAIN/TUNNEL_URL present) or DEBUG=True,
-      ALWAYS use host-only cookies (return None) to avoid public suffix and cross-site issues.
-    - If JWT_COOKIE_DEV_MODE=True, force host-only cookie regardless of other flags.
-    - Never return a public suffix as cookie domain.
-    """
-    # Master dev override: force host-only cookies
-    if os.getenv("JWT_COOKIE_DEV_MODE", "False").lower() == "true":
-        return None
-
-    # Force host-only cookies for development/tunnel scenarios
-    if (
-        DEBUG
-        or os.getenv("TUNNEL_URL")
-        or os.getenv("NGROK_DOMAIN")
-        or not PRODUCTION_LIKE
-    ):
-        return None
-
-    env_value = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
-    site_domain = os.getenv("DJANGO_SITE_DOMAIN", "").strip()
-
-    # Normalize input (strip any leading dot)
-    env_value = env_value.lstrip(".") if env_value else ""
-    site_domain = site_domain.lstrip(".") if site_domain else ""
-
-    # Guard against public suffixes (browsers reject Set-Cookie with these)
-    public_suffixes = {"ngrok-free.app", "ngrok.io", "ngrok.app"}
-
-    # Prefer explicitly configured domain if provided and safe
-    if env_value and env_value not in public_suffixes:
-        return env_value
-
-    # Fallback to configured site domain if safe
-    if site_domain and site_domain not in public_suffixes:
-        return site_domain
-
-    # Final fallback: host-only cookie
-    return None
-
-
-def resolve_auth_cookie_samesite():
-    """
-    Determine SameSite for auth cookies.
-
-    Rules:
-    - If DEBUG or not PRODUCTION_LIKE or using tunnels (NGROK_DOMAIN/TUNNEL_URL), return "None"
-      so that cross-site requests (frontend on a different ngrok subdomain) can include cookies.
-    - If JWT_COOKIE_DEV_MODE=True, force "None".
-    - In production-like without tunnels:
-        * If FRONT_END_URL host equals DJANGO_SITE_DOMAIN host, return "Lax"
-        * Otherwise, return "None"
-    """
-    try:
-        # Master dev override: force SameSite=None
-        if os.getenv("JWT_COOKIE_DEV_MODE", "False").lower() == "true":
-            return "None"
-
-        if (
-            DEBUG
-            or not PRODUCTION_LIKE
-            or os.getenv("TUNNEL_URL")
-            or os.getenv("NGROK_DOMAIN")
-        ):
-            return "None"
-
-        fe = os.getenv("FRONT_END_URL", "").strip()
-        api = os.getenv("DJANGO_SITE_DOMAIN", "").strip()
-
-        if not fe or not api:
-            return "Lax"
-
-        fe_host = (urlparse(fe).hostname or "").lower()
-        api_host = api.lower().lstrip(".")
-
-        if fe_host == api_host:
-            return "Lax"
-        return "None"
-    except Exception:
-        # Fail-safe default
-        return "Lax"
-
-
 # =======================
-# Cookie Strategy Helpers
+# Cookie Configuration
 # =======================
-def get_cookie_strategy() -> str:
+def get_auth_cookie_domain():
     """
-    Returns the cookie strategy:
-    - "auto" (default): use safe/tunnel-aware behavior (host-only on tunnels, avoid public suffix).
-    - "legacy": honor envs as they are (restores old behavior).
+    Get cookie domain from AUTH_COOKIE_DOMAIN env var.
+
+    Now that configure_tunnels.py automatically manages this value,
+    we trust it directly instead of trying to auto-detect tunnels.
     """
-    return os.getenv("JWT_COOKIE_STRATEGY", "auto").strip().lower()
-
-
-def legacy_auth_cookie_domain():
-    """Legacy: directly use AUTH_COOKIE_DOMAIN (may be unsafe for tunnels/public suffix)."""
     value = os.getenv("AUTH_COOKIE_DOMAIN", "").strip()
     return value or None
 
 
-def legacy_auth_cookie_samesite():
-    """Legacy: directly use COOKIE_SAMESITE (default Lax)."""
-    env = os.getenv("COOKIE_SAMESITE")
-    return env.capitalize() if env else "Lax"
-
-
-def get_auth_cookie_domain():
-    """Select cookie domain based on strategy."""
-    return (
-        legacy_auth_cookie_domain()
-        if get_cookie_strategy() == "legacy"
-        else resolve_auth_cookie_domain()
-    )
-
-
 def get_auth_cookie_samesite():
-    """Select cookie SameSite based on strategy."""
-    return (
-        legacy_auth_cookie_samesite()
-        if get_cookie_strategy() == "legacy"
-        else resolve_auth_cookie_samesite()
-    )
+    """
+    Get SameSite attribute for auth cookies.
+
+    Uses COOKIE_SAMESITE env var if set, otherwise defaults to "Lax".
+    For cross-origin scenarios (different ngrok subdomains), you should set COOKIE_SAMESITE=None.
+
+    Returns:
+        None (Python value) if COOKIE_SAMESITE=None (for SameSite=None cookies)
+        "Lax", "Strict", or other string values otherwise
+    """
+    env = os.getenv("COOKIE_SAMESITE")
+    if not env:
+        return "Lax"
+    # Handle "None" specially - return Python None, not string "None"
+    if env.lower() == "none":
+        return None
+    return env.capitalize()
 
 
 # Control scheduler registration - only register jobs when explicitly enabled
@@ -310,12 +214,13 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "apps.workflow.middleware.DisallowedHostMiddleware",  # Handle break-in attempts cleanly
-    "django.middleware.gzip.GZipMiddleware",  # Enable gzip compression for API responses (early in response)
+    "apps.workflow.middleware.DisallowedHostMiddleware",
+    "django.middleware.gzip.GZipMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.workflow.middleware_bearer.BearerIdentityMiddleware",
     "apps.workflow.middleware.FrontendRedirectMiddleware",
     "apps.workflow.middleware.AccessLoggingMiddleware",
     "apps.workflow.middleware.LoginRequiredMiddleware",
@@ -440,6 +345,11 @@ CORS_ALLOW_HEADERS = CORS_ALLOWED_HEADERS
 # JWT/authentication settings
 ENABLE_JWT_AUTH = os.getenv("ENABLE_JWT_AUTH", "True").lower() == "true"
 
+ALLOW_BEARER_TOKEN_AUTHENTICATION = (
+    os.getenv("ALLOW_BEARER_TOKEN_AUTHENTICATION").lower() == "true"
+)
+BEARER_TOKEN_SECRET = os.getenv("BEARER_TOKEN_SECRET")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["jobs_manager.authentication.JWTAuthentication"],
     "DEFAULT_PERMISSION_CLASSES": [
@@ -510,6 +420,46 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Jobs Manager API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # DRF Spectacular auto-generates enum names based on content hashes when multiple
+    # models have fields with the same name (e.g., "status", "type", "kind").
+    # ENUM_NAME_OVERRIDES maps hash-based names to actual choice tuples for better naming.
+    "ENUM_NAME_OVERRIDES": {
+        "TypeC98Enum": (
+            ("stock", "Stock"),
+            ("job", "Job"),
+        ),
+        "Kind332Enum": (
+            ("time", "Time"),
+            ("material", "Material"),
+            ("adjust", "Adjustment"),
+        ),
+        "Status1beEnum": (
+            ("DRAFT", "Draft"),
+            ("SUBMITTED", "Submitted"),
+            ("AUTHORISED", "Authorised"),
+            ("DELETED", "Deleted"),
+            ("VOIDED", "Voided"),
+            ("PAID", "Paid"),
+        ),
+        "Status7aeEnum": (
+            ("DRAFT", "Draft"),
+            ("SENT", "Sent"),
+            ("DECLINED", "Declined"),
+            ("ACCEPTED", "Accepted"),
+            ("INVOICED", "Invoiced"),
+            ("DELETED", "Deleted"),
+        ),
+        "Status7b9Enum": (
+            ("draft", "Draft"),
+            ("awaiting_approval", "Awaiting Approval"),
+            ("approved", "Approved"),
+            ("in_progress", "In Progress"),
+            ("unusual", "Unusual"),
+            ("recently_completed", "Recently Completed"),
+            ("special", "Special"),
+            ("archived", "Archived"),
+        ),
+    },
 }
 
 ROOT_URLCONF = "jobs_manager.urls"

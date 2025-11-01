@@ -3,14 +3,16 @@ from django.urls import path
 from rest_framework import status
 
 from apps.job.views.data_quality_report_views import ArchivedJobsComplianceView
+from apps.job.views.delivery_docket_view import DeliveryDocketView
 from apps.job.views.job_costing_views import JobCostSetView, JobQuoteRevisionView
 from apps.job.views.job_costline_views import (
     CostLineCreateView,
     CostLineDeleteView,
     CostLineUpdateView,
 )
-from apps.job.views.job_file_upload import JobFileUploadView
-from apps.job.views.job_file_view import JobFileThumbnailView, JobFileView
+from apps.job.views.job_file_detail_view import JobFileDetailView
+from apps.job.views.job_file_thumbnail_view import JobFileThumbnailView
+from apps.job.views.job_files_collection_view import JobFilesCollectionView
 from apps.job.views.job_quote_chat_api import JobQuoteChatInteractionView
 from apps.job.views.job_quote_chat_views import (
     JobQuoteChatHistoryView,
@@ -188,30 +190,29 @@ rest_urlpatterns = [
         WorkshopPDFView.as_view(),
         name="workshop-pdf",
     ),
-    # Job files
+    # Delivery Docket PDF
     path(
-        "rest/jobs/files/upload/", JobFileUploadView.as_view(), name="job_file_upload"
+        "rest/jobs/<uuid:job_id>/delivery-docket/",
+        DeliveryDocketView.as_view(),
+        name="delivery-docket",
     ),
+    # Job files - Collection operations (upload, list)
     path(
-        "rest/jobs/files/<uuid:file_id>/thumbnail/",
+        "rest/jobs/<uuid:job_id>/files/",
+        JobFilesCollectionView.as_view(),
+        name="job_files_collection",
+    ),
+    # Job files - Resource operations (download, update, delete)
+    path(
+        "rest/jobs/<uuid:job_id>/files/<uuid:file_id>/",
+        JobFileDetailView.as_view(),
+        name="job_file_detail",
+    ),
+    # Job files - Thumbnail
+    path(
+        "rest/jobs/<uuid:job_id>/files/<uuid:file_id>/thumbnail/",
         JobFileThumbnailView.as_view(),
         name="job_file_thumbnail",
-    ),
-    path(
-        "rest/jobs/files/<int:job_number>/",
-        JobFileView.as_view(),
-        name="job_files_list",
-    ),
-    path("rest/jobs/files/", JobFileView.as_view(), name="job_file_base"),
-    path(
-        "rest/jobs/files/<path:file_path>/",
-        JobFileView.as_view(),
-        name="job_file_download",
-    ),
-    path(
-        "rest/jobs/files/<int:file_path>/",
-        JobFileView.as_view(),
-        name="job_file_delete",
     ),
     # Quote Import (NEW - Google Sheets sync)
     path(

@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(
     responses={
-        200: [TokenObtainPairResponseSerializer, EmptySerializer],
-        401: {"description": "Authentication failed due to invalid credentials"},
+        200: TokenObtainPairResponseSerializer,
+        401: EmptySerializer,
     },
     description=(
         "Obtains JWT tokens for authentication. "
-        "When ENABLE_JWT_AUTH=True, tokens are set as httpOnly cookies, "
-        "and the response body will be an empty object (schema: EmptySerializer). "
-        "Otherwise, the response body will contain the tokens (schema: TokenObtainPairResponseSerializer). "
+        "When ENABLE_JWT_AUTH=True, tokens are set as httpOnly cookies "
+        "and the response body will be an empty object. "
+        "Otherwise, the response body will contain the tokens. "
         "Also checks if the user needs to reset their password."
     ),
 )
@@ -143,14 +143,14 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 @extend_schema(
     responses={
-        200: [TokenRefreshResponseSerializer, EmptySerializer],
-        401: {"description": "Authentication failed due to invalid refresh token"},
+        200: TokenRefreshResponseSerializer,
+        401: EmptySerializer,
     },
     description=(
         "Refreshes the JWT access token using a refresh token. "
         "When ENABLE_JWT_AUTH=True, the new access token is set as an "
-        "httpOnly cookie and removed from the JSON response (schema: EmptySerializer). "
-        "Otherwise, the response contains the new access token (schema: TokenRefreshResponseSerializer)."
+        "httpOnly cookie and removed from the JSON response. "
+        "Otherwise, the response contains the new access token."
     ),
 )
 class CustomTokenRefreshView(TokenRefreshView):

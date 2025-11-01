@@ -7,8 +7,7 @@
 #### Daily Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/daily/` | `daily_timesheet_views.DailyTimesheetSummaryAPIView` | `timesheet:api_daily_summary` | Get daily timesheet summary for all staff |
-| `/api/daily/<str:target_date>/` | `daily_timesheet_views.DailyTimesheetSummaryAPIView` | `timesheet:api_daily_summary_with_date` | Get daily timesheet summary for all staff |
+| `/api/daily/<str:target_date>/` | `daily_timesheet_views.DailyTimesheetSummaryAPIView` | `timesheet:api_daily_summary` | Get daily timesheet summary for all staff |
 
 #### Jobs Management
 | URL Pattern | View | Name | Description |
@@ -19,8 +18,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/staff/` | `api.StaffListAPIView` | `timesheet:api_staff_list` | API endpoint to get filtered list of staff members for timesheet operations. |
-| `/api/staff/<str:staff_id>/daily/` | `daily_timesheet_views.StaffDailyDetailAPIView` | `timesheet:api_staff_daily_detail` | Get detailed timesheet data for a specific staff member |
-| `/api/staff/<str:staff_id>/daily/<str:target_date>/` | `daily_timesheet_views.StaffDailyDetailAPIView` | `timesheet:api_staff_daily_detail_with_date` | Get detailed timesheet data for a specific staff member |
+| `/api/staff/<str:staff_id>/daily/<str:target_date>/` | `daily_timesheet_views.StaffDailyDetailAPIView` | `timesheet:api_staff_daily_detail` | Get detailed timesheet data for a specific staff member |
 
 #### Weekly Management
 | URL Pattern | View | Name | Description |

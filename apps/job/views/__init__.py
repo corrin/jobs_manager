@@ -6,13 +6,16 @@ from .archive_completed_jobs_view import (
 )
 from .assign_job_view import AssignJobView
 from .data_quality_report_views import ArchivedJobsComplianceView
+from .delivery_docket_view import DeliveryDocketView
 from .job_costing_views import JobCostSetView, JobQuoteRevisionView
 from .job_costline_views import (
     CostLineCreateView,
     CostLineDeleteView,
     CostLineUpdateView,
 )
-from .job_file_view import BinaryFileRenderer, JobFileThumbnailView, JobFileView
+from .job_file_detail_view import BinaryFileRenderer, JobFileDetailView
+from .job_file_thumbnail_view import JobFileThumbnailView
+from .job_files_collection_view import JobFilesCollectionView
 from .job_quote_chat_views import (
     BaseJobQuoteChatView,
     JobQuoteChatHistoryView,
@@ -61,7 +64,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .job_file_upload import JobFileUploadView
         from .job_quote_chat_api import JobQuoteChatInteractionView
         from .kanban_view_api import (
             AdvancedSearchAPIView,
@@ -88,6 +90,7 @@ __all__ = [
     "CostLineCreateView",
     "CostLineDeleteView",
     "CostLineUpdateView",
+    "DeliveryDocketView",
     "FetchAllJobsAPIView",
     "FetchJobsAPIView",
     "FetchJobsByColumnAPIView",
@@ -101,9 +104,9 @@ __all__ = [
     "JobDetailRestView",
     "JobEventListRestView",
     "JobEventRestView",
+    "JobFileDetailView",
     "JobFileThumbnailView",
-    "JobFileUploadView",
-    "JobFileView",
+    "JobFilesCollectionView",
     "JobHeaderRestView",
     "JobInvoicesRestView",
     "JobQuoteAcceptRestView",

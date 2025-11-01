@@ -24,12 +24,13 @@ def determine_cookie_domain(backend_url: str) -> str:
     """
     Determine appropriate cookie domain from backend URL.
 
-    Simply removes the first subdomain part from the hostname.
+    Removes the first subdomain part and returns domain WITHOUT leading dot
+    (modern browsers prefer this).
 
     Examples:
-      - foo.loca.lt -> .loca.lt
-      - bar.ngrok-free.app -> .ngrok-free.app
-      - baz.example.com -> .example.com
+      - foo.loca.lt -> loca.lt
+      - bar.ngrok-free.app -> ngrok-free.app
+      - baz.example.com -> example.com
     """
     backend_host = extract_hostname(backend_url)
     parts = backend_host.split(".")
@@ -37,8 +38,8 @@ def determine_cookie_domain(backend_url: str) -> str:
     if len(parts) < 2:
         raise ValueError(f"Invalid hostname: {backend_host}")
 
-    # Remove first part, keep the rest
-    return "." + ".".join(parts[1:])
+    # Remove first part, keep the rest, NO leading dot
+    return ".".join(parts[1:])
 
 
 # Backend .env update rules
@@ -56,20 +57,11 @@ BACKEND_UPDATE_RULES = {
     "ALLOWED_HOSTS": lambda b, f: [extract_hostname(b), extract_hostname(f)],
     "XERO_REDIRECT_URI": lambda b, f: f"{b}/api/xero/oauth/callback/",
     "APP_DOMAIN": lambda b, f: extract_hostname(b),
-    "CORS_ALLOWED_ORIGINS": lambda b, f: [
-        b,
-        f,
-        b.replace("https://", "http://"),
-        f.replace("https://", "http://"),
-    ],
-    "CSRF_TRUSTED_ORIGINS": lambda b, f: [
-        b,
-        f,
-        b.replace("https://", "http://"),
-        f.replace("https://", "http://"),
-    ],
+    "CORS_ALLOWED_ORIGINS": lambda b, f: ",".join(get_base_cors_origins() + [b, f]),  # Preserve UAT/PROD + add tunnels
+    "CSRF_TRUSTED_ORIGINS": lambda b, f: f"{b},{f}",  # HTTPS only
     "FRONT_END_URL": lambda b, f: f,
     "AUTH_COOKIE_DOMAIN": lambda b, f: determine_cookie_domain(b),
+    "COOKIE_SAMESITE": "None",  # Required for cross-origin cookie sharing between tunnels
 }
 
 # Frontend .env update rules
@@ -121,6 +113,21 @@ def check_for_untouched_tunnels(env_path: Path, update_rules: dict) -> None:
                 break
 
 
+def get_base_cors_origins():
+    """Return base CORS origins that should always be preserved (UAT, PROD, localhost, etc.)."""
+    return [
+        # Local development
+        "http://localhost:5173",  # Vite default
+        "http://localhost:8080",  # Vue CLI default
+        # UAT
+        "https://uat-office.morrissheetmetal.co.nz",
+        "https://api.uat-office.morrissheetmetal.co.nz",
+        # PROD
+        "https://office.morrissheetmetal.co.nz",
+        "https://api.office.morrissheetmetal.co.nz",
+    ]
+
+
 def apply_update_rules(
     env_path: Path, update_rules: dict, backend_url: str, frontend_url: str
 ) -> set:
@@ -141,15 +148,20 @@ def apply_update_rules(
 
     # Process each line
     new_lines = []
-    for line in lines:
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
         # Skip empty lines and comments
         if not line.strip() or line.strip().startswith("#"):
             new_lines.append(line)
+            i += 1
             continue
 
         # Parse key=value
         if "=" not in line:
             new_lines.append(line)
+            i += 1
             continue
 
         key, value = line.split("=", 1)
@@ -160,13 +172,23 @@ def apply_update_rules(
             rule = update_rules[key]
 
             if rule is None:
-                # Skip this key (remove it)
+                # Skip this key (remove it) and its preceding comment if it's our warning
+                if new_lines and new_lines[-1].strip() == "# Managed by configure_tunnels.py - do not edit directly":
+                    new_lines.pop()
                 updated.add(key)
+                i += 1
                 continue
 
             # Evaluate rule if it's a callable
             if callable(rule):
                 rule = rule(backend_url, frontend_url)
+
+            # Remove old warning comment if present
+            if new_lines and new_lines[-1].strip() == "# Managed by configure_tunnels.py - do not edit directly":
+                new_lines.pop()
+
+            # Add warning comment before the variable
+            new_lines.append("# Managed by configure_tunnels.py - do not edit directly")
 
             if isinstance(rule, list):
                 # Add items to comma-separated list
@@ -182,6 +204,8 @@ def apply_update_rules(
         else:
             # Keep line unchanged
             new_lines.append(line)
+
+        i += 1
 
     # Write back to file
     env_path.write_text("\n".join(new_lines))
@@ -201,6 +225,7 @@ def update_backend_env(backend_url: str, frontend_url: str, env_path: Path) -> N
         print(f"  - {key}")
     cookie_domain = determine_cookie_domain(backend_url)
     print(f"Cookie domain set to: {cookie_domain}")
+    print(f"Cookie SameSite set to: None (required for cross-origin requests)")
 
 
 def update_frontend_env(backend_url: str, frontend_url: str, env_path: Path) -> None:

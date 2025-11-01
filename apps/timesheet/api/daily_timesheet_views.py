@@ -5,7 +5,7 @@ REST API endpoints for daily timesheet functionality using DRF
 """
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -33,32 +33,27 @@ class DailyTimesheetSummaryAPIView(APIView):
     serializer_class = DailyTimesheetSummarySerializer
 
     @extend_schema(operation_id="getDailyTimesheetSummaryByDate")
-    def get(self, request, target_date: str = None):
+    def get(self, request, target_date: str):
         """
         Get daily timesheet summary for all staff
 
         Args:
-            target_date: Date in YYYY-MM-DD format (optional, defaults to today)
+            target_date: Date in YYYY-MM-DD format (required)
 
         Returns:
             JSON response with daily timesheet data
         """
         try:
-            # Parse date or use today
-            if target_date:
-                try:
-                    parsed_date = datetime.strptime(target_date, "%Y-%m-%d").date()
-                except ValueError:
-                    error_response = {"error": "Invalid date format. Use YYYY-MM-DD"}
-                    error_serializer = TimesheetErrorResponseSerializer(
-                        data=error_response
-                    )
-                    error_serializer.is_valid(raise_exception=True)
-                    return Response(
-                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                    )
-            else:
-                parsed_date = date.today()
+            # Parse date
+            try:
+                parsed_date = datetime.strptime(target_date, "%Y-%m-%d").date()
+            except ValueError:
+                error_response = {"error": "Invalid date format. Use YYYY-MM-DD"}
+                error_serializer = TimesheetErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
             logger.info(f"Getting daily timesheet summary for {parsed_date}")
 
@@ -92,33 +87,28 @@ class StaffDailyDetailAPIView(APIView):
     serializer_class = DailyTimesheetSummarySerializer  # Reusing the same serializer
 
     @extend_schema(operation_id="getStaffDailyTimesheetDetailByDate")
-    def get(self, request, staff_id: str, target_date: str = None):
+    def get(self, request, staff_id: str, target_date: str):
         """
         Get detailed timesheet data for a specific staff member
 
         Args:
             staff_id: Staff member ID
-            target_date: Date in YYYY-MM-DD format (optional, defaults to today)
+            target_date: Date in YYYY-MM-DD format (required)
 
         Returns:
             JSON response with staff timesheet detail
         """
         try:
-            # Parse date or use today
-            if target_date:
-                try:
-                    parsed_date = datetime.strptime(target_date, "%Y-%m-%d").date()
-                except ValueError:
-                    error_response = {"error": "Invalid date format. Use YYYY-MM-DD"}
-                    error_serializer = TimesheetErrorResponseSerializer(
-                        data=error_response
-                    )
-                    error_serializer.is_valid(raise_exception=True)
-                    return Response(
-                        error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                    )
-            else:
-                parsed_date = date.today()
+            # Parse date
+            try:
+                parsed_date = datetime.strptime(target_date, "%Y-%m-%d").date()
+            except ValueError:
+                error_response = {"error": "Invalid date format. Use YYYY-MM-DD"}
+                error_serializer = TimesheetErrorResponseSerializer(data=error_response)
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
 
             logger.info(f"Getting staff detail for {staff_id} on {parsed_date}")
 
