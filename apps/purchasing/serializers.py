@@ -437,7 +437,7 @@ class AllocationDeleteRequestSerializer(serializers.Serializer):
     """Serializer for allocation deletion request"""
 
     allocation_type = serializers.ChoiceField(
-        choices=[("stock", "Stock"), ("job", "Job")],
+        choices=[("job", "Job"), ("stock", "Stock")],
         help_text="Type of allocation to delete",
     )
     allocation_id = serializers.UUIDField(
@@ -459,7 +459,7 @@ class AllocationDeleteResponseSerializer(serializers.Serializer):
 class AllocationDetailsResponseSerializer(serializers.Serializer):
     """Serializer for allocation details response"""
 
-    type = serializers.ChoiceField(choices=[("stock", "Stock"), ("job", "Job")])
+    type = serializers.ChoiceField(choices=[("job", "Job"), ("stock", "Stock")])
     id = serializers.UUIDField()
     description = serializers.CharField()
     quantity = serializers.FloatField()

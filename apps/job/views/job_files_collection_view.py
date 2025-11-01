@@ -24,8 +24,10 @@ from apps.job.serializers.job_file_serializer import (
     JobFileErrorResponseSerializer,
     JobFileSerializer,
     JobFileUploadPartialResponseSerializer,
+    JobFileUploadRequestSerializer,
     JobFileUploadSuccessResponseSerializer,
 )
+from apps.job.services.file_service import create_thumbnail, get_thumbnail_folder
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -68,6 +70,7 @@ class JobFilesCollectionView(APIView):
                     "file_path": relative_path,
                     "mime_type": file_obj.content_type,
                     "print_on_jobsheet": print_on_jobsheet,
+                    "status": "active",
                 },
             )
 
@@ -80,11 +83,6 @@ class JobFilesCollectionView(APIView):
 
             # Generate thumbnail for images
             if file_obj.content_type and file_obj.content_type.startswith("image/"):
-                from apps.job.services.file_service import (
-                    create_thumbnail,
-                    get_thumbnail_folder,
-                )
-
                 thumb_folder = get_thumbnail_folder(job.job_number)
                 thumb_path = os.path.join(thumb_folder, f"{file_obj.name}.thumb.jpg")
                 create_thumbnail(file_path, thumb_path)
@@ -95,26 +93,17 @@ class JobFilesCollectionView(APIView):
             logger.error("Error saving file %s: %s", file_obj.name, str(e))
             persist_app_error(
                 e,
-                request=request,
-                context={"job_id": str(job.id), "filename": file_obj.name},
+                job_id=str(job.id),
+                user_id=str(request.user.id)
+                if getattr(request.user, "is_authenticated", False)
+                else None,
+                additional_context={"filename": file_obj.name},
             )
             raise
 
     @extend_schema(
         operation_id="uploadJobFiles",
-        request={
-            "multipart/form-data": {
-                "type": "object",
-                "properties": {
-                    "files": {
-                        "type": "array",
-                        "items": {"type": "string", "format": "binary"},
-                        "description": "Files to upload",
-                    }
-                },
-                "required": ["files"],
-            }
-        },
+        request=JobFileUploadRequestSerializer,
         responses={
             201: JobFileUploadSuccessResponseSerializer,
             207: JobFileUploadPartialResponseSerializer,
@@ -127,15 +116,27 @@ class JobFilesCollectionView(APIView):
         """Upload files to a job."""
         job = get_object_or_404(Job, id=job_id)
 
-        # Get files from request
-        files = request.FILES.getlist("files")
-        if not files:
+        files_payload = request.FILES.getlist("files")
+        request_serializer = JobFileUploadRequestSerializer(
+            data={
+                "files": files_payload,
+                "print_on_jobsheet": request.data.get("print_on_jobsheet", True),
+            }
+        )
+        if not request_serializer.is_valid():
             return Response(
-                {"status": "error", "message": "No files provided"},
+                {
+                    "status": "error",
+                    "message": "Invalid input data",
+                    "errors": request_serializer.errors,
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        print_on_jobsheet = True
+        files = request_serializer.validated_data["files"]
+        print_on_jobsheet = request_serializer.validated_data.get(
+            "print_on_jobsheet", True
+        )
         uploaded_files, errors = [], []
 
         # Process each file

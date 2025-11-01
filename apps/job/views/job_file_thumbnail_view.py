@@ -67,7 +67,14 @@ class JobFileThumbnailView(APIView):
             return FileResponse(open(thumb_path, "rb"), content_type="image/jpeg")
         except Exception as e:
             logger.exception("Error serving thumbnail %s", file_id)
-            persist_app_error(e, request=request, context={"file_id": str(file_id)})
+            persist_app_error(
+                e,
+                job_id=str(job.id),
+                user_id=str(request.user.id)
+                if getattr(request.user, "is_authenticated", False)
+                else None,
+                additional_context={"file_id": str(file_id)},
+            )
             return Response(
                 {"status": "error", "message": "Could not serve thumbnail"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

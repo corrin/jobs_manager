@@ -90,7 +90,14 @@ class JobFileDetailView(APIView):
             return response
         except Exception as e:
             logger.exception("Error serving file %s", file_id)
-            persist_app_error(e, request=request, context={"file_id": str(file_id)})
+            persist_app_error(
+                e,
+                job_id=str(job.id),
+                user_id=str(request.user.id)
+                if getattr(request.user, "is_authenticated", False)
+                else None,
+                additional_context={"file_id": str(file_id)},
+            )
             return Response(
                 {"status": "error", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -128,16 +135,35 @@ class JobFileDetailView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # Rename file on disk
                 old_path = os.path.join(
                     settings.DROPBOX_WORKFLOW_FOLDER, job_file.file_path
                 )
                 new_path = os.path.join(os.path.dirname(old_path), new_filename)
 
-                if os.path.exists(old_path):
-                    os.rename(old_path, new_path)
+                if not os.path.exists(old_path):
+                    return Response(
+                        {
+                            "status": "error",
+                            "message": "Original file does not exist; cannot rename.",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
-                # Update database
+                # Prevent overwriting an existing file with a different path
+                if os.path.exists(new_path) and (
+                    os.path.normcase(new_path) != os.path.normcase(old_path)
+                ):
+                    return Response(
+                        {
+                            "status": "error",
+                            "message": "A file with the requested new filename already exists.",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                os.rename(old_path, new_path)
+
+                # Update database only after successful rename
                 job_file.filename = new_filename
                 job_file.file_path = os.path.relpath(
                     new_path, settings.DROPBOX_WORKFLOW_FOLDER
@@ -159,7 +185,14 @@ class JobFileDetailView(APIView):
 
         except Exception as e:
             logger.exception("Error updating file %s", file_id)
-            persist_app_error(e, request=request, context={"file_id": str(file_id)})
+            persist_app_error(
+                e,
+                job_id=str(job.id),
+                user_id=str(request.user.id)
+                if getattr(request.user, "is_authenticated", False)
+                else None,
+                additional_context={"file_id": str(file_id)},
+            )
             return Response(
                 {"status": "error", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -203,7 +236,14 @@ class JobFileDetailView(APIView):
 
         except Exception as e:
             logger.exception("Error deleting file %s", file_id)
-            persist_app_error(e, request=request, context={"file_id": str(file_id)})
+            persist_app_error(
+                e,
+                job_id=str(job.id),
+                user_id=str(request.user.id)
+                if getattr(request.user, "is_authenticated", False)
+                else None,
+                additional_context={"file_id": str(file_id)},
+            )
             return Response(
                 {"status": "error", "message": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
