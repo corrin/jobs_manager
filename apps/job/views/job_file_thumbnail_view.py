@@ -18,8 +18,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.mixins import JobLookupMixin
-from apps.job.models import JobFile
+from apps.job.models import Job, JobFile
 from apps.job.serializers.job_file_serializer import (
     JobFileThumbnailErrorResponseSerializer,
 )
@@ -28,7 +27,7 @@ from apps.workflow.services.error_persistence import persist_app_error
 logger = logging.getLogger(__name__)
 
 
-class JobFileThumbnailView(JobLookupMixin, APIView):
+class JobFileThumbnailView(APIView):
     """
     Thumbnail serving for job files.
 
@@ -52,10 +51,7 @@ class JobFileThumbnailView(JobLookupMixin, APIView):
     )
     def get(self, request, job_id, file_id):
         """Serve thumbnail for a job file."""
-        # Get job to validate access
-        job, error_response = self.get_job_or_404_response()
-        if error_response:
-            return error_response
+        job = get_object_or_404(Job, id=job_id)
 
         # Get file
         job_file = get_object_or_404(JobFile, id=file_id, job=job, status="active")
