@@ -15,7 +15,6 @@ from apps.job.urls_rest import rest_urlpatterns
 from apps.job.views import (
     ArchiveCompleteJobsViews,
     AssignJobView,
-    JobFileView,
     kanban_view_api,
     workshop_view,
 )
@@ -45,13 +44,7 @@ urlpatterns = [
         get_company_defaults_api,
         name="company_defaults_api",
     ),
-    path("api/job-files/", JobFileView.as_view(), name="job-files"),  # For POST/PUT
-    path(
-        "api/job-files/<int:job_number>", JobFileView.as_view(), name="get-job-file"
-    ),  # To check if file already exists
-    path(
-        "api/job-files/<path:file_path>", JobFileView.as_view(), name="serve-job-file"
-    ),  # For GET/download
+    # Old api/job-files/* endpoints removed - use rest/jobs/files/* instead
     path(
         "job/<uuid:job_id>/workshop-pdf/",
         workshop_view.WorkshopPDFView.as_view(),
