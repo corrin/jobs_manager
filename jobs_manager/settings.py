@@ -422,14 +422,43 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     # DRF Spectacular auto-generates enum names based on content hashes when multiple
     # models have fields with the same name (e.g., "status", "type", "kind").
-    # These hashes are deterministic and stable - they only change if enum values change.
-    # We override them here for better API documentation readability.
+    # ENUM_NAME_OVERRIDES maps hash-based names to actual choice tuples for better naming.
     "ENUM_NAME_OVERRIDES": {
-        "TypeC98Enum": "AllocationTypeEnum",  # job/stock allocation type
-        "Kind332Enum": "CostLineKindEnum",  # time/material/adjust
-        "Status1beEnum": "PurchaseOrderStatusEnum",  # DRAFT/SUBMITTED/AUTHORISED/DELETED
-        "Status7aeEnum": "QuoteStatusEnum",  # DRAFT/SENT/DECLINED/ACCEPTED
-        "Status7b9Enum": "JobStatusEnum",  # draft/quoting/in_progress/etc
+        "TypeC98Enum": (
+            ("stock", "Stock"),
+            ("job", "Job"),
+        ),
+        "Kind332Enum": (
+            ("time", "Time"),
+            ("material", "Material"),
+            ("adjust", "Adjustment"),
+        ),
+        "Status1beEnum": (
+            ("DRAFT", "Draft"),
+            ("SUBMITTED", "Submitted"),
+            ("AUTHORISED", "Authorised"),
+            ("DELETED", "Deleted"),
+            ("VOIDED", "Voided"),
+            ("PAID", "Paid"),
+        ),
+        "Status7aeEnum": (
+            ("DRAFT", "Draft"),
+            ("SENT", "Sent"),
+            ("DECLINED", "Declined"),
+            ("ACCEPTED", "Accepted"),
+            ("INVOICED", "Invoiced"),
+            ("DELETED", "Deleted"),
+        ),
+        "Status7b9Enum": (
+            ("draft", "Draft"),
+            ("awaiting_approval", "Awaiting Approval"),
+            ("approved", "Approved"),
+            ("in_progress", "In Progress"),
+            ("unusual", "Unusual"),
+            ("recently_completed", "Recently Completed"),
+            ("special", "Special"),
+            ("archived", "Archived"),
+        ),
     },
 }
 

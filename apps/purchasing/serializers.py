@@ -261,7 +261,7 @@ class PurchaseOrderUpdateResponseSerializer(serializers.Serializer):
 class AllocationItemSerializer(serializers.Serializer):
     """Serializer for individual allocation items (job or stock)."""
 
-    type = serializers.ChoiceField(choices=[("job", "Job"), ("stock", "Stock")])
+    type = serializers.ChoiceField(choices=[("stock", "Stock"), ("job", "Job")])
     job_id = serializers.UUIDField()
     job_name = serializers.CharField()
     quantity = serializers.FloatField()

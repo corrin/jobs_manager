@@ -9,14 +9,19 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.serializers import EmptySerializer
+from apps.accounts.serializers import (
+    BearerTokenRequestSerializer,
+    BearerTokenResponseSerializer,
+    EmptySerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 
 @extend_schema(
+    request=BearerTokenRequestSerializer,
     responses={
-        200: {"type": "object", "properties": {"token": {"type": "string"}}},
+        200: BearerTokenResponseSerializer,
         401: EmptySerializer,
         403: EmptySerializer,
     },
@@ -31,6 +36,7 @@ class BearerTokenView(APIView):
 
     permission_classes = []
     authentication_classes = []
+    serializer_class = BearerTokenRequestSerializer
 
     def post(self, request):
         if not settings.ALLOW_BEARER_TOKEN_AUTHENTICATION:

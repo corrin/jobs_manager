@@ -13,6 +13,8 @@ try:
         from .permissions import IsStaff
         from .serializers import (
             BaseStaffSerializer,
+            BearerTokenRequestSerializer,
+            BearerTokenResponseSerializer,
             CustomTokenObtainPairSerializer,
             EmptySerializer,
             GenericStaffMethodsMixin,
@@ -36,6 +38,8 @@ except (ImportError, RuntimeError):
 __all__ = [
     "AccountsConfig",
     "BaseStaffSerializer",
+    "BearerTokenRequestSerializer",
+    "BearerTokenResponseSerializer",
     "CustomTokenObtainPairSerializer",
     "EmptySerializer",
     "GenericStaffMethodsMixin",

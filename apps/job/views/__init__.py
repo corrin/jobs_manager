@@ -13,7 +13,9 @@ from .job_costline_views import (
     CostLineDeleteView,
     CostLineUpdateView,
 )
-from .job_file_view import BinaryFileRenderer, JobFileThumbnailView, JobFileView
+from .job_file_detail_view import BinaryFileRenderer, JobFileDetailView
+from .job_file_thumbnail_view import JobFileThumbnailView
+from .job_files_collection_view import JobFilesCollectionView
 from .job_quote_chat_views import (
     BaseJobQuoteChatView,
     JobQuoteChatHistoryView,
@@ -62,7 +64,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .job_file_upload import JobFileUploadView
         from .job_quote_chat_api import JobQuoteChatInteractionView
         from .kanban_view_api import (
             AdvancedSearchAPIView,
@@ -103,9 +104,9 @@ __all__ = [
     "JobDetailRestView",
     "JobEventListRestView",
     "JobEventRestView",
+    "JobFileDetailView",
     "JobFileThumbnailView",
-    "JobFileUploadView",
-    "JobFileView",
+    "JobFilesCollectionView",
     "JobHeaderRestView",
     "JobInvoicesRestView",
     "JobQuoteAcceptRestView",
