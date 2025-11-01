@@ -119,6 +119,43 @@ def validate_stock_for_xero(stock_item: Stock) -> bool:
     return True
 
 
+def _ensure_unique_xero_link(
+    stock_item: Stock,
+    *,
+    xero_item_id: str,
+    item_code: Optional[str],
+    operation: str,
+) -> bool:
+    """
+    Guard against assigning the same Xero item to multiple stock records.
+    """
+    code_display = item_code or "<missing>"
+    duplicate = (
+        Stock.objects.filter(xero_id=xero_item_id).exclude(id=stock_item.id).first()
+    )
+
+    if not duplicate:
+        return True
+
+    message = (
+        f"Cannot link stock {stock_item.id} to Xero item {xero_item_id}: "
+        f"stock {duplicate.id} already has this xero_id. "
+        f"Both have item_code '{code_display}'. This indicates duplicate stock items."
+    )
+    logger.warning(message)
+    persist_app_error(
+        ValueError(f"Duplicate stock items share Xero item {xero_item_id}"),
+        additional_context={
+            "stock_id": str(stock_item.id),
+            "duplicate_stock_id": str(duplicate.id),
+            "item_code": code_display,
+            "xero_id": xero_item_id,
+            "operation": operation,
+        },
+    )
+    return False
+
+
 def sync_stock_to_xero(stock_item: Stock) -> bool:
     """
     Push a stock item to Xero as an inventory item.
@@ -193,6 +230,14 @@ def sync_stock_to_xero(stock_item: Stock) -> bool:
         if not stock_item.xero_id:
             existing = get_xero_item_by_code(api, tenant_id, stock_item.item_code)
             if existing:
+                if not _ensure_unique_xero_link(
+                    stock_item,
+                    xero_item_id=existing.item_id,
+                    item_code=stock_item.item_code,
+                    operation="sync_stock_to_xero_duplicate_check",
+                ):
+                    return False
+
                 stock_item.xero_id = existing.item_id
                 stock_item.xero_last_modified = timezone.now()
                 stock_item.save(update_fields=["xero_id", "xero_last_modified"])
@@ -242,6 +287,14 @@ def sync_stock_to_xero(stock_item: Stock) -> bool:
                 logger.error(
                     "Duplicate reported, but item not found by Code — aborting"
                 )
+                return False
+
+            if not _ensure_unique_xero_link(
+                stock_item,
+                xero_item_id=existing.item_id,
+                item_code=stock_item.item_code,
+                operation="sync_stock_to_xero_duplicate_recovery",
+            ):
                 return False
 
             stock_item.xero_id = existing.item_id

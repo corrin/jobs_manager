@@ -4,14 +4,17 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.core.cache import cache
-from django.db import models
+from django.db import models, transaction
 from django.db.models.expressions import RawSQL
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.client.models import Supplier
 from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
+from apps.purchasing.etag import generate_po_etag, normalize_etag
+from apps.purchasing.exceptions import PreconditionFailedError
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 from apps.purchasing.services.delivery_receipt_service import (
     _create_costline_from_allocation,
@@ -296,46 +299,66 @@ class PurchasingRestService:
         return po
 
     @staticmethod
-    def update_purchase_order(po_id: str, data: Dict[str, Any]) -> PurchaseOrder:
-        po = get_object_or_404(PurchaseOrder, id=po_id)
+    def update_purchase_order(
+        po_id: str, data: Dict[str, Any], *, expected_etag: str | None = None
+    ) -> PurchaseOrder:
+        expected_normalized = normalize_etag(expected_etag) if expected_etag else None
 
-        # Handle line deletion
-        lines_to_delete = data.get("lines_to_delete")
-        if lines_to_delete:
-            PurchasingRestService._delete_lines(lines_to_delete, po)
+        with transaction.atomic():
+            try:
+                po = (
+                    PurchaseOrder.objects.select_for_update()
+                    .select_related("supplier")
+                    .prefetch_related("po_lines")
+                    .get(id=po_id)
+                )
+            except PurchaseOrder.DoesNotExist as exc:
+                raise Http404(f"PurchaseOrder {po_id} not found") from exc
 
-        # Handle supplier updates
-        supplier_id = data.get("supplier_id")
-        if supplier_id:
-            PurchasingRestService._update_supplier(supplier_id, po)
+            current_etag = normalize_etag(generate_po_etag(po))
+            if expected_normalized is not None and expected_normalized != current_etag:
+                raise PreconditionFailedError(
+                    "Purchase order modified since it was fetched."
+                )
 
-        existing_lines = {str(line.id): line for line in po.po_lines.all()}
-        updated_line_ids = set()
+            # Handle line deletion
+            lines_to_delete = data.get("lines_to_delete")
+            if lines_to_delete:
+                PurchasingRestService._delete_lines(lines_to_delete, po)
 
-        logger.info(f"Processing {len(data.get('lines', []))} lines for PO {po.id}")
-        logger.info(f"Existing lines: {list(existing_lines.keys())}")
+            # Handle supplier updates
+            supplier_id = data.get("supplier_id")
+            if supplier_id:
+                PurchasingRestService._update_supplier(supplier_id, po)
 
-        for line_data in data.get("lines", []):
-            line_id = line_data.get("id")
-            logger.info(f"Processing line with id: {line_id}")
-            logger.info(f"Line data keys: {list(line_data.keys())}")
-            PurchasingRestService._process_line(
-                line_data, existing_lines, updated_line_ids, po
-            )
+            existing_lines = {str(line.id): line for line in po.po_lines.all()}
+            updated_line_ids = set()
 
-        for field in ["reference", "expected_delivery", "status"]:
-            if field in data:
-                PurchasingRestService._process_field(po, field, data)
+            logger.info(f"Processing {len(data.get('lines', []))} lines for PO {po.id}")
+            logger.info(f"Existing lines: {list(existing_lines.keys())}")
 
-        po.save()
+            for line_data in data.get("lines", []):
+                line_id = line_data.get("id")
+                logger.info(f"Processing line with id: {line_id}")
+                logger.info(f"Line data keys: {list(line_data.keys())}")
+                PurchasingRestService._process_line(
+                    line_data, existing_lines, updated_line_ids, po
+                )
 
-        from pprint import pprint
+            for field in ["reference", "expected_delivery", "status"]:
+                if field in data:
+                    PurchasingRestService._process_field(po, field, data)
 
-        logger.info("PO after update:")
-        pprint(po.__dict__)
+            po.save()
+            po.refresh_from_db()
 
-        logger.info(f"Update complete. Updated line IDs: {updated_line_ids}")
-        return po
+            from pprint import pprint
+
+            logger.info("PO after update:")
+            pprint(po.__dict__)
+
+            logger.info(f"Update complete. Updated line IDs: {updated_line_ids}")
+            return po
 
     @staticmethod
     def list_stock() -> List[Dict[str, Any]]:
