@@ -4,7 +4,7 @@ import uuid
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models
 from django.db.models import IntegerField, Max
 from django.db.models.functions import Cast, Substr
 from django.utils import timezone
@@ -305,6 +305,15 @@ class Stock(models.Model):
         related_name="stock_generated",
         help_text="The PO line this stock originated from (if source='purchase_order')",
     )
+    active_source_purchase_order_line_id = models.UUIDField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=(
+            "Denormalized pointer used to enforce single active stock item per "
+            "purchase order line."
+        ),
+    )
     source_parent_stock = models.ForeignKey(
         "self",
         on_delete=models.SET_NULL,
@@ -426,6 +435,23 @@ class Stock(models.Model):
         """
         logger.debug(f"Saving stock item: {self.description}")
 
+        desired_active_ref = (
+            self.source_purchase_order_line_id
+            if self.is_active and self.source_purchase_order_line_id
+            else None
+        )
+        needs_active_ref_update = (
+            self.active_source_purchase_order_line_id != desired_active_ref
+        )
+        self.active_source_purchase_order_line_id = desired_active_ref
+
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and needs_active_ref_update:
+            field_name = "active_source_purchase_order_line_id"
+            merged = tuple(update_fields) + (field_name,)
+            deduped = tuple(dict.fromkeys(merged))
+            kwargs["update_fields"] = deduped
+
         # Log negative quantities but allow them (backorders, emergency usage, etc.)
         if self.quantity < 0:
             logger.info(
@@ -439,7 +465,14 @@ class Stock(models.Model):
             )
             raise ValueError("Unit cost cannot be negative")
 
-        super().save(*args, **kwargs)
+        try:
+            super().save(*args, **kwargs)
+        except IntegrityError as exc:
+            if "unique_active_stock_per_po_line" in str(exc):
+                raise IntegrityError(
+                    "An active stock entry already exists for this purchase order line."
+                ) from exc
+            raise
         logger.info(f"Saved stock item: {self.description}")
 
     # Stock holding job name
@@ -460,5 +493,9 @@ class Stock(models.Model):
     class Meta:
         db_table = "workflow_stock"
         constraints = [
-            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock")
+            models.UniqueConstraint(fields=["xero_id"], name="unique_xero_id_stock"),
+            models.UniqueConstraint(
+                fields=["active_source_purchase_order_line_id"],
+                name="unique_active_stock_per_po_line",
+            ),
         ]

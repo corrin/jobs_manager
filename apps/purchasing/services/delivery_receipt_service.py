@@ -1,4 +1,5 @@
 import logging
+import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Dict
 
@@ -8,6 +9,8 @@ from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.job.models import CostLine, CostSet, Job
+from apps.purchasing.etag import generate_po_etag, normalize_etag
+from apps.purchasing.exceptions import PreconditionFailedError
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 from apps.workflow.models.company_defaults import CompanyDefaults
 
@@ -35,16 +38,28 @@ def _to_decimal(value, *, field_label: str) -> Decimal:
 def _load_po_and_lines(
     purchase_order_id: str, line_allocations: Dict
 ) -> tuple[PurchaseOrder, dict[str, PurchaseOrderLine]]:
-    po = PurchaseOrder.objects.select_related("supplier").get(id=purchase_order_id)
+    """
+    Fetch and lock the purchase order plus requested lines.
+
+    Caller must already be inside an atomic block; this helper assumes the
+    surrounding transaction context (see process_delivery_receipt).
+    """
+    # Lock the PO row to avoid concurrent requests creating duplicate stock entries
+    # before the first transaction commits.
+    po = (
+        PurchaseOrder.objects.select_for_update()
+        .select_related("supplier")
+        .get(id=purchase_order_id)
+    )
     logger.debug("Found PO %s", po.po_number)
 
     requested_ids = set(line_allocations.keys())
-    lines = {
-        str(line.id): line
-        for line in PurchaseOrderLine.objects.filter(
-            id__in=requested_ids, purchase_order=po
-        )
-    }
+    # Lock each referenced PO line as well to prevent double submissions running
+    # in parallel and recreating the same stock entries.
+    line_qs = PurchaseOrderLine.objects.select_for_update().filter(
+        id__in=requested_ids, purchase_order=po
+    )
+    lines = {str(line.id): line for line in line_qs}
     if len(lines) != len(requested_ids):
         missing = requested_ids - set(lines.keys())
         raise DeliveryReceiptValidationError(
@@ -128,13 +143,25 @@ def _validate_and_prepare_allocations(
     return total_received, prepared
 
 
-def _delete_previous_stock_for_line(line: PurchaseOrderLine) -> None:
-    deleted_count, _ = Stock.objects.filter(
+def _delete_previous_stock_for_line(line: PurchaseOrderLine, *, run_id: str) -> None:
+    existing = Stock.objects.filter(
         source="purchase_order", source_purchase_order_line=line
-    ).delete()
+    )
+    pre_count = existing.count()
+    if pre_count:
+        logger.warning(
+            "delivery_receipt run [%s]: line %s has %s existing stock entries before delete",
+            run_id,
+            line.id,
+            pre_count,
+        )
+    deleted_count, _ = existing.delete()
     if deleted_count:
         logger.debug(
-            "Deleted %s existing stock entries for line %s.", deleted_count, line.id
+            "delivery_receipt run [%s]: deleted %s existing stock entries for line %s.",
+            run_id,
+            deleted_count,
+            line.id,
         )
 
 
@@ -247,15 +274,25 @@ def _recompute_po_status(po: PurchaseOrder) -> None:
     else:
         new_status = "fully_received"
 
+    updated_fields: list[str] = []
     if new_status != po.status:
         po.status = new_status
-        po.save(update_fields=["status"])
+        updated_fields.append("status")
         logger.debug("Updated PO %s status to %s", po.po_number, po.status)
     else:
         logger.debug("PO %s status unchanged: %s", po.po_number, po.status)
 
+    po.updated_at = timezone.now()
+    updated_fields.append("updated_at")
+    po.save(update_fields=updated_fields)
 
-def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> bool:
+
+def process_delivery_receipt(
+    purchase_order_id: str,
+    line_allocations: dict,
+    *,
+    expected_etag: str | None = None,
+) -> PurchaseOrder:
     """
     Process a delivery receipt:
       1) Validate PO, lines, jobs, and per-line allocations
@@ -269,9 +306,18 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
 
     STOCK_HOLDING_JOB_ID = Stock.get_stock_holding_job().id
 
+    run_id = f"dr-{uuid.uuid4()}"
     try:
         with transaction.atomic():
             po, lines_by_id = _load_po_and_lines(purchase_order_id, line_allocations)
+            expected_normalized = (
+                normalize_etag(expected_etag) if expected_etag else None
+            )
+            current_etag = normalize_etag(generate_po_etag(po))
+            if expected_normalized is not None and expected_normalized != current_etag:
+                raise PreconditionFailedError(
+                    "Purchase order modified since it was fetched."
+                )
             jobs_by_id = _load_jobs(line_allocations)
 
             # Warn but continue on unexpected status (upstream should prevent)
@@ -287,6 +333,14 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                 line = lines_by_id[str(line_id)]
                 logger.debug("Processing line %s (%s)", line.id, line.description)
 
+                logger.info(
+                    "delivery_receipt run [%s]: line %s incoming payload total_received=%s allocations=%s",
+                    run_id,
+                    line.id,
+                    data.get("total_received"),
+                    data.get("allocations"),
+                )
+
                 total_received, prepared_allocs = _validate_and_prepare_allocations(
                     line=line,
                     line_data=data,
@@ -294,7 +348,7 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
                 )
 
                 # Delete prior stock entries created from this line
-                _delete_previous_stock_for_line(line)
+                _delete_previous_stock_for_line(line, run_id=run_id)
 
                 # Increment received_quantity atomically
                 PurchaseOrderLine.objects.filter(id=line.id).update(
@@ -335,9 +389,11 @@ def process_delivery_receipt(purchase_order_id: str, line_allocations: dict) -> 
             _recompute_po_status(po)
 
             logger.info(
-                "Successfully processed delivery receipt for PO %s", po.po_number
+                "delivery_receipt run [%s]: Successfully processed delivery receipt for PO %s",
+                run_id,
+                po.po_number,
             )
-            return True
+            return po
 
     except DeliveryReceiptValidationError:
         # Let DRF/view layer convert to proper 4xx; message already specific

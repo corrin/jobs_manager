@@ -58,6 +58,21 @@ class UploadedFileSerializer(serializers.Serializer):
     print_on_jobsheet = serializers.BooleanField()
 
 
+class JobFileUploadRequestSerializer(serializers.Serializer):
+    """Serializer for job file upload requests."""
+
+    files = serializers.ListField(
+        child=serializers.FileField(),
+        allow_empty=False,
+        help_text="Files to upload",
+    )
+    print_on_jobsheet = serializers.BooleanField(
+        required=False,
+        default=True,
+        help_text="Flag indicating whether the file should print on the jobsheet.",
+    )
+
+
 class JobFileUploadSuccessResponseSerializer(serializers.Serializer):
     """Serializer for successful file upload response."""
 
