@@ -17,6 +17,7 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
         source="client.name", read_only=True, required=False, allow_null=True
     )
     has_actual_costset = serializers.SerializerMethodField()
+    leave_type = serializers.SerializerMethodField()
 
     class Meta:
         model = Job
@@ -28,11 +29,16 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
             "status",
             "charge_out_rate",
             "has_actual_costset",
+            "leave_type",
         ]
 
     def get_has_actual_costset(self, obj) -> bool:
         """Check if job has an actual cost set"""
         return obj.get_latest("actual") is not None
+
+    def get_leave_type(self, obj) -> str:
+        """Get leave type if this is a payroll job"""
+        return obj.get_leave_type()
 
 
 class ModernStaffSerializer(serializers.Serializer):

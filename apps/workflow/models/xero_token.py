@@ -12,7 +12,7 @@ class XeroToken(models.Model):
     refresh_token = models.TextField()
     expires_at = models.DateTimeField()
     scope = models.TextField(
-        default="offline_access openid profile email accounting.contacts accounting.transactions accounting.reports.read accounting.settings accounting.journals.read"
+        default="offline_access openid profile email accounting.contacts accounting.transactions accounting.reports.read accounting.settings accounting.journals.read payroll.timesheets payroll.employees payroll.settings"
     )
 
     def __str__(self) -> str:

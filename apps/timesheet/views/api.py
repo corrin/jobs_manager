@@ -30,6 +30,7 @@ from apps.timesheet.serializers.modern_timesheet_serializers import (
     IMSWeeklyTimesheetDataSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
+from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
 
 logger = logging.getLogger(__name__)
@@ -575,3 +576,91 @@ class IMSWeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
         """Return IMS-formatted weekly timesheet data."""
         # Re-use helper from the standard view but with export_to_ims=True
         return self.build_timesheet_response(request, export_to_ims=True)
+
+
+class PostWeekToXeroPayrollAPIView(APIView):
+    """API endpoint to post a weekly timesheet to Xero Payroll."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Post weekly timesheet to Xero Payroll",
+        parameters=[
+            OpenApiParameter(
+                "staff_id",
+                OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Staff member UUID",
+                required=True,
+            ),
+            OpenApiParameter(
+                "week_start_date",
+                OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Monday of the week to post (YYYY-MM-DD)",
+                required=True,
+            ),
+        ],
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "success": {"type": "boolean"},
+                    "xero_timesheet_id": {"type": "string"},
+                    "entries_posted": {"type": "integer"},
+                    "leave_hours": {"type": "number"},
+                    "work_hours": {"type": "number"},
+                    "errors": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            400: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def post(self, request):
+        """Post a week's timesheet to Xero Payroll."""
+        try:
+            staff_id = request.query_params.get("staff_id")
+            week_start_date_str = request.query_params.get("week_start_date")
+
+            if not staff_id:
+                return Response(
+                    {"error": "staff_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if not week_start_date_str:
+                return Response(
+                    {"error": "week_start_date is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Parse date
+            try:
+                week_start_date = datetime.strptime(
+                    week_start_date_str, "%Y-%m-%d"
+                ).date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Validate Monday
+            if week_start_date.weekday() != 0:
+                return Response(
+                    {"error": "week_start_date must be a Monday"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Post to Xero
+            result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Error posting timesheet to Xero: {e}", exc_info=True)
+            return Response(
+                {"error": f"Failed to post timesheet: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
