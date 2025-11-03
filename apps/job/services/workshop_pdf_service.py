@@ -3,6 +3,7 @@ import os
 import re
 import time
 from io import BytesIO
+from typing import Callable, Optional
 
 from django.conf import settings
 from django.utils import timezone
@@ -114,6 +115,79 @@ body_style = ParagraphStyle(
 description_style = body_style
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+
+def _advance_to_new_page(
+    pdf: canvas.Canvas,
+    margin: float = MARGIN,
+    on_new_page: Optional[Callable[[canvas.Canvas], float]] = None,
+) -> float:
+    """
+    Advance the canvas to a new page and return the refreshed y position.
+    Optionally execute a callback to draw repeated headers before continuing.
+    """
+    pdf.showPage()
+    if on_new_page:
+        return on_new_page(pdf)
+    return PAGE_HEIGHT - margin
+
+
+def draw_table_with_page_breaks(
+    pdf: canvas.Canvas,
+    table: Table,
+    y_position: float,
+    *,
+    x_position: float = MARGIN,
+    margin: float = MARGIN,
+    available_width: float = CONTENT_WIDTH,
+    on_new_page: Optional[Callable[[canvas.Canvas], float]] = None,
+) -> float:
+    """
+    Draw a table across one or more pages, returning the updated y position.
+
+    Handles page breaks when the table would overflow the remaining vertical space.
+    """
+    pending_parts = [table]
+
+    while pending_parts:
+        current_table = pending_parts.pop(0)
+
+        while True:
+            available_height = y_position - margin
+            if available_height <= 0:
+                y_position = _advance_to_new_page(pdf, margin, on_new_page)
+                available_height = y_position - margin
+
+            parts = current_table.split(available_width, available_height)
+            if not parts:
+                y_position = _advance_to_new_page(pdf, margin, on_new_page)
+                available_height = y_position - margin
+                parts = current_table.split(available_width, available_height)
+                if not parts:
+                    # If nothing fits even on a fresh page, force-draw to avoid an infinite loop.
+                    _, forced_height = current_table.wrapOn(
+                        pdf, available_width, available_height
+                    )
+                    current_table.drawOn(pdf, x_position, y_position - forced_height)
+                    y_position -= forced_height
+                    pending_parts.clear()
+                    break
+
+            current_part = parts[0]
+            _, part_height = current_part.wrapOn(pdf, available_width, available_height)
+            current_part.drawOn(pdf, x_position, y_position - part_height)
+            y_position -= part_height
+
+            remaining_parts = parts[1:]
+            if not remaining_parts:
+                break
+
+            # Queue remaining chunks (if any) and advance to a fresh page before continuing.
+            pending_parts = remaining_parts + pending_parts
+            y_position = _advance_to_new_page(pdf, margin, on_new_page)
+            break
+
+    return y_position
 
 
 def wait_until_file_ready(file_path, max_wait=10):
@@ -304,6 +378,8 @@ def create_delivery_docket_main_document(job):
         pdf, y_position, job, title_prefix="DELIVERY DOCKET - MSM Copy"
     )
     y_position = add_delivery_docket_details_table(pdf, y_position, job)
+    if y_position <= MARGIN + 220:
+        _advance_to_new_page(pdf)
     add_handover_section(pdf, job)
 
     # Start new page for Client Copy
@@ -316,6 +392,8 @@ def create_delivery_docket_main_document(job):
         pdf, y_position, job, title_prefix="DELIVERY DOCKET - Client Copy"
     )
     y_position = add_delivery_docket_details_table(pdf, y_position, job)
+    if y_position <= MARGIN + 220:
+        _advance_to_new_page(pdf)
     add_handover_section(pdf, job)
 
     pdf.save()
@@ -446,13 +524,20 @@ def add_workshop_details_table(pdf, y_position, job: Job):
         )
     )
 
-    _, table_height = details_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
-    details_table.drawOn(pdf, MARGIN, y_position - table_height)
-    return y_position - table_height - 36
+    y_position = draw_table_with_page_breaks(pdf, details_table, y_position)
+
+    if y_position - 36 <= MARGIN:
+        return _advance_to_new_page(pdf)
+
+    return y_position - 36
 
 
-def add_delivery_docket_details_table(pdf, y_position, job: Job):
-    """Render the delivery docket details (excludes workshop time and internal notes)."""
+def add_delivery_docket_details_table(
+    pdf,
+    y_position,
+    job: Job,
+):
+    """Render the delivery docket details with page-aware wrapping."""
     client_name = job.client.name if job.client else "N/A"
     contact_name = job.contact.name if job.contact else ""
 
@@ -517,9 +602,12 @@ def add_delivery_docket_details_table(pdf, y_position, job: Job):
         )
     )
 
-    _, table_height = details_table.wrap(CONTENT_WIDTH, PAGE_HEIGHT)
-    details_table.drawOn(pdf, MARGIN, y_position - table_height)
-    return y_position - table_height - 36
+    y_position = draw_table_with_page_breaks(pdf, details_table, y_position)
+
+    if y_position - 36 <= MARGIN:
+        return _advance_to_new_page(pdf)
+
+    return y_position - 36
 
 
 def add_handover_section(pdf, job):
@@ -601,22 +689,20 @@ def add_materials_table(pdf, y_position):
         )
     )
 
-    materials_width, materials_height = materials_table.wrap(
-        CONTENT_WIDTH, PAGE_HEIGHT
-    )  # noqa: F841
-
-    required_space = 25 + materials_height + 20
-    if (y_position - MARGIN) < required_space:
-        pdf.showPage()
-        y_position = PAGE_HEIGHT - MARGIN
+    if y_position - 25 <= MARGIN:
+        y_position = _advance_to_new_page(pdf)
 
     pdf.setFont("Helvetica-Bold", 14)
     pdf.setFillColor(TEXT_DARK)
     pdf.drawString(MARGIN, y_position, "Materials Notes")
     y_position -= 25
 
-    materials_table.drawOn(pdf, MARGIN, y_position - materials_height)
-    return y_position - materials_height - 20
+    y_position = draw_table_with_page_breaks(pdf, materials_table, y_position)
+
+    if y_position - 20 <= MARGIN:
+        return _advance_to_new_page(pdf)
+
+    return y_position - 20
 
 
 def create_image_document(image_files):
