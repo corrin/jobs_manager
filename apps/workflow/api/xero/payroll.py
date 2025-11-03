@@ -391,14 +391,14 @@ def create_employee_leave(
         )
 
         # Build leave periods for each day
-        from xero_python.payrollnz.models import EmployeeLeave, EmployeeLeaveperiod
+        from xero_python.payrollnz.models import EmployeeLeave, LeavePeriod
 
         periods = []
         current_date = start_date
         while current_date <= end_date:
             # Skip weekends (Xero will handle this based on employee's schedule)
             periods.append(
-                EmployeeLeaveperiod(
+                LeavePeriod(
                     period_start_date=current_date,
                     period_end_date=current_date,
                     number_of_units=hours_per_day,

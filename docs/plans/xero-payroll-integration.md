@@ -1,234 +1,280 @@
-# Xero Payroll Integration Plan
+# Xero Payroll Integration
 
 **Date:** 2025-11-03
-**Branch:** `feature/xero-payroll` (based on `main`)
-**Status:** In Progress
+**Branch:** `feature/xero-payroll`
+**Status:** Backend Service Layer Complete - REST API & Frontend Not Implemented
 
 ## Overview
 
-Integrate Xero Payroll API to enable submission of weekly timesheets from jobs_manager to Xero Payroll. This replaces the legacy IMS payroll system. The system acts as a data entry frontend - users enter time and leave, then explicitly post to Xero via a "post week to Xero" button.
+Backend service layer for submitting weekly timesheets to Xero Payroll NZ API. Replaces legacy IMS payroll system. Users enter time/leave as CostLine entries, then post entire week to Xero via service call.
 
-## Architecture Decisions
+**Scope of This PR:**
+- Backend service layer and Xero API integration only
+- Database migration for Xero Payroll configuration
+- Management commands for Xero data retrieval and configuration
+- **NOT INCLUDED:** REST API endpoints, frontend UI changes
 
-### Core Concepts
+## Critical Architectural Discovery
 
-1. **Magic Jobs for Leave**: Leave is tracked as time entries (CostLine) on special "magic jobs":
-   - "Annual Leave"
-   - "Sick Leave"
-   - "Other Leave"
-   - "Unpaid Leave"
+**Xero Payroll NZ uses separate APIs for work vs leave:**
 
-2. **No Sync, Only Submit**: One-way data submission to Xero (not bidirectional sync)
-   - jobs_manager is data entry tool
-   - Xero is source of truth for rates, balances, payroll logic
-   - No conflict resolution needed
+- **Work Hours:** Timesheets API (`POST /timesheets`, `POST /timesheets/{id}/lines`)
+  - Requires earnings rate ID (Ordinary Time, Time & Half, Double Time)
+  - Requires payroll calendar ID matching the week
+  - Posted as timesheet lines with `number_of_units` (hours)
 
-3. **No New Models**: Use existing CostLine infrastructure for all time tracking
+- **Leave:** Employee Leave API (`POST /employees/{id}/leave`)
+  - Requires leave type ID (Annual Leave, Sick Leave, Other, Unpaid)
+  - Posted as EmployeeLeave with LeavePeriod objects
+  - Periods auto-approved with `period_status="Approved"`
 
-4. **Leave Type Matters**: Annual vs Sick vs Unpaid are treated differently in Xero Payroll API
+This differs from original plan which assumed single Timesheets API for all time entries.
 
-### Technical Approach
+## Implementation Approach
 
-- Identify leave by pattern matching job names
-- Collect week's CostLine entries and categorize by leave type
-- Map to Xero Payroll timesheet format
-- Submit via Xero Payroll API using Staff.xero_user_id
+1. **Leave Identification**: `Job.get_leave_type()` method pattern-matches job name to determine leave type
+2. **Entry Categorization**: `PayrollSyncService._categorize_entries()` splits CostLines into leave vs work
+3. **Work Posting**: Maps `CostLine.meta['wage_rate_multiplier']` → earnings rate ID, posts via Timesheets API
+4. **Leave Posting**: Groups consecutive leave days by type, posts via Leave API
+5. **Configuration**: CompanyDefaults stores mappings for leave type IDs and earnings rate IDs
 
-## Implementation Tasks
+## Implementation Details
 
-### 1. Xero Payroll API Client
+### 1. Database Migration (COMPLETE)
+**File:** `apps/workflow/migrations/0170_companydefaults_xero_annual_leave_earnings_rate_id_and_more.py`
+
+Added fields to CompanyDefaults:
+- `xero_annual_leave_type_id` - Xero leave type ID for annual leave
+- `xero_sick_leave_type_id` - Xero leave type ID for sick leave
+- `xero_other_leave_type_id` - Xero leave type ID for other leave
+- `xero_unpaid_leave_type_id` - Xero leave type ID for unpaid leave
+- `xero_ordinary_earnings_rate_id` - Earnings rate ID for 1.0x ordinary time
+- `xero_time_half_earnings_rate_id` - Earnings rate ID for 1.5x overtime
+- `xero_double_time_earnings_rate_id` - Earnings rate ID for 2.0x double time
+
+Updated XeroToken default scope to include payroll permissions.
+
+### 2. Xero Payroll API Client (COMPLETE)
 **File:** `apps/workflow/api/xero/payroll.py`
 
-Create new service class for Xero Payroll API integration:
-- Use `xero_python.payrollau` (or `payrolluk`/`payrollus` depending on region)
-- `post_timesheet(employee_id, week_start, time_entries)` - Submit weekly timesheet
-- `get_employees()` - Fetch Xero employee list for ID matching
-- Handle authentication via existing XeroToken infrastructure
+Uses `xero_python.payrollnz` (NZ region).
 
-### 2. Token Scope Updates
-**File:** `apps/workflow/models/xero_token.py`
+**Implemented functions:**
+- `get_employees() -> List[Employee]` - Fetch Xero Payroll employees
+- `get_leave_types() -> List[Dict]` - Fetch available leave types
+- `get_earnings_rates() -> List[Dict]` - Fetch earnings rates for work time
+- `get_payroll_calendars() -> List[Dict]` - Fetch payroll calendar periods
+- `find_payroll_calendar_for_week(week_start_date: date) -> str` - Find calendar ID for week
+- `post_timesheet(employee_id: UUID, week_start_date: date, timesheet_lines: List[Dict]) -> Timesheet` - Submit work hours
+- `create_employee_leave(employee_id: UUID, leave_type_id: str, start_date: date, end_date: date, hours_per_day: float, description: str) -> str` - Submit leave
 
-Add Xero Payroll API scopes:
-- `payroll.timesheets` - Submit timesheets
-- `payroll.employees` - Read employee data
-- `payroll.settings` - Read payroll settings (leave types, earnings rates)
+**Important:** Uses `LeavePeriod` objects (not `EmployeeLeaveperiod`).
 
-### 3. Leave Type Identification
-**File:** `apps/job/utils.py` or `apps/timesheet/utils.py`
+### 3. Leave Type Identification (COMPLETE)
+**File:** `apps/job/models/job.py:624`
 
-Utility function to identify leave type from job name:
+Implemented as `Job.get_leave_type()` method:
 ```python
-def get_leave_type(job_name: str) -> Optional[str]:
+def get_leave_type(self) -> str:
     """
-    Returns: "annual", "sick", "other", "unpaid", or None
+    Returns: "annual", "sick", "other", "unpaid", or "N/A"
     """
 ```
 
-Pattern matching on job name to categorize.
+Pattern matches job name against known leave job names.
 
-### 4. Payroll Posting Service
+### 4. Payroll Posting Service (COMPLETE)
 **File:** `apps/timesheet/services/payroll_sync.py`
 
-Core business logic for posting timesheets:
-```python
-def post_week_to_xero(staff_id: UUID, week_start_date: date) -> dict:
-    """
-    Collect CostLine entries for staff/week and submit to Xero Payroll.
+Main service class with methods:
+- `post_week_to_xero(staff_id: UUID, week_start_date: date) -> Dict` - Main entry point
+- `_categorize_entries(entries: List[CostLine]) -> tuple[List, List]` - Split leave vs work
+- `_map_work_entries(entries: List[CostLine], company_defaults) -> List[Dict]` - Map to timesheet lines
+- `_post_leave_entries(employee_id: UUID, entries: List[CostLine], company_defaults) -> List[str]` - Post leave, group consecutive days
 
-    Returns:
-        {
-            'success': bool,
-            'xero_timesheet_id': str,
-            'entries_posted': int,
-            'leave_hours': decimal,
-            'work_hours': decimal,
-        }
-    """
-```
+**Return dict includes:**
+- `success`, `xero_timesheet_id`, `xero_leave_ids`, `entries_posted`, `leave_hours`, `work_hours`, `errors`
 
-Logic:
-1. Validate staff has `xero_user_id`
-2. Collect CostLine entries (kind='time') for date range
-3. Categorize by leave type (annual/sick/other/unpaid vs work)
-4. Map rate_multiplier to Xero earnings rates
-5. Submit to Xero Payroll API
-6. Return result
+### 5. Management Commands (COMPLETE)
+**File:** `apps/workflow/management/commands/interact_with_xero.py`
 
-### 5. REST API Endpoint
-**File:** `apps/timesheet/views/payroll_api.py`
+Added flags:
+- `--payroll-employees` - List Xero employees
+- `--payroll-rates` - List earnings rates
+- `--payroll-calendars` - List payroll calendars
+- `--payroll-leave-types` - List leave types
+- `--configure-payroll` - Interactive config for leave type IDs + earnings rate IDs
+- `--link-staff` - Link staff to Xero employees by email
 
-Create endpoint for posting to Xero:
-```
-POST /api/timesheet/post-week-to-xero/
-{
-    "staff_id": "uuid",
-    "week_start_date": "2025-11-03"
-}
+### 6. REST API Endpoints (NOT IMPLEMENTED)
 
-Response:
-{
-    "success": true,
-    "xero_timesheet_id": "...",
-    "entries_posted": 45,
-    "leave_hours": 8.0,
-    "work_hours": 37.0
-}
-```
+No REST API endpoints created. Service layer only accessible via Python code.
 
-### 6. Jobs API Enhancement
-**File:** `apps/timesheet/views/api.py`
+**To implement in future:**
+- `POST /api/timesheet/post-week-to-xero/` endpoint
+- Response serialization
+- Request validation
 
-Enhance JobsAPIView response to include leave type:
-```json
-{
-    "id": "...",
-    "job_number": "123",
-    "description": "Annual Leave",
-    "leave_type": "annual"  // NEW: "annual", "sick", "other", "unpaid", or null
-}
-```
+### 7. Jobs API Enhancement (NOT IMPLEMENTED)
 
-This allows frontend to:
-- Filter magic jobs in payroll mode
-- Display appropriate UI for leave entry
-- Distinguish leave types visually
+`leave_type` field not added to API responses.
+
+**To implement in future:**
+- Add `leave_type` to job serializer
+- Frontend can then filter/display leave jobs appropriately
 
 ## Data Flow
 
 ```
-User enters hours → CostLine (kind='time')
+User enters hours → CostLine (kind='time', meta={wage_rate_multiplier, staff_id})
                            ↓
-                  Magic job detection
-                  (by job name pattern)
+                   Job.get_leave_type()
+                   (pattern match job name)
                            ↓
          ┌─────────────────┴──────────────┐
          ↓                                ↓
-    Leave entry                      Work entry
-    (Annual/Sick/                    (Regular job)
-     Other/Unpaid)
+    Leave CostLine                   Work CostLine
+    (job returns annual/            (job returns "N/A")
+     sick/other/unpaid)
          ↓                                ↓
          └─────────────────┬──────────────┘
                            ↓
-          User clicks "Post Week to Xero"
+          Call PayrollSyncService.post_week_to_xero()
                            ↓
-                 Payroll Sync Service
+              _categorize_entries()
+              (split by leave type)
                            ↓
-                Map to Xero format
-                (leave vs earnings)
+         ┌─────────────────┴──────────────┐
+         ↓                                ↓
+   _post_leave_entries()           _map_work_entries()
+   Group consecutive days          Map multiplier → earnings_rate_id
+         ↓                                ↓
+   Xero Leave API                  Xero Timesheets API
+   POST /employees/{id}/leave      POST /timesheets
+   (LeavePeriod objects)           POST /timesheets/{id}/lines
+         ↓                                ↓
+   Returns leave_ids               Returns timesheet_id
+         └─────────────────┬──────────────┘
                            ↓
-                  Xero Payroll API
-                           ↓
-                 Timesheet submitted
+                  Return combined result
+              {success, xero_timesheet_id,
+               xero_leave_ids, hours, errors}
 ```
 
-## Frontend Integration Points
+## Testing Status
 
-The frontend will need to:
-1. Display leave_type field in job listings
-2. Add "payroll mode" toggle to show/hide magic jobs
-3. Add "Post Week to Xero" button
-4. Display posting status/results
+### Tested
 
-**Note:** Frontend changes are out of scope for this backend implementation.
+- API connectivity verified (Xero API accepts request format)
+- Configuration retrieval (fetched 15 leave types, 15 earnings rates from Xero)
+- CompanyDefaults mapping configured correctly
+- Import correctness (`LeavePeriod` class works)
 
-## Testing Strategy
+### Not Tested - Blocked on Xero Demo Company Configuration
 
-1. **Unit Tests:**
-   - Leave type identification from job names
-   - CostLine categorization logic
-   - Xero API payload mapping
+**Cannot complete end-to-end testing** due to Xero demo company issues:
 
-2. **Integration Tests:**
-   - Xero Payroll API calls (use test/demo environment)
-   - End-to-end posting workflow
-   - Rate multiplier mapping
+1. **Employee Leave Setup Missing**
+   - Error: "Need to complete the Leave set-up for this employee before viewing, configuring and requesting leave"
+   - Demo employees not configured for leave entitlements in Xero Payroll
+   - Blocks: `create_employee_leave()` end-to-end testing
 
-3. **Manual Testing:**
-   - Test with real Xero Payroll demo company
-   - Verify different leave types post correctly
-   - Test overtime/rate multipliers
+2. **Outdated Payroll Calendars**
+   - Only 2023 calendar periods exist (Weekly: Jul 10-16, 2023; Monthly: Aug 2023)
+   - No current/valid payroll periods
+   - Blocks: `post_timesheet()` for work hours
 
-## Migration Notes
+3. **No Test Data**
+   - No CostLine entries matching 2023 calendar periods in database
 
-### From IMS to Xero Payroll
+**To unblock testing:**
+- Configure leave entitlements for demo employees in Xero Payroll settings
+- Create payroll calendar period for current dates (November 2025)
+- Re-run: `PayrollSyncService.post_week_to_xero()`
 
-- Keep `Staff.ims_payroll_id` field for historical reference
-- IMS export can be deprecated after Xero Payroll is stable
-- No data migration needed (fresh start)
+### Unit Tests
 
-### Staff to Xero Employee Mapping
+Not implemented. Recommend adding:
+- `Job.get_leave_type()` pattern matching tests
+- `_categorize_entries()` leave vs work splitting
+- `_map_work_entries()` rate multiplier → earnings rate ID mapping
+- `_post_leave_entries()` consecutive day grouping logic
 
-- Use `Staff.xero_user_id` field (already exists)
-- Manual one-time setup to populate xero_user_id for each staff member
-- Can use `get_employees()` API call to fetch Xero employee list for matching
+## Remaining Work to Complete Feature
+
+### Critical - Required for Feature Completion
+
+1. **Complete Backend Testing**
+   - Fix Xero demo company configuration (employee leave setup, current payroll calendars)
+   - End-to-end test `PayrollSyncService.post_week_to_xero()` with both work hours and leave
+   - Test consecutive day grouping for leave
+   - Test all rate multipliers (1.0x, 1.5x, 2.0x)
+   - Add unit tests for business logic
+
+2. **REST API Endpoints** (NOT IMPLEMENTED)
+   - `POST /api/timesheet/post-week-to-xero/`
+   - Request validation (staff_id, week_start_date must be Monday)
+   - Response serialization
+   - Permission checks (staff can only post their own, managers can post for team)
+
+3. **Jobs API Enhancement** (NOT IMPLEMENTED)
+   - Add `leave_type` field to job serializer
+   - Required for frontend to filter leave jobs
+
+4. **Frontend Implementation** (NOT IMPLEMENTED)
+   - "Post Week to Xero" button in timesheet view
+   - Display posting status/results
+   - Error handling and user feedback
+   - Loading states during posting
+
+### Important - Should Implement Before Production
+
+5. **Duplicate Posting Prevention**
+   - Add tracking field to CostLine or create new PostingRecord model
+   - Prevent re-posting same week's entries
+   - UI indication of already-posted weeks
+
+6. **Production Configuration**
+   - Populate `Staff.xero_user_id` for all production staff
+   - Use `--link-staff` command, verify matches
+   - Configure leave type IDs and earnings rate IDs via `--configure-payroll`
+
+### Post-Launch
+
+7. **IMS Deprecation**
+   - Parallel run period (both systems)
+   - Verify accuracy against IMS exports
+   - Remove IMS export functionality once confident
+
+8. **Enhancements**
+   - Leave balance queries from Xero
+   - Bulk posting for multiple staff
+   - Audit trail improvements
+
+## Rollout Plan Status
+
+| Step | Status | Notes |
+|------|--------|-------|
+| 1. Implement backend changes | COMPLETE | Service layer done, tested partially |
+| 2. Test with demo Xero Payroll | BLOCKED | Demo company config issues |
+| 3. Implement REST API endpoints | NOT STARTED | Required for frontend |
+| 4. Implement frontend UI | NOT STARTED | Blocked on REST API |
+| 5. Populate Staff.xero_user_id | NOT STARTED | Production deployment task |
+| 6. Parallel run with IMS | NOT STARTED | Verification phase |
+| 7. Full cutover to Xero Payroll | NOT STARTED | After verification |
+| 8. Deprecate IMS integration | NOT STARTED | Final cleanup |
 
 ## Security Considerations
 
-- Xero Payroll API requires elevated permissions
-- Ensure OAuth token refresh handles new scopes
-- Validate staff_id and date inputs to prevent unauthorized submissions
-- Use defensive programming: fail early on missing xero_user_id
-
-## Future Enhancements (Out of Scope)
-
-- Tracking which entries have been posted to Xero (add fields to CostLine)
-- Preventing duplicate submissions
-- Leave balance queries from Xero
-- Bidirectional sync (if ever needed)
-- Bulk posting for multiple staff
+- Xero Payroll API requires elevated permissions (scope updated in migration 0170)
+- OAuth token refresh handles new scopes automatically
+- Service layer validates: staff has xero_user_id, week_start is Monday
+- REST API layer must validate: staff_id permissions, date inputs
+- Defensive programming: fail early on missing xero_user_id
 
 ## Dependencies
 
-- `xero-python` library (already in use)
-- Xero Payroll API access (requires account setup)
-- Staff.xero_user_id populated for all active staff
-
-## Rollout Plan
-
-1. Implement backend changes
-2. Test with demo Xero Payroll account
-3. Populate Staff.xero_user_id for production staff
-4. Frontend implements UI changes
-5. Parallel run with IMS (verify accuracy)
-6. Full cutover to Xero Payroll
-7. Deprecate IMS integration
+- `xero-python` library (already in use) - SATISFIED
+- Xero Payroll API access - CONFIGURED (demo environment)
+- Staff.xero_user_id populated - NOT DONE (production deployment requirement)
+- Production Xero Payroll properly configured - NOT VERIFIED
