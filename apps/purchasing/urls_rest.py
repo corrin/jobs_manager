@@ -9,7 +9,9 @@ from apps.purchasing.views.purchasing_rest_views import (
     ProductMappingValidateView,
     PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
+    PurchaseOrderEmailView,
     PurchaseOrderListCreateRestView,
+    PurchaseOrderPDFView,
     PurchasingJobsAPIView,
     StockConsumeRestView,
     StockDeactivateRestView,
@@ -62,6 +64,16 @@ urlpatterns = [
         "purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/",
         AllocationDeleteAPIView.as_view(),
         name="allocation_delete_rest",
+    ),
+    path(
+        "purchase-orders/<uuid:po_id>/pdf/",
+        PurchaseOrderPDFView.as_view(),
+        name="purchase_order_pdf_rest",
+    ),
+    path(
+        "purchase-orders/<uuid:po_id>/email/",
+        PurchaseOrderEmailView.as_view(),
+        name="purchase_order_email_rest",
     ),
     path(
         "purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/",

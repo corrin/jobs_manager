@@ -5,6 +5,7 @@ import traceback
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import OuterRef, Subquery
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
@@ -31,7 +32,10 @@ from apps.purchasing.serializers import (
     PurchaseOrderCreateResponseSerializer,
     PurchaseOrderCreateSerializer,
     PurchaseOrderDetailSerializer,
+    PurchaseOrderEmailRequestSerializer,
+    PurchaseOrderEmailResponseSerializer,
     PurchaseOrderListSerializer,
+    PurchaseOrderPDFResponseSerializer,
     PurchaseOrderUpdateResponseSerializer,
     PurchaseOrderUpdateSerializer,
     PurchasingJobsResponseSerializer,
@@ -49,6 +53,12 @@ from apps.purchasing.services.allocation_service import (
     AllocationService,
 )
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
+from apps.purchasing.services.purchase_order_email_service import (
+    create_purchase_order_email,
+)
+from apps.purchasing.services.purchase_order_pdf_service import (
+    create_purchase_order_pdf,
+)
 from apps.purchasing.services.purchasing_rest_service import (
     PreconditionFailedError,
     PurchasingRestService,
@@ -1142,5 +1152,136 @@ class ProductMappingValidateView(APIView):
             logger.error(f"Error validating mapping {mapping_id}: {str(e)}")
             return Response(
                 {"success": False, "message": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PurchaseOrderPDFView(APIView):
+    """
+    REST API view for generating and downloading purchase order PDFs.
+
+    GET: Returns the PDF file for the specified purchase order
+    """
+
+    serializer_class = PurchaseOrderPDFResponseSerializer
+
+    @extend_schema(
+        operation_id="getPurchaseOrderPDF",
+        responses={
+            status.HTTP_200_OK: PurchaseOrderPDFResponseSerializer,
+        },
+        description="Generate and download PDF for the specified purchase order.",
+    )
+    def get(self, request, po_id):
+        """Generate and return PDF for a purchase order."""
+        try:
+            # Get the purchase order
+            po = get_object_or_404(PurchaseOrder, id=po_id)
+
+            # Generate PDF
+            pdf_buffer = create_purchase_order_pdf(po)
+
+            # Return PDF as file response
+            response = FileResponse(
+                pdf_buffer,
+                content_type="application/pdf",
+                as_attachment=True,
+                filename=f"Purchase_Order_{po.po_number}.pdf",
+            )
+
+            return response
+
+        except PurchaseOrder.DoesNotExist:
+            return Response(
+                {"error": "Purchase order not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            logger.error(f"Error generating PDF for PO {po_id}: {str(e)}")
+            return Response(
+                {"error": "Failed to generate PDF", "details": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PurchaseOrderEmailView(APIView):
+    """
+    REST API view for generating purchase order emails.
+
+    POST: Generate email data for the specified purchase order
+    """
+
+    serializer_class = PurchaseOrderEmailResponseSerializer
+
+    @extend_schema(
+        operation_id="getPurchaseOrderEmail",
+        request=PurchaseOrderEmailRequestSerializer,
+        responses={
+            status.HTTP_200_OK: PurchaseOrderEmailResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: PurchaseOrderEmailResponseSerializer,
+        },
+        description="Generate email data for the specified purchase order.",
+    )
+    def post(self, request, po_id):
+        """Generate email data for a purchase order."""
+        try:
+            # Validate input data
+            serializer = PurchaseOrderEmailRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Invalid input data",
+                        "details": serializer.errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Get the purchase order
+            po = get_object_or_404(PurchaseOrder, id=po_id)
+
+            # Generate email data
+            email_data = create_purchase_order_email(po)
+
+            # Override recipient if provided in request
+            validated_data = serializer.validated_data
+            if validated_data.get("recipient_email"):
+                email_data["email"] = validated_data["recipient_email"]
+
+            # Add custom message if provided
+            if validated_data.get("message"):
+                custom_message = validated_data["message"]
+                email_data["body"] = f"{custom_message}\n\n{email_data['body']}"
+
+            # Return email data
+            response_data = {
+                "success": True,
+                "email_subject": email_data["subject"],
+                "email_body": email_data["body"],
+                "mailto_url": email_data["mailto_url"],
+                "message": "Email data generated successfully",
+            }
+
+            response_serializer = self.serializer_class(response_data)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except PurchaseOrder.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Purchase order not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except ValueError as e:
+            return Response(
+                {"success": False, "message": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            logger.error(f"Error generating email for PO {po_id}: {str(e)}")
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to generate email",
+                    "details": str(e),
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
