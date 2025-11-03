@@ -5,6 +5,7 @@ import traceback
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import OuterRef, Subquery
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
@@ -52,6 +53,12 @@ from apps.purchasing.services.allocation_service import (
     AllocationService,
 )
 from apps.purchasing.services.delivery_receipt_service import process_delivery_receipt
+from apps.purchasing.services.purchase_order_email_service import (
+    create_purchase_order_email,
+)
+from apps.purchasing.services.purchase_order_pdf_service import (
+    create_purchase_order_pdf,
+)
 from apps.purchasing.services.purchasing_rest_service import (
     PreconditionFailedError,
     PurchasingRestService,
@@ -1168,12 +1175,6 @@ class PurchaseOrderPDFView(APIView):
     def get(self, request, po_id):
         """Generate and return PDF for a purchase order."""
         try:
-            from django.http import FileResponse
-
-            from apps.purchasing.services.purchase_order_pdf_service import (
-                create_purchase_order_pdf,
-            )
-
             # Get the purchase order
             po = get_object_or_404(PurchaseOrder, id=po_id)
 
@@ -1224,10 +1225,6 @@ class PurchaseOrderEmailView(APIView):
     def post(self, request, po_id):
         """Generate email data for a purchase order."""
         try:
-            from apps.purchasing.services.purchase_order_email_service import (
-                create_purchase_order_email,
-            )
-
             # Validate input data
             serializer = PurchaseOrderEmailRequestSerializer(data=request.data)
             if not serializer.is_valid():
