@@ -7,6 +7,7 @@ from apps.workflow.api.xero.payroll import (
     get_earnings_rates,
     get_employees,
     get_leave_types,
+    get_pay_runs,
     get_payroll_calendars,
 )
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
@@ -96,6 +97,11 @@ class Command(BaseCommand):
             help="Get Xero Payroll leave types",
         )
         parser.add_argument(
+            "--payroll-pay-runs",
+            action="store_true",
+            help="Get Xero Payroll pay runs",
+        )
+        parser.add_argument(
             "--configure-payroll",
             action="store_true",
             help="Interactively configure payroll earnings rate mappings",
@@ -141,6 +147,10 @@ class Command(BaseCommand):
 
         if options["payroll_leave_types"]:
             self.get_payroll_leave_types()
+            return
+
+        if options["payroll_pay_runs"]:
+            self.get_payroll_pay_runs()
             return
 
         if options["configure_payroll"]:
@@ -366,6 +376,34 @@ class Command(BaseCommand):
 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Failed to fetch leave types: {e}"))
+
+    def get_payroll_pay_runs(self):
+        """Get Xero Payroll pay runs"""
+        self.stdout.write(self.style.SUCCESS("\n=== Xero Payroll Pay Runs ===\n"))
+
+        try:
+            pay_runs = get_pay_runs()
+
+            if not pay_runs:
+                self.stdout.write(
+                    self.style.WARNING("No pay runs found in Xero Payroll")
+                )
+                return
+
+            for pr in pay_runs:
+                self.stdout.write(f"Pay Run ID: {pr['pay_run_id']}")
+                self.stdout.write(
+                    f"  Period: {pr['period_start_date']} to {pr['period_end_date']}"
+                )
+                self.stdout.write(f"  Payment Date: {pr['payment_date']}")
+                self.stdout.write(f"  Status: {pr['pay_run_status']}")
+                self.stdout.write(f"  Type: {pr['pay_run_type']}")
+                self.stdout.write(f"  Calendar ID: {pr['payroll_calendar_id']}\n")
+
+            self.stdout.write(self.style.SUCCESS(f"\nTotal: {len(pay_runs)} pay runs"))
+
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Failed to fetch pay runs: {e}"))
 
     def configure_payroll(self):
         """Interactively configure Xero Payroll mappings"""

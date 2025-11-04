@@ -7,10 +7,12 @@ try:
     if apps.ready:
         from .payroll import (
             create_employee_leave,
+            create_pay_run,
             find_payroll_calendar_for_week,
             get_earnings_rates,
             get_employees,
             get_leave_types,
+            get_pay_runs,
             get_payroll_calendars,
             post_timesheet,
         )
@@ -103,6 +105,7 @@ __all__ = [
     "create_default_task",
     "create_employee_leave",
     "create_expense_entries",
+    "create_pay_run",
     "create_project",
     "create_time_entries",
     "deep_sync_xero_data",
@@ -117,6 +120,7 @@ __all__ = [
     "get_last_modified_time",
     "get_leave_types",
     "get_or_fetch_client",
+    "get_pay_runs",
     "get_payroll_calendars",
     "get_projects",
     "get_tenant_id",

@@ -13,6 +13,7 @@ XERO_SCOPES = [
     # "accounting.inventory",  # REMOVED - invalid scope, use accounting.settings instead
     "projects",
     "payroll.timesheets",
+    "payroll.payruns",
     "payroll.employees",
     "payroll.settings",
 ]
