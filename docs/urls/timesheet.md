@@ -30,7 +30,6 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/weekly/` | `api.WeeklyTimesheetAPIView` | `timesheet:api_weekly_timesheet` | Comprehensive weekly timesheet API endpoint using WeeklyTimesheetService. |
-| `/api/weekly/ims/` | `api.IMSWeeklyTimesheetAPIView` | `timesheet:weekly_timesheet_ims` | Weekly overview in IMS format (Tue-Fri plus following Mon). |
 
 ### Rest Management
 | URL Pattern | View | Name | Description |

@@ -26,9 +26,6 @@ from apps.timesheet.serializers import (
     StaffListResponseSerializer,
     WeeklyTimesheetDataSerializer,
 )
-from apps.timesheet.serializers.modern_timesheet_serializers import (
-    IMSWeeklyTimesheetDataSerializer,
-)
 from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunRequestSerializer,
     CreatePayRunResponseSerializer,
@@ -194,8 +191,8 @@ class DailyTimesheetAPIView(APIView):
     Supports multiple URL patterns:
     - GET /timesheets/api/daily/ (today's data)
     - GET /timesheets/api/daily/{date}/ (specific date)
-    - GET /timesheets/api/staff/{staff_id}/daily/ (staff detail for today)
-    - GET /timesheets/api/staff/{staff_id}/daily/?date={date} (staff detail for specific date)
+    - GET /timesheets/api/staff/{staff_id}/daily/ (staff detail today)
+    - GET /timesheets/api/staff/{staff_id}/daily/?date={date} (specific)
     """
 
     permission_classes = [IsAuthenticated]
@@ -302,10 +299,11 @@ class DailyTimesheetAPIView(APIView):
                 # Adjust scheduled hours based on weekend feature flag
                 scheduled_hours = 0.0 if is_weekend else 8.0
 
+                initials = f"{staff.first_name[0]}{staff.last_name[0]}".upper()
                 staff_data = {
                     "staff_id": str(staff_id),
                     "staff_name": f"{staff.first_name} {staff.last_name}",
-                    "staff_initials": f"{staff.first_name[0]}{staff.last_name[0]}".upper(),
+                    "staff_initials": initials,
                     "avatar_url": None,
                     "scheduled_hours": scheduled_hours,
                     "actual_hours": 0.0,
@@ -356,8 +354,8 @@ class DailyTimesheetAPIView(APIView):
 
 
 class TimesheetResponseMixin:
-    def build_timesheet_response(self, request, *, export_to_ims: bool = False):
-        """Builds the weekly timesheet response data."""
+    def build_timesheet_response(self, request):
+        """Builds the weekly timesheet response data with payroll fields."""
         try:
             start_str = request.query_params.get("start_date")
             if start_str:
@@ -376,9 +374,7 @@ class TimesheetResponseMixin:
             # Check weekend feature flag
             weekend_enabled = self._is_weekend_enabled()
 
-            weekly_data = WeeklyTimesheetService.get_weekly_overview(
-                start_date, export_to_ims=export_to_ims
-            )
+            weekly_data = WeeklyTimesheetService.get_weekly_overview(start_date)
 
             prev_week = start_date - timedelta(days=7)
             next_week = start_date + timedelta(days=7)
@@ -392,13 +388,8 @@ class TimesheetResponseMixin:
             weekly_data["weekend_enabled"] = weekend_enabled
             weekly_data["week_type"] = "7-day" if weekend_enabled else "5-day"
 
-            serializer_cls = (
-                IMSWeeklyTimesheetDataSerializer
-                if export_to_ims
-                else WeeklyTimesheetDataSerializer
-            )
             return Response(
-                serializer_cls(weekly_data).data,
+                WeeklyTimesheetDataSerializer(weekly_data).data,
                 status=status.HTTP_200_OK,
             )
 
@@ -429,14 +420,15 @@ class TimesheetResponseMixin:
 class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
     """
     Comprehensive weekly timesheet API endpoint using WeeklyTimesheetService.
-    Provides complete weekly overview data for the modern Vue.js frontend.
-    Supports both 5-day (Mon-Fri) and 7-day (Mon-Sun) modes based on feature flag.
+    Provides weekly overview with payroll fields for Vue.js frontend.
+    Supports both 5-day (Mon-Fri) and 7-day (Mon-Sun) modes via flag.
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = WeeklyTimesheetDataSerializer
 
     @extend_schema(
-        summary="Standard weekly overview (Mon–Sun when enabled, Mon–Fri when disabled)",
+        summary="Weekly overview with payroll data (Mon–Sun/Mon–Fri)",
         parameters=[
             OpenApiParameter(
                 "start_date",
@@ -453,8 +445,8 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
         },
     )
     def get(self, request):
-        """Return weekly timesheet data (5 or 7 days based on feature flag)."""
-        return self.build_timesheet_response(request, export_to_ims=False)
+        """Return weekly timesheet data with payroll fields (5/7 days)."""
+        return self.build_timesheet_response(request)
 
     @extend_schema(
         summary="Submit paid absence",
@@ -546,42 +538,6 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-
-class IMSWeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
-    """
-    Weekly overview in IMS format (Tue-Fri plus following Mon).
-
-    GET /timesheets/api/weekly/ims/?start_date=YYYY-MM-DD
-    """
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = IMSWeeklyTimesheetDataSerializer
-
-    def get_serializer_class(self):
-        """Return the serializer class for IMS weekly timesheet data."""
-        return IMSWeeklyTimesheetDataSerializer
-
-    @extend_schema(
-        summary="IMS weekly overview (Tue–Fri + next Mon)",
-        parameters=[
-            OpenApiParameter(
-                "start_date",
-                OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Monday of target week in YYYY-MM-DD format. Defaults to current week.",
-            )
-        ],
-        responses={
-            200: IMSWeeklyTimesheetDataSerializer,
-            400: ClientErrorResponseSerializer,
-            500: ClientErrorResponseSerializer,
-        },
-    )
-    def get(self, request):
-        """Return IMS-formatted weekly timesheet data."""
-        # Re-use helper from the standard view but with export_to_ims=True
-        return self.build_timesheet_response(request, export_to_ims=True)
 
 
 class CreatePayRunAPIView(APIView):

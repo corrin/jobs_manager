@@ -14,9 +14,6 @@ try:
             TimesheetErrorResponseSerializer,
         )
         from .modern_timesheet_serializers import (
-            IMSWeeklyStaffDataSerializer,
-            IMSWeeklyStaffDataWeeklyHoursSerializer,
-            IMSWeeklyTimesheetDataSerializer,
             JobMetricsSerializer,
             JobsListResponseSerializer,
             ModernStaffSerializer,
@@ -43,9 +40,6 @@ __all__ = [
     "CreatePayRunResponseSerializer",
     "DailyTimesheetSummarySerializer",
     "DailyTotalsSerializer",
-    "IMSWeeklyStaffDataSerializer",
-    "IMSWeeklyStaffDataWeeklyHoursSerializer",
-    "IMSWeeklyTimesheetDataSerializer",
     "JobBreakdownSerializer",
     "JobMetricsSerializer",
     "JobsListResponseSerializer",

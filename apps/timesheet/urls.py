@@ -15,7 +15,6 @@ from .api.daily_timesheet_views import (
 )
 from .views.api import (
     CreatePayRunAPIView,
-    IMSWeeklyTimesheetAPIView,
     JobsAPIView,
     PostWeekToXeroPayrollAPIView,
     StaffListAPIView,
@@ -41,11 +40,6 @@ urlpatterns = [
     ),
     # Weekly timesheet endpoints - using WeeklyTimesheetService (CostLine-based)
     path("api/weekly/", WeeklyTimesheetAPIView.as_view(), name="api_weekly_timesheet"),
-    path(
-        "api/weekly/ims/",
-        IMSWeeklyTimesheetAPIView.as_view(),
-        name="weekly_timesheet_ims",
-    ),
     # Jobs endpoints
     path("api/jobs/", JobsAPIView.as_view(), name="api_jobs_list"),
     # Xero Payroll endpoints

@@ -8,7 +8,6 @@ try:
         from .api import (
             CreatePayRunAPIView,
             DailyTimesheetAPIView,
-            IMSWeeklyTimesheetAPIView,
             JobsAPIView,
             PostWeekToXeroPayrollAPIView,
             StaffListAPIView,
@@ -22,7 +21,6 @@ except (ImportError, RuntimeError):
 __all__ = [
     "CreatePayRunAPIView",
     "DailyTimesheetAPIView",
-    "IMSWeeklyTimesheetAPIView",
     "JobsAPIView",
     "PostWeekToXeroPayrollAPIView",
     "StaffListAPIView",
