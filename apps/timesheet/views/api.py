@@ -29,6 +29,12 @@ from apps.timesheet.serializers import (
 from apps.timesheet.serializers.modern_timesheet_serializers import (
     IMSWeeklyTimesheetDataSerializer,
 )
+from apps.timesheet.serializers.payroll_serializers import (
+    CreatePayRunRequestSerializer,
+    CreatePayRunResponseSerializer,
+    PostWeekToXeroRequestSerializer,
+    PostWeekToXeroResponseSerializer,
+)
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
 from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
@@ -582,29 +588,13 @@ class CreatePayRunAPIView(APIView):
     """API endpoint to create a pay run in Xero Payroll."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = CreatePayRunRequestSerializer
 
     @extend_schema(
         summary="Create pay run for a week",
-        parameters=[
-            OpenApiParameter(
-                "week_start_date",
-                OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Monday of the week (YYYY-MM-DD)",
-                required=True,
-            ),
-        ],
+        request=CreatePayRunRequestSerializer,
         responses={
-            201: {
-                "type": "object",
-                "properties": {
-                    "pay_run_id": {"type": "string"},
-                    "status": {"type": "string"},
-                    "period_start_date": {"type": "string", "format": "date"},
-                    "period_end_date": {"type": "string", "format": "date"},
-                    "payment_date": {"type": "string", "format": "date"},
-                },
-            },
+            201: CreatePayRunResponseSerializer,
             400: ClientErrorResponseSerializer,
             409: ClientErrorResponseSerializer,
             500: ClientErrorResponseSerializer,
@@ -615,7 +605,8 @@ class CreatePayRunAPIView(APIView):
         try:
             from apps.workflow.api.xero.payroll import create_pay_run
 
-            week_start_date_str = request.query_params.get("week_start_date")
+            data = request.data
+            week_start_date_str = data.get("week_start_date")
 
             if not week_start_date_str:
                 return Response(
@@ -676,48 +667,22 @@ class PostWeekToXeroPayrollAPIView(APIView):
     """API endpoint to post a weekly timesheet to Xero Payroll."""
 
     permission_classes = [IsAuthenticated]
+    serializer_class = PostWeekToXeroRequestSerializer
 
     @extend_schema(
         summary="Post weekly timesheet to Xero Payroll",
-        parameters=[
-            OpenApiParameter(
-                "staff_id",
-                OpenApiTypes.UUID,
-                location=OpenApiParameter.QUERY,
-                description="Staff member UUID",
-                required=True,
-            ),
-            OpenApiParameter(
-                "week_start_date",
-                OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Monday of the week (YYYY-MM-DD)",
-                required=True,
-            ),
-        ],
+        request=PostWeekToXeroRequestSerializer,
         responses={
-            200: {
-                "type": "object",
-                "properties": {
-                    "success": {"type": "boolean"},
-                    "xero_timesheet_id": {"type": "string", "nullable": True},
-                    "xero_leave_ids": {"type": "array", "items": {"type": "string"}},
-                    "entries_posted": {"type": "integer"},
-                    "work_hours": {"type": "string"},
-                    "other_leave_hours": {"type": "string"},
-                    "annual_sick_hours": {"type": "string"},
-                    "unpaid_hours": {"type": "string"},
-                    "errors": {"type": "array", "items": {"type": "string"}},
-                },
-            },
+            200: PostWeekToXeroResponseSerializer,
             400: ClientErrorResponseSerializer,
             500: ClientErrorResponseSerializer,
         },
     )
     def post(self, request):
         """Post a week's timesheet to Xero Payroll."""
-        staff_id = request.query_params.get("staff_id")
-        week_start_date_str = request.query_params.get("week_start_date")
+        data = request.data
+        staff_id = data.get("staff_id")
+        week_start_date_str = data.get("week_start_date")
 
         if not staff_id:
             return Response(
