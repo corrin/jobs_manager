@@ -585,17 +585,15 @@ class CreatePayRunAPIView(APIView):
 
     @extend_schema(
         summary="Create pay run for a week",
-        request={
-            "type": "object",
-            "properties": {
-                "week_start_date": {
-                    "type": "string",
-                    "format": "date",
-                    "description": "Monday of the week (YYYY-MM-DD)",
-                }
-            },
-            "required": ["week_start_date"],
-        },
+        parameters=[
+            OpenApiParameter(
+                "week_start_date",
+                OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Monday of the week (YYYY-MM-DD)",
+                required=True,
+            ),
+        ],
         responses={
             201: {
                 "type": "object",
@@ -617,7 +615,7 @@ class CreatePayRunAPIView(APIView):
         try:
             from apps.workflow.api.xero.payroll import create_pay_run
 
-            week_start_date_str = request.data.get("week_start_date")
+            week_start_date_str = request.query_params.get("week_start_date")
 
             if not week_start_date_str:
                 return Response(
@@ -681,18 +679,22 @@ class PostWeekToXeroPayrollAPIView(APIView):
 
     @extend_schema(
         summary="Post weekly timesheet to Xero Payroll",
-        request={
-            "type": "object",
-            "properties": {
-                "staff_id": {"type": "string", "format": "uuid"},
-                "week_start_date": {
-                    "type": "string",
-                    "format": "date",
-                    "description": "Monday of the week (YYYY-MM-DD)",
-                },
-            },
-            "required": ["staff_id", "week_start_date"],
-        },
+        parameters=[
+            OpenApiParameter(
+                "staff_id",
+                OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Staff member UUID",
+                required=True,
+            ),
+            OpenApiParameter(
+                "week_start_date",
+                OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Monday of the week (YYYY-MM-DD)",
+                required=True,
+            ),
+        ],
         responses={
             200: {
                 "type": "object",
@@ -714,8 +716,8 @@ class PostWeekToXeroPayrollAPIView(APIView):
     )
     def post(self, request):
         """Post a week's timesheet to Xero Payroll."""
-        staff_id = request.data.get("staff_id")
-        week_start_date_str = request.data.get("week_start_date")
+        staff_id = request.query_params.get("staff_id")
+        week_start_date_str = request.query_params.get("week_start_date")
 
         if not staff_id:
             return Response(
