@@ -14,10 +14,11 @@
 |-------------|------|------|-------------|
 | `/api/jobs/` | `api.JobsAPIView` | `timesheet:api_jobs_list` | API endpoint to get available jobs for timesheet entries. |
 
-#### Post-To-Xero-Payroll Management
+#### Payroll Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/post-to-xero-payroll/` | `api.PostWeekToXeroPayrollAPIView` | `timesheet:api_post_to_xero_payroll` | API endpoint to post a weekly timesheet to Xero Payroll. |
+| `/api/payroll/create-pay-run/` | `api.CreatePayRunAPIView` | `timesheet:api_create_pay_run` | API endpoint to create a pay run in Xero Payroll. |
+| `/api/payroll/post-staff-week/` | `api.PostWeekToXeroPayrollAPIView` | `timesheet:api_post_staff_week` | API endpoint to post a weekly timesheet to Xero Payroll. |
 
 #### Staff Management
 | URL Pattern | View | Name | Description |

@@ -578,56 +578,46 @@ class IMSWeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
         return self.build_timesheet_response(request, export_to_ims=True)
 
 
-class PostWeekToXeroPayrollAPIView(APIView):
-    """API endpoint to post a weekly timesheet to Xero Payroll."""
+class CreatePayRunAPIView(APIView):
+    """API endpoint to create a pay run in Xero Payroll."""
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
-        summary="Post weekly timesheet to Xero Payroll",
-        parameters=[
-            OpenApiParameter(
-                "staff_id",
-                OpenApiTypes.UUID,
-                location=OpenApiParameter.QUERY,
-                description="Staff member UUID",
-                required=True,
-            ),
-            OpenApiParameter(
-                "week_start_date",
-                OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Monday of the week to post (YYYY-MM-DD)",
-                required=True,
-            ),
-        ],
+        summary="Create pay run for a week",
+        request={
+            "type": "object",
+            "properties": {
+                "week_start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Monday of the week (YYYY-MM-DD)",
+                }
+            },
+            "required": ["week_start_date"],
+        },
         responses={
-            200: {
+            201: {
                 "type": "object",
                 "properties": {
-                    "success": {"type": "boolean"},
-                    "xero_timesheet_id": {"type": "string"},
-                    "entries_posted": {"type": "integer"},
-                    "leave_hours": {"type": "number"},
-                    "work_hours": {"type": "number"},
-                    "errors": {"type": "array", "items": {"type": "string"}},
+                    "pay_run_id": {"type": "string"},
+                    "status": {"type": "string"},
+                    "period_start_date": {"type": "string", "format": "date"},
+                    "period_end_date": {"type": "string", "format": "date"},
+                    "payment_date": {"type": "string", "format": "date"},
                 },
             },
             400: ClientErrorResponseSerializer,
+            409: ClientErrorResponseSerializer,
             500: ClientErrorResponseSerializer,
         },
     )
     def post(self, request):
-        """Post a week's timesheet to Xero Payroll."""
+        """Create a new pay run for the specified week."""
         try:
-            staff_id = request.query_params.get("staff_id")
-            week_start_date_str = request.query_params.get("week_start_date")
+            from apps.workflow.api.xero.payroll import create_pay_run
 
-            if not staff_id:
-                return Response(
-                    {"error": "staff_id is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            week_start_date_str = request.data.get("week_start_date")
 
             if not week_start_date_str:
                 return Response(
@@ -646,21 +636,113 @@ class PostWeekToXeroPayrollAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Validate Monday
-            if week_start_date.weekday() != 0:
-                return Response(
-                    {"error": "week_start_date must be a Monday"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            # Create pay run (validates Monday, creates in Xero)
+            pay_run_id = create_pay_run(week_start_date)
 
-            # Post to Xero
-            result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+            # Calculate dates for response
+            week_end_date = week_start_date + timedelta(days=6)
+            payment_date = week_end_date + timedelta(days=3)
 
-            return Response(result, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            logger.error(f"Error posting timesheet to Xero: {e}", exc_info=True)
             return Response(
-                {"error": f"Failed to post timesheet: {str(e)}"},
+                {
+                    "pay_run_id": pay_run_id,
+                    "status": "Draft",
+                    "period_start_date": week_start_date.isoformat(),
+                    "period_end_date": week_end_date.isoformat(),
+                    "payment_date": payment_date.isoformat(),
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        except ValueError as e:
+            # Client errors (bad date, not Monday)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            from apps.workflow.services.error_persistence import persist_app_error
+
+            logger.error(f"Error creating pay run: {e}", exc_info=True)
+            persist_app_error(e)
+
+            # Check for conflict (draft already exists)
+            error_msg = str(e)
+            if "only be one draft pay run" in error_msg.lower():
+                return Response({"error": error_msg}, status=status.HTTP_409_CONFLICT)
+
+            return Response(
+                {"error": f"Failed to create pay run: {error_msg}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class PostWeekToXeroPayrollAPIView(APIView):
+    """API endpoint to post a weekly timesheet to Xero Payroll."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Post weekly timesheet to Xero Payroll",
+        request={
+            "type": "object",
+            "properties": {
+                "staff_id": {"type": "string", "format": "uuid"},
+                "week_start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Monday of the week (YYYY-MM-DD)",
+                },
+            },
+            "required": ["staff_id", "week_start_date"],
+        },
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "success": {"type": "boolean"},
+                    "xero_timesheet_id": {"type": "string", "nullable": True},
+                    "xero_leave_ids": {"type": "array", "items": {"type": "string"}},
+                    "entries_posted": {"type": "integer"},
+                    "work_hours": {"type": "string"},
+                    "other_leave_hours": {"type": "string"},
+                    "annual_sick_hours": {"type": "string"},
+                    "unpaid_hours": {"type": "string"},
+                    "errors": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+            400: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def post(self, request):
+        """Post a week's timesheet to Xero Payroll."""
+        staff_id = request.data.get("staff_id")
+        week_start_date_str = request.data.get("week_start_date")
+
+        if not staff_id:
+            return Response(
+                {"error": "staff_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not week_start_date_str:
+            return Response(
+                {"error": "week_start_date is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse date
+        try:
+            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Post to Xero (service validates Monday, checks pay run status, posts data)
+        result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+
+        # Return appropriate HTTP status based on success
+        if result["success"]:
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)
