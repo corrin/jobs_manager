@@ -161,6 +161,40 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
 
 
 # Transform functions
+def _resolve_document_number(doc_type: str, xero_obj, xero_id: UUID | str) -> str:
+    """
+    Determine a usable document number for a Xero object.
+
+    Some supplier bills come through without an explicit invoice number.  For
+    reporting purposes we still need a stable identifier, so fall back to the
+    reference or the Xero ID if necessary.
+    """
+    match doc_type:
+        case "invoice" | "bill":
+            primary = getattr(xero_obj, "invoice_number", None)
+        case "credit_note":
+            primary = getattr(xero_obj, "credit_note_number", None)
+        case _:
+            logger.error(f"Unknown document type for Xero sync: {doc_type}")
+            return str(xero_id)
+
+    candidates = [
+        primary,
+        getattr(xero_obj, "number", None),
+        getattr(xero_obj, "reference", None),
+    ]
+    for candidate in candidates:
+        if candidate:
+            return str(candidate)
+
+    logger.warning(
+        "Missing %s number for Xero document %s; defaulting to Xero ID as number.",
+        doc_type,
+        xero_id,
+    )
+    return str(xero_id)
+
+
 def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
     """Gather required values from a Xero document.
 
@@ -172,17 +206,7 @@ def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
     Returns:
         Mapping of required field names to values.
     """
-    # Map doc_type to field names
-    match doc_type:
-        case "invoice":
-            number = getattr(xero_obj, "invoice_number", None)
-        case "bill":
-            number = getattr(xero_obj, "invoice_number", None)
-        case "credit_note":
-            number = getattr(xero_obj, "credit_note_number", None)
-        case _:
-            logger.error(f"Unknown document type for Xero sync: {doc_type}")
-            return None
+    number = _resolve_document_number(doc_type, xero_obj, xero_id)
     client = get_or_fetch_client(xero_obj.contact.contact_id, number)
     date = getattr(xero_obj, "date", None)
     total_excl_tax = getattr(xero_obj, "sub_total", None)
