@@ -401,6 +401,9 @@ class PurchasingErrorResponseSerializer(serializers.Serializer):
     """Serializer for purchasing error responses"""
 
     error = serializers.CharField(help_text="Error message")
+    details = serializers.CharField(
+        required=False, help_text="Optional details about the failure"
+    )
 
 
 # Purchase Order Email and PDF serializers
@@ -425,8 +428,7 @@ class PurchaseOrderPDFResponseSerializer(serializers.Serializer):
     """Serializer for purchase order PDF generation response"""
 
     # This endpoint returns a PDF file (FileResponse), so this is primarily for documentation
-    success = serializers.BooleanField(required=False)
-    message = serializers.CharField(required=False)
+    # The actual response is a binary PDF file, not JSON
 
     class Meta:
         help_text = "Generates and returns a PDF file for the specified purchase order"
