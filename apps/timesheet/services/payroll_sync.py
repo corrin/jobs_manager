@@ -259,7 +259,7 @@ class PayrollSyncService:
             if not earnings_rate_id:
                 raise ValueError(
                     f"{rate_name} earnings rate not configured. "
-                    "Run: python manage.py configure_xero_payroll --configure"
+                    "Run: python manage.py interact_with_xero --configure-payroll"
                 )
 
             timesheet_lines.append(
