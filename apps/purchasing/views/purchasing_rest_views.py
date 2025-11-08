@@ -9,7 +9,8 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -38,6 +39,7 @@ from apps.purchasing.serializers import (
     PurchaseOrderPDFResponseSerializer,
     PurchaseOrderUpdateResponseSerializer,
     PurchaseOrderUpdateSerializer,
+    PurchasingErrorResponseSerializer,
     PurchasingJobsResponseSerializer,
     StockConsumeRequestSerializer,
     StockConsumeResponseSerializer,
@@ -636,7 +638,7 @@ class StockDeactivateRestView(APIView):
         if item.is_active:
             item.is_active = False
             item.save()
-            return Response({"success": True})
+            return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(
             {"error": "Item is already inactive"}, status=status.HTTP_400_BAD_REQUEST
         )
@@ -1168,7 +1170,12 @@ class PurchaseOrderPDFView(APIView):
     @extend_schema(
         operation_id="getPurchaseOrderPDF",
         responses={
-            status.HTTP_200_OK: PurchaseOrderPDFResponseSerializer,
+            status.HTTP_200_OK: OpenApiResponse(
+                response=OpenApiTypes.BINARY,
+                description="PDF file attachment",
+            ),
+            status.HTTP_404_NOT_FOUND: PurchasingErrorResponseSerializer,
+            status.HTTP_500_INTERNAL_SERVER_ERROR: PurchasingErrorResponseSerializer,
         },
         description="Generate and download PDF for the specified purchase order.",
     )

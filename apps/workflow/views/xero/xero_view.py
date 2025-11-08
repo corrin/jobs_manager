@@ -192,11 +192,28 @@ def generate_xero_sync_events():
         last_index = 0
 
         while True:
+            active_task_id = XeroSyncService.get_active_task_id()
+
+            if task_id is None and active_task_id:
+                task_id = active_task_id
+                last_index = 0
+
+            if task_id is None:
+                yield ": keep-alive\n\n"
+                time.sleep(0.5)
+                continue
+
             messages = XeroSyncService.get_messages(task_id, last_index)
 
+            # 4b) Stream each new message
+            for msg in messages:
+                yield f"data: {json.dumps(msg)}\n\n"
+                last_index += 1
+
+            has_active_lock = active_task_id == task_id and active_task_id is not None
+
             # 4a) If sync lock released and no pending messages → end
-            if not cache.get("xero_sync_lock", False) and not messages:
-                # Check if there's an error in the sync messages
+            if not has_active_lock and not messages:
                 error_found = False
                 error_messages = []
                 all_msgs = XeroSyncService.get_messages(task_id, 0)
@@ -218,10 +235,8 @@ def generate_xero_sync_events():
                 yield f"data: {json.dumps(end_payload)}\n\n"
                 break
 
-            # 4b) Stream each new message
-            for msg in messages:
-                yield f"data: {json.dumps(msg)}\n\n"
-                last_index += 1
+            if not messages:
+                yield ": keep-alive\n\n"
 
             # 4c) Sleep to reduce CPU load
             time.sleep(0.5)
@@ -262,8 +277,9 @@ def stream_xero_sync(request: HttpRequest) -> StreamingHttpResponse:
         generate_xero_sync_events(), content_type="text/event-stream"
     )
     # Prevent Django or proxies from buffering
-    response["Cache-Control"] = "no-cache"
+    response["Cache-Control"] = "no-cache, no-transform"
     response["X-Accel-Buffering"] = "no"
+    response["Content-Encoding"] = "identity"
     return response
 
 

@@ -143,13 +143,10 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
     for item in items:
         xero_id = getattr(item, xero_id_attr)
 
-        # Skip deleted items that don't exist locally
+        # Xero omits fields for deleted docs so we skip to avoid errors
         if getattr(item, "status", None) == "DELETED":
-            if not model_class.objects.filter(xero_id=xero_id).exists():
-                logger.info(
-                    f"Skipping deleted {model_class.__name__} {xero_id} - doesn't exist locally"
-                )
-                continue
+            logger.info(f"Skipping deleted {model_class.__name__} {xero_id}")
+            continue
 
         instance = transform_func(item, xero_id)
         if instance:
@@ -161,6 +158,22 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
 
 
 # Transform functions
+def _resolve_document_number(
+    doc_type: str, xero_obj, xero_id: UUID | str
+) -> str | None:
+    """Return the canonical document number provided by Xero."""
+    match doc_type:
+        case "invoice" | "bill":
+            primary = getattr(xero_obj, "invoice_number", None)
+        case "credit_note":
+            primary = getattr(xero_obj, "credit_note_number", None)
+        case _:
+            logger.error(f"Unknown document type for Xero sync: {doc_type}")
+            return None
+
+    return str(primary) if primary else None
+
+
 def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
     """Gather required values from a Xero document.
 
@@ -172,17 +185,7 @@ def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
     Returns:
         Mapping of required field names to values.
     """
-    # Map doc_type to field names
-    match doc_type:
-        case "invoice":
-            number = getattr(xero_obj, "invoice_number", None)
-        case "bill":
-            number = getattr(xero_obj, "invoice_number", None)
-        case "credit_note":
-            number = getattr(xero_obj, "credit_note_number", None)
-        case _:
-            logger.error(f"Unknown document type for Xero sync: {doc_type}")
-            return None
+    number = _resolve_document_number(doc_type, xero_obj, xero_id)
     client = get_or_fetch_client(xero_obj.contact.contact_id, number)
     date = getattr(xero_obj, "date", None)
     total_excl_tax = getattr(xero_obj, "sub_total", None)
