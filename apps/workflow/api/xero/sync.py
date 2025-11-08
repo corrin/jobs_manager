@@ -143,7 +143,7 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
     for item in items:
         xero_id = getattr(item, xero_id_attr)
 
-        # Xero omits fields for deleted docs—skip to avoid invalid partial updates
+        # Xero omits fields for deleted docs so we skip to avoid errors
         if getattr(item, "status", None) == "DELETED":
             logger.info(f"Skipping deleted {model_class.__name__} {xero_id}")
             continue
