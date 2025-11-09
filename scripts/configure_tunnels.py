@@ -57,7 +57,9 @@ BACKEND_UPDATE_RULES = {
     "ALLOWED_HOSTS": lambda b, f: [extract_hostname(b), extract_hostname(f)],
     "XERO_REDIRECT_URI": lambda b, f: f"{b}/api/xero/oauth/callback/",
     "APP_DOMAIN": lambda b, f: extract_hostname(b),
-    "CORS_ALLOWED_ORIGINS": lambda b, f: ",".join(get_base_cors_origins() + [b, f]),  # Preserve UAT/PROD + add tunnels
+    "CORS_ALLOWED_ORIGINS": lambda b, f: ",".join(
+        get_base_cors_origins() + [b, f]
+    ),  # Preserve UAT/PROD + add tunnels
     "CSRF_TRUSTED_ORIGINS": lambda b, f: f"{b},{f}",  # HTTPS only
     "FRONT_END_URL": lambda b, f: f,
     "AUTH_COOKIE_DOMAIN": lambda b, f: determine_cookie_domain(b),
@@ -173,7 +175,11 @@ def apply_update_rules(
 
             if rule is None:
                 # Skip this key (remove it) and its preceding comment if it's our warning
-                if new_lines and new_lines[-1].strip() == "# Managed by configure_tunnels.py - do not edit directly":
+                if (
+                    new_lines
+                    and new_lines[-1].strip()
+                    == "# Managed by configure_tunnels.py - do not edit directly"
+                ):
                     new_lines.pop()
                 updated.add(key)
                 i += 1
@@ -184,7 +190,11 @@ def apply_update_rules(
                 rule = rule(backend_url, frontend_url)
 
             # Remove old warning comment if present
-            if new_lines and new_lines[-1].strip() == "# Managed by configure_tunnels.py - do not edit directly":
+            if (
+                new_lines
+                and new_lines[-1].strip()
+                == "# Managed by configure_tunnels.py - do not edit directly"
+            ):
                 new_lines.pop()
 
             # Add warning comment before the variable

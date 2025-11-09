@@ -23,7 +23,9 @@ import requests
 from dotenv import dotenv_values
 
 
-def test_login_and_cookie(backend_url: str, frontend_url: str, username: str, password: str):
+def test_login_and_cookie(
+    backend_url: str, frontend_url: str, username: str, password: str
+):
     """Test login and cookie behavior."""
     print(f"\n{'='*60}")
     print("Testing Cross-Domain Cookie Configuration")
@@ -198,9 +200,13 @@ def main():
 
     # Validate that we have URLs
     if not args.backend:
-        parser.error("Backend URL not found in .env (TUNNEL_URL) and not provided via --backend")
+        parser.error(
+            "Backend URL not found in .env (TUNNEL_URL) and not provided via --backend"
+        )
     if not args.frontend:
-        parser.error("Frontend URL not found in .env (FRONT_END_URL) and not provided via --frontend")
+        parser.error(
+            "Frontend URL not found in .env (FRONT_END_URL) and not provided via --frontend"
+        )
 
     # Validate URLs
     if not args.backend.startswith(("http://", "https://")):

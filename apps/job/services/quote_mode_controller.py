@@ -53,12 +53,41 @@ Make reasonable assumptions and explicitly state them in the 'assumptions' field
 Avoid asking questions - use sensible defaults (e.g., 3mm thickness, 304 stainless, open-top boxes).
 Never call tools from the wrong mode."""
 
+    def _summarize_previous_context(
+        self, chat_history: List[dict], gemini_client
+    ) -> str:
+        """
+        Summarize previous conversation context for mode transitions.
+
+        Args:
+            chat_history: List of previous chat messages
+            gemini_client: Gemini client for API calls
+
+        Returns:
+            Summary of relevant context from previous conversation
+        """
+        # Use a lightweight approach: extract assistant messages that contain results
+        context_parts = []
+        for msg in chat_history[-5:]:  # Last 5 messages
+            if msg.get("role") == "model":
+                # Extract text from parts
+                for part in msg.get("parts", []):
+                    if isinstance(part, str):
+                        context_parts.append(part)
+
+        if not context_parts:
+            return ""
+
+        # Join recent assistant responses as context
+        return "\n\n".join(context_parts)
+
     def render_prompt(
         self,
         mode: str,
         user_input: str,
         job_ctx: Optional[Dict[str, Any]] = None,
         schema: Optional[Dict[str, Any]] = None,
+        context_summary: Optional[str] = None,
     ) -> str:
         """
         Render a mode-specific prompt.
@@ -68,6 +97,7 @@ Never call tools from the wrong mode."""
             user_input: User's input text
             job_ctx: Optional job context information
             schema: Optional schema override
+            context_summary: Optional summary of previous conversation
 
         Returns:
             The formatted prompt string
@@ -79,6 +109,10 @@ Never call tools from the wrong mode."""
         if job_ctx:
             job_info = f"\nJOB_CONTEXT: Job #{job_ctx.get('job_number', 'N/A')} for {job_ctx.get('client', 'N/A')}"
 
+        context_info = ""
+        if context_summary:
+            context_info = f"\n\nPREVIOUS CONTEXT:\n{context_summary}\n\nUse this context to avoid re-asking the user for information already provided."
+
         mode_tasks = {
             "CALC": "Calculate required items from specifications. Call emit_calc_result with complete results including items list and assumptions.",
             "PRICE": "Search for materials using available tools, then call emit_price_result with normalized specs and pricing candidates.",
@@ -86,7 +120,7 @@ Never call tools from the wrong mode."""
         }
 
         return f"""MODE={mode}
-SCHEMA for {mode}: {json.dumps(schema, indent=2)}{job_info}
+SCHEMA for {mode}: {json.dumps(schema, indent=2)}{job_info}{context_info}
 CURRENT INPUT: {user_input}
 TASK: {mode_tasks[mode]}
 
@@ -321,86 +355,74 @@ Consider the full conversation context when processing this input."""
         # Return only the tools allowed for this mode
         return [all_tools[name] for name in allowed_tool_names if name in all_tools]
 
-    def infer_mode(self, user_input: str) -> Tuple[str, float]:
+    def infer_mode(self, user_input: str, current_mode: Optional[str] = None) -> str:
         """
-        Infer the most likely mode from user input.
+        Use LLM to determine the mode based on user input and current mode.
 
         Args:
             user_input: The user's input text
+            current_mode: Current mode if in a conversation (None for new conversation)
 
         Returns:
-            Tuple of (mode, confidence) where confidence is 0.0 to 1.0
+            The mode to use
         """
-        input_lower = user_input.lower()
+        import google.generativeai as genai
 
-        # Mode indicators with weights
-        mode_indicators = {
-            "CALC": {
-                "keywords": [
-                    "area",
-                    "yield",
-                    "sheets",
-                    "nest",
-                    "dimensions",
-                    "qty",
-                    "quantity",
-                    "size",
-                    "cut",
-                    "kerf",
-                    "offcut",
-                ],
-                "weight": 0,
-            },
-            "PRICE": {
-                "keywords": [
-                    "price",
-                    "cost",
-                    "supplier",
-                    "quote",
-                    "sku",
-                    "pricing",
-                    "material",
-                    "stock",
-                    "lead time",
-                    "delivery",
-                ],
-                "weight": 0,
-            },
-            "TABLE": {
-                "keywords": [
-                    "table",
-                    "summary",
-                    "total",
-                    "final",
-                    "markdown",
-                    "invoice",
-                    "breakdown",
-                    "grand total",
-                ],
-                "weight": 0,
-            },
-        }
+        from apps.workflow.services.error_persistence import persist_app_error
 
-        # Calculate weights based on keyword matches
-        for mode, info in mode_indicators.items():
-            for keyword in info["keywords"]:
-                if keyword in input_lower:
-                    info["weight"] += 1
+        # FAIL EARLY - current_mode must be valid if provided
+        if current_mode and current_mode not in self.MODES:
+            error_msg = (
+                f"Invalid current_mode '{current_mode}', expected one of {self.MODES}"
+            )
+            exc = ValueError(error_msg)
+            persist_app_error(exc)
+            raise exc
 
-        # Find mode with highest weight
-        max_weight = 0
-        selected_mode = "CALC"  # Default
-        for mode, info in mode_indicators.items():
-            if info["weight"] > max_weight:
-                max_weight = info["weight"]
-                selected_mode = mode
+        model = genai.GenerativeModel("gemini-2.0-flash-exp")
 
-        # Calculate confidence (0-1 scale)
-        sum(len(info["keywords"]) for info in mode_indicators.values())
-        confidence = min(max_weight / 3, 1.0) if max_weight > 0 else 0.0
+        current_mode_text = (
+            f"CURRENT MODE: {current_mode}"
+            if current_mode
+            else "CURRENT MODE: None (starting new conversation - default to CALC)"
+        )
 
-        logger.info(f"Inferred mode: {selected_mode} (confidence: {confidence:.2f})")
-        return selected_mode, confidence
+        prompt = f"""Classify what the user wants RIGHT NOW.
+
+{current_mode_text}
+
+USER MESSAGE: "{user_input}"
+
+CLASSIFICATION:
+- CALC: User wants calculations, dimensions, quantities, materials needed
+- PRICE: User wants to know costs, prices, or supplier information
+- TABLE: User wants a final summary/quote with totals
+
+RULES:
+- If user is answering a question or providing details, use CURRENT MODE
+- If no current mode, use CALC
+- Otherwise, classify based on what they're asking for
+
+Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
+
+        try:
+            response = model.generate_content(prompt)
+            inferred_mode = response.text.strip().upper()
+
+            # FAIL EARLY if invalid
+            if inferred_mode not in self.MODES:
+                error_msg = f"LLM returned invalid mode '{inferred_mode}', expected one of {self.MODES}"
+                logger.error(error_msg)
+                exc = ValueError(error_msg)
+                persist_app_error(exc)
+                raise exc
+
+            logger.info(f"Mode decision: {current_mode} -> {inferred_mode}")
+            return inferred_mode
+
+        except Exception as exc:
+            persist_app_error(exc)
+            raise
 
     def run(
         self,
@@ -445,8 +467,17 @@ Consider the full conversation context when processing this input."""
         schema = self.schemas[mode]
         allowed_tools = self.get_mcp_tools_for_mode(mode)
 
+        # If chat history exists, summarize previous context for mode transition
+        # TODO: Re-enable after debugging function calling issues
+        context_summary = None
+        # if chat_history and len(chat_history) > 0:
+        #     context_summary = self._summarize_previous_context(
+        #         chat_history, gemini_client
+        #     )
+        #     logger.info(f"Context summary for {mode} mode: {context_summary[:200]}...")
+
         # Render the prompt
-        prompt = self.render_prompt(mode, user_input, job_ctx, schema)
+        prompt = self.render_prompt(mode, user_input, job_ctx, schema, context_summary)
 
         # Gemini client is required
         if gemini_client is None:
@@ -492,6 +523,8 @@ Consider the full conversation context when processing this input."""
 
             # Check if response contains tool calls
             if response.candidates and response.candidates[0].content.parts:
+                # Collect ALL function calls from this turn
+                function_calls = []
                 for part in response.candidates[0].content.parts:
                     if hasattr(part, "function_call") and part.function_call:
                         tool_name = part.function_call.name
@@ -500,57 +533,77 @@ Consider the full conversation context when processing this input."""
                             if part.function_call.args
                             else {}
                         )
-
+                        function_calls.append((tool_name, tool_args, part))
                         logger.info(f"Tool call detected: {tool_name}")
 
+                # Process all function calls
+                if function_calls:
+                    # Check if any is the emit tool
+                    emit_call = None
+                    intermediate_calls = []
+
+                    for tool_name, tool_args, part in function_calls:
                         if tool_name == emit_tool_name:
-                            # This is our terminal emit tool - extract and return results
-                            logger.info(f"Emit tool called: {tool_name}")
-                            logger.debug(f"Emit tool args type: {type(tool_args)}")
-
-                            # Convert protobuf wrapper to plain dict
-                            tool_args = self._proto_to_dict(tool_args)
-                            logger.debug(f"Converted tool args: {tool_args}")
-
-                            # Validate against schema
-                            validated_data = self.validate_json(tool_args, schema)
-
-                            # Check for questions
-                            questions = validated_data.get("questions", [])
-                            has_questions = len(questions) > 0
-
-                            if has_questions:
-                                logger.info(
-                                    f"Mode {mode} has {len(questions)} clarifying questions"
-                                )
-                            else:
-                                logger.info(
-                                    f"Mode {mode} completed successfully with no questions"
-                                )
-
-                            return validated_data, has_questions
-
+                            emit_call = (tool_name, tool_args, part)
                         else:
-                            # Execute intermediate tool (for PRICE mode)
+                            intermediate_calls.append((tool_name, tool_args, part))
+
+                    # If emit tool was called, return its results
+                    if emit_call:
+                        tool_name, tool_args, _ = emit_call
+                        logger.info(f"Emit tool called: {tool_name}")
+                        logger.debug(f"Emit tool args type: {type(tool_args)}")
+
+                        # Convert protobuf wrapper to plain dict
+                        tool_args = self._proto_to_dict(tool_args)
+                        logger.debug(f"Converted tool args: {tool_args}")
+
+                        # Validate against schema
+                        validated_data = self.validate_json(tool_args, schema)
+
+                        # Check for questions
+                        questions = validated_data.get("questions", [])
+                        has_questions = len(questions) > 0
+
+                        if has_questions:
+                            logger.info(
+                                f"Mode {mode} has {len(questions)} clarifying questions"
+                            )
+                        else:
+                            logger.info(
+                                f"Mode {mode} completed successfully with no questions"
+                            )
+
+                        return validated_data, has_questions
+
+                    # Otherwise, execute all intermediate tools and respond to ALL of them
+                    if intermediate_calls:
+                        logger.info(
+                            f"Executing {len(intermediate_calls)} intermediate tool(s)"
+                        )
+                        response_parts = []
+
+                        for tool_name, tool_args, _ in intermediate_calls:
                             logger.info(
                                 f"Executing intermediate tool: {tool_name} with args: {tool_args}"
                             )
                             tool_result = self._execute_tool(tool_name, tool_args)
 
-                            # Send tool result back to continue conversation
-                            response = chat.send_message(
-                                genai.protos.Content(
-                                    parts=[
-                                        genai.protos.Part(
-                                            function_response=genai.protos.FunctionResponse(
-                                                name=tool_name,
-                                                response={"result": tool_result},
-                                            )
-                                        )
-                                    ]
+                            # Create function response for this tool
+                            response_parts.append(
+                                genai.protos.Part(
+                                    function_response=genai.protos.FunctionResponse(
+                                        name=tool_name,
+                                        response={"result": tool_result},
+                                    )
                                 )
                             )
-                            continue
+
+                        # Send ALL function responses back in one message
+                        response = chat.send_message(
+                            genai.protos.Content(parts=response_parts)
+                        )
+                        continue
 
             # Check if there's text content (model might be explaining or asking)
             try:
