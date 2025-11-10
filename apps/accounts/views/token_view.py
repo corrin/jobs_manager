@@ -2,6 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.http import HttpRequest
 from django.urls import reverse
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -16,6 +17,42 @@ from apps.accounts.serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def get_client_ip(request: HttpRequest) -> str:
+    """
+    Extract client IP address from request.
+
+    Production path (behind nginx reverse proxy):
+        - nginx receives client connection, knows real client IP
+        - nginx sets X-Forwarded-For header with client's real IP
+        - We read X-Forwarded-For
+
+    Development path (direct connection to Django):
+        - No nginx, browser connects directly to Django dev server
+        - Django receives connection, REMOTE_ADDR contains real client IP
+        - X-Forwarded-For not set, so we fall back to REMOTE_ADDR
+
+    These are fundamentally different network topologies requiring different
+    code paths. Both paths are tested: production via nginx config,
+    development via direct connection.
+
+    Args:
+        request: Django HTTP request
+
+    Returns:
+        str: Client IP address
+    """
+    # Production: nginx sets X-Forwarded-For
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    remote_addr = request.META.get("REMOTE_ADDR")
+    if x_forwarded_for:
+        # First IP in comma-separated list is the original client
+        return x_forwarded_for.split(",")[0].strip()
+    elif remote_addr:
+        return remote_addr
+    else:
+        raise ValueError("Unable to determine client IP address")
 
 
 @extend_schema(
@@ -40,20 +77,23 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
-        logger.info(
-            "CustomTokenObtainPairView POST called with username: %s",
-            request.data.get("username"),
-        )
+        username = request.data.get("username")
+        client_ip = get_client_ip(request)
+
         response = super().post(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            logger.info(
+                "JWT LOGIN SUCCESS - username=%s ip=%s",
+                username,
+                client_ip,
+            )
+
             User = get_user_model()
 
             try:
-                username = request.data.get("username")
                 if username:
                     user = User.objects.get(email=username)
-                    logger.debug("User %s found", username)
 
                     if (
                         hasattr(user, "password_needs_reset")
@@ -68,15 +108,19 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                         )
 
                     if getattr(settings, "ENABLE_JWT_AUTH", False):
-                        logger.info("Setting JWT cookies for user %s", username)
                         self._set_jwt_cookies(response, response.data)
 
             except User.DoesNotExist:
-                logger.warning("User %s does not exist", username)
+                logger.error(
+                    "LOGIN SUCCESS but user lookup failed - username=%s", username
+                )
 
         else:
             logger.warning(
-                "Token obtain failed with status code: %s", response.status_code
+                "JWT LOGIN FAILURE - username=%s ip=%s status=%s",
+                username,
+                client_ip,
+                response.status_code,
             )
 
         return response

@@ -698,6 +698,14 @@ LOGGING = {
             "class": "django.utils.log.AdminEmailHandler",
             "include_html": True,
         },
+        "auth_file": {
+            "level": "INFO",
+            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/auth.log"),
+            "maxBytes": 5 * 1024 * 1024,
+            "backupCount": 5,
+            "formatter": "verbose",
+        },
     },
     "loggers": {
         "django.db.backends": {
@@ -764,6 +772,11 @@ LOGGING = {
             "handlers": ["console"],
             "level": "WARNING",
             "propagate": False,
+        },
+        "apps.accounts": {
+            "handlers": ["auth_file"],
+            "level": "INFO",
+            "propagate": True,
         },
     },
     "root": {
