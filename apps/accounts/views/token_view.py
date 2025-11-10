@@ -46,10 +46,18 @@ def get_client_ip(request: HttpRequest) -> str:
     # Production: nginx sets X-Forwarded-For
     x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
     remote_addr = request.META.get("REMOTE_ADDR")
+
+    logger.debug(
+        f"IP headers - X-Forwarded-For: {x_forwarded_for}, REMOTE_ADDR: {remote_addr}"
+    )
+
     if x_forwarded_for:
         # First IP in comma-separated list is the original client
-        return x_forwarded_for.split(",")[0].strip()
+        client_ip = x_forwarded_for.split(",")[0].strip()
+        logger.debug(f"Using X-Forwarded-For: {client_ip}")
+        return client_ip
     elif remote_addr:
+        logger.debug(f"Using REMOTE_ADDR: {remote_addr}")
         return remote_addr
     else:
         raise ValueError("Unable to determine client IP address")
