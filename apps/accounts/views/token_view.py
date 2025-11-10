@@ -80,7 +80,17 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         username = request.data.get("username")
         client_ip = get_client_ip(request)
 
-        response = super().post(request, *args, **kwargs)
+        try:
+            response = super().post(request, *args, **kwargs)
+        except Exception as e:
+            # Log failed login attempts that raise exceptions (validation errors, etc.)
+            logger.warning(
+                "JWT LOGIN FAILURE - username=%s ip=%s error=%s",
+                username,
+                client_ip,
+                str(e),
+            )
+            raise
 
         if response.status_code == status.HTTP_200_OK:
             logger.info(
