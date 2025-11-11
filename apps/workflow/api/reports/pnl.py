@@ -1,6 +1,4 @@
-from collections import defaultdict
 from datetime import datetime, timedelta
-from decimal import Decimal
 
 from dateutil.relativedelta import relativedelta
 from django.db.models import Sum
@@ -18,9 +16,6 @@ class CompanyProfitAndLossReport(APIView):
         "Closing Stock - Work in Progress",
         "Amortisation",
     }
-
-    def __init__(self):
-        self.data = defaultdict(Decimal)
 
     def categorize_transaction(
         self, account_name, account_type, total, report, compare_periods, period_index
