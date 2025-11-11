@@ -14,6 +14,7 @@ from apps.accounts.serializers import (
     BearerTokenResponseSerializer,
     EmptySerializer,
 )
+from apps.accounts.views.token_view import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class BearerTokenView(APIView):
 
         username = request.data.get("username")
         password = request.data.get("password")
+        client_ip = get_client_ip(request)
 
         if not username or not password:
             return Response(
@@ -57,6 +59,11 @@ class BearerTokenView(APIView):
         user = authenticate(request, username=username, password=password)
 
         if not user:
+            logger.warning(
+                "BEARER TOKEN LOGIN FAILURE - username=%s ip=%s",
+                username,
+                client_ip,
+            )
             return Response(
                 {"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -72,6 +79,10 @@ class BearerTokenView(APIView):
 
         token = jwt.encode(payload, settings.BEARER_TOKEN_SECRET, algorithm="HS256")
 
-        logger.info(f"Bearer token generated for user {user.email}")
+        logger.info(
+            "BEARER TOKEN LOGIN SUCCESS - username=%s ip=%s",
+            user.email,
+            client_ip,
+        )
 
         return Response({"token": token}, status=status.HTTP_200_OK)
