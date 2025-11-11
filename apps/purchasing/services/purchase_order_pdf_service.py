@@ -9,7 +9,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
-from reportlab.platypus import Table, TableStyle
+from reportlab.platypus import Paragraph, Table, TableStyle
 
 from apps.workflow.models.company_defaults import CompanyDefaults
 
@@ -220,113 +220,28 @@ class PurchaseOrderPDFGenerator:
             self.pdf.drawString(MARGIN, y_position, "No items in this purchase order.")
             return y_position - 20
 
-        # Check if any line items have additional fields to determine table structure
-        has_additional_fields = any(
-            item.metal_type
-            or item.alloy
-            or item.specifics
-            or item.location
-            or item.dimensions
-            for item in line_items
-        )
-
-        # Prepare table headers based on available data
-        if has_additional_fields:
-            table_data = [
-                [
-                    "Item Code",
-                    "Description",
-                    "Additional Info",
-                    "Qty",
-                    "Unit Cost",
-                    "Total",
-                ],
-            ]
-            col_widths = [
-                CONTENT_WIDTH * 0.15,  # Item Code
-                CONTENT_WIDTH * 0.35,  # Description
-                CONTENT_WIDTH * 0.25,  # Additional Info
-                CONTENT_WIDTH * 0.1,  # Qty
-                CONTENT_WIDTH * 0.075,  # Unit Cost
-                CONTENT_WIDTH * 0.075,  # Total
-            ]
-        else:
-            table_data = [
-                ["Item Code", "Description", "Qty", "Unit Cost", "Total"],
-            ]
-            col_widths = [
-                CONTENT_WIDTH * 0.2,  # Item Code
-                CONTENT_WIDTH * 0.5,  # Description
-                CONTENT_WIDTH * 0.1,  # Qty
-                CONTENT_WIDTH * 0.1,  # Unit Cost
-                CONTENT_WIDTH * 0.1,  # Total
-            ]
-
-        total_amount = 0
+        # Prepare table headers
+        table_data = [
+            ["Item Code", "Description", "Qty"],
+        ]
+        col_widths = [
+            CONTENT_WIDTH * 0.25,  # Item Code
+            CONTENT_WIDTH * 0.65,  # Description
+            CONTENT_WIDTH * 0.1,  # Qty
+        ]
 
         for item in line_items:
-            line_total = (
-                float(item.quantity * item.unit_cost)
-                if item.quantity and item.unit_cost
-                else 0
+            # Use full text without truncation - Paragraph objects will wrap
+            description = str(item.description or "")
+            item_code = str(item.item_code or "")
+
+            table_data.append(
+                [
+                    Paragraph(item_code, normal_style),
+                    Paragraph(description, normal_style),
+                    f"{float(item.quantity):.2f}" if item.quantity else "0.00",
+                ]
             )
-            total_amount += line_total
-
-            # Build additional info only if fields are present
-            additional_info_parts = []
-            if item.metal_type:
-                additional_info_parts.append(f"Metal: {item.metal_type}")
-            if item.alloy:
-                additional_info_parts.append(f"Alloy: {item.alloy}")
-            if item.specifics:
-                additional_info_parts.append(f"Specs: {item.specifics}")
-            if item.location:
-                additional_info_parts.append(f"Location: {item.location}")
-            if item.dimensions:
-                additional_info_parts.append(f"Dimensions: {item.dimensions}")
-
-            additional_info = (
-                "\n".join(additional_info_parts) if additional_info_parts else ""
-            )
-
-            # Truncate long descriptions
-            description = str(item.description or "")[:50] + (
-                "..." if len(str(item.description or "")) > 50 else ""
-            )
-            item_code = str(item.item_code or "")[:20] + (
-                "..." if len(str(item.item_code or "")) > 20 else ""
-            )
-
-            if has_additional_fields:
-                table_data.append(
-                    [
-                        item_code,
-                        description,
-                        additional_info[:60]
-                        + (
-                            "..." if len(additional_info) > 60 else ""
-                        ),  # Truncate additional info
-                        f"{float(item.quantity):.2f}" if item.quantity else "0.00",
-                        f"${float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
-                        f"${line_total:.2f}" if not item.price_tbc else "TBC",
-                    ]
-                )
-            else:
-                table_data.append(
-                    [
-                        item_code,
-                        description,
-                        f"{float(item.quantity):.2f}" if item.quantity else "0.00",
-                        f"${float(item.unit_cost):.2f}" if item.unit_cost else "TBC",
-                        f"${line_total:.2f}" if not item.price_tbc else "TBC",
-                    ]
-                )
-
-        # Add total row
-        if has_additional_fields:
-            table_data.append(["", "", "", "", "TOTAL:", f"${total_amount:.2f}"])
-        else:
-            table_data.append(["", "", "", "TOTAL:", f"${total_amount:.2f}"])
 
         # Create table with dynamic column widths
         lines_table = Table(table_data, colWidths=col_widths)
@@ -341,22 +256,13 @@ class PurchaseOrderPDFGenerator:
                 ("FONTSIZE", (0, 0), (-1, 0), 9),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 # Data rows
-                ("FONTNAME", (0, 1), (-1, -2), "Helvetica"),
-                ("FONTSIZE", (0, 1), (-1, -2), 8),
-                (
-                    "ALIGN",
-                    (-3, 1),
-                    (-1, -1),
-                    "RIGHT",
-                ),  # Right align quantity, cost, total columns
-                ("ALIGN", (0, 1), (-4, -1), "LEFT"),  # Left align text columns
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 1), (-1, -1), 8),
+                ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),  # Right align quantity column
+                ("ALIGN", (0, 1), (-2, -1), "LEFT"),  # Left align text columns
                 ("VALIGN", (0, 1), (-1, -1), "TOP"),  # Top align for multi-line content
-                # Total row styling
-                ("BACKGROUND", (0, -1), (-1, -1), colors.lightgrey),
-                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-                ("LINEABOVE", (0, -1), (-1, -1), 1, colors.black),
                 # Borders
-                ("GRID", (0, 0), (-1, -2), 0.5, colors.grey),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
                 # Padding
                 ("TOPPADDING", (0, 0), (-1, -1), 4),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
