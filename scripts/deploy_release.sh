@@ -53,13 +53,8 @@ fi
 echo "=== Deploying (su to $APP_USER)…"
 su - "$APP_USER" -c "$PROJECT_DIR/scripts/deploy_app.sh"
 
-# Both PROD and UAT environments require the frontend build
-# Scheduler deson't have a frontend
-if [ "$ENV" != "SCHEDULER" ]; then
-    echo "=== Building Vue.js frontend…"
-    su - "$APP_USER" -c "cd $USER_DIR/jobs_manager_front && npm install && npm run build"
-fi
-
+# Restart backend services BEFORE frontend build
+# This ensures frontend build fetches from the new API
 if [ "$ENV" = "PROD" ]; then
     echo "=== Restarting Gunicorn…"
     systemctl restart gunicorn-prod
@@ -69,4 +64,11 @@ elif [ "$ENV" = "UAT" ]; then
 elif [ "$ENV" = "SCHEDULER" ]; then
     echo "=== Restarting Scheduler…"
     systemctl restart scheduler
+fi
+
+# Both PROD and UAT environments require the frontend build
+# Scheduler doesn't have a frontend
+if [ "$ENV" != "SCHEDULER" ]; then
+    echo "=== Building Vue.js frontend…"
+    su - "$APP_USER" -c "cd $USER_DIR/jobs_manager_front && npm install && npm run build"
 fi
