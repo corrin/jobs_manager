@@ -3,6 +3,7 @@
 import os
 from typing import Any
 
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 
@@ -17,7 +18,6 @@ from apps.accounting.models import (
 )
 from apps.accounts.models import Staff
 from apps.client.models import Client, ClientContact
-from apps.job.helpers import get_job_folder_path
 from apps.job.models import (
     CostLine,
     CostSet,
@@ -1285,12 +1285,13 @@ class DataIntegrityService:
     @staticmethod
     def _check_jobfile_business_rules() -> list[dict[str, Any]]:
         """Check JobFile business rules (file existence)."""
+
         issues = []
 
         for jobfile in JobFile.objects.filter(status="active"):
             try:
-                folder_path = get_job_folder_path(jobfile.job.job_number)
-                file_path = os.path.join(folder_path, jobfile.filename)
+                # Use MEDIA_ROOT, not get_job_folder_path (which returns Dropbox path)
+                file_path = os.path.join(settings.MEDIA_ROOT, str(jobfile.file_path))
                 if not os.path.exists(file_path):
                     issues.append(
                         {
