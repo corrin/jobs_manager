@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataIntegrityReportView(APIView):
-    """API view for comprehensive database integrity checking."""
+    """API view for comprehensive database integrity checking"""
 
     @extend_schema(
         operation_id="scan_data_integrity",
