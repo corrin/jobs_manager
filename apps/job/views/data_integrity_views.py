@@ -49,9 +49,11 @@ class DataIntegrityReportView(APIView):
 
             # Calculate summary
             result["summary"] = {
-                "total_fk_checks": len(result["broken_fk_references"]),
-                "total_json_checks": len(result["broken_json_references"]),
-                "total_business_rule_checks": len(result["business_rule_violations"]),
+                "total_broken_fks": len(result["broken_fk_references"]),
+                "total_broken_json_refs": len(result["broken_json_references"]),
+                "total_business_rule_violations": len(
+                    result["business_rule_violations"]
+                ),
                 "total_issues": (
                     len(result["broken_fk_references"])
                     + len(result["broken_json_references"])

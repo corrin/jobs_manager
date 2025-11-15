@@ -60,14 +60,14 @@ class BusinessRuleViolationSerializer(serializers.Serializer):
 class DataIntegritySummarySerializer(serializers.Serializer):
     """Summary of data integrity scan results."""
 
-    total_fk_checks = serializers.IntegerField(
-        help_text="Number of FK relationships checked"
+    total_broken_fks = serializers.IntegerField(
+        help_text="Number of broken foreign key references found"
     )
-    total_json_checks = serializers.IntegerField(
-        help_text="Number of JSON references checked"
+    total_broken_json_refs = serializers.IntegerField(
+        help_text="Number of broken JSON references found"
     )
-    total_business_rule_checks = serializers.IntegerField(
-        help_text="Number of business rules checked"
+    total_business_rule_violations = serializers.IntegerField(
+        help_text="Number of business rule violations found"
     )
     total_issues = serializers.IntegerField(help_text="Total issues found")
 

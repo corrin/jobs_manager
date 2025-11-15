@@ -1290,8 +1290,10 @@ class DataIntegrityService:
 
         for jobfile in JobFile.objects.filter(status="active"):
             try:
-                # Use MEDIA_ROOT, not get_job_folder_path (which returns Dropbox path)
-                file_path = os.path.join(settings.MEDIA_ROOT, str(jobfile.file_path))
+                # Use DROPBOX_WORKFLOW_FOLDER to match where the view serves files from
+                file_path = os.path.join(
+                    settings.DROPBOX_WORKFLOW_FOLDER, str(jobfile.file_path)
+                )
                 if not os.path.exists(file_path):
                     issues.append(
                         {

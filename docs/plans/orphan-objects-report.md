@@ -195,9 +195,10 @@ For kind='time':
 {
   "scanned_at": "2025-11-16T12:34:56Z",
   "summary": {
-    "total_fk_checks": 47,
-    "total_business_rule_checks": 12,
-    "total_issues": 42
+    "total_broken_fks": 5,
+    "total_broken_json_refs": 7,
+    "total_business_rule_violations": 11,
+    "total_issues": 23
   },
   "broken_fk_references": [
     {
