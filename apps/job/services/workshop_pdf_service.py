@@ -16,6 +16,7 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 from reportlab.platypus import Paragraph, Table, TableStyle
 
+from apps.job.enums import SpeedQualityTradeoff
 from apps.job.models import Job
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -615,6 +616,11 @@ def add_workshop_details_table(pdf, y_position, job: Job):
     )
     workshop_display += pricing_suffix
 
+    # Get speed/quality tradeoff display
+    tradeoff_display = dict(SpeedQualityTradeoff.choices).get(
+        job.speed_quality_tradeoff, job.speed_quality_tradeoff
+    )
+
     # Use Paragraph styles so header text is white over the blue background
     job_details = [
         [
@@ -628,6 +634,10 @@ def add_workshop_details_table(pdf, y_position, job: Job):
         [
             Paragraph("WORKSHOP TIME", label_style),
             Paragraph(workshop_display, body_style),
+        ],
+        [
+            Paragraph("SPEED/QUALITY", label_style),
+            Paragraph(tradeoff_display, body_style),
         ],
         [
             Paragraph("NOTES", label_style),
