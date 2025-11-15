@@ -149,8 +149,9 @@ For kind='time':
 
 ### CostLine Model
 - `accounting_date` must not be null
-- For kind='time': `meta.staff_id` must exist and reference valid Staff
-- For kind='time': `meta.is_billable` must be present
+- For kind='time' AND cost_set.kind='actual': `meta.staff_id` must exist and reference valid Staff
+- For kind='time' AND cost_set.kind='actual': `meta.is_billable` must be present
+- Note: Estimates and quotes are projections of future work, not actual time tracking, so they don't require staff_id
 
 ### PurchaseOrder Model
 - `supplier` must not be null

@@ -5,6 +5,7 @@ from .archive_completed_jobs_view import (
     StandardResultsSetPagination,
 )
 from .assign_job_view import AssignJobView
+from .data_integrity_views import DataIntegrityReportView
 from .data_quality_report_views import ArchivedJobsComplianceView
 from .delivery_docket_view import DeliveryDocketView
 from .job_costing_views import JobCostSetView, JobQuoteRevisionView
@@ -90,6 +91,7 @@ __all__ = [
     "CostLineCreateView",
     "CostLineDeleteView",
     "CostLineUpdateView",
+    "DataIntegrityReportView",
     "DeliveryDocketView",
     "FetchAllJobsAPIView",
     "FetchJobsAPIView",
