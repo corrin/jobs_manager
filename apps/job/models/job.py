@@ -9,6 +9,7 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Staff
+from apps.job.enums import SpeedQualityTradeoff
 from apps.job.helpers import get_company_defaults
 
 # We say . rather than job.models to avoid going through init,
@@ -101,6 +102,13 @@ class Job(models.Model):
         help_text=(
             "Determines whether job uses quotes or time and materials pricing type."
         ),
+    )
+
+    speed_quality_tradeoff = models.CharField(
+        max_length=20,
+        choices=SpeedQualityTradeoff.choices,
+        default=SpeedQualityTradeoff.NORMAL,
+        help_text="Speed vs quality tradeoff for workshop execution",
     )
 
     # Decided not to bother with parent for now since we don't have a hierarchy of jobs.
@@ -430,6 +438,7 @@ class Job(models.Model):
             ),
             "quote_acceptance_date": self._handle_quote_acceptance_change,
             "pricing_methodology": self._handle_pricing_methodology_change,
+            "speed_quality_tradeoff": self._handle_speed_quality_tradeoff_change,
             "charge_out_rate": lambda old, new: (
                 "pricing_changed",
                 f"Charge out rate changed from ${old}/hour to ${new}/hour",
@@ -607,6 +616,15 @@ class Job(models.Model):
         return (
             "pricing_changed",
             f"Pricing methodology changed from '{old_display}' to '{new_display}'",
+        )
+
+    def _handle_speed_quality_tradeoff_change(self, old_tradeoff, new_tradeoff):
+        """Handle speed/quality tradeoff change with display names."""
+        old_display = dict(SpeedQualityTradeoff.choices).get(old_tradeoff, old_tradeoff)
+        new_display = dict(SpeedQualityTradeoff.choices).get(new_tradeoff, new_tradeoff)
+        return (
+            "job_updated",
+            f"Speed/quality tradeoff changed from '{old_display}' to '{new_display}'",
         )
 
     def _handle_boolean_change(self, true_event, false_event, true_desc, false_desc):

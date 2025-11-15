@@ -57,6 +57,74 @@ def get_workshop_hours(job: Job) -> float:
     return workshop_hours
 
 
+def get_time_breakdown(job: Job) -> dict:
+    """
+    Get detailed time breakdown for workshop PDF.
+
+    Returns:
+        dict with keys:
+            - budgeted_hours: Total hours from estimate/quote (uses existing logic)
+            - used_hours: Total hours from latest_actual
+            - remaining_hours: Difference
+            - is_over_budget: True if over budget
+            - staff_breakdown: List of dicts with staff name and hours worked
+    """
+    from collections import defaultdict
+
+    budgeted_hours = get_workshop_hours(job)
+    used_hours = 0.0
+    staff_breakdown = []
+
+    # Get used hours and staff breakdown from actual
+    if job.latest_actual:
+        if job.latest_actual.summary:
+            used_hours = float(job.latest_actual.summary.get("hours", 0.0))
+
+        # Get breakdown by staff member
+        time_lines = (
+            job.latest_actual.cost_lines.filter(kind="time")
+            .exclude(desc__iendswith=" office time")
+            .select_related("cost_set")
+        )
+
+        # Group by staff
+        staff_hours = defaultdict(float)
+        for line in time_lines:
+            staff_id = line.meta.get("staff_id")
+            if not staff_id:
+                exc = ValueError(
+                    f"CostLine {line.id} for job {job.job_number} has no staff_id in meta"
+                )
+                persist_app_error(exc)
+                raise exc
+
+            # Trust the data - staff must exist
+            from apps.accounts.models import Staff
+
+            staff = Staff.objects.get(id=staff_id)
+            staff_name = f"{staff.first_name} {staff.last_name}"
+            staff_hours[staff_name] += float(line.quantity)
+
+        # Convert to list of dicts sorted by hours descending
+        staff_breakdown = [
+            {"name": name, "hours": hours}
+            for name, hours in sorted(
+                staff_hours.items(), key=lambda x: x[1], reverse=True
+            )
+        ]
+
+    remaining_hours = budgeted_hours - used_hours
+    is_over_budget = used_hours > budgeted_hours and budgeted_hours > 0
+
+    return {
+        "budgeted_hours": budgeted_hours,
+        "used_hours": used_hours,
+        "remaining_hours": remaining_hours,
+        "is_over_budget": is_over_budget,
+        "staff_breakdown": staff_breakdown,
+    }
+
+
 # Page metrics (A4: 210 x 297 mm)
 PAGE_WIDTH, PAGE_HEIGHT = A4
 MARGIN = 50
@@ -351,7 +419,7 @@ def create_delivery_docket_pdf(job):
 
 
 def create_workshop_main_document(job):
-    """Create the workshop cover document with header, details, and materials table."""
+    """Create the workshop cover document with header, details, time used, and materials tables."""
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
 
@@ -359,7 +427,8 @@ def create_workshop_main_document(job):
     y_position = add_logo(pdf, y_position)
     y_position = add_title(pdf, y_position, job)
     y_position = add_workshop_details_table(pdf, y_position, job)
-    add_materials_table(pdf, y_position)
+    y_position = add_time_used_table(pdf, y_position, job)
+    y_position = add_materials_used_table(pdf, y_position, job)
 
     pdf.save()
     buffer.seek(0)
@@ -440,6 +509,83 @@ def add_title(pdf, y_position, job, title_prefix=None):
     return y_position - 28
 
 
+def add_time_used_table(pdf, y_position, job: Job):
+    """
+    Render the time used table showing staff members and hours worked,
+    similar to the materials notes table.
+
+    Returns the updated y_position after drawing the table.
+    """
+    time_breakdown = get_time_breakdown(job)
+
+    # Build table data - header row + actual time entries + 5 blank rows
+    time_data = [["STAFF MEMBER", "HOURS", "REMAINING"]]
+
+    # Calculate running remaining hours
+    budgeted = time_breakdown["budgeted_hours"]
+    used_so_far = 0.0
+
+    # Add actual time entries
+    for staff_entry in time_breakdown["staff_breakdown"]:
+        used_so_far += staff_entry["hours"]
+        remaining = budgeted - used_so_far
+        time_data.append(
+            [
+                staff_entry["name"],
+                f"{staff_entry['hours']:.1f}",
+                f"{remaining:.1f}",
+            ]
+        )
+
+    # Always add 5 blank rows for handwritten entries
+    for _ in range(5):
+        time_data.append(["", "", ""])
+
+    time_table = Table(
+        time_data,
+        colWidths=[CONTENT_WIDTH * 0.5, CONTENT_WIDTH * 0.25, CONTENT_WIDTH * 0.25],
+    )
+    time_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), PRIMARY),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("TOPPADDING", (0, 0), (-1, 0), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ROW_ALT]),
+                ("GRID", (0, 0), (-1, -1), 0.5, BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 1), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 1), (-1, -1), 10),
+            ]
+        )
+    )
+
+    # Calculate minimum space needed (similar to materials table)
+    # Heading: 14pt + 25pt spacing = 39pt
+    # Header row: ~29pt
+    # Data rows: ~31pt each
+    num_rows = len(time_data) - 1  # Exclude header
+    min_space_needed = 39 + 29 + (num_rows * 31)
+    if y_position - min_space_needed <= MARGIN:
+        y_position = _advance_to_new_page(pdf)
+
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFillColor(TEXT_DARK)
+    pdf.drawString(MARGIN, y_position, "Time Used")
+    y_position -= 25
+
+    y_position = draw_table_with_page_breaks(pdf, time_table, y_position)
+
+    if y_position - 20 <= MARGIN:
+        return _advance_to_new_page(pdf)
+
+    return y_position - 20
+
+
 def add_workshop_details_table(pdf, y_position, job: Job):
     """Render the workshop job details with workshop time and internal notes."""
     client_name = job.client.name if job.client else "N/A"
@@ -454,11 +600,20 @@ def add_workshop_details_table(pdf, y_position, job: Job):
         f"{contact_name}<br/>{contact_phone}" if contact_phone else contact_name
     )
 
-    workshop_hours = get_workshop_hours(job)
+    # Get time summary for the one-line display
+    time_breakdown = get_time_breakdown(job)
+    remaining = time_breakdown["remaining_hours"]
+    total = time_breakdown["budgeted_hours"]
+
+    if time_breakdown["is_over_budget"]:
+        workshop_display = f"{abs(remaining):.1f} hours OVER BUDGET ({total:.1f} total)"
+    else:
+        workshop_display = f"{remaining:.1f} hours remaining ({total:.1f} total)"
+
     pricing_suffix = (
         " (T&M)" if job.pricing_methodology == "time_materials" else " (Quoted)"
     )
-    workshop_display = f"{workshop_hours:.1f} hours{pricing_suffix}"
+    workshop_display += pricing_suffix
 
     # Use Paragraph styles so header text is white over the blue background
     job_details = [
@@ -471,7 +626,7 @@ def add_workshop_details_table(pdf, y_position, job: Job):
             Paragraph(job.description or "N/A", body_style),
         ],
         [
-            Paragraph("WORKSHOP TIME ALLOCATED", label_style),
+            Paragraph("WORKSHOP TIME", label_style),
             Paragraph(workshop_display, body_style),
         ],
         [
@@ -661,14 +816,31 @@ def add_handover_section(pdf, job):
     pdf.line(MARGIN + 70, y_position, PAGE_WIDTH - MARGIN, y_position)
 
 
-def add_materials_table(pdf, y_position):
-    """Render the materials notes table with a consistent header and zebra rows."""
-    materials_data = [["DESCRIPTION", "QUANTITY", "COMMENTS"]]
-    materials_data.extend([["", "", ""] for _ in range(5)])
+def add_materials_used_table(pdf, y_position, job: Job):
+    """Render the materials notes table with actual materials used plus blank rows."""
+    materials_data = [["DESCRIPTION", "QUANTITY"]]
+
+    # Get actual materials used from latest_actual cost set
+    if job.latest_actual:
+        material_lines = job.latest_actual.cost_lines.filter(kind="material").order_by(
+            "-quantity"
+        )  # Show largest quantities first
+
+        for line in material_lines:
+            materials_data.append(
+                [
+                    line.desc or "",
+                    f"{line.quantity:.2f}" if line.quantity else "",
+                ]
+            )
+
+    # Always add 5 blank rows for handwritten entries
+    for _ in range(5):
+        materials_data.append(["", ""])
 
     materials_table = Table(
         materials_data,
-        colWidths=[CONTENT_WIDTH * 0.4, CONTENT_WIDTH * 0.2, CONTENT_WIDTH * 0.4],
+        colWidths=[CONTENT_WIDTH * 0.7, CONTENT_WIDTH * 0.3],
     )
     materials_table.setStyle(
         TableStyle(
@@ -689,12 +861,18 @@ def add_materials_table(pdf, y_position):
         )
     )
 
-    if y_position - 25 <= MARGIN:
+    # Calculate minimum space needed to avoid orphaning the materials section
+    # "Materials Used" heading: 14pt font + 25pt spacing = 39pt
+    # Header row: 8pt top + 8pt bottom padding + ~12pt text + border = ~29pt
+    # Data rows (5): 10pt top + 10pt bottom padding + ~10pt text + border = ~31pt each = 155pt
+    # Total: ~223pt minimum to show heading + full table
+    min_space_needed = 223
+    if y_position - min_space_needed <= MARGIN:
         y_position = _advance_to_new_page(pdf)
 
     pdf.setFont("Helvetica-Bold", 14)
     pdf.setFillColor(TEXT_DARK)
-    pdf.drawString(MARGIN, y_position, "Materials Notes")
+    pdf.drawString(MARGIN, y_position, "Materials Used")
     y_position -= 25
 
     y_position = draw_table_with_page_breaks(pdf, materials_table, y_position)
