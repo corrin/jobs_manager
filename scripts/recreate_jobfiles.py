@@ -133,7 +133,8 @@ def main():
     skipped = 0
 
     for job_file in job_files:
-        file_path = os.path.join(settings.MEDIA_ROOT, str(job_file.file_path))
+        # Use DROPBOX_WORKFLOW_FOLDER to match where the view serves files from
+        file_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, str(job_file.file_path))
 
         if os.path.exists(file_path):
             skipped += 1
