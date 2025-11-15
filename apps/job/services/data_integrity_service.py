@@ -900,12 +900,10 @@ class DataIntegrityService:
 
         # Check CostLine.meta.staff_id for ACTUAL time entries only
         # (estimates and quotes are projections, don't need staff_id)
-        actual_costset_ids = set(
-            CostSet.objects.filter(kind="actual").values_list("id", flat=True)
-        )
+        # Use join to filter at database level instead of loading IDs into memory
         for costline in CostLine.objects.filter(
-            kind="time", cost_set_id__in=actual_costset_ids
-        ):
+            kind="time", cost_set__kind="actual"
+        ).select_related("cost_set"):
             if not costline.meta:
                 continue
 

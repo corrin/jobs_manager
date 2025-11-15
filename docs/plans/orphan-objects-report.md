@@ -249,14 +249,17 @@ Most `on_delete=CASCADE` relationships should be changed to `on_delete=PROTECT` 
 - SupplierPriceList.supplier → Client
 - ScrapeJob.supplier → Client
 
-### Change to PROTECT (prevent accidental deletion of important records):
-- Invoice.client → Client (currently CASCADE)
-- Invoice.job → Job (currently CASCADE, should be PROTECT or SET_NULL)
-- Bill.client → Client (currently CASCADE)
-- CreditNote.client → Client (currently CASCADE)
-- Quote.client → Client (currently CASCADE)
-- Quote.job → Job (currently CASCADE, should be PROTECT or SET_NULL)
-- QuoteSpreadsheet.job → Job (currently CASCADE, should be PROTECT or SET_NULL)
+### Changed to PROTECT (prevent accidental deletion of important records):
+- Invoice.client → Client (was CASCADE, now PROTECT)
+- Invoice.job → Job (was CASCADE, now PROTECT)
+- Bill.client → Client (was CASCADE, now PROTECT)
+- CreditNote.client → Client (was CASCADE, now PROTECT)
+- Quote.client → Client (was CASCADE, now PROTECT)
+- Quote.job → Job (was CASCADE, now PROTECT)
+- QuoteSpreadsheet.job → Job (was CASCADE, now PROTECT)
+- Job.client → Client (was SET_NULL, now PROTECT)
+- All Staff FK relationships (was SET_NULL, now PROTECT for soft delete support)
+- Supplier relationships: SupplierProduct, SupplierPriceList, ScrapeJob (was CASCADE, now PROTECT)
 
 ## Future Enhancements (Phase 2)
 
