@@ -249,7 +249,7 @@ class ProductParsingMapping(models.Model):
     )
     validated_by = models.ForeignKey(
         "accounts.Staff",
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         help_text="Staff member who validated this mapping",

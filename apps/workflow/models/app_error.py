@@ -26,7 +26,7 @@ class AppError(models.Model):
     # Error resolution tracking
     resolved = models.BooleanField(default=False)
     resolved_by = models.ForeignKey(
-        "accounts.Staff", on_delete=models.SET_NULL, blank=True, null=True
+        "accounts.Staff", on_delete=models.PROTECT, blank=True, null=True
     )
     resolved_timestamp = models.DateTimeField(blank=True, null=True)
 
