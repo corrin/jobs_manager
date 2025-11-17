@@ -94,9 +94,11 @@ class JobFilesCollectionView(APIView):
             persist_app_error(
                 e,
                 job_id=str(job.id),
-                user_id=str(request.user.id)
-                if getattr(request.user, "is_authenticated", False)
-                else None,
+                user_id=(
+                    str(request.user.id)
+                    if getattr(request.user, "is_authenticated", False)
+                    else None
+                ),
                 additional_context={"filename": file_obj.name},
             )
             raise

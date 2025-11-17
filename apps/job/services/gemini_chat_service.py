@@ -20,6 +20,7 @@ from django.db import transaction
 from google.generativeai.types import FunctionDeclaration
 
 from apps.job.models import Job, JobQuoteChat
+from apps.job.services.chat_file_service import ChatFileService
 from apps.job.services.quote_mode_controller import QuoteModeController
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
 from apps.workflow.enums import AIProviderTypes
@@ -37,6 +38,22 @@ class GeminiChatService:
         self.quoting_tool = QuotingTool()
         self.query_tool = SupplierProductQueryTool()
         self.mode_controller = QuoteModeController()
+        self.file_service = ChatFileService()
+
+    def start_conversation(self) -> None:
+        """Configure Gemini API for this chat session."""
+        ai_provider = AIProvider.objects.filter(
+            provider_type=AIProviderTypes.GOOGLE
+        ).first()
+
+        if not ai_provider:
+            raise ValueError("No Gemini AI provider configured in the database")
+
+        if not ai_provider.api_key:
+            raise ValueError("Gemini AI provider is missing an API key")
+
+        genai.configure(api_key=ai_provider.api_key)
+        logger.info("Gemini API configured for chat session")
 
     def get_gemini_client(self, mode: Optional[str] = None) -> genai.GenerativeModel:
         """
@@ -236,6 +253,70 @@ pricing, and suppliers."""
             A valid Gemini role string.
         """
         return "model" if db_role == "assistant" else "user"
+
+    def _add_context_for_mode_transition(
+        self, chat_history: list, current_mode: str
+    ) -> list:
+        """
+        Add a synthetic context message when transitioning to PRICE mode.
+
+        This injects previous CALC results as a structured "CONTEXT" message
+        so the model doesn't re-ask for information already provided.
+
+        Args:
+            chat_history: Current chat history
+            current_mode: The mode being entered
+
+        Returns:
+            Enhanced chat history with context message if applicable
+        """
+        # Only add context when transitioning to PRICE mode
+        if current_mode != "PRICE":
+            return chat_history
+
+        # Extract recent calculation results from assistant messages
+        recent_context_parts = []
+        for msg in chat_history[-6:]:  # Look at last 6 messages
+            if msg.get("role") == "model":
+                for part in msg.get("parts", []):
+                    if isinstance(part, str):
+                        # Look for calculation results or material specifications
+                        if any(
+                            keyword in part.lower()
+                            for keyword in [
+                                "calculation",
+                                "flat pattern",
+                                "dimensions",
+                                "thickness",
+                                "material",
+                                "quantity",
+                            ]
+                        ):
+                            recent_context_parts.append(part)
+
+        # If no relevant context found, don't inject anything
+        if not recent_context_parts:
+            return chat_history
+
+        # Create a synthetic context message
+        context_text = (
+            "CONTEXT FROM PREVIOUS CONVERSATION:\n\n"
+            + "\n\n".join(recent_context_parts)
+            + "\n\n"
+            "Use the above information to answer the pricing request. "
+            "Do not re-ask for details already provided above."
+        )
+
+        context_msg = {"role": "user", "parts": [context_text]}
+
+        # Insert context message before the final user message
+        enhanced = chat_history.copy()
+        enhanced.append(context_msg)
+
+        logger.info(f"Injected context message for {current_mode} mode transition")
+        logger.debug(f"Context message preview: {context_text[:200]}...")
+
+        return enhanced
 
     @transaction.atomic
     def generate_ai_response(
@@ -459,20 +540,67 @@ pricing, and suppliers."""
                 f"Retrieved {len(recent_messages)} recent messages for context"
             )
 
+            # Extract all file IDs from chat history
+            all_file_ids = self.file_service.extract_file_ids_from_chat_history(
+                list(recent_messages)
+            )
+
+            # Fetch all files once if any were found
+            job_files_dict = {}
+            if all_file_ids:
+                job_files = self.file_service.fetch_job_files(job_id, all_file_ids)
+                logger.info(f"Found {len(job_files)} files attached to conversation")
+                # Create a lookup dict for quick access
+                job_files_dict = {str(f.id): f for f in job_files}
+
             for msg in recent_messages:
                 logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
+
+                # Build parts list - start with the text content
+                parts = [msg.content]
+
+                # Check if this specific message has file attachments
+                if msg.metadata and "file_ids" in msg.metadata:
+                    message_file_ids = msg.metadata["file_ids"]
+                    # Get the files for this specific message
+                    message_files = [
+                        job_files_dict[fid]
+                        for fid in message_file_ids
+                        if fid in job_files_dict
+                    ]
+
+                    if message_files:
+                        # Build file contents for this message's files
+                        file_contents = (
+                            self.file_service.build_file_contents_for_gemini(
+                                message_files
+                            )
+                        )
+                        parts.extend(file_contents)
+                        logger.debug(
+                            f"Added {len(file_contents)} file contents to message"
+                        )
+
                 chat_history.append(
                     {
                         # Gemini expects roles to be either "user" or "model"
                         "role": self._to_gemini_role(msg.role),
-                        "parts": [msg.content],
+                        "parts": parts,
                     }
                 )
 
             # Infer mode if not provided
             if mode is None:
-                mode, confidence = self.mode_controller.infer_mode(user_message)
-                logger.info(f"Inferred mode: {mode} (confidence: {confidence:.2f})")
+                # Get current mode from last assistant message
+                current_mode = None
+                for msg in reversed(list(recent_messages)):
+                    if msg.role == "assistant" and msg.metadata:
+                        current_mode = msg.metadata.get("mode")
+                        if current_mode:
+                            break
+
+                mode = self.mode_controller.infer_mode(user_message, current_mode)
+                logger.info(f"Inferred mode: {mode} (previous: {current_mode})")
             else:
                 logger.info(f"Using explicit mode: {mode}")
 
@@ -480,13 +608,16 @@ pricing, and suppliers."""
             model = self.get_gemini_client(mode=mode)
             model.system_instruction = self.mode_controller.get_system_prompt()
 
-            # Run the mode controller with chat history
+            # Inject context summary as a message if switching modes
+            enhanced_history = self._add_context_for_mode_transition(chat_history, mode)
+
+            # Run the mode controller with enhanced chat history
             response_data, has_questions = self.mode_controller.run(
                 mode=mode,
                 user_input=user_message,
                 job=job,
                 gemini_client=model,
-                chat_history=chat_history,
+                chat_history=enhanced_history,
             )
 
             # Format the response for display

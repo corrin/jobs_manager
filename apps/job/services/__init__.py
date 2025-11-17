@@ -5,6 +5,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .chat_file_service import ChatFileService
         from .data_quality_report import ArchivedJobsComplianceService
         from .delivery_docket_service import generate_delivery_docket
         from .delta_checksum import (
@@ -80,6 +81,7 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "ArchivedJobsComplianceService",
+    "ChatFileService",
     "ChecksumInput",
     "DeltaValidationError",
     "GeminiChatService",
