@@ -482,6 +482,33 @@ def add_logo(pdf, y_position):
     return y_position - 200
 
 
+def _wrap_text_for_canvas(
+    pdf: canvas.Canvas, text: str, max_width: float, font_name: str, font_size: int
+) -> list[str]:
+    """
+    Wrap text to fit inside max_width based on actual font metrics.
+    """
+    if not text:
+        return [""]
+
+    pdf.setFont(font_name, font_size)
+    words = text.split()
+    if not words:
+        return [""]
+
+    lines = []
+    current_line = words[0]
+    for word in words[1:]:
+        candidate = f"{current_line} {word}".strip()
+        if pdf.stringWidth(candidate, font_name, font_size) <= max_width:
+            current_line = candidate
+        else:
+            lines.append(current_line)
+            current_line = word
+    lines.append(current_line)
+    return lines
+
+
 def add_title(pdf, y_position, job, title_prefix=None):
     """
     Render the job title with consistent palette.
@@ -492,22 +519,34 @@ def add_title(pdf, y_position, job, title_prefix=None):
         job: The Job instance
         title_prefix: Optional prefix to add before "Job - {number} - {name}"
     """
+    font_name = "Helvetica-Bold"
+    font_size = 18
+    line_height = font_size + 6
+
     pdf.setFillColor(PRIMARY)
-    pdf.setFont("Helvetica-Bold", 18)
+    pdf.setFont(font_name, font_size)
     job_number = str(job.job_number) if job.job_number else "N/A"
     job_name = job.name or "N/A"
+    job_line = f"Job - {job_number} - {job_name}"
+    current_y = y_position
 
     if title_prefix:
-        # Draw prefix on first line
-        pdf.drawString(MARGIN, y_position, title_prefix)
-        y_position -= 24
-        # Draw job info on second line
-        pdf.drawString(MARGIN, y_position, f"Job - {job_number} - {job_name}")
-    else:
-        pdf.drawString(MARGIN, y_position, f"Job - {job_number} - {job_name}")
+        prefix_lines = _wrap_text_for_canvas(
+            pdf, title_prefix, CONTENT_WIDTH, font_name, font_size
+        )
+        for line in prefix_lines:
+            pdf.drawString(MARGIN, current_y, line)
+            current_y -= line_height
+
+    job_lines = _wrap_text_for_canvas(
+        pdf, job_line, CONTENT_WIDTH, font_name, font_size
+    )
+    for line in job_lines:
+        pdf.drawString(MARGIN, current_y, line)
+        current_y -= line_height
 
     pdf.setFillColor(colors.black)
-    return y_position - 28
+    return current_y - 4
 
 
 def add_time_used_table(pdf, y_position, job: Job):
