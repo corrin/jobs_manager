@@ -782,7 +782,8 @@ class ClientRestService:
                     "status": job.status,
                     "pricing_methodology": job.pricing_methodology,
                     "fully_invoiced": job.fully_invoiced,
-                    "quoted": job.quoted,
+                    "has_quote_in_xero": job.quoted,
+                    "is_fixed_price": job.pricing_methodology == "fixed_price",
                     "quote_acceptance_date": (
                         job.quote_acceptance_date.isoformat()
                         if job.quote_acceptance_date
