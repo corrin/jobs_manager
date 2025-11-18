@@ -9,6 +9,8 @@ try:
             DailyTimesheetService,
             ensure_json_serializable,
         )
+        from .payroll_employee_sync import PayrollEmployeeSyncService
+        from .payroll_sync import PayrollSyncService
         from .weekly_timesheet_service import WeeklyTimesheetService
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -16,6 +18,8 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "DailyTimesheetService",
+    "PayrollEmployeeSyncService",
+    "PayrollSyncService",
     "WeeklyTimesheetService",
     "ensure_json_serializable",
 ]

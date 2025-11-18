@@ -14,6 +14,12 @@
 |-------------|------|------|-------------|
 | `/api/jobs/` | `api.JobsAPIView` | `timesheet:api_jobs_list` | API endpoint to get available jobs for timesheet entries. |
 
+#### Payroll Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/api/payroll/create-pay-run/` | `api.CreatePayRunAPIView` | `timesheet:api_create_pay_run` | API endpoint to create a pay run in Xero Payroll. |
+| `/api/payroll/post-staff-week/` | `api.PostWeekToXeroPayrollAPIView` | `timesheet:api_post_staff_week` | API endpoint to post a weekly timesheet to Xero Payroll. |
+
 #### Staff Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
@@ -24,7 +30,6 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/weekly/` | `api.WeeklyTimesheetAPIView` | `timesheet:api_weekly_timesheet` | Comprehensive weekly timesheet API endpoint using WeeklyTimesheetService. |
-| `/api/weekly/ims/` | `api.IMSWeeklyTimesheetAPIView` | `timesheet:weekly_timesheet_ims` | Weekly overview in IMS format (Tue-Fri plus following Mon). |
 
 ### Rest Management
 | URL Pattern | View | Name | Description |
