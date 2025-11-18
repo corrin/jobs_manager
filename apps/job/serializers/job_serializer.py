@@ -207,6 +207,7 @@ class JobSerializer(serializers.ModelSerializer):
             "job_files",
             "charge_out_rate",
             "pricing_methodology",
+            "speed_quality_tradeoff",
             "quote_sheet",
             "quoted",
             "fully_invoiced",

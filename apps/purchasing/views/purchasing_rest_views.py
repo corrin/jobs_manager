@@ -638,7 +638,7 @@ class StockDeactivateRestView(APIView):
         if item.is_active:
             item.is_active = False
             item.save()
-            return Response({"success": True})
+            return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(
             {"error": "Item is already inactive"}, status=status.HTTP_400_BAD_REQUEST
         )

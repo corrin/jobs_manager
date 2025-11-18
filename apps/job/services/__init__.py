@@ -5,6 +5,8 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .data_integrity_service import DataIntegrityService
+        from .chat_file_service import ChatFileService
         from .data_quality_report import ArchivedJobsComplianceService
         from .delivery_docket_service import generate_delivery_docket
         from .delta_checksum import (
@@ -55,7 +57,8 @@ try:
             add_delivery_docket_details_table,
             add_handover_section,
             add_logo,
-            add_materials_table,
+            add_materials_used_table,
+            add_time_used_table,
             add_title,
             add_workshop_details_table,
             convert_html_to_reportlab,
@@ -67,6 +70,7 @@ try:
             draw_table_with_page_breaks,
             get_image_dimensions,
             get_pdf_file_paths,
+            get_time_breakdown,
             get_workshop_hours,
             merge_pdfs,
             process_attachments,
@@ -78,7 +82,9 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "ArchivedJobsComplianceService",
+    "ChatFileService",
     "ChecksumInput",
+    "DataIntegrityService",
     "DeltaValidationError",
     "GeminiChatService",
     "JobDeltaPayload",
@@ -98,7 +104,8 @@ __all__ = [
     "add_delivery_docket_details_table",
     "add_handover_section",
     "add_logo",
-    "add_materials_table",
+    "add_materials_used_table",
+    "add_time_used_table",
     "add_title",
     "add_workshop_details_table",
     "apply_quote",
@@ -118,6 +125,7 @@ __all__ = [
     "get_paid_complete_jobs",
     "get_pdf_file_paths",
     "get_thumbnail_folder",
+    "get_time_breakdown",
     "get_workshop_hours",
     "import_quote_from_drafts",
     "import_quote_from_file",

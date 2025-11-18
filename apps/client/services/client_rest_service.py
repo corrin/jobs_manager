@@ -330,19 +330,24 @@ class ClientRestService:
         Raises:
             ValueError: If job not found or no contact associated
         """
+        # Import here to avoid circular imports
+        from apps.job.models import Job
+
         try:
-            # Import here to avoid circular imports
-            from apps.job.models import Job
+            job = Job.objects.select_related("contact").get(id=job_id)
+        except Job.DoesNotExist as e:
+            persist_app_error(e)
+            raise ValueError(f"Job with id {job_id} not found")
+        except Exception as e:
+            persist_app_error(e)
+            raise
 
-            try:
-                job = Job.objects.select_related("contact").get(id=job_id)
-            except Job.DoesNotExist:
-                raise ValueError(f"Job with id {job_id} not found")
+        if not job.contact:
+            # Documented business validation failure should not be persisted
+            raise ValueError(f"No contact associated with job {job_id}")
 
-            if not job.contact:
-                raise ValueError(f"No contact associated with job {job_id}")
-
-            contact = job.contact
+        contact = job.contact
+        try:
             return {
                 "id": str(contact.id),
                 "name": contact.name,
@@ -352,7 +357,6 @@ class ClientRestService:
                 "is_primary": contact.is_primary,
                 "notes": contact.notes or "",
             }
-
         except Exception as e:
             persist_app_error(e)
             raise

@@ -13,6 +13,11 @@
 | `/api/aws/instance/status/` | `aws_instance_view.get_instance_status` | `aws_instance_status` | Get current status of the UAT instance |
 | `/api/aws/instance/stop/` | `aws_instance_view.stop_instance` | `aws_instance_stop` | Stop the UAT instance |
 
+#### Reports
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/api/reports/profit-and-loss/` | `CompanyProfitAndLossReport` | `accounting:api_profit_and_loss` | No description available |
+
 #### System
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|

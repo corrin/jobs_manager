@@ -1071,12 +1071,8 @@ class JobAgingService:
                     if line_date:
                         try:
                             # Convert from ISO string to datetime
-                            import datetime
-
                             line_datetime = datetime.datetime.fromisoformat(line_date)
                             # Convert to timezone-aware datetime
-                            from django.utils import timezone
-
                             if timezone.is_naive(line_datetime):
                                 line_datetime = timezone.make_aware(line_datetime)
                         except (ValueError, TypeError):
@@ -1098,11 +1094,14 @@ class JobAgingService:
                                 f"Time added by {staff.get_display_full_name()}"
                             )
                         except (Staff.DoesNotExist, ValueError, TypeError) as exc:
-                            logger.error(
-                                "Corrupted data. staff_id is missing in cost line meta."
+                            message = (
+                                "Corrupted cost line staff reference detected "
+                                f"(job_id={job.id}, cost_line_id={cost_line.id}, "
+                                f"staff_id={staff_id})"
                             )
+                            logger.error(message)
                             persist_app_error(exc)
-                            description = "Time added by unknown staff"
+                            raise ValueError(message) from exc
 
                     activities.append(
                         {
@@ -1112,13 +1111,14 @@ class JobAgingService:
                         }
                     )
         except Exception as exc:
-            logger.warning(
+            logger.error(
                 (
                     f"Error checking cost line activities for job "
                     f"{job.job_number}: {str(exc)}"
                 )
             )
             persist_app_error(exc)
+            raise
 
         # Find the most recent activity
         if activities:

@@ -13,11 +13,11 @@ CALC_SCHEMA = {
             "type": "object",
             "properties": {
                 "raw_input": {
-                    "type": "string",
+                    "type": ["string", "null"],
                     "description": "The user's original input",
                 },
                 "parsed": {
-                    "type": "string",
+                    "type": ["string", "null"],
                     "description": "What was extracted from the input as text",
                 },
             },
@@ -148,7 +148,7 @@ PRICE_SCHEMA = {
         "questions": {
             "type": "array",
             "items": {"type": "string"},
-            "maxItems": 3,
+            "maxItems": 5,
             "description": "Clarifying questions for specifications",
         },
     },

@@ -2,6 +2,7 @@ from django.http import HttpResponse
 from django.urls import path
 from rest_framework import status
 
+from apps.job.views.data_integrity_views import DataIntegrityReportView
 from apps.job.views.data_quality_report_views import ArchivedJobsComplianceView
 from apps.job.views.delivery_docket_view import DeliveryDocketView
 from apps.job.views.job_costing_views import JobCostSetView, JobQuoteRevisionView
@@ -290,5 +291,10 @@ rest_urlpatterns = [
         "rest/data-quality/archived-jobs-compliance/",
         ArchivedJobsComplianceView.as_view(),
         name="data_quality_archived_jobs_compliance",
+    ),
+    path(
+        "rest/data-integrity/scan/",
+        DataIntegrityReportView.as_view(),
+        name="data_integrity_scan",
     ),
 ]

@@ -143,13 +143,10 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
     for item in items:
         xero_id = getattr(item, xero_id_attr)
 
-        # Skip deleted items that don't exist locally
+        # Xero omits fields for deleted docs so we skip to avoid errors
         if getattr(item, "status", None) == "DELETED":
-            if not model_class.objects.filter(xero_id=xero_id).exists():
-                logger.info(
-                    f"Skipping deleted {model_class.__name__} {xero_id} - doesn't exist locally"
-                )
-                continue
+            logger.info(f"Skipping deleted {model_class.__name__} {xero_id}")
+            continue
 
         instance = transform_func(item, xero_id)
         if instance:
@@ -161,14 +158,10 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
 
 
 # Transform functions
-def _resolve_document_number(doc_type: str, xero_obj, xero_id: UUID | str) -> str:
-    """
-    Determine a usable document number for a Xero object.
-
-    Some supplier bills come through without an explicit invoice number.  For
-    reporting purposes we still need a stable identifier, so fall back to the
-    reference or the Xero ID if necessary.
-    """
+def _resolve_document_number(
+    doc_type: str, xero_obj, xero_id: UUID | str
+) -> str | None:
+    """Return the canonical document number provided by Xero."""
     match doc_type:
         case "invoice" | "bill":
             primary = getattr(xero_obj, "invoice_number", None)
@@ -176,23 +169,9 @@ def _resolve_document_number(doc_type: str, xero_obj, xero_id: UUID | str) -> st
             primary = getattr(xero_obj, "credit_note_number", None)
         case _:
             logger.error(f"Unknown document type for Xero sync: {doc_type}")
-            return str(xero_id)
+            return None
 
-    candidates = [
-        primary,
-        getattr(xero_obj, "number", None),
-        getattr(xero_obj, "reference", None),
-    ]
-    for candidate in candidates:
-        if candidate:
-            return str(candidate)
-
-    logger.warning(
-        "Missing %s number for Xero document %s; defaulting to Xero ID as number.",
-        doc_type,
-        xero_id,
-    )
-    return str(xero_id)
+    return str(primary) if primary else None
 
 
 def _extract_required_fields_xero(doc_type, xero_obj, xero_id):

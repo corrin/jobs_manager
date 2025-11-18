@@ -28,15 +28,19 @@ def test_bearer_disabled(backend_url, username, password):
         response = requests.post(
             f"{backend_url}/accounts/api/bearer-token/",
             json={"username": username, "password": password},
-            timeout=5
+            timeout=5,
         )
 
         if response.status_code == 403:
             data = response.json()
             if "Bearer tokens are disabled" in data.get("detail", ""):
-                return print_test("test_bearer_disabled", True, "Returns 403 as expected")
+                return print_test(
+                    "test_bearer_disabled", True, "Returns 403 as expected"
+                )
 
-        return print_test("test_bearer_disabled", False, f"Expected 403, got {response.status_code}")
+        return print_test(
+            "test_bearer_disabled", False, f"Expected 403, got {response.status_code}"
+        )
     except Exception as e:
         return print_test("test_bearer_disabled", False, f"Error: {e}")
 
@@ -47,12 +51,15 @@ def test_bearer_ignored_when_disabled(backend_url, username, password):
         response = requests.get(
             f"{backend_url}/accounts/me/",
             headers={"Authorization": "Bearer fake-token"},
-            timeout=5
+            timeout=5,
         )
 
         passed = response.status_code == 401
-        return print_test("test_bearer_ignored_when_disabled", passed,
-                         f"Returns 401 (token ignored): {passed}")
+        return print_test(
+            "test_bearer_ignored_when_disabled",
+            passed,
+            f"Returns 401 (token ignored): {passed}",
+        )
     except Exception as e:
         return print_test("test_bearer_ignored_when_disabled", False, f"Error: {e}")
 
@@ -63,17 +70,23 @@ def test_bearer_token_generation(backend_url, username, password):
         response = requests.post(
             f"{backend_url}/accounts/api/bearer-token/",
             json={"username": username, "password": password},
-            timeout=5
+            timeout=5,
         )
 
         if response.status_code == 200:
             token = response.json().get("token")
             if token:
-                return print_test("test_bearer_token_generation", True,
-                                f"Token generated (length: {len(token)})")
+                return print_test(
+                    "test_bearer_token_generation",
+                    True,
+                    f"Token generated (length: {len(token)})",
+                )
 
-        return print_test("test_bearer_token_generation", False,
-                         f"Expected 200, got {response.status_code}")
+        return print_test(
+            "test_bearer_token_generation",
+            False,
+            f"Expected 200, got {response.status_code}",
+        )
     except Exception as e:
         return print_test("test_bearer_token_generation", False, f"Error: {e}")
 
@@ -85,30 +98,38 @@ def test_bearer_token_authentication(backend_url, username, password):
         response = requests.post(
             f"{backend_url}/accounts/api/bearer-token/",
             json={"username": username, "password": password},
-            timeout=5
+            timeout=5,
         )
 
         if response.status_code != 200:
-            return print_test("test_bearer_token_authentication", False, "Failed to get token")
+            return print_test(
+                "test_bearer_token_authentication", False, "Failed to get token"
+            )
 
         token = response.json().get("token")
         if not token:
-            return print_test("test_bearer_token_authentication", False, "No token in response")
+            return print_test(
+                "test_bearer_token_authentication", False, "No token in response"
+            )
 
         # Use token
         response = requests.get(
             f"{backend_url}/accounts/me/",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=5
+            timeout=5,
         )
 
         if response.status_code == 200:
             email = response.json().get("email")
-            return print_test("test_bearer_token_authentication", True,
-                            f"Authenticated as {email}")
+            return print_test(
+                "test_bearer_token_authentication", True, f"Authenticated as {email}"
+            )
 
-        return print_test("test_bearer_token_authentication", False,
-                         f"Expected 200, got {response.status_code}")
+        return print_test(
+            "test_bearer_token_authentication",
+            False,
+            f"Expected 200, got {response.status_code}",
+        )
     except Exception as e:
         return print_test("test_bearer_token_authentication", False, f"Error: {e}")
 
@@ -119,12 +140,13 @@ def test_invalid_bearer_token_rejected(backend_url, username, password):
         response = requests.get(
             f"{backend_url}/accounts/me/",
             headers={"Authorization": "Bearer invalid-token-12345"},
-            timeout=5
+            timeout=5,
         )
 
         passed = response.status_code == 401
-        return print_test("test_invalid_bearer_token_rejected", passed,
-                         f"Returns 401: {passed}")
+        return print_test(
+            "test_invalid_bearer_token_rejected", passed, f"Returns 401: {passed}"
+        )
     except Exception as e:
         return print_test("test_invalid_bearer_token_rejected", False, f"Error: {e}")
 
@@ -138,25 +160,26 @@ def test_cookie_auth_still_works(backend_url, username, password):
         response = session.post(
             f"{backend_url}/accounts/api/token/",
             json={"username": username, "password": password},
-            timeout=5
+            timeout=5,
         )
 
         if response.status_code != 200:
             return print_test("test_cookie_auth_still_works", False, "Login failed")
 
         # Use cookie
-        response = session.get(
-            f"{backend_url}/accounts/me/",
-            timeout=5
-        )
+        response = session.get(f"{backend_url}/accounts/me/", timeout=5)
 
         if response.status_code == 200:
             email = response.json().get("email")
-            return print_test("test_cookie_auth_still_works", True,
-                            f"Cookie auth works: {email}")
+            return print_test(
+                "test_cookie_auth_still_works", True, f"Cookie auth works: {email}"
+            )
 
-        return print_test("test_cookie_auth_still_works", False,
-                         f"Expected 200, got {response.status_code}")
+        return print_test(
+            "test_cookie_auth_still_works",
+            False,
+            f"Expected 200, got {response.status_code}",
+        )
     except Exception as e:
         return print_test("test_cookie_auth_still_works", False, f"Error: {e}")
 
@@ -167,12 +190,13 @@ def test_bearer_invalid_credentials(backend_url, username, password):
         response = requests.post(
             f"{backend_url}/accounts/api/bearer-token/",
             json={"username": username, "password": "wrong-password"},
-            timeout=5
+            timeout=5,
         )
 
         passed = response.status_code == 401
-        return print_test("test_bearer_invalid_credentials", passed,
-                         f"Returns 401: {passed}")
+        return print_test(
+            "test_bearer_invalid_credentials", passed, f"Returns 401: {passed}"
+        )
     except Exception as e:
         return print_test("test_bearer_invalid_credentials", False, f"Error: {e}")
 
@@ -188,7 +212,7 @@ def test_bearer_cross_domain(backend_url, frontend_url, username, password):
             f"{backend_url}/accounts/api/bearer-token/",
             json={"username": username, "password": password},
             headers={"Origin": frontend_url},
-            timeout=10
+            timeout=10,
         )
 
         if response.status_code != 200:
@@ -199,20 +223,21 @@ def test_bearer_cross_domain(backend_url, frontend_url, username, password):
         # Use token cross-domain
         response = requests.get(
             f"{backend_url}/accounts/me/",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Origin": frontend_url
-            },
-            timeout=10
+            headers={"Authorization": f"Bearer {token}", "Origin": frontend_url},
+            timeout=10,
         )
 
         if response.status_code == 200:
             email = response.json().get("email")
-            return print_test("test_bearer_cross_domain", True,
-                            f"Cross-domain works: {email}")
+            return print_test(
+                "test_bearer_cross_domain", True, f"Cross-domain works: {email}"
+            )
 
-        return print_test("test_bearer_cross_domain", False,
-                         f"Expected 200, got {response.status_code}")
+        return print_test(
+            "test_bearer_cross_domain",
+            False,
+            f"Expected 200, got {response.status_code}",
+        )
     except Exception as e:
         return print_test("test_bearer_cross_domain", False, f"Error: {e}")
 
@@ -237,7 +262,9 @@ def main():
     parser.add_argument("tests", nargs="*", help="Specific tests to run")
     parser.add_argument("--backend", default=backend_from_env, help="Backend URL")
     parser.add_argument("--frontend", default=frontend_from_env, help="Frontend URL")
-    parser.add_argument("--username", default="defaultadmin@example.com", help="Username")
+    parser.add_argument(
+        "--username", default="defaultadmin@example.com", help="Username"
+    )
     parser.add_argument("--password", default="Default-admin-password", help="Password")
 
     args = parser.parse_args()
@@ -278,7 +305,9 @@ def main():
     results = []
     for test_name, test_func in tests_to_run.items():
         if test_name == "test_bearer_cross_domain":
-            results.append(test_func(args.backend, args.frontend, args.username, args.password))
+            results.append(
+                test_func(args.backend, args.frontend, args.username, args.password)
+            )
         else:
             results.append(test_func(args.backend, args.username, args.password))
 

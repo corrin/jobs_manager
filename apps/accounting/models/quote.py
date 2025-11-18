@@ -13,9 +13,9 @@ class Quote(models.Model):
         max_length=255, null=True, blank=True
     )  # For reference only - we are not fully multi-tenant yet
     job = models.OneToOneField(
-        "job.Job", on_delete=models.CASCADE, related_name="quote", null=True, blank=True
+        "job.Job", on_delete=models.PROTECT, related_name="quote", null=True, blank=True
     )
-    client = models.ForeignKey("client.Client", on_delete=models.CASCADE)
+    client = models.ForeignKey("client.Client", on_delete=models.PROTECT)
     date = models.DateField()
     status = models.CharField(
         max_length=50, choices=QuoteStatus.choices, default=QuoteStatus.DRAFT
