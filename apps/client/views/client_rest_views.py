@@ -43,6 +43,7 @@ from apps.client.serializers import (
     JobContactUpdateRequestSerializer,
 )
 from apps.client.services.client_rest_service import ClientRestService
+from apps.client.utils import date_to_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -623,7 +624,7 @@ class ClientCreateRestView(APIView):
             "address": client.address or "",
             "is_account_customer": client.is_account_customer,
             "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": client.get_last_invoice_date(),
+            "last_invoice_date": date_to_datetime(client.get_last_invoice_date()),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 

@@ -77,7 +77,7 @@ class ClientSearchResultSerializer(serializers.Serializer):
     address = serializers.CharField(allow_blank=True)
     is_account_customer = serializers.BooleanField()
     xero_contact_id = serializers.CharField(allow_blank=True)
-    last_invoice_date = serializers.DateField(allow_null=True)
+    last_invoice_date = serializers.DateTimeField(allow_null=True)
     total_spend = serializers.CharField()
 
 
@@ -183,7 +183,7 @@ class ClientDetailResponseSerializer(serializers.Serializer):
     merged_into = serializers.CharField(allow_null=True)
     django_created_at = serializers.DateTimeField()
     django_updated_at = serializers.DateTimeField()
-    last_invoice_date = serializers.DateField(allow_null=True)
+    last_invoice_date = serializers.DateTimeField(allow_null=True)
     total_spend = serializers.CharField()
 
 

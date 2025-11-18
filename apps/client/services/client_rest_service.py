@@ -19,6 +19,7 @@ from xero_python.accounting import AccountingApi
 
 from apps.client.forms import ClientForm
 from apps.client.models import Client, ClientContact
+from apps.client.utils import date_to_datetime
 from apps.workflow.api.xero.sync import sync_clients
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
 from apps.workflow.services.error_persistence import persist_app_error
@@ -480,7 +481,7 @@ class ClientRestService:
                     "address": client.address or "",
                     "is_account_customer": client.is_account_customer,
                     "xero_contact_id": client.xero_contact_id or "",
-                    "last_invoice_date": client.last_invoice_date,
+                    "last_invoice_date": date_to_datetime(client.last_invoice_date),
                     "total_spend": f"${client.total_spend:,.2f}",
                 }
             )
@@ -512,7 +513,7 @@ class ClientRestService:
             "merged_into": str(client.merged_into.id) if client.merged_into else None,
             "django_created_at": client.django_created_at,
             "django_updated_at": client.django_updated_at,
-            "last_invoice_date": client.get_last_invoice_date(),
+            "last_invoice_date": date_to_datetime(client.get_last_invoice_date()),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 
