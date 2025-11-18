@@ -15,7 +15,7 @@ class SupplierProduct(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="scraped_products"
+        Client, on_delete=models.PROTECT, related_name="scraped_products"
     )
     price_list = models.ForeignKey(
         "SupplierPriceList", on_delete=models.CASCADE, related_name="products"
@@ -143,7 +143,7 @@ class SupplierPriceList(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="price_lists"
+        Client, on_delete=models.PROTECT, related_name="price_lists"
     )
     file_name = models.CharField(
         max_length=255, help_text="Original filename of the uploaded price list"
@@ -172,7 +172,7 @@ class ScrapeJob(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="scrape_jobs"
+        Client, on_delete=models.PROTECT, related_name="scrape_jobs"
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="running")
     started_at = models.DateTimeField(default=timezone.now)
@@ -249,7 +249,7 @@ class ProductParsingMapping(models.Model):
     )
     validated_by = models.ForeignKey(
         "accounts.Staff",
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         help_text="Staff member who validated this mapping",

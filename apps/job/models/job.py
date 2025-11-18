@@ -53,7 +53,7 @@ class Job(models.Model):
 
     client = models.ForeignKey(
         "client.Client",
-        on_delete=models.SET_NULL,  # Option to handle if a client is deleted
+        on_delete=models.PROTECT,  # Prevent deletion of clients with jobs
         null=True,
         related_name="jobs",  # Allows reverse lookup of jobs for a client
     )
@@ -152,7 +152,7 @@ class Job(models.Model):
         help_text="Internal notes about the job. Not shown on the invoice.",
     )
 
-    created_by = models.ForeignKey(Staff, on_delete=models.SET_NULL, null=True)
+    created_by = models.ForeignKey(Staff, on_delete=models.PROTECT, null=True)
 
     people = models.ManyToManyField(Staff, related_name="assigned_jobs")
 

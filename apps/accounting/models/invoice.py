@@ -25,7 +25,7 @@ class BaseXeroInvoiceDocument(models.Model):
         max_length=255, null=True, blank=True
     )  # For reference only - we are not fully multi-tenant yet
     number = models.CharField(max_length=255)
-    client = models.ForeignKey("client.Client", on_delete=models.CASCADE)
+    client = models.ForeignKey("client.Client", on_delete=models.PROTECT)
     date = models.DateField()
     due_date = models.DateField(null=True, blank=True)
     status = models.CharField(
@@ -105,7 +105,7 @@ class BaseLineItem(models.Model):
 class Invoice(BaseXeroInvoiceDocument):
     job = models.ForeignKey(
         "job.Job",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="invoices",
         null=True,
         blank=True,

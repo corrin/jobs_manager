@@ -17,7 +17,7 @@ class QuoteSpreadsheet(models.Model):
     )
     job = models.OneToOneField(
         "Job",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="quote_sheet",
         blank=True,
         null=True,
