@@ -471,12 +471,6 @@ class ClientRestService:
         """
         formatted = []
         for client in clients:
-            # Guard None for date
-            date_str = (
-                client.last_invoice_date.isoformat()
-                if client.last_invoice_date
-                else None
-            )
             formatted.append(
                 {
                     "id": str(client.id),
@@ -486,7 +480,7 @@ class ClientRestService:
                     "address": client.address or "",
                     "is_account_customer": client.is_account_customer,
                     "xero_contact_id": client.xero_contact_id or "",
-                    "last_invoice_date": date_str,
+                    "last_invoice_date": client.last_invoice_date,
                     "total_spend": f"${client.total_spend:,.2f}",
                 }
             )
@@ -511,24 +505,14 @@ class ClientRestService:
             "primary_contact_email": client.primary_contact_email or "",
             "additional_contact_persons": client.additional_contact_persons or [],
             "all_phones": client.all_phones or [],
-            "xero_last_modified": (
-                client.xero_last_modified.isoformat()
-                if client.xero_last_modified
-                else None
-            ),
-            "xero_last_synced": (
-                client.xero_last_synced.isoformat() if client.xero_last_synced else None
-            ),
+            "xero_last_modified": client.xero_last_modified,
+            "xero_last_synced": client.xero_last_synced,
             "xero_archived": client.xero_archived,
             "xero_merged_into_id": client.xero_merged_into_id or "",
             "merged_into": str(client.merged_into.id) if client.merged_into else None,
-            "django_created_at": client.django_created_at.isoformat(),
-            "django_updated_at": client.django_updated_at.isoformat(),
-            "last_invoice_date": (
-                client.get_last_invoice_date().isoformat()
-                if client.get_last_invoice_date()
-                else None
-            ),
+            "django_created_at": client.django_created_at,
+            "django_updated_at": client.django_updated_at,
+            "last_invoice_date": client.get_last_invoice_date(),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 
@@ -784,11 +768,7 @@ class ClientRestService:
                     "fully_invoiced": job.fully_invoiced,
                     "has_quote_in_xero": job.quoted,
                     "is_fixed_price": job.pricing_methodology == "fixed_price",
-                    "quote_acceptance_date": (
-                        job.quote_acceptance_date.isoformat()
-                        if job.quote_acceptance_date
-                        else None
-                    ),
+                    "quote_acceptance_date": job.quote_acceptance_date,
                     "paid": job.paid,
                     "rejected_flag": job.rejected_flag,
                 }

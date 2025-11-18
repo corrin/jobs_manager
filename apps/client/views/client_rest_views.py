@@ -623,11 +623,7 @@ class ClientCreateRestView(APIView):
             "address": client.address or "",
             "is_account_customer": client.is_account_customer,
             "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": (
-                client.get_last_invoice_date().isoformat()
-                if client.get_last_invoice_date()
-                else None
-            ),
+            "last_invoice_date": client.get_last_invoice_date(),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 
