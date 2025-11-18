@@ -624,9 +624,9 @@ class ClientCreateRestView(APIView):
             "is_account_customer": client.is_account_customer,
             "xero_contact_id": client.xero_contact_id or "",
             "last_invoice_date": (
-                client.get_last_invoice_date().strftime("%d/%m/%Y")
+                client.get_last_invoice_date().isoformat()
                 if client.get_last_invoice_date()
-                else ""
+                else None
             ),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }

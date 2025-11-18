@@ -473,9 +473,9 @@ class ClientRestService:
         for client in clients:
             # Guard None for date
             date_str = (
-                client.last_invoice_date.strftime("%d/%m/%Y")
+                client.last_invoice_date.isoformat()
                 if client.last_invoice_date
-                else ""
+                else None
             )
             formatted.append(
                 {
@@ -525,9 +525,9 @@ class ClientRestService:
             "django_created_at": client.django_created_at.isoformat(),
             "django_updated_at": client.django_updated_at.isoformat(),
             "last_invoice_date": (
-                client.get_last_invoice_date().strftime("%d/%m/%Y")
+                client.get_last_invoice_date().isoformat()
                 if client.get_last_invoice_date()
-                else ""
+                else None
             ),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
