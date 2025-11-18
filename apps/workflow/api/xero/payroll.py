@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from uuid import UUID
 
 from xero_python.payrollnz import PayrollNzApi
-from xero_python.payrollnz.models import Employee, Timesheet, TimesheetLine
+from xero_python.payrollnz.models import Address, Employee, Timesheet, TimesheetLine
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.services.error_persistence import persist_app_error
@@ -39,6 +39,98 @@ def get_employees() -> List[Employee]:
     except Exception as exc:
         logger.error(f"Failed to get Xero Payroll employees: {exc}", exc_info=True)
         persist_app_error(exc)
+        raise
+
+
+def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
+    """
+    Create a payroll employee in Xero.
+
+    Args:
+        employee_data: Dict containing first_name, last_name, date_of_birth, and address data.
+
+    Returns:
+        Newly created Employee object.
+    """
+    if not get_tenant_id():
+        raise Exception("No Xero tenant ID configured")
+
+    required_fields = ("first_name", "last_name", "date_of_birth", "address")
+    for field in required_fields:
+        if not employee_data.get(field):
+            raise ValueError(f"{field} is required to create a Xero payroll employee")
+
+    address_data = employee_data["address"]
+    address_required_fields = ("address_line1", "city", "post_code")
+    for field in address_required_fields:
+        if not address_data.get(field):
+            raise ValueError(
+                f"{field} is required inside the address payload for payroll employees"
+            )
+
+    tenant_id = get_tenant_id()
+    payroll_api = PayrollNzApi(api_client)
+
+    try:
+        logger.info(
+            "Creating Xero Payroll employee for %s %s",
+            employee_data.get("first_name"),
+            employee_data.get("last_name"),
+        )
+
+        address = Address(
+            address_line1=address_data["address_line1"],
+            address_line2=address_data.get("address_line2"),
+            city=address_data["city"],
+            suburb=address_data.get("suburb"),
+            country_name=address_data.get("country_name"),
+            post_code=address_data["post_code"],
+        )
+
+        employee = Employee(
+            first_name=employee_data["first_name"],
+            last_name=employee_data["last_name"],
+            date_of_birth=employee_data["date_of_birth"],
+            address=address,
+            email=employee_data.get("email"),
+            phone_number=employee_data.get("phone_number"),
+            start_date=employee_data.get("start_date"),
+            engagement_type=employee_data.get("engagement_type"),
+            gender=employee_data.get("gender"),
+            job_title=employee_data.get("job_title"),
+        )
+
+        response = payroll_api.create_employee(
+            xero_tenant_id=tenant_id,
+            employee=employee,
+        )
+
+        if not response or not response.employee:
+            raise Exception("Failed to create payroll employee in Xero")
+
+        created_employee = response.employee
+        logger.info(
+            "Created Xero Payroll employee %s (%s %s)",
+            created_employee.employee_id,
+            created_employee.first_name,
+            created_employee.last_name,
+        )
+        return created_employee
+    except Exception as exc:
+        logger.error(
+            "Failed to create Xero Payroll employee %s %s: %s",
+            employee_data.get("first_name"),
+            employee_data.get("last_name"),
+            exc,
+            exc_info=True,
+        )
+        persist_app_error(
+            exc,
+            additional_context={
+                "operation": "create_payroll_employee",
+                "email": employee_data.get("email"),
+            },
+        )
         raise
 
 

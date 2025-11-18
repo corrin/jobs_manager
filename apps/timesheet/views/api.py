@@ -35,6 +35,7 @@ from apps.timesheet.serializers.payroll_serializers import (
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
 from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +114,6 @@ class StaffListAPIView(APIView):
             return Response({"staff": staff_data, "total_count": len(staff_data)})
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error fetching staff list: {e}")
 
             persist_app_error(e)
@@ -170,8 +169,6 @@ class JobsAPIView(APIView):
             )
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error fetching jobs: {e}")
 
             persist_app_error(e)
@@ -250,8 +247,6 @@ class DailyTimesheetAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error in DailyTimesheetAPIView: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -335,8 +330,6 @@ class DailyTimesheetAPIView(APIView):
             return Response(staff_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error getting staff daily detail: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -394,8 +387,6 @@ class TimesheetResponseMixin:
             )
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error building weekly timesheet response: {e}")
 
             persist_app_error(e)
@@ -522,8 +513,6 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error submitting paid absence: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -603,8 +592,6 @@ class CreatePayRunAPIView(APIView):
             # Client errors (bad date, not Monday)
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error creating pay run: {e}", exc_info=True)
             persist_app_error(e)
 

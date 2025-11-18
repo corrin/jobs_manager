@@ -8,6 +8,7 @@ try:
         from .payroll import (
             create_employee_leave,
             create_pay_run,
+            create_payroll_employee,
             find_payroll_calendar_for_week,
             get_earnings_rates,
             get_employees,
@@ -106,6 +107,7 @@ __all__ = [
     "create_employee_leave",
     "create_expense_entries",
     "create_pay_run",
+    "create_payroll_employee",
     "create_project",
     "create_time_entries",
     "deep_sync_xero_data",
