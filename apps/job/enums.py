@@ -1,6 +1,16 @@
 from django.db import models
 
 
+class SpeedQualityTradeoff(models.TextChoices):
+    """
+    Speed vs quality tradeoff for workshop execution
+    """
+
+    FAST = "fast", "Fast - Prioritize Speed"
+    NORMAL = "normal", "Normal - Balanced"
+    QUALITY = "quality", "Quality - Prioritize Quality"
+
+
 class MetalType(models.TextChoices):
     """
     Types of metal used in jobs
