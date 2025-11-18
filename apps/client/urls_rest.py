@@ -13,6 +13,7 @@ from apps.client.views.client_rest_views import (
     ClientContactCreateRestView,
     ClientContactsRestView,
     ClientCreateRestView,
+    ClientJobsRestView,
     ClientListAllRestView,
     ClientRetrieveRestView,
     ClientSearchRestView,
@@ -58,6 +59,12 @@ urlpatterns = [
         "<uuid:client_id>/contacts/",
         ClientContactsRestView.as_view(),
         name="client_contacts_rest",
+    ),
+    # Client jobs REST endpoint
+    path(
+        "<uuid:client_id>/jobs/",
+        ClientJobsRestView.as_view(),
+        name="client_jobs_rest",
     ),
     # Client contact creation REST endpoint
     path(

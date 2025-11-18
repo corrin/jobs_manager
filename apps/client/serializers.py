@@ -77,7 +77,7 @@ class ClientSearchResultSerializer(serializers.Serializer):
     address = serializers.CharField(allow_blank=True)
     is_account_customer = serializers.BooleanField()
     xero_contact_id = serializers.CharField(allow_blank=True)
-    last_invoice_date = serializers.CharField(allow_blank=True)
+    last_invoice_date = serializers.DateTimeField(allow_null=True)
     total_spend = serializers.CharField()
 
 
@@ -176,14 +176,14 @@ class ClientDetailResponseSerializer(serializers.Serializer):
     primary_contact_email = serializers.CharField(allow_blank=True)
     additional_contact_persons = serializers.ListField(required=False)
     all_phones = serializers.ListField(required=False)
-    xero_last_modified = serializers.CharField(allow_null=True)
-    xero_last_synced = serializers.CharField(allow_null=True)
+    xero_last_modified = serializers.DateTimeField(allow_null=True)
+    xero_last_synced = serializers.DateTimeField(allow_null=True)
     xero_archived = serializers.BooleanField()
     xero_merged_into_id = serializers.CharField(allow_blank=True)
     merged_into = serializers.CharField(allow_null=True)
-    django_created_at = serializers.CharField()
-    django_updated_at = serializers.CharField()
-    last_invoice_date = serializers.CharField(allow_blank=True)
+    django_created_at = serializers.DateTimeField()
+    django_updated_at = serializers.DateTimeField()
+    last_invoice_date = serializers.DateTimeField(allow_null=True)
     total_spend = serializers.CharField()
 
 
@@ -219,3 +219,26 @@ class JobContactResponseSerializer(serializers.Serializer):
 
 class JobContactUpdateRequestSerializer(JobContactResponseSerializer):
     """Serializer for job contact update request"""
+
+
+class ClientJobHeaderSerializer(serializers.Serializer):
+    """Serializer for job header in client jobs list"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.IntegerField()
+    name = serializers.CharField()
+    client = serializers.DictField(allow_null=True)
+    status = serializers.CharField()
+    pricing_methodology = serializers.CharField(allow_null=True)
+    fully_invoiced = serializers.BooleanField()
+    has_quote_in_xero = serializers.BooleanField()
+    is_fixed_price = serializers.BooleanField()
+    quote_acceptance_date = serializers.DateTimeField(allow_null=True)
+    paid = serializers.BooleanField()
+    rejected_flag = serializers.BooleanField()
+
+
+class ClientJobsResponseSerializer(serializers.Serializer):
+    """Serializer for client jobs list response"""
+
+    results = ClientJobHeaderSerializer(many=True)
