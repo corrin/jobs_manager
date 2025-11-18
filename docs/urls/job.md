@@ -34,6 +34,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/reports/job-aging/` | `job_aging_view.JobAgingAPIView` | `accounting:api_job_aging` | API Endpoint to provide job aging data with financial and timing information |
+| `/api/reports/job-movement/` | `JobMovementMetricsView` | `accounting:api_job_movement` | API endpoint for job movement and conversion metrics. |
 
 ### Job Management
 | URL Pattern | View | Name | Description |

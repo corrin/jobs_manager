@@ -7,6 +7,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .job_movement import JobMovementMetricsView
         from .pnl import CompanyProfitAndLossReport
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -14,5 +15,6 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "CompanyProfitAndLossReport",
+    "JobMovementMetricsView",
     "format_period_label",
 ]
