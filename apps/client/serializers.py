@@ -219,3 +219,25 @@ class JobContactResponseSerializer(serializers.Serializer):
 
 class JobContactUpdateRequestSerializer(JobContactResponseSerializer):
     """Serializer for job contact update request"""
+
+
+class ClientJobHeaderSerializer(serializers.Serializer):
+    """Serializer for job header in client jobs list"""
+
+    job_id = serializers.UUIDField()
+    job_number = serializers.IntegerField()
+    name = serializers.CharField()
+    client = serializers.DictField(allow_null=True)
+    status = serializers.CharField()
+    pricing_methodology = serializers.CharField(allow_null=True)
+    fully_invoiced = serializers.BooleanField()
+    quoted = serializers.BooleanField()
+    quote_acceptance_date = serializers.CharField(allow_null=True)
+    paid = serializers.BooleanField()
+    rejected_flag = serializers.BooleanField()
+
+
+class ClientJobsResponseSerializer(serializers.Serializer):
+    """Serializer for client jobs list response"""
+
+    results = ClientJobHeaderSerializer(many=True)

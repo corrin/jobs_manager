@@ -726,3 +726,74 @@ class ClientRestService:
             else:
                 # If both Xero and local update fail, raise the original Xero error
                 raise ValueError(f"Xero update failed: {str(e)}")
+
+    @staticmethod
+    def get_client_jobs(client_id: UUID) -> List[Dict[str, Any]]:
+        """
+        Retrieves all jobs for a specific client.
+
+        Args:
+            client_id: Client UUID
+
+        Returns:
+            List of job header dictionaries
+
+        Raises:
+            ValueError: If client not found
+        """
+        try:
+            # Guard clause - verify client exists
+            if not Client.objects.filter(id=client_id).exists():
+                raise ValueError(f"Client with id {client_id} not found")
+
+            # Import here to avoid circular imports
+            from apps.job.models import Job
+
+            # Get all jobs for this client
+            jobs = (
+                Job.objects.filter(client_id=client_id)
+                .select_related("client")
+                .only(
+                    "id",
+                    "job_number",
+                    "name",
+                    "client_id",
+                    "status",
+                    "pricing_methodology",
+                    "fully_invoiced",
+                    "quote_acceptance_date",
+                    "paid",
+                    "rejected_flag",
+                )
+                .order_by("-job_number")
+            )
+
+            # Format job data
+            return [
+                {
+                    "job_id": str(job.id),
+                    "job_number": job.job_number,
+                    "name": job.name,
+                    "client": (
+                        {"id": str(job.client.id), "name": job.client.name}
+                        if job.client
+                        else None
+                    ),
+                    "status": job.status,
+                    "pricing_methodology": job.pricing_methodology,
+                    "fully_invoiced": job.fully_invoiced,
+                    "quoted": job.quoted,
+                    "quote_acceptance_date": (
+                        job.quote_acceptance_date.isoformat()
+                        if job.quote_acceptance_date
+                        else None
+                    ),
+                    "paid": job.paid,
+                    "rejected_flag": job.rejected_flag,
+                }
+                for job in jobs
+            ]
+
+        except Exception as e:
+            persist_app_error(e)
+            raise
