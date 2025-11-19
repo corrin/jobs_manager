@@ -42,3 +42,22 @@ class PostWeekToXeroResponseSerializer(serializers.Serializer):
     annual_sick_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     unpaid_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     errors = serializers.ListField(child=serializers.CharField())
+
+
+class PayRunDetailsSerializer(serializers.Serializer):
+    """Serializer representing details from a Xero pay run."""
+
+    pay_run_id = serializers.CharField()
+    payroll_calendar_id = serializers.CharField(allow_null=True)
+    period_start_date = serializers.DateField()
+    period_end_date = serializers.DateField()
+    payment_date = serializers.DateField()
+    pay_run_status = serializers.CharField()
+    pay_run_type = serializers.CharField(allow_null=True)
+
+
+class PayRunForWeekResponseSerializer(serializers.Serializer):
+    """Response serializer when fetching pay run data for a week."""
+
+    exists = serializers.BooleanField()
+    pay_run = PayRunDetailsSerializer(allow_null=True)

@@ -2,7 +2,7 @@
 
 import logging
 from datetime import date, timedelta
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from xero_python.payrollnz import PayrollNzApi
@@ -12,6 +12,17 @@ from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger("xero.payroll")
+
+# Monkeypatch for Xero Python NZ Payroll API (dev-only, does not affect PROD)
+# Problem: when fetching employees, we get an error because the SDK expects all employees to have date of birth, 
+# but the default contractors of Demo Company don't have date of birth, and the REST API doesn't allow PUTTING dateOfBirth for contractors.
+# Result: we can't GET employees and we can't PUT contractors to fix that. 
+# The monkeypatch below aims to fix that by allowing Employee objects to have None as date of birth.
+
+def _safe_date_of_birth(self, value):
+    self._date_of_birth = value
+
+Employee.date_of_birth = Employee.date_of_birth.setter(_safe_date_of_birth)
 
 
 def get_employees() -> List[Employee]:
@@ -219,6 +230,41 @@ def get_pay_runs() -> List[Dict[str, Any]]:
         logger.error(f"Failed to get Xero Payroll pay runs: {exc}", exc_info=True)
         persist_app_error(exc)
         raise
+
+
+def get_pay_run_for_week(week_start_date: date) -> Optional[Dict[str, Any]]:
+    """
+    Get a single pay run that matches the provided week.
+
+    Args:
+        week_start_date: Monday of the week to search for
+
+    Returns:
+        Pay run dictionary if found, otherwise None
+
+    Raises:
+    ValueError: If week_start_date is not a Monday
+        Exception: If fetching pay runs fails
+    """
+    if week_start_date.weekday() != 0:
+        raise ValueError("week_start_date must be a Monday")
+
+    pay_runs = get_pay_runs()
+    week_end_date = week_start_date + timedelta(days=6)
+
+    for pay_run in pay_runs:
+        start_date = pay_run.get("period_start_date")
+        end_date = pay_run.get("period_end_date")
+
+        if hasattr(start_date, "date"):
+            start_date = start_date.date()
+        if hasattr(end_date, "date"):
+            end_date = end_date.date()
+
+        if start_date == week_start_date and end_date == week_end_date:
+            return pay_run
+
+    return None
 
 
 def get_leave_types() -> List[Dict[str, Any]]:

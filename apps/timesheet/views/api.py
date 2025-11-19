@@ -29,6 +29,7 @@ from apps.timesheet.serializers import (
 from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunRequestSerializer,
     CreatePayRunResponseSerializer,
+    PayRunForWeekResponseSerializer,
     PostWeekToXeroRequestSerializer,
     PostWeekToXeroResponseSerializer,
 )
@@ -602,6 +603,71 @@ class CreatePayRunAPIView(APIView):
 
             return Response(
                 {"error": f"Failed to create pay run: {error_msg}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PayRunForWeekAPIView(APIView):
+    """API endpoint to fetch pay run details for a specific week."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PayRunForWeekResponseSerializer
+
+    @extend_schema(
+        summary="Get pay run for a week",
+        parameters=[
+            OpenApiParameter(
+                "week_start_date",
+                OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                description="Monday of the week (YYYY-MM-DD)",
+                required=True,
+            )
+        ],
+        responses={
+            200: PayRunForWeekResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def get(self, request):
+        """Return pay run data for the requested week if it exists."""
+        week_start_date_str = request.query_params.get("week_start_date")
+        if not week_start_date_str:
+            return Response(
+                {"error": "week_start_date query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if week_start_date.weekday() != 0:
+            return Response(
+                {"error": "week_start_date must be a Monday"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payload = PayrollSyncService.get_pay_run_for_week(week_start_date)
+            return Response(payload, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.error(f"Error fetching pay run: {exc}", exc_info=True)
+            persist_app_error(exc)
+            return Response(
+                {
+                    "error": "Failed to fetch pay run for week",
+                    "details": (
+                        str(exc) if request.user.is_staff else "Internal server error"
+                    ),
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

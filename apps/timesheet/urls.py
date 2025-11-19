@@ -16,6 +16,7 @@ from .api.daily_timesheet_views import (
 from .views.api import (
     CreatePayRunAPIView,
     JobsAPIView,
+    PayRunForWeekAPIView,
     PostWeekToXeroPayrollAPIView,
     StaffListAPIView,
     WeeklyTimesheetAPIView,
@@ -47,6 +48,11 @@ urlpatterns = [
         "api/payroll/create-pay-run/",
         CreatePayRunAPIView.as_view(),
         name="api_create_pay_run",
+    ),
+    path(
+        "api/payroll/pay-runs/",
+        PayRunForWeekAPIView.as_view(),
+        name="api_get_pay_run_for_week",
     ),
     path(
         "api/payroll/post-staff-week/",

@@ -6,12 +6,16 @@ Service for posting weekly timesheets to Xero Payroll NZ.
 import logging
 from datetime import date, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from apps.accounts.models import Staff
 from apps.job.models.costing import CostLine
-from apps.workflow.api.xero.payroll import create_employee_leave, post_timesheet
+from apps.workflow.api.xero.payroll import (
+    create_employee_leave,
+    get_pay_run_for_week as get_xero_pay_run_for_week,
+    post_timesheet,
+)
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -179,6 +183,66 @@ class PayrollSyncService:
                 "unpaid_hours": Decimal("0"),
                 "errors": [str(exc)],
             }
+
+    @classmethod
+    def get_pay_run_for_week(cls, week_start_date: date) -> Dict[str, Any]:
+        """
+        Fetch a pay run for the specified week from Xero Payroll.
+
+        Args:
+            week_start_date: Monday of the week to search for.
+
+        Returns:
+            Dict with:
+                - exists (bool): Whether a pay run was found.
+                - pay_run (dict | None): Normalized pay run payload.
+
+        Raises:
+            ValueError: When week_start_date is not a Monday.
+            Exception: Propagated Xero API errors after logging/persistence.
+        """
+        if week_start_date.weekday() != 0:
+            raise ValueError("week_start_date must be a Monday")
+
+        try:
+            pay_run = get_xero_pay_run_for_week(week_start_date)
+        except Exception as exc:
+            logger.error(
+                f"Failed to fetch pay run for week starting {week_start_date}: {exc}",
+                exc_info=True,
+            )
+            persist_app_error(
+                exc,
+                additional_context={
+                    "operation": "get_pay_run_for_week",
+                    "week_start_date": week_start_date.isoformat(),
+                },
+            )
+            raise
+
+        if not pay_run:
+            return {"exists": False, "pay_run": None}
+
+        return {"exists": True, "pay_run": cls._normalize_pay_run_payload(pay_run)}
+
+    @staticmethod
+    def _normalize_pay_run_payload(pay_run: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert raw Xero pay run data into serializer-friendly payload."""
+
+        def _as_date(value: Optional[date]) -> Optional[date]:
+            if value is None:
+                return None
+            return value.date() if hasattr(value, "date") else value
+
+        return {
+            "pay_run_id": pay_run.get("pay_run_id"),
+            "payroll_calendar_id": pay_run.get("payroll_calendar_id"),
+            "period_start_date": _as_date(pay_run.get("period_start_date")),
+            "period_end_date": _as_date(pay_run.get("period_end_date")),
+            "payment_date": _as_date(pay_run.get("payment_date")),
+            "pay_run_status": pay_run.get("pay_run_status"),
+            "pay_run_type": pay_run.get("pay_run_type"),
+        }
 
     @classmethod
     def _categorize_entries(
