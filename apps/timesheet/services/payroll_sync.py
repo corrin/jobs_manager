@@ -4,18 +4,18 @@ Service for posting weekly timesheets to Xero Payroll NZ.
 """
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from apps.accounts.models import Staff
 from apps.job.models.costing import CostLine
+from apps.workflow.api.xero.payroll import create_employee_leave
 from apps.workflow.api.xero.payroll import (
-    create_employee_leave,
     get_pay_run_for_week as get_xero_pay_run_for_week,
-    post_timesheet,
 )
+from apps.workflow.api.xero.payroll import post_timesheet
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -232,7 +232,20 @@ class PayrollSyncService:
         def _as_date(value: Optional[date]) -> Optional[date]:
             if value is None:
                 return None
-            return value.date() if hasattr(value, "date") else value
+            if isinstance(value, date) and not isinstance(value, datetime):
+                return value
+            if isinstance(value, datetime):
+                return value.date()
+            if isinstance(value, str):
+                cleaned = value.replace("Z", "")
+                try:
+                    return datetime.fromisoformat(cleaned).date()
+                except ValueError:
+                    try:
+                        return date.fromisoformat(cleaned.split("T")[0])
+                    except ValueError:
+                        return None
+            return value
 
         return {
             "pay_run_id": pay_run.get("pay_run_id"),

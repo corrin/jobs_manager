@@ -28,6 +28,8 @@ try:
         from .payroll_serializers import (
             CreatePayRunRequestSerializer,
             CreatePayRunResponseSerializer,
+            PayRunDetailsSerializer,
+            PayRunForWeekResponseSerializer,
             PostWeekToXeroRequestSerializer,
             PostWeekToXeroResponseSerializer,
         )
@@ -46,6 +48,8 @@ __all__ = [
     "ModernStaffSerializer",
     "ModernTimesheetJobSerializer",
     "PaidAbsenceRequestSerializer",
+    "PayRunDetailsSerializer",
+    "PayRunForWeekResponseSerializer",
     "PostWeekToXeroRequestSerializer",
     "PostWeekToXeroResponseSerializer",
     "StaffDailyDataSerializer",

@@ -1,7 +1,7 @@
 """Xero Payroll NZ API Integration."""
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
@@ -14,13 +14,15 @@ from apps.workflow.services.error_persistence import persist_app_error
 logger = logging.getLogger("xero.payroll")
 
 # Monkeypatch for Xero Python NZ Payroll API (dev-only, does not affect PROD)
-# Problem: when fetching employees, we get an error because the SDK expects all employees to have date of birth, 
+# Problem: when fetching employees, we get an error because the SDK expects all employees to have date of birth,
 # but the default contractors of Demo Company don't have date of birth, and the REST API doesn't allow PUTTING dateOfBirth for contractors.
-# Result: we can't GET employees and we can't PUT contractors to fix that. 
+# Result: we can't GET employees and we can't PUT contractors to fix that.
 # The monkeypatch below aims to fix that by allowing Employee objects to have None as date of birth.
+
 
 def _safe_date_of_birth(self, value):
     self._date_of_birth = value
+
 
 Employee.date_of_birth = Employee.date_of_birth.setter(_safe_date_of_birth)
 
@@ -253,17 +255,26 @@ def get_pay_run_for_week(week_start_date: date) -> Optional[Dict[str, Any]]:
     week_end_date = week_start_date + timedelta(days=6)
 
     for pay_run in pay_runs:
-        start_date = pay_run.get("period_start_date")
-        end_date = pay_run.get("period_end_date")
+        start_date = _coerce_xero_date(pay_run.get("period_start_date"))
+        end_date = _coerce_xero_date(pay_run.get("period_end_date"))
 
-        if hasattr(start_date, "date"):
-            start_date = start_date.date()
-        if hasattr(end_date, "date"):
-            end_date = end_date.date()
+        logger.info(
+            "Evaluating pay run %s: start=%s end=%s status=%s",
+            pay_run.get("pay_run_id"),
+            start_date,
+            end_date,
+            pay_run.get("pay_run_status"),
+        )
 
         if start_date == week_start_date and end_date == week_end_date:
             return pay_run
 
+    logger.info(
+        "No pay run matched week %s-%s (checked %s runs)",
+        week_start_date,
+        week_end_date,
+        len(pay_runs),
+    )
     return None
 
 
@@ -344,6 +355,26 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
         logger.error(f"Failed to get Xero Payroll earnings rates: {exc}", exc_info=True)
         persist_app_error(exc)
         raise
+
+
+def _coerce_xero_date(value: Any) -> Optional[date]:
+    """Normalize Xero date or datetime payloads (strings, datetimes, dates) into date objects."""
+    if value is None:
+        return None
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, str):
+        cleaned = value.replace("Z", "")
+        try:
+            return datetime.fromisoformat(cleaned).date()
+        except ValueError:
+            try:
+                return date.fromisoformat(cleaned.split("T")[0])
+            except ValueError:
+                return None
+    return value
 
 
 def create_pay_run(

@@ -18,6 +18,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/payroll/create-pay-run/` | `api.CreatePayRunAPIView` | `timesheet:api_create_pay_run` | API endpoint to create a pay run in Xero Payroll. |
+| `/api/payroll/pay-runs/` | `api.PayRunForWeekAPIView` | `timesheet:api_get_pay_run_for_week` | API endpoint to fetch pay run details for a specific week. |
 | `/api/payroll/post-staff-week/` | `api.PostWeekToXeroPayrollAPIView` | `timesheet:api_post_staff_week` | API endpoint to post a weekly timesheet to Xero Payroll. |
 
 #### Staff Management

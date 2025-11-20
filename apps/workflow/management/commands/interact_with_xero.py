@@ -174,7 +174,14 @@ class Command(BaseCommand):
             self.configure_payroll()
             return
 
-        if options["link_staff"]:
+        link_staff_requested = (
+            options["link_staff"]
+            or bool(options.get("link_staff_create_missing"))
+            or bool(options.get("link_staff_dry_run"))
+            or bool(options.get("link_staff_emails"))
+        )
+
+        if link_staff_requested:
             self.link_staff(options)
             return
 

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from datetime import date
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.db import transaction
 
@@ -17,14 +17,15 @@ logger = logging.getLogger("timesheet.payroll")
 class PayrollEmployeeSyncService:
     """Service class used by management commands to sync staff with Xero Payroll."""
 
-    DATE_FORMATS: Sequence[str] = (
-        "%Y-%m-%d",
-        "%Y-%m-%dT%H:%M:%S",
-        "%Y-%m-%dT%H:%M:%S.%f",
-        "%d/%m/%Y",
-        "%d/%m/%y",
-    )
     DEFAULT_COUNTRY: str = "New Zealand"
+    DEFAULT_DATE_OF_BIRTH: date = date(1990, 1, 1)
+    DEFAULT_START_DATE: date = date(2020, 1, 1)
+    DEFAULT_JOB_TITLE: str = "Workshop Worker"
+    DEFAULT_ADDRESS_LINE1: str = "151 Captain Springs Road"
+    DEFAULT_ADDRESS_LINE2: str = ""
+    DEFAULT_CITY: str = "Auckland"
+    DEFAULT_SUBURB: str = "Onehunga"
+    DEFAULT_POST_CODE: str = "1061"
 
     @classmethod
     def sync_staff(
@@ -36,14 +37,6 @@ class PayrollEmployeeSyncService:
     ) -> Dict[str, Any]:
         """
         Link Staff rows with Xero Payroll employees and optionally create missing employees.
-
-        Args:
-            staff_queryset: Optional iterable of Staff objects to limit the operation.
-            dry_run: When True, show the planned actions without mutating Xero or the DB.
-            allow_create: When True, create payroll employees when no match is found.
-
-        Returns:
-            Summary dictionary describing what happened (or would happen in dry-run mode).
         """
         if staff_queryset is None:
             staff_queryset = Staff.objects.filter(date_left__isnull=True)
@@ -135,14 +128,19 @@ class PayrollEmployeeSyncService:
 
     @classmethod
     def _link_staff(cls, staff: Staff, employee_id: str) -> None:
-        logger.info("Linking staff %s to Xero employee %s", staff.email, employee_id)
+        logger.info(
+            "Linking staff %s (%s) to Xero employee %s",
+            staff.id,
+            staff.email,
+            employee_id,
+        )
         staff.xero_user_id = employee_id
         with transaction.atomic():
             staff.save(update_fields=["xero_user_id", "updated_at"])
 
     @classmethod
     def _index_xero_employees(
-        cls, employees: Sequence[Any]
+        cls, employees: Iterable[Any]
     ) -> Dict[str, Dict[str, Dict[str, Optional[str]]]]:
         by_email: Dict[str, Dict[str, Optional[str]]] = {}
         by_name: Dict[Tuple[str, str], Dict[str, Optional[str]]] = {}
@@ -191,8 +189,6 @@ class PayrollEmployeeSyncService:
 
     @classmethod
     def _build_employee_payload(cls, staff: Staff) -> Dict[str, Any]:
-        ims_data = staff.raw_ims_data or {}
-
         first_name = cls._clean_string(staff.first_name, 35)
         last_name = cls._clean_string(staff.last_name, 35)
         email = cls._clean_string(staff.email, 255)
@@ -201,131 +197,27 @@ class PayrollEmployeeSyncService:
                 f"Staff {staff.id} is missing first name, last name, or email"
             )
 
-        date_of_birth = cls._parse_date(
-            ims_data.get("BirthDate") or ims_data.get("Birthdate")
-        )
-        if not date_of_birth:
-            raise ValueError(f"Staff {staff.email} is missing a BirthDate value")
-
-        address_line1 = cls._clean_string(
-            cls._first_value(
-                ims_data,
-                [
-                    "PostalAddress1",
-                    "ResidentialAddress1",
-                    "HomeAddress1",
-                ],
-            ),
-            35,
-        )
-        city = cls._clean_string(
-            cls._first_value(
-                ims_data,
-                [
-                    "PostalAddress2",
-                    "ResidentialAddress2",
-                    "City",
-                ],
-            ),
-            50,
-        )
-        post_code = cls._clean_string(
-            cls._first_value(
-                ims_data,
-                [
-                    "PostalAddress3",
-                    "ResidentialPostCode",
-                    "Postcode",
-                ],
-            ),
-            8,
-        )
-
-        if not address_line1 or not city or not post_code:
-            raise ValueError(
-                f"Staff {staff.email} is missing required address details "
-                f"(line1={address_line1}, city={city}, post_code={post_code})"
-            )
-
-        phone_number = cls._clean_string(
-            cls._first_value(
-                ims_data,
-                [
-                    "MobilePhone",
-                    "HomePhone",
-                    "HomePhone2",
-                ],
-            ),
-            20,
-        )
-
-        start_date = cls._parse_date(ims_data.get("StartDate"))
-        job_title = cls._clean_string(
-            cls._first_value(
-                ims_data,
-                [
-                    "Position",
-                    "Title",
-                    "JobTitle",
-                ],
-            ),
-            50,
-        )
+        start_date = staff.date_joined.date() if staff.date_joined else None
 
         payload: Dict[str, Any] = {
             "first_name": first_name,
             "last_name": last_name,
             "email": email,
-            "date_of_birth": date_of_birth,
-            "start_date": start_date,
-            "phone_number": phone_number,
-            "job_title": job_title,
+            "date_of_birth": cls.DEFAULT_DATE_OF_BIRTH,
+            "start_date": start_date or cls.DEFAULT_START_DATE,
+            "phone_number": None,
+            "job_title": cls.DEFAULT_JOB_TITLE,
             "address": {
-                "address_line1": address_line1,
-                "address_line2": cls._clean_string(
-                    cls._first_value(
-                        ims_data,
-                        [
-                            "PostalAddressExtra",
-                            "ResidentialAddress3",
-                            "HomeAddress2",
-                        ],
-                    ),
-                    35,
-                ),
-                "city": city,
-                "post_code": post_code,
-                "suburb": cls._clean_string(ims_data.get("Suburb"), 35),
-                "country_name": cls._clean_string(
-                    ims_data.get("Country") or ims_data.get("CountryName"), 50
-                )
-                or cls.DEFAULT_COUNTRY,
+                "address_line1": cls.DEFAULT_ADDRESS_LINE1,
+                "address_line2": cls.DEFAULT_ADDRESS_LINE2,
+                "city": cls.DEFAULT_CITY,
+                "post_code": cls.DEFAULT_POST_CODE,
+                "suburb": cls.DEFAULT_SUBURB,
+                "country_name": cls.DEFAULT_COUNTRY,
             },
         }
 
         return payload
-
-    @classmethod
-    def _parse_date(cls, value: Any) -> Optional[date]:
-        if not value:
-            return None
-        if isinstance(value, datetime):
-            return value.date()
-        if isinstance(value, date):
-            return value
-
-        value_str = str(value).strip()
-        for fmt in cls.DATE_FORMATS:
-            try:
-                return datetime.strptime(value_str, fmt).date()
-            except ValueError:
-                continue
-
-        try:
-            # Last resort - leverage fromisoformat for odd inputs
-            return datetime.fromisoformat(value_str).date()
-        except ValueError:
-            raise ValueError(f"Unable to parse date value '{value_str}'") from None
 
     @staticmethod
     def _format_staff(staff: Staff) -> Dict[str, Any]:
@@ -355,14 +247,6 @@ class PayrollEmployeeSyncService:
             }
         )
         return summary
-
-    @staticmethod
-    def _first_value(data: Dict[str, Any], keys: Sequence[str]) -> Optional[str]:
-        for key in keys:
-            value = data.get(key)
-            if value not in (None, "", []):
-                return str(value)
-        return None
 
     @staticmethod
     def _clean_string(
