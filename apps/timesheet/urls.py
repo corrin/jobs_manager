@@ -18,6 +18,7 @@ from .views.api import (
     JobsAPIView,
     PayRunForWeekAPIView,
     PostWeekToXeroPayrollAPIView,
+    RefreshPayRunsAPIView,
     StaffListAPIView,
     WeeklyTimesheetAPIView,
 )
@@ -45,7 +46,12 @@ urlpatterns = [
     path("api/jobs/", JobsAPIView.as_view(), name="api_jobs_list"),
     # Xero Payroll endpoints
     path(
-        "api/payroll/create-pay-run/",
+        "api/payroll/pay-runs/refresh",
+        RefreshPayRunsAPIView.as_view(),
+        name="api_refresh_pay_runs",
+    ),
+    path(
+        "api/payroll/pay-runs/create",
         CreatePayRunAPIView.as_view(),
         name="api_create_pay_run",
     ),

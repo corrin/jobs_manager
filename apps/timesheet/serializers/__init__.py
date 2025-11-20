@@ -30,6 +30,7 @@ try:
             CreatePayRunResponseSerializer,
             PayRunDetailsSerializer,
             PayRunForWeekResponseSerializer,
+            PayRunSyncResponseSerializer,
             PostWeekToXeroRequestSerializer,
             PostWeekToXeroResponseSerializer,
         )
@@ -50,6 +51,7 @@ __all__ = [
     "PaidAbsenceRequestSerializer",
     "PayRunDetailsSerializer",
     "PayRunForWeekResponseSerializer",
+    "PayRunSyncResponseSerializer",
     "PostWeekToXeroRequestSerializer",
     "PostWeekToXeroResponseSerializer",
     "StaffDailyDataSerializer",

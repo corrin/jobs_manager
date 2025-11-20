@@ -61,3 +61,12 @@ class PayRunForWeekResponseSerializer(serializers.Serializer):
 
     exists = serializers.BooleanField()
     pay_run = PayRunDetailsSerializer(allow_null=True)
+    warning = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class PayRunSyncResponseSerializer(serializers.Serializer):
+    """Response payload after refreshing cached pay runs."""
+
+    fetched = serializers.IntegerField()
+    created = serializers.IntegerField()
+    updated = serializers.IntegerField()

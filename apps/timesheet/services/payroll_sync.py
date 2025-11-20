@@ -11,11 +11,12 @@ from uuid import UUID
 
 from apps.accounts.models import Staff
 from apps.job.models.costing import CostLine
-from apps.workflow.api.xero.payroll import create_employee_leave
+from apps.timesheet.models import XeroPayRun
 from apps.workflow.api.xero.payroll import (
-    get_pay_run_for_week as get_xero_pay_run_for_week,
+    create_employee_leave,
+    get_pay_runs,
+    post_timesheet,
 )
-from apps.workflow.api.xero.payroll import post_timesheet
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -176,6 +177,7 @@ class PayrollSyncService:
             return {
                 "success": False,
                 "xero_timesheet_id": None,
+                "xero_leave_ids": [],
                 "entries_posted": 0,
                 "work_hours": Decimal("0"),
                 "other_leave_hours": Decimal("0"),
@@ -204,26 +206,41 @@ class PayrollSyncService:
         if week_start_date.weekday() != 0:
             raise ValueError("week_start_date must be a Monday")
 
-        try:
-            pay_run = get_xero_pay_run_for_week(week_start_date)
-        except Exception as exc:
-            logger.error(
-                f"Failed to fetch pay run for week starting {week_start_date}: {exc}",
-                exc_info=True,
+        records = list(
+            XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
+                "-updated_at"
             )
-            persist_app_error(
-                exc,
-                additional_context={
-                    "operation": "get_pay_run_for_week",
-                    "week_start_date": week_start_date.isoformat(),
-                },
+        )
+        warning = cls._build_warning(records)
+
+        if records:
+            return {
+                "exists": True,
+                "pay_run": records[0].to_payload(),
+                "warning": warning,
+            }
+
+        logger.info(
+            "No cached pay run for week %s. Refreshing from Xero.",
+            week_start_date,
+        )
+        cls.sync_pay_runs()
+
+        records = list(
+            XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
+                "-updated_at"
             )
-            raise
+        )
+        warning = cls._build_warning(records)
 
-        if not pay_run:
-            return {"exists": False, "pay_run": None}
+        if records:
+            return {
+                "exists": True,
+                "pay_run": records[0].to_payload(),
+                "warning": warning,
+            }
 
-        return {"exists": True, "pay_run": cls._normalize_pay_run_payload(pay_run)}
+        return {"exists": False, "pay_run": None, "warning": warning}
 
     @staticmethod
     def _normalize_pay_run_payload(pay_run: Dict[str, Any]) -> Dict[str, Any]:
@@ -256,6 +273,68 @@ class PayrollSyncService:
             "pay_run_status": pay_run.get("pay_run_status"),
             "pay_run_type": pay_run.get("pay_run_type"),
         }
+
+    @classmethod
+    def sync_pay_runs(cls) -> Dict[str, int]:
+        """Fetch pay runs from Xero and upsert them into the cache table."""
+        pay_runs = get_pay_runs()
+        created = 0
+        updated = 0
+
+        for pay_run in pay_runs:
+            normalized = cls._normalize_pay_run_payload(pay_run)
+            pay_run_id = normalized.get("pay_run_id")
+
+            if not pay_run_id:
+                continue
+
+            defaults = {
+                "payroll_calendar_id": normalized.get("payroll_calendar_id"),
+                "period_start_date": normalized.get("period_start_date"),
+                "period_end_date": normalized.get("period_end_date"),
+                "payment_date": normalized.get("payment_date"),
+                "pay_run_status": normalized.get("pay_run_status") or "",
+                "pay_run_type": normalized.get("pay_run_type"),
+                "raw_payload": cls._serialize_raw_pay_run(pay_run),
+            }
+
+            _, created_flag = XeroPayRun.objects.update_or_create(
+                pay_run_id=pay_run_id,
+                defaults=defaults,
+            )
+
+            if created_flag:
+                created += 1
+            else:
+                updated += 1
+
+        return {"fetched": len(pay_runs), "created": created, "updated": updated}
+
+    @staticmethod
+    def _serialize_raw_pay_run(pay_run: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure raw payload can be stored in JSONField."""
+
+        def convert(value: Any) -> Any:
+            if isinstance(value, datetime):
+                return value.isoformat()
+            if isinstance(value, date):
+                return value.isoformat()
+            return value
+
+        return {key: convert(value) for key, value in pay_run.items()}
+
+    @staticmethod
+    def _build_warning(records: List[XeroPayRun]) -> Optional[str]:
+        """Return warning text when multiple pay runs share the same start date."""
+        if len(records) <= 1:
+            return None
+
+        ids = [str(pr.pay_run_id) for pr in records]
+        statuses = [pr.pay_run_status for pr in records]
+        return (
+            "Multiple pay runs exist for this week. "
+            f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
+        )
 
     @classmethod
     def _categorize_entries(
@@ -336,7 +415,7 @@ class PayrollSyncService:
             if not earnings_rate_id:
                 raise ValueError(
                     f"{rate_name} earnings rate not configured. "
-                    "Run: python manage.py configure_xero_payroll --configure"
+                    "Run: python manage.py interact_with_xero --configure-payroll"
                 )
 
             timesheet_lines.append(

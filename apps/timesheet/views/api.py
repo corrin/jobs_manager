@@ -30,6 +30,7 @@ from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunRequestSerializer,
     CreatePayRunResponseSerializer,
     PayRunForWeekResponseSerializer,
+    PayRunSyncResponseSerializer,
     PostWeekToXeroRequestSerializer,
     PostWeekToXeroResponseSerializer,
 )
@@ -578,6 +579,14 @@ class CreatePayRunAPIView(APIView):
             week_end_date = week_start_date + timedelta(days=6)
             payment_date = week_end_date + timedelta(days=3)
 
+            try:
+                PayrollSyncService.sync_pay_runs()
+            except Exception as sync_exc:
+                logger.warning(
+                    "Pay run created but cache refresh failed: %s",
+                    sync_exc,
+                )
+
             return Response(
                 {
                     "pay_run_id": pay_run_id,
@@ -608,7 +617,12 @@ class CreatePayRunAPIView(APIView):
 
 
 class PayRunForWeekAPIView(APIView):
-    """API endpoint to fetch pay run details for a specific week."""
+    """
+    API endpoint to fetch pay run details for a specific week.
+
+    Responds with a warning when more than one pay run is stored for the same period
+    so operators know data cleanup is needed in Xero.
+    """
 
     permission_classes = [IsAuthenticated]
     serializer_class = PayRunForWeekResponseSerializer
@@ -668,6 +682,33 @@ class PayRunForWeekAPIView(APIView):
                         str(exc) if request.user.is_staff else "Internal server error"
                     ),
                 },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class RefreshPayRunsAPIView(APIView):
+    """API endpoint to refresh cached pay runs from Xero."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PayRunSyncResponseSerializer
+
+    @extend_schema(
+        summary="Refresh cached pay runs from Xero",
+        responses={
+            200: PayRunSyncResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def post(self, _):
+        """Synchronize local pay run cache with Xero."""
+        try:
+            result = PayrollSyncService.sync_pay_runs()
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as exc:
+            logger.error(f"Error refreshing pay runs: {exc}", exc_info=True)
+            persist_app_error(exc)
+            return Response(
+                {"error": "Failed to refresh pay runs", "details": str(exc)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
