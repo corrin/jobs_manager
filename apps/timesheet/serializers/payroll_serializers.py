@@ -35,7 +35,9 @@ class PostWeekToXeroResponseSerializer(serializers.Serializer):
 
     success = serializers.BooleanField()
     xero_timesheet_id = serializers.CharField(allow_null=True)
-    xero_leave_ids = serializers.ListField(child=serializers.CharField())
+    xero_leave_ids = serializers.ListField(
+        child=serializers.CharField(), allow_null=True, allow_empty=True, required=False
+    )
     entries_posted = serializers.IntegerField()
     work_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)

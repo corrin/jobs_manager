@@ -757,6 +757,7 @@ class PostWeekToXeroPayrollAPIView(APIView):
 
         # Post to Xero (service validates Monday, checks pay run status, posts data)
         result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+        logger.info(f"Result from payroll POST: {result}")
 
         # Return appropriate HTTP status based on success
         if result["success"]:
