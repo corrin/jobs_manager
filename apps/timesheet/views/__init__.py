@@ -6,9 +6,12 @@ try:
 
     if apps.ready:
         from .api import (
+            CreatePayRunAPIView,
             DailyTimesheetAPIView,
-            IMSWeeklyTimesheetAPIView,
             JobsAPIView,
+            PayRunForWeekAPIView,
+            PostWeekToXeroPayrollAPIView,
+            RefreshPayRunsAPIView,
             StaffListAPIView,
             TimesheetResponseMixin,
             WeeklyTimesheetAPIView,
@@ -18,9 +21,12 @@ except (ImportError, RuntimeError):
     pass
 
 __all__ = [
+    "CreatePayRunAPIView",
     "DailyTimesheetAPIView",
-    "IMSWeeklyTimesheetAPIView",
     "JobsAPIView",
+    "PayRunForWeekAPIView",
+    "PostWeekToXeroPayrollAPIView",
+    "RefreshPayRunsAPIView",
     "StaffListAPIView",
     "TimesheetResponseMixin",
     "WeeklyTimesheetAPIView",

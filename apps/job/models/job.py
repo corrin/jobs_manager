@@ -638,3 +638,29 @@ class Job(models.Model):
             return None
 
         return handler
+
+    def get_leave_type(self) -> str:
+        """
+        Identify if this job is a payroll leave job and return the leave type.
+
+        Returns:
+            "annual" for Annual Leave jobs
+            "sick" for Sick Leave jobs
+            "other" for Other Leave jobs
+            "unpaid" for Unpaid Leave jobs
+            "N/A" if not a leave job
+        """
+        # Normalize for case-insensitive comparison
+        normalized_name = self.name.strip().lower()
+
+        # Pattern matching for leave types
+        if "annual leave" in normalized_name:
+            return "annual"
+        elif "sick leave" in normalized_name:
+            return "sick"
+        elif "unpaid leave" in normalized_name:
+            return "unpaid"
+        elif "other leave" in normalized_name:
+            return "other"
+
+        return "N/A"

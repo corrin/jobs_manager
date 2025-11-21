@@ -135,7 +135,7 @@ def get_auth_cookie_samesite():
         return "Lax"
     # Handle "None" specially - return Python None, not string "None"
     if env.lower() == "none":
-        return None
+        return "none"
     return env.capitalize()
 
 

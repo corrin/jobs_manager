@@ -3,7 +3,7 @@ Weekly Timesheet Service
 
 Service layer for handling weekly timesheet business logic including:
 - Weekly data aggregation
-- IMS export functionality
+- Payroll export functionality
 - Staff summary calculations
 - Job metrics
 
@@ -31,26 +31,23 @@ class WeeklyTimesheetService:
     """Service for weekly timesheet operations (Monday to Sunday)."""
 
     @classmethod
-    def get_weekly_overview(
-        cls, start_date: date, export_to_ims: bool = False
-    ) -> Dict[str, Any]:
+    def get_weekly_overview(cls, start_date: date) -> Dict[str, Any]:
         """
-        Get comprehensive weekly timesheet overview.
+        Get comprehensive weekly timesheet overview with payroll data.
 
         Args:
             start_date: Monday of the target week
-            export_to_ims: Whether to include IMS-specific data
 
         Returns:
-            Dict containing weekly overview data
+            Dict containing weekly overview data with payroll fields
         """
         try:
             # Calculate week range
-            week_days = cls._get_week_days(start_date, export_to_ims)
+            week_days = cls._get_week_days(start_date)
             end_date = start_date + timedelta(days=6)
 
             # Get staff data
-            staff_data = cls._get_staff_data(week_days, export_to_ims)
+            staff_data = cls._get_staff_data(week_days)
 
             # Get weekly totals
             weekly_totals = cls._calculate_weekly_totals(staff_data)
@@ -69,7 +66,7 @@ class WeeklyTimesheetService:
                 "weekly_summary": weekly_totals,
                 "job_metrics": job_metrics,
                 "summary_stats": summary_stats,
-                "export_mode": "ims" if export_to_ims else "standard",
+                "export_mode": "payroll",
                 "is_current_week": cls._is_current_week(start_date),
             }
 
@@ -78,42 +75,13 @@ class WeeklyTimesheetService:
             raise
 
     @classmethod
-    def _get_week_days(
-        cls, start_date: date, export_to_ims: bool = False
-    ) -> List[date]:
-        """Get list of days for the week."""
-        if export_to_ims:
-            return cls._get_ims_week(start_date)
-        else:
-            # Return all 7 days (Monday to Sunday)
-            return [start_date + timedelta(days=i) for i in range(7)]
+    def _get_week_days(cls, start_date: date) -> List[date]:
+        """Get list of days for the week (Monday to Sunday)."""
+        return [start_date + timedelta(days=i) for i in range(7)]
 
     @classmethod
-    def _get_ims_week(cls, start_date: date) -> List[date]:
-        """Get IMS week format (Tue-Fri + next Mon)."""
-        try:
-            # Find Tuesday of the week
-            if start_date.weekday() == 0:  # Monday
-                tuesday = start_date + timedelta(days=1)
-            else:
-                tuesday = start_date - timedelta(days=start_date.weekday() - 1)
-
-            return [
-                tuesday,  # Tuesday
-                tuesday + timedelta(days=1),  # Wednesday
-                tuesday + timedelta(days=2),  # Thursday
-                tuesday + timedelta(days=3),  # Friday
-                tuesday + timedelta(days=6),  # Next Monday
-            ]
-        except Exception as e:
-            logger.error(f"Error getting IMS week: {e}")
-            return []
-
-    @classmethod
-    def _get_staff_data(
-        cls, week_days: List[date], export_to_ims: bool = False
-    ) -> List[Dict[str, Any]]:
-        """Get comprehensive staff data for the week."""
+    def _get_staff_data(cls, week_days: List[date]) -> List[Dict[str, Any]]:
+        """Get comprehensive staff data for the week with payroll fields."""
         excluded_staff_ids = get_excluded_staff()
         staff_members = Staff.objects.exclude(
             Q(is_staff=True) | Q(id__in=excluded_staff_ids)
@@ -126,32 +94,32 @@ class WeeklyTimesheetService:
             weekly_hours = []
             total_hours = 0
             total_billable_hours = 0
-            total_overtime = 0
+            total_scheduled_hours = 0
 
-            # IMS specific totals
-            total_standard_hours = 0
-            total_time_and_half_hours = 0
-            total_double_time_hours = 0
-            total_leave_hours = 0
+            # Payroll totals
+            total_billed_hours = 0
+            total_unbilled_hours = 0
+            total_overtime_1_5x_hours = 0
+            total_overtime_2x_hours = 0
+            total_sick_leave_hours = 0
+            total_annual_leave_hours = 0
+            total_other_leave_hours = 0
 
             for day in week_days:
-                if export_to_ims:
-                    daily_data = cls._get_ims_daily_data(staff_member, day)
-                else:
-                    daily_data = cls._get_daily_data(staff_member, day)
+                daily_data = cls._get_payroll_daily_data(staff_member, day)
 
                 weekly_hours.append(daily_data)
                 total_hours += daily_data["hours"]
                 total_billable_hours += daily_data.get("billable_hours", 0)
+                total_scheduled_hours += daily_data.get("scheduled_hours", 0)
 
-                if export_to_ims:
-                    total_overtime += daily_data.get("overtime", 0)
-                    total_standard_hours += daily_data.get("standard_hours", 0)
-                    total_time_and_half_hours += daily_data.get(
-                        "time_and_half_hours", 0
-                    )
-                    total_double_time_hours += daily_data.get("double_time_hours", 0)
-                    total_leave_hours += daily_data.get("leave_hours", 0)
+                total_billed_hours += daily_data.get("billed_hours", 0)
+                total_unbilled_hours += daily_data.get("unbilled_hours", 0)
+                total_overtime_1_5x_hours += daily_data.get("overtime_1_5x_hours", 0)
+                total_overtime_2x_hours += daily_data.get("overtime_2x_hours", 0)
+                total_sick_leave_hours += daily_data.get("sick_leave_hours", 0)
+                total_annual_leave_hours += daily_data.get("annual_leave_hours", 0)
+                total_other_leave_hours += daily_data.get("other_leave_hours", 0)
 
             # Calculate percentages
             billable_percentage = (
@@ -164,21 +132,17 @@ class WeeklyTimesheetService:
                 "weekly_hours": weekly_hours,
                 "total_hours": float(total_hours),
                 "total_billable_hours": float(total_billable_hours),
+                "total_scheduled_hours": float(total_scheduled_hours),
                 "billable_percentage": round(billable_percentage, 1),
                 "status": cls._get_staff_status(total_hours, staff_member),
+                "total_billed_hours": float(total_billed_hours),
+                "total_unbilled_hours": float(total_unbilled_hours),
+                "total_overtime_1_5x_hours": float(total_overtime_1_5x_hours),
+                "total_overtime_2x_hours": float(total_overtime_2x_hours),
+                "total_sick_leave_hours": float(total_sick_leave_hours),
+                "total_annual_leave_hours": float(total_annual_leave_hours),
+                "total_other_leave_hours": float(total_other_leave_hours),
             }
-
-            # Add IMS specific fields
-            if export_to_ims:
-                staff_entry.update(
-                    {
-                        "total_overtime": float(total_overtime),
-                        "total_standard_hours": float(total_standard_hours),
-                        "total_time_and_half_hours": float(total_time_and_half_hours),
-                        "total_double_time_hours": float(total_double_time_hours),
-                        "total_leave_hours": float(total_leave_hours),
-                    }
-                )
 
             staff_data.append(staff_entry)
 
@@ -255,12 +219,12 @@ class WeeklyTimesheetService:
             }
 
     @classmethod
-    def _get_ims_daily_data(cls, staff_member: Staff, day: date) -> Dict[str, Any]:
-        """Get IMS-specific daily data including wage rate breakdowns using CostLine."""
+    def _get_payroll_daily_data(cls, staff_member: Staff, day: date) -> Dict[str, Any]:
+        """Get daily data with Xero posting categories using CostLine."""
         try:
             base_data = cls._get_daily_data(staff_member, day)
 
-            # Get wage rate breakdowns from CostLine meta
+            # Get work hours by rate and billability (excludes unpaid/leave)
             cost_lines = (
                 CostLine.objects.annotate(
                     staff_id=RawSQL(
@@ -273,6 +237,11 @@ class WeeklyTimesheetService:
                         (),
                         output_field=models.DecimalField(),
                     ),
+                    is_billable=RawSQL(
+                        "JSON_EXTRACT(meta, '$.is_billable') = true",
+                        (),
+                        output_field=models.BooleanField(),
+                    ),
                 )
                 .filter(
                     cost_set__kind="actual",
@@ -281,62 +250,85 @@ class WeeklyTimesheetService:
                     accounting_date=day,
                 )
                 .exclude(cost_set__job__name__icontains="Leave")
+                .select_related("cost_set__job")
             )
 
-            standard_hours = 0
-            time_and_half_hours = 0
-            double_time_hours = 0
-            unpaid_hours = 0
+            billed_hours = 0
+            unbilled_hours = 0
+            overtime_1_5x_hours = 0
+            overtime_2x_hours = 0
 
             for line in cost_lines:
                 multiplier = line.rate_multiplier or Decimal("1.0")
                 hours = line.quantity
 
-                if multiplier == Decimal("1.0"):
-                    standard_hours += hours
-                elif multiplier == Decimal("1.5"):
-                    time_and_half_hours += hours
+                # Skip unpaid hours (multiplier 0.0)
+                if multiplier == Decimal("0.0"):
+                    continue
+
+                # Categorize by billability
+                if line.is_billable:
+                    billed_hours += hours
+                else:
+                    unbilled_hours += hours
+
+                # Categorize overtime
+                if multiplier == Decimal("1.5"):
+                    overtime_1_5x_hours += hours
                 elif multiplier == Decimal("2.0"):
-                    double_time_hours += hours
-                elif multiplier == Decimal("0.0"):
-                    unpaid_hours += hours
+                    overtime_2x_hours += hours
 
-            # Calculate overtime
-            scheduled_hours = base_data["scheduled_hours"]
-            overtime = max(0, base_data["hours"] - scheduled_hours)
-
-            # Get leave hours from CostLine
-            leave_lines = CostLine.objects.annotate(
-                staff_id=RawSQL(
-                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                    (),
-                    output_field=models.CharField(),
-                ),
-            ).filter(
-                cost_set__kind="actual",
-                kind="time",
-                staff_id=str(staff_member.id),
-                accounting_date=day,
-                cost_set__job__name__icontains="Leave",
+            # Get leave hours broken down by type
+            leave_lines = (
+                CostLine.objects.annotate(
+                    staff_id=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                        (),
+                        output_field=models.CharField(),
+                    ),
+                )
+                .filter(
+                    cost_set__kind="actual",
+                    kind="time",
+                    staff_id=str(staff_member.id),
+                    accounting_date=day,
+                    cost_set__job__name__icontains="Leave",
+                )
+                .select_related("cost_set__job")
             )
 
-            leave_hours = sum(line.quantity for line in leave_lines)
+            sick_leave_hours = 0
+            annual_leave_hours = 0
+            other_leave_hours = 0
+
+            for line in leave_lines:
+                leave_type = line.cost_set.job.get_leave_type()
+                hours = line.quantity
+
+                if leave_type == "sick":
+                    sick_leave_hours += hours
+                elif leave_type == "annual":
+                    annual_leave_hours += hours
+                elif leave_type == "other":
+                    other_leave_hours += hours
+                # Skip unpaid leave
 
             base_data.update(
                 {
-                    "standard_hours": float(standard_hours),
-                    "time_and_half_hours": float(time_and_half_hours),
-                    "double_time_hours": float(double_time_hours),
-                    "unpaid_hours": float(unpaid_hours),
-                    "overtime": float(overtime),
-                    "leave_hours": float(leave_hours),
+                    "billed_hours": float(billed_hours),
+                    "unbilled_hours": float(unbilled_hours),
+                    "overtime_1_5x_hours": float(overtime_1_5x_hours),
+                    "overtime_2x_hours": float(overtime_2x_hours),
+                    "sick_leave_hours": float(sick_leave_hours),
+                    "annual_leave_hours": float(annual_leave_hours),
+                    "other_leave_hours": float(other_leave_hours),
                 }
             )
 
             return base_data
 
         except Exception as e:
-            logger.error(f"Error getting IMS data for {staff_member} on {day}: {e}")
+            logger.error(f"Error getting Payroll data for {staff_member} on {day}: {e}")
             return cls._get_daily_data(staff_member, day)
 
     @classmethod
