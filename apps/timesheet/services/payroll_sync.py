@@ -17,6 +17,7 @@ from apps.workflow.api.xero.payroll import (
     get_pay_runs,
     post_timesheet,
 )
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -53,13 +54,16 @@ class PayrollSyncService:
             raise ValueError("week_start_date must be a Monday")
 
         try:
-            # Get staff and validate xero_user_id
             staff = Staff.objects.get(id=staff_id)
-            if not staff.xero_user_id:
-                raise ValueError(
-                    f"Staff member {staff.email} does not have a xero_user_id configured"
-                )
+        except Staff.DoesNotExist as exc:
+            raise ValueError("Staff member not found") from exc
 
+        if not staff.xero_user_id:
+            raise ValueError(
+                f"Staff member {staff.email} does not have a xero_user_id configured"
+            )
+
+        try:
             # Calculate week end date (Sunday)
             week_end_date = week_start_date + timedelta(days=6)
 
@@ -169,22 +173,20 @@ class PayrollSyncService:
                 "errors": [],
             }
 
+        except AlreadyLoggedException:
+            raise
         except Exception as exc:
             logger.error(
                 f"Failed to post timesheet for staff {staff_id}: {exc}", exc_info=True
             )
-            persist_app_error(exc)
-            return {
-                "success": False,
-                "xero_timesheet_id": None,
-                "xero_leave_ids": [],
-                "entries_posted": 0,
-                "work_hours": Decimal("0"),
-                "other_leave_hours": Decimal("0"),
-                "annual_sick_hours": Decimal("0"),
-                "unpaid_hours": Decimal("0"),
-                "errors": [str(exc)],
-            }
+            app_error = persist_app_error(
+                exc,
+                additional_context={
+                    "staff_id": str(staff_id),
+                    "week_start_date": week_start_date.isoformat(),
+                },
+            )
+            raise AlreadyLoggedException(exc, app_error.id)
 
     @classmethod
     def get_pay_run_for_week(cls, week_start_date: date) -> Dict[str, Any]:
