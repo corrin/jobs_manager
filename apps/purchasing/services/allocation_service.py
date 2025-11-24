@@ -9,6 +9,7 @@ from django.db.models.functions import Coalesce, Greatest
 
 from apps.job.models import CostLine
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -91,10 +92,15 @@ class AllocationService:
                 AllocationService._update_po_status(po)
 
                 return asdict(result)
-        except AllocationDeletionError as e:
-            logger.error("Allocation deletion validation error: %s", e)
-            persist_app_error(
-                e,
+        except AllocationDeletionError as exc:
+            logger.error("Allocation deletion validation error: %s", exc)
+            raise
+        except AlreadyLoggedException:
+            raise
+        except Exception as exc:
+            logger.error("Unexpected error during allocation deletion: %s", exc)
+            AllocationService._persist_and_raise(
+                exc,
                 additional_context={
                     "po_id": str(po_id),
                     "line_id": str(line_id),
@@ -102,19 +108,6 @@ class AllocationService:
                     "allocation_id": str(allocation_id),
                 },
             )
-            raise
-        except Exception as e:
-            logger.error("Unexpected error during allocation deletion: %s", e)
-            persist_app_error(
-                e,
-                additional_context={
-                    "po_id": str(po_id),
-                    "line_id": str(line_id),
-                    "allocation_type": str(allocation_type),
-                    "allocation_id": str(allocation_id),
-                },
-            )
-            raise
 
     @staticmethod
     def get_allocation_details(
@@ -164,17 +157,18 @@ class AllocationService:
                 "unit_cost": float(cost_line.unit_cost),
                 "unit_revenue": float(cost_line.unit_rev),
             }
-        except Exception as e:
-            logger.error("Error getting allocation details: %s", e)
-            persist_app_error(
-                e,
+        except AlreadyLoggedException:
+            raise
+        except Exception as exc:
+            logger.error("Error getting allocation details: %s", exc)
+            AllocationService._persist_and_raise(
+                exc,
                 additional_context={
                     "po_id": str(po_id),
                     "allocation_type": str(allocation_type),
                     "allocation_id": str(allocation_id),
                 },
             )
-            raise
 
     @staticmethod
     def _get_po_or_error(po_id: str) -> PurchaseOrder:
@@ -379,3 +373,8 @@ class AllocationService:
         po.status = new_status
         po.save(update_fields=["status"])
         logger.debug("Updated PO %s status to %s", po.po_number, po.status)
+
+    @staticmethod
+    def _persist_and_raise(exception: Exception, **context) -> None:
+        app_error = persist_app_error(exception, **context)
+        raise AlreadyLoggedException(exception, app_error.id)

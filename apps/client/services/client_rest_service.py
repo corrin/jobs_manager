@@ -21,9 +21,16 @@ from apps.client.forms import ClientForm
 from apps.client.models import Client, ClientContact
 from apps.workflow.api.xero.sync import sync_clients
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
+
+
+def _persist_and_raise(exception: Exception, **context) -> None:
+    """Persist the exception and re-raise as AlreadyLoggedException."""
+    app_error = persist_app_error(exception, **context)
+    raise AlreadyLoggedException(exception, app_error.id)
 
 
 class ClientRestService:
@@ -49,9 +56,10 @@ class ClientRestService:
                 }
                 for client in clients
             ]
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(exc)
 
     @staticmethod
     def search_clients(query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -81,9 +89,10 @@ class ClientRestService:
             clients = ClientRestService._execute_client_search(query, limit)
             return ClientRestService._format_client_search_results(clients)
 
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(exc, additional_context={"query": query, "limit": limit})
 
     @staticmethod
     def get_client_by_id(client_id: UUID) -> Dict[str, Any]:
@@ -104,9 +113,16 @@ class ClientRestService:
             return ClientRestService._format_client_detail(client)
         except Client.DoesNotExist:
             raise ValueError(f"Client with id {client_id} not found")
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "get_client_by_id",
+                    "client_id": str(client_id),
+                },
+            )
 
     @staticmethod
     def create_client(data: Dict[str, Any]) -> Client:
@@ -144,9 +160,16 @@ class ClientRestService:
             client = ClientRestService._create_client_in_xero(form.cleaned_data)
             return client
 
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "create_client",
+                    "payload_keys": list(data.keys()),
+                },
+            )
 
     @staticmethod
     def update_client(client_id: UUID, data: Dict[str, Any]) -> Client:
@@ -224,9 +247,17 @@ class ClientRestService:
 
                 return client
 
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "update_client",
+                    "client_id": str(client_id),
+                    "payload_keys": list(data.keys()),
+                },
+            )
 
     @staticmethod
     def get_client_contacts(client_id: UUID) -> List[Dict[str, Any]]:
@@ -258,9 +289,16 @@ class ClientRestService:
                 for contact in contacts
             ]
 
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "get_client_contacts",
+                    "client_id": str(client_id),
+                },
+            )
 
     @staticmethod
     def create_client_contact(data: Dict[str, Any]) -> ClientContact:
@@ -312,9 +350,16 @@ class ClientRestService:
 
             return contact
 
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "create_client_contact",
+                    "client_id": data.get("client_id"),
+                },
+            )
 
     @staticmethod
     def get_job_contact(job_id: UUID) -> Dict[str, Any]:
@@ -335,12 +380,18 @@ class ClientRestService:
 
         try:
             job = Job.objects.select_related("contact").get(id=job_id)
-        except Job.DoesNotExist as e:
-            persist_app_error(e)
+        except Job.DoesNotExist:
             raise ValueError(f"Job with id {job_id} not found")
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "get_job_contact",
+                    "job_id": str(job_id),
+                },
+            )
 
         if not job.contact:
             # Documented business validation failure should not be persisted
@@ -357,9 +408,16 @@ class ClientRestService:
                 "is_primary": contact.is_primary,
                 "notes": contact.notes or "",
             }
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "serialize_job_contact",
+                    "job_id": str(job_id),
+                },
+            )
 
     @staticmethod
     def update_job_contact(
@@ -425,9 +483,17 @@ class ClientRestService:
                 "notes": contact.notes or "",
             }
 
-        except Exception as e:
-            persist_app_error(e)
+        except AlreadyLoggedException:
             raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "update_job_contact",
+                    "job_id": str(job_id),
+                    "contact_id": contact_data.get("id"),
+                },
+            )
 
     @staticmethod
     def _execute_client_search(query: str, limit: int):

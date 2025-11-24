@@ -10,6 +10,8 @@ from apps.quoting.serializers import (
     ExtractSupplierPriceListResponseSerializer,
     SupplierPriceListUploadSerializer,
 )
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +64,6 @@ def extract_supplier_price_list_data_view(request):
     from apps.quoting.services.ai_price_extraction import extract_price_data
     from apps.quoting.services.pdf_data_validation import PDFDataValidationService
     from apps.quoting.services.pdf_import_service import PDFImportService
-    from apps.workflow.services.error_persistence import persist_app_error
 
     temp_file_path = None
 
@@ -273,19 +274,28 @@ def extract_supplier_price_list_data_view(request):
         logger.info(f"Processing completed successfully: {import_stats}")
         return JsonResponse(results)
 
-    except Exception as e:
-        # Persist error for debugging
-        try:
-            persist_app_error(e)
-        except Exception:
-            pass  # Don't let error persistence block the response
-
-        logger.exception(f"Error in extract_supplier_price_list_data_view: {e}")
+    except AlreadyLoggedException as exc:
+        logger.exception(
+            "Error in extract_supplier_price_list_data_view: %s", exc.original
+        )
         return JsonResponse(
             {
                 "success": False,
-                "error": f"An unexpected error occurred: {str(e)}",
+                "error": f"An unexpected error occurred: {str(exc.original)}",
                 "stage": "processing",
+                "error_id": exc.app_error_id,
+            },
+            status=500,
+        )
+    except Exception as exc:
+        app_error = persist_app_error(exc)
+        logger.exception("Error in extract_supplier_price_list_data_view: %s", exc)
+        return JsonResponse(
+            {
+                "success": False,
+                "error": f"An unexpected error occurred: {str(exc)}",
+                "stage": "processing",
+                "error_id": str(app_error.id),
             },
             status=500,
         )
