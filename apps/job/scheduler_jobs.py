@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django.db import close_old_connections
 
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,11 @@ def set_paid_flag_jobs():
             f"Jobs without invoices: {result.missing_invoices}. "
             f"Operation completed in {result.duration_seconds:.2f} seconds."
         )
-    except Exception as e:
-        persist_app_error(e)
-        logger.error(f"Error during set_paid_flag_jobs: {e}", exc_info=True)
+    except AlreadyLoggedException:
+        raise
+    except Exception as exc:
+        from apps.workflow.services.error_persistence import persist_app_error
+
+        logger.error(f"Error during set_paid_flag_jobs: {exc}", exc_info=True)
+        app_error = persist_app_error(exc)
+        raise AlreadyLoggedException(exc, app_error.id)

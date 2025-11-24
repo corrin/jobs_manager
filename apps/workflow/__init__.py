@@ -2,7 +2,7 @@
 
 from .apps import WorkflowConfig
 from .enums import AIProviderTypes
-from .exceptions import XeroValidationError
+from .exceptions import AlreadyLoggedException, XeroValidationError
 from .utils import (
     extract_messages,
     get_machine_id,
@@ -83,6 +83,7 @@ __all__ = [
     "AIProviderTypes",
     "AWSInstanceStatusResponseSerializer",
     "AccessLoggingMiddleware",
+    "AlreadyLoggedException",
     "AppErrorDetailResponseSerializer",
     "AppErrorListResponseSerializer",
     "AppErrorSerializer",

@@ -8,6 +8,8 @@ from datetime import datetime
 
 from django.db import close_old_connections
 
+from apps.workflow.exceptions import AlreadyLoggedException
+
 logger = logging.getLogger(__name__)
 scheduler_logger = logging.getLogger("django_apscheduler")
 
@@ -27,8 +29,14 @@ def xero_heartbeat_job() -> None:
             scheduler_logger.info("Xero API token refreshed successfully.")
         else:
             scheduler_logger.error("Error: No Xero token available to refresh.")
-    except Exception as e:
-        scheduler_logger.error(f"Error during Xero Heartbeat job: {e}", exc_info=True)
+    except AlreadyLoggedException:
+        raise
+    except Exception as exc:
+        from apps.workflow.services.error_persistence import persist_app_error
+
+        scheduler_logger.error(f"Error during Xero Heartbeat job: {exc}", exc_info=True)
+        app_error = persist_app_error(exc)
+        raise AlreadyLoggedException(exc, app_error.id)
 
 
 def xero_regular_sync_job() -> None:
@@ -43,8 +51,14 @@ def xero_regular_sync_job() -> None:
 
         XeroSyncService.start_sync()
         logger.info("Xero regular sync completed successfully.")
-    except Exception as e:
-        logger.error(f"Error during Xero Regular Sync job: {e}", exc_info=True)
+    except AlreadyLoggedException:
+        raise
+    except Exception as exc:
+        from apps.workflow.services.error_persistence import persist_app_error
+
+        logger.error(f"Error during Xero Regular Sync job: {exc}", exc_info=True)
+        app_error = persist_app_error(exc)
+        raise AlreadyLoggedException(exc, app_error.id)
 
 
 def xero_30_day_sync_job() -> None:
@@ -59,5 +73,11 @@ def xero_30_day_sync_job() -> None:
 
         XeroSyncService.start_sync()
         logger.info("Xero 30-day sync completed successfully.")
-    except Exception as e:
-        logger.error(f"Error during Xero 30-Day Sync job: {e}", exc_info=True)
+    except AlreadyLoggedException:
+        raise
+    except Exception as exc:
+        from apps.workflow.services.error_persistence import persist_app_error
+
+        logger.error(f"Error during Xero 30-Day Sync job: {exc}", exc_info=True)
+        app_error = persist_app_error(exc)
+        raise AlreadyLoggedException(exc, app_error.id)

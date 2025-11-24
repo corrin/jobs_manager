@@ -8,6 +8,8 @@ import logging
 from django.core.management import call_command
 from django.db import close_old_connections
 
+from apps.workflow.exceptions import AlreadyLoggedException
+
 logger = logging.getLogger(__name__)
 
 
@@ -23,8 +25,14 @@ def run_all_scrapers_job():
             "run_scrapers", refresh_old=True
         )  # This calls the existing quoting/management/commands/run_scrapers.py
         logger.info("Successfully completed scheduled scraper run.")
-    except Exception as e:
-        logger.error(f"Error during scheduled scraper run: {e}", exc_info=True)
+    except AlreadyLoggedException:
+        raise
+    except Exception as exc:
+        from apps.workflow.services.error_persistence import persist_app_error
+
+        logger.error(f"Error during scheduled scraper run: {exc}", exc_info=True)
+        app_error = persist_app_error(exc)
+        raise AlreadyLoggedException(exc, app_error.id)
 
 
 def delete_old_job_executions(max_age_days=7):
