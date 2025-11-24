@@ -62,6 +62,52 @@ class CompanyDefaults(models.Model):
         help_text="The Xero tenant ID to use for this company",
     )
 
+    # Xero Payroll NZ Leave Type ID mappings (use Leave API, not Timesheets)
+    xero_annual_leave_type_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll Leave Type ID for Annual Leave",
+    )
+    xero_sick_leave_type_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll Leave Type ID for Sick Leave",
+    )
+    xero_other_leave_type_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll Leave Type ID for Other Leave",
+    )
+    xero_unpaid_leave_type_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll Leave Type ID for Unpaid Leave",
+    )
+
+    # Xero Payroll NZ earnings rate mappings for work time
+    xero_ordinary_earnings_rate_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll earnings rate ID for Ordinary Time (1.0x)",
+    )
+    xero_time_half_earnings_rate_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll earnings rate ID for Time and a Half (1.5x)",
+    )
+    xero_double_time_earnings_rate_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Xero Payroll earnings rate ID for Double Time (2.0x)",
+    )
+
     # Default working hours (Mon-Fri, 7am - 3pm)
     mon_start = models.TimeField(default="07:00")
     mon_end = models.TimeField(default="15:00")

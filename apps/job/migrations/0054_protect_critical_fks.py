@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("client", "0009_clientcontact_unique_client_contact_name"),
-        ("job", "0052_alter_costline_desc"),
+        ("job", "0053_add_speed_quality_tradeoff"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

@@ -26,11 +26,18 @@ from apps.timesheet.serializers import (
     StaffListResponseSerializer,
     WeeklyTimesheetDataSerializer,
 )
-from apps.timesheet.serializers.modern_timesheet_serializers import (
-    IMSWeeklyTimesheetDataSerializer,
+from apps.timesheet.serializers.payroll_serializers import (
+    CreatePayRunRequestSerializer,
+    CreatePayRunResponseSerializer,
+    PayRunForWeekResponseSerializer,
+    PayRunSyncResponseSerializer,
+    PostWeekToXeroRequestSerializer,
+    PostWeekToXeroResponseSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
+from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +116,6 @@ class StaffListAPIView(APIView):
             return Response({"staff": staff_data, "total_count": len(staff_data)})
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error fetching staff list: {e}")
 
             persist_app_error(e)
@@ -166,8 +171,6 @@ class JobsAPIView(APIView):
             )
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error fetching jobs: {e}")
 
             persist_app_error(e)
@@ -187,8 +190,8 @@ class DailyTimesheetAPIView(APIView):
     Supports multiple URL patterns:
     - GET /timesheets/api/daily/ (today's data)
     - GET /timesheets/api/daily/{date}/ (specific date)
-    - GET /timesheets/api/staff/{staff_id}/daily/ (staff detail for today)
-    - GET /timesheets/api/staff/{staff_id}/daily/?date={date} (staff detail for specific date)
+    - GET /timesheets/api/staff/{staff_id}/daily/ (staff detail today)
+    - GET /timesheets/api/staff/{staff_id}/daily/?date={date} (specific)
     """
 
     permission_classes = [IsAuthenticated]
@@ -246,8 +249,6 @@ class DailyTimesheetAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error in DailyTimesheetAPIView: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -295,10 +296,11 @@ class DailyTimesheetAPIView(APIView):
                 # Adjust scheduled hours based on weekend feature flag
                 scheduled_hours = 0.0 if is_weekend else 8.0
 
+                initials = f"{staff.first_name[0]}{staff.last_name[0]}".upper()
                 staff_data = {
                     "staff_id": str(staff_id),
                     "staff_name": f"{staff.first_name} {staff.last_name}",
-                    "staff_initials": f"{staff.first_name[0]}{staff.last_name[0]}".upper(),
+                    "staff_initials": initials,
                     "avatar_url": None,
                     "scheduled_hours": scheduled_hours,
                     "actual_hours": 0.0,
@@ -330,8 +332,6 @@ class DailyTimesheetAPIView(APIView):
             return Response(staff_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error getting staff daily detail: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -349,8 +349,8 @@ class DailyTimesheetAPIView(APIView):
 
 
 class TimesheetResponseMixin:
-    def build_timesheet_response(self, request, *, export_to_ims: bool = False):
-        """Builds the weekly timesheet response data."""
+    def build_timesheet_response(self, request):
+        """Builds the weekly timesheet response data with payroll fields."""
         try:
             start_str = request.query_params.get("start_date")
             if start_str:
@@ -369,9 +369,7 @@ class TimesheetResponseMixin:
             # Check weekend feature flag
             weekend_enabled = self._is_weekend_enabled()
 
-            weekly_data = WeeklyTimesheetService.get_weekly_overview(
-                start_date, export_to_ims=export_to_ims
-            )
+            weekly_data = WeeklyTimesheetService.get_weekly_overview(start_date)
 
             prev_week = start_date - timedelta(days=7)
             next_week = start_date + timedelta(days=7)
@@ -385,19 +383,12 @@ class TimesheetResponseMixin:
             weekly_data["weekend_enabled"] = weekend_enabled
             weekly_data["week_type"] = "7-day" if weekend_enabled else "5-day"
 
-            serializer_cls = (
-                IMSWeeklyTimesheetDataSerializer
-                if export_to_ims
-                else WeeklyTimesheetDataSerializer
-            )
             return Response(
-                serializer_cls(weekly_data).data,
+                WeeklyTimesheetDataSerializer(weekly_data).data,
                 status=status.HTTP_200_OK,
             )
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error building weekly timesheet response: {e}")
 
             persist_app_error(e)
@@ -422,14 +413,15 @@ class TimesheetResponseMixin:
 class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
     """
     Comprehensive weekly timesheet API endpoint using WeeklyTimesheetService.
-    Provides complete weekly overview data for the modern Vue.js frontend.
-    Supports both 5-day (Mon-Fri) and 7-day (Mon-Sun) modes based on feature flag.
+    Provides weekly overview with payroll fields for Vue.js frontend.
+    Supports both 5-day (Mon-Fri) and 7-day (Mon-Sun) modes via flag.
     """
 
     permission_classes = [IsAuthenticated]
+    serializer_class = WeeklyTimesheetDataSerializer
 
     @extend_schema(
-        summary="Standard weekly overview (Mon–Sun when enabled, Mon–Fri when disabled)",
+        summary="Weekly overview with payroll data (Mon–Sun/Mon–Fri)",
         parameters=[
             OpenApiParameter(
                 "start_date",
@@ -446,8 +438,8 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
         },
     )
     def get(self, request):
-        """Return weekly timesheet data (5 or 7 days based on feature flag)."""
-        return self.build_timesheet_response(request, export_to_ims=False)
+        """Return weekly timesheet data with payroll fields (5/7 days)."""
+        return self.build_timesheet_response(request)
 
     @extend_schema(
         summary="Submit paid absence",
@@ -523,8 +515,6 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
-
             logger.error(f"Error submitting paid absence: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
 
@@ -541,37 +531,236 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
             )
 
 
-class IMSWeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
-    """
-    Weekly overview in IMS format (Tue-Fri plus following Mon).
+class CreatePayRunAPIView(APIView):
+    """API endpoint to create a pay run in Xero Payroll."""
 
-    GET /timesheets/api/weekly/ims/?start_date=YYYY-MM-DD
+    permission_classes = [IsAuthenticated]
+    serializer_class = CreatePayRunRequestSerializer
+
+    @extend_schema(
+        summary="Create pay run for a week",
+        request=CreatePayRunRequestSerializer,
+        responses={
+            201: CreatePayRunResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            409: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def post(self, request):
+        """Create a new pay run for the specified week."""
+        try:
+            from apps.workflow.api.xero.payroll import create_pay_run
+
+            data = request.data
+            week_start_date_str = data.get("week_start_date")
+
+            if not week_start_date_str:
+                return Response(
+                    {"error": "week_start_date is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Parse date
+            try:
+                week_start_date = datetime.strptime(
+                    week_start_date_str, "%Y-%m-%d"
+                ).date()
+            except ValueError:
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Create pay run (validates Monday, creates in Xero)
+            pay_run_id = create_pay_run(week_start_date)
+
+            # Calculate dates for response
+            week_end_date = week_start_date + timedelta(days=6)
+            payment_date = week_end_date + timedelta(days=3)
+
+            try:
+                PayrollSyncService.sync_pay_runs()
+            except Exception as sync_exc:
+                logger.warning(
+                    "Pay run created but cache refresh failed: %s",
+                    sync_exc,
+                )
+
+            return Response(
+                {
+                    "pay_run_id": pay_run_id,
+                    "status": "Draft",
+                    "period_start_date": week_start_date.isoformat(),
+                    "period_end_date": week_end_date.isoformat(),
+                    "payment_date": payment_date.isoformat(),
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        except ValueError as e:
+            # Client errors (bad date, not Monday)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error creating pay run: {e}", exc_info=True)
+            persist_app_error(e)
+
+            # Check for conflict (draft already exists)
+            error_msg = str(e)
+            if "only be one draft pay run" in error_msg.lower():
+                return Response({"error": error_msg}, status=status.HTTP_409_CONFLICT)
+
+            return Response(
+                {"error": f"Failed to create pay run: {error_msg}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PayRunForWeekAPIView(APIView):
+    """
+    API endpoint to fetch pay run details for a specific week.
+
+    Responds with a warning when more than one pay run is stored for the same period
+    so operators know data cleanup is needed in Xero.
     """
 
     permission_classes = [IsAuthenticated]
-    serializer_class = IMSWeeklyTimesheetDataSerializer
-
-    def get_serializer_class(self):
-        """Return the serializer class for IMS weekly timesheet data."""
-        return IMSWeeklyTimesheetDataSerializer
+    serializer_class = PayRunForWeekResponseSerializer
 
     @extend_schema(
-        summary="IMS weekly overview (Tue–Fri + next Mon)",
+        summary="Get pay run for a week",
         parameters=[
             OpenApiParameter(
-                "start_date",
+                "week_start_date",
                 OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Monday of target week in YYYY-MM-DD format. Defaults to current week.",
+                description="Monday of the week (YYYY-MM-DD)",
+                required=True,
             )
         ],
         responses={
-            200: IMSWeeklyTimesheetDataSerializer,
+            200: PayRunForWeekResponseSerializer,
             400: ClientErrorResponseSerializer,
             500: ClientErrorResponseSerializer,
         },
     )
     def get(self, request):
-        """Return IMS-formatted weekly timesheet data."""
-        # Re-use helper from the standard view but with export_to_ims=True
-        return self.build_timesheet_response(request, export_to_ims=True)
+        """Return pay run data for the requested week if it exists."""
+        week_start_date_str = request.query_params.get("week_start_date")
+        if not week_start_date_str:
+            return Response(
+                {"error": "week_start_date query parameter is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if week_start_date.weekday() != 0:
+            return Response(
+                {"error": "week_start_date must be a Monday"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            payload = PayrollSyncService.get_pay_run_for_week(week_start_date)
+            return Response(payload, status=status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            logger.error(f"Error fetching pay run: {exc}", exc_info=True)
+            persist_app_error(exc)
+            return Response(
+                {
+                    "error": "Failed to fetch pay run for week",
+                    "details": (
+                        str(exc) if request.user.is_staff else "Internal server error"
+                    ),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class RefreshPayRunsAPIView(APIView):
+    """API endpoint to refresh cached pay runs from Xero."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PayRunSyncResponseSerializer
+
+    @extend_schema(
+        summary="Refresh cached pay runs from Xero",
+        responses={
+            200: PayRunSyncResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def post(self, _):
+        """Synchronize local pay run cache with Xero."""
+        try:
+            result = PayrollSyncService.sync_pay_runs()
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as exc:
+            logger.error(f"Error refreshing pay runs: {exc}", exc_info=True)
+            persist_app_error(exc)
+            return Response(
+                {"error": "Failed to refresh pay runs", "details": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PostWeekToXeroPayrollAPIView(APIView):
+    """API endpoint to post a weekly timesheet to Xero Payroll."""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PostWeekToXeroRequestSerializer
+
+    @extend_schema(
+        summary="Post weekly timesheet to Xero Payroll",
+        request=PostWeekToXeroRequestSerializer,
+        responses={
+            200: PostWeekToXeroResponseSerializer,
+            400: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def post(self, request):
+        """Post a week's timesheet to Xero Payroll."""
+        data = request.data
+        staff_id = data.get("staff_id")
+        week_start_date_str = data.get("week_start_date")
+
+        if not staff_id:
+            return Response(
+                {"error": "staff_id is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not week_start_date_str:
+            return Response(
+                {"error": "week_start_date is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse date
+        try:
+            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Post to Xero (service validates Monday, checks pay run status, posts data)
+        result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+        logger.info(f"Result from payroll POST: {result}")
+
+        # Return appropriate HTTP status based on success
+        if result["success"]:
+            return Response(result, status=status.HTTP_200_OK)
+        else:
+            return Response(result, status=status.HTTP_400_BAD_REQUEST)

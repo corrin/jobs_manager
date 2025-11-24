@@ -1,0 +1,74 @@
+"""
+Xero Payroll Serializers
+
+DRF serializers for Xero Payroll API endpoints
+"""
+
+from rest_framework import serializers
+
+
+class CreatePayRunRequestSerializer(serializers.Serializer):
+    """Request serializer for creating a pay run"""
+
+    week_start_date = serializers.DateField(help_text="Monday of the week (YYYY-MM-DD)")
+
+
+class CreatePayRunResponseSerializer(serializers.Serializer):
+    """Response serializer for created pay run"""
+
+    pay_run_id = serializers.CharField()
+    status = serializers.CharField()
+    period_start_date = serializers.DateField()
+    period_end_date = serializers.DateField()
+    payment_date = serializers.DateField()
+
+
+class PostWeekToXeroRequestSerializer(serializers.Serializer):
+    """Request serializer for posting weekly timesheet to Xero"""
+
+    staff_id = serializers.UUIDField(help_text="Staff member UUID")
+    week_start_date = serializers.DateField(help_text="Monday of the week (YYYY-MM-DD)")
+
+
+class PostWeekToXeroResponseSerializer(serializers.Serializer):
+    """Response serializer for posted timesheet"""
+
+    success = serializers.BooleanField()
+    xero_timesheet_id = serializers.CharField(allow_null=True)
+    xero_leave_ids = serializers.ListField(
+        child=serializers.CharField(), allow_null=True, allow_empty=True, required=False
+    )
+    entries_posted = serializers.IntegerField()
+    work_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    annual_sick_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unpaid_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    errors = serializers.ListField(child=serializers.CharField())
+
+
+class PayRunDetailsSerializer(serializers.Serializer):
+    """Serializer representing details from a Xero pay run."""
+
+    pay_run_id = serializers.CharField()
+    payroll_calendar_id = serializers.CharField(allow_null=True)
+    period_start_date = serializers.DateField()
+    period_end_date = serializers.DateField()
+    payment_date = serializers.DateField()
+    pay_run_status = serializers.CharField()
+    pay_run_type = serializers.CharField(allow_null=True)
+
+
+class PayRunForWeekResponseSerializer(serializers.Serializer):
+    """Response serializer when fetching pay run data for a week."""
+
+    exists = serializers.BooleanField()
+    pay_run = PayRunDetailsSerializer(allow_null=True)
+    warning = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+
+class PayRunSyncResponseSerializer(serializers.Serializer):
+    """Response payload after refreshing cached pay runs."""
+
+    fetched = serializers.IntegerField()
+    created = serializers.IntegerField()
+    updated = serializers.IntegerField()
