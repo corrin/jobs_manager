@@ -34,7 +34,8 @@ from apps.job.serializers.job_serializer import (
 )
 from apps.job.services.delta_checksum import compute_job_delta_checksum, normalise_value
 from apps.workflow.models import CompanyDefaults
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -435,7 +436,7 @@ class JobRestService:
                     request_ip=request_ip,
                 )
         except Exception as exc:  # pragma: no cover - defensive persistence
-            persist_app_error(exc)
+            persist_and_raise(exc)
 
     @staticmethod
     def _collect_soft_fail_context(
@@ -921,7 +922,10 @@ class JobRestService:
                         job.save(staff=user)
                 except Exception as _e:
                     # Persist the error but do not mask the main operation
-                    persist_app_error(_e)
+                    try:
+                        persist_and_raise(_e)
+                    except AlreadyLoggedException:
+                        pass
 
                 # Generate descriptive update message
                 description = JobRestService._generate_update_description(
@@ -1208,7 +1212,7 @@ class JobRestService:
 
         except Exception as e:
             # Persist error for debugging
-            persist_app_error(
+            persist_and_raise(
                 exception=e,
                 app="JobRestService",
                 file=__file__,
@@ -1221,7 +1225,6 @@ class JobRestService:
                     "operation": "add_job_event",
                 },
             )
-            raise
 
     @staticmethod
     def delete_job(
@@ -1425,15 +1428,14 @@ class JobRestService:
                             f"Invalid staff_id in cost_line {cost_line.id}: {staff_id}"
                         )
                         logger.error(error_msg)
-                        persist_app_error(
-                            e,
+                        persist_and_raise(
+                            ValueError(error_msg),
                             additional_context={
                                 "cost_line_id": str(cost_line.id),
                                 "staff_id": staff_id,
                                 "job_id": str(job.id),
                             },
                         )
-                        raise ValueError(error_msg) from e
 
         # Fetch all staff members in bulk
         staff_map = Staff.objects.in_bulk(staff_ids) if staff_ids else {}

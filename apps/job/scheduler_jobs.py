@@ -30,8 +30,6 @@ def set_paid_flag_jobs():
     except AlreadyLoggedException:
         raise
     except Exception as exc:
-        from apps.workflow.services.error_persistence import persist_app_error
-
+        from apps.workflow.services.error_persistence import persist_and_raise
         logger.error(f"Error during set_paid_flag_jobs: {exc}", exc_info=True)
-        app_error = persist_app_error(exc)
-        raise AlreadyLoggedException(exc, app_error.id)
+        persist_and_raise(exc)

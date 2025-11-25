@@ -40,7 +40,7 @@ from apps.quoting.models import (
     SupplierProduct,
 )
 from apps.workflow.models import AppError, XeroAccount, XeroJournalLineItem
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 
 
 class DataIntegrityService:
@@ -63,8 +63,7 @@ class DataIntegrityService:
                 "summary": {},  # Will be populated by view
             }
         except Exception as exc:
-            persist_app_error(exc)
-            raise
+            persist_and_raise(exc)
 
     @staticmethod
     def _check_all_fk_references() -> list[dict[str, Any]]:

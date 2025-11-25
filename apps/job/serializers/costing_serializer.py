@@ -8,7 +8,6 @@ from rest_framework import serializers
 from apps.accounts.models import Staff
 from apps.job.models import CostLine, CostSet
 from apps.workflow.models import CompanyDefaults
-from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -201,11 +200,6 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 exception = serializers.ValidationError(
                     "Staff id must be provided when creating a new timesheet entry."
                 )
-                persist_app_error(
-                    exception=exception,
-                    job_id=self.validated_data.get("job_id"),
-                    user_id=staff_id,
-                )
                 raise exception
 
             try:
@@ -221,11 +215,6 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 if rate_multiplier is None:
                     exception = serializers.ValidationError(
                         "Rate multiplier must be provided when creating a new timesheet entry."
-                    )
-                    persist_app_error(
-                        exception=exception,
-                        job_id=self.validated_data.get("job_id"),
-                        user_id=staff_id,
                     )
                     raise exception
 
@@ -301,7 +290,6 @@ class CostSetSerializer(serializers.ModelSerializer):
         summary = data.get("summary")
         if not summary:
             error = ValueError(f"CostSet {instance.id} missing required summary data")
-            persist_app_error(error)
             logger.error(f"CostSet {instance.id} missing summary data")
             # Return minimal safe structure
             data["summary"] = {"cost": 0, "rev": 0, "hours": 0, "profitMargin": 0.0}

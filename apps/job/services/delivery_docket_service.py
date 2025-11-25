@@ -9,7 +9,8 @@ from django.utils import timezone
 
 from apps.job.models import Job, JobEvent, JobFile
 from apps.job.services.workshop_pdf_service import create_delivery_docket_pdf
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +35,7 @@ def generate_delivery_docket(job: Job) -> tuple[BytesIO, JobFile]:
         Exception: If PDF generation or file saving fails
     """
     if not job.job_number:
-        exc = ValueError("Job must have a job_number to generate delivery docket")
-        persist_app_error(exc)
-        raise exc
+        raise ValueError("Job must have a job_number to generate delivery docket")
 
     try:
         # Generate the PDF as a delivery docket (no materials table, with prefix)
@@ -95,5 +94,7 @@ def generate_delivery_docket(job: Job) -> tuple[BytesIO, JobFile]:
         logger.error(
             f"Failed to generate delivery docket for job {job.job_number}: {exc}"
         )
-        persist_app_error(exc)
-        raise
+        try:
+            persist_and_raise(exc)
+        except AlreadyLoggedException:
+            raise

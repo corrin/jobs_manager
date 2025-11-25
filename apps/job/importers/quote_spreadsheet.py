@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-from apps.workflow.services.error_persistence import persist_app_error
 
 from .draft import DraftLine
 
@@ -380,7 +379,6 @@ def parse_xlsx(
                     f"(${material_total_cost}/${material_item_cost}). Invalid data."
                 )
                 logger.error(error_msg)
-                persist_app_error(Exception(error_msg))
                 return [], [error_msg]
 
             if has_labour:

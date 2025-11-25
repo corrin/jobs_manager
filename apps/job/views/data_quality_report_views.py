@@ -16,7 +16,8 @@ from apps.job.serializers.data_quality_report_serializers import (
     ArchivedJobsComplianceResponseSerializer,
 )
 from apps.job.services.data_quality_report import ArchivedJobsComplianceService
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +53,18 @@ class ArchivedJobsComplianceView(APIView):
             # Return the data directly without wrapping
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as exc:
-            persist_app_error(exc)
             logger.error(
                 f"Error running archived jobs compliance check: {exc}", exc_info=True
             )
-            return Response(
-                {
-                    "error": f"Failed to run archived jobs compliance check: {str(exc)}",
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            try:
+                persist_and_raise(exc)
+            except AlreadyLoggedException as logged_exc:
+                return Response(
+                    {
+                        "error": f"Failed to run archived jobs compliance check: {str(exc)}",
+                        "error_id": str(logged_exc.app_error_id)
+                        if logged_exc.app_error_id
+                        else None,
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
