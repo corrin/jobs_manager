@@ -4,12 +4,13 @@ from typing import Any, List, Optional
 from django.contrib.auth import get_user_model
 
 
-def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
+def get_excluded_staff(
+    apps_registry: Optional[Any] = None, *, target_date=None
+) -> List[str]:
     """
     Returns a list of staff IDs that should be excluded from the UI.
 
-    This typically includes system users, staff with invalid IMS payroll IDs,
-    or staff with no working hours configured at all (completely inactive).
+    Excludes only staff with no working hours configured at all (completely inactive).
     """
     excluded = []
 
@@ -19,8 +20,13 @@ def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
         else:
             Staff = get_user_model()
 
-        # Exclude staff members with no valid IMS payroll ID or no working hours at all
-        staff_with_ids = Staff.objects.currently_active().values_list(
+        # Exclude staff members with no working hours at all
+        staff_queryset = (
+            Staff.objects.active_on_date(target_date)
+            if target_date
+            else Staff.objects.currently_active()
+        )
+        staff_with_ids = staff_queryset.values_list(
             "id",
             "ims_payroll_id",
             "first_name",
@@ -39,13 +45,10 @@ def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
             if not first_name or first_name.strip() == "":
                 pass  # No logging
 
-            is_valid = is_valid_uuid(str(ims_payroll_id))
-
             # Check if staff has ANY working hours configured (at least one day > 0)
-            total_weekly_hours = sum(hours) if all(h is not None for h in hours) else 0
-            has_any_working_hours = total_weekly_hours > 0
+            has_any_working_hours = any((h or 0) > 0 for h in hours)
 
-            if not is_valid or not has_any_working_hours:
+            if not has_any_working_hours:
                 excluded.append(str(staff_id))
             else:
                 pass  # No logging
