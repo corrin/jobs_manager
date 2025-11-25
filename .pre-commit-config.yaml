@@ -46,7 +46,7 @@ repos:
         name: Format Python code with black
         entry: poetry run black --quiet
         language: system
-        files: '^(?:apps/|jobs_manager/).+\.py$'
+        files: '^(?:apps/|jobs_manager/|scripts/).+\.py$|^[^/]+\.py$'
         types: [python]
 
       # isort - uses poetry-installed version (single source of truth: pyproject.toml)
@@ -54,7 +54,7 @@ repos:
         name: Sort imports with isort
         entry: poetry run isort --profile=black --skip-glob=**/__init__.py
         language: system
-        files: '^(?:apps/|jobs_manager/).+\.py$'
+        files: '^(?:apps/|jobs_manager/|scripts/).+\.py$|^[^/]+\.py$'
         types: [python]
         exclude: |
           (?x)^(
@@ -62,9 +62,10 @@ repos:
           )
 
       # flake8 - uses poetry-installed version (single source of truth: pyproject.toml)
+      # Config (ignores, per-file-ignores) comes from pyproject.toml
       - id: flake8
         name: Lint Python with flake8
-        entry: poetry run flake8 --max-line-length=88 --extend-ignore=E203,W503,E501
+        entry: poetry run flake8
         language: system
-        files: '^(?:apps/|jobs_manager/).+\.py$'
+        files: '^(?:apps/|jobs_manager/|scripts/).+\.py$|^[^/]+\.py$'
         types: [python]

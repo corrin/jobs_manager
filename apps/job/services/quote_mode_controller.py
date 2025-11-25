@@ -416,7 +416,7 @@ Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
             logger.info(f"Mode decision: {current_mode} -> {inferred_mode}")
             return inferred_mode
 
-        except Exception as exc:
+        except Exception:
             raise
 
     def run(

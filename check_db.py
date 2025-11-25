@@ -36,7 +36,7 @@ def main():
 
     # Search for products with specific item codes from our extraction
     item_codes = ["UA2737", "UA1155", "UA1161", "UA6054", "UA1167"]
-    print(f"\nSearching for products with specific item codes:")
+    print("\nSearching for products with specific item codes:")
     for code in item_codes:
         products = SupplierProduct.objects.filter(item_no__icontains=code)
         if products.exists():
@@ -50,7 +50,7 @@ def main():
 
     # Check recent price lists
     recent_price_lists = SupplierPriceList.objects.order_by("-uploaded_at")[:3]
-    print(f"\nMost recent price list uploads:")
+    print("\nMost recent price list uploads:")
     for pl in recent_price_lists:
         print(
             f"  ID: {pl.id}, Filename: {pl.file_name}, Supplier: {pl.supplier.name}, Uploaded: {pl.uploaded_at}"

@@ -3,6 +3,7 @@ Sales Forecast Report View
 
 Provides monthly sales comparison between Xero invoices and Job Manager revenue.
 """
+
 from collections import defaultdict
 from datetime import date
 from decimal import Decimal

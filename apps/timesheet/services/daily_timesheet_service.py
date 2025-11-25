@@ -73,10 +73,9 @@ class DailyTimesheetService:
 
         # Mirror weekly timesheet inclusion: exclude admin/system users and excluded list,
         # but do not drop staff based on date_left/date_joined (handled by scheduler checks instead).
-        active_staff = (
-            Staff.objects.exclude(models.Q(is_staff=True) | models.Q(id__in=excluded_staff_ids))
-            .order_by("first_name", "last_name")
-        )
+        active_staff = Staff.objects.exclude(
+            models.Q(is_staff=True) | models.Q(id__in=excluded_staff_ids)
+        ).order_by("first_name", "last_name")
 
         for staff in active_staff:
             # Check if staff member has working hours for this specific date

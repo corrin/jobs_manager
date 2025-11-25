@@ -7,7 +7,10 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("workflow", "0170_companydefaults_xero_annual_leave_earnings_rate_id_and_more"),
+        (
+            "workflow",
+            "0170_companydefaults_xero_annual_leave_earnings_rate_id_and_more",
+        ),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

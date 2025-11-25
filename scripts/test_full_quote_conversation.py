@@ -69,7 +69,7 @@ def send_message(service, job, content, step_num, description, expected_mode=Non
 
         # Display metadata
         if response.metadata:
-            print(f"\nMetadata:")
+            print("\nMetadata:")
             if "mode" in response.metadata:
                 print(f"  Mode: {response.metadata['mode']}")
             if "has_questions" in response.metadata:
@@ -218,7 +218,7 @@ def main():
             mode = msg.metadata.get("mode", "N/A")
             mode_counts[mode] = mode_counts.get(mode, 0) + 1
 
-    print(f"\nMessages by mode:")
+    print("\nMessages by mode:")
     for mode, count in mode_counts.items():
         print(f"  {mode}: {count} responses")
 

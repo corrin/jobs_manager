@@ -134,7 +134,9 @@ def main():
 
     for job_file in job_files:
         # Use DROPBOX_WORKFLOW_FOLDER to match where the view serves files from
-        file_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, str(job_file.file_path))
+        file_path = os.path.join(
+            settings.DROPBOX_WORKFLOW_FOLDER, str(job_file.file_path)
+        )
 
         if os.path.exists(file_path):
             skipped += 1

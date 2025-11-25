@@ -452,9 +452,9 @@ def create_xero_purchase_order(
             try:
                 persist_and_raise(
                     ValueError(error_msg),
-                    user_id=str(request.user.id)
-                    if request.user.is_authenticated
-                    else None,
+                    user_id=(
+                        str(request.user.id) if request.user.is_authenticated else None
+                    ),
                     additional_context={
                         "purchase_order_id": str(purchase_order_id),
                         "error_type": error_type,

@@ -62,9 +62,11 @@ class ArchivedJobsComplianceView(APIView):
                 return Response(
                     {
                         "error": f"Failed to run archived jobs compliance check: {str(exc)}",
-                        "error_id": str(logged_exc.app_error_id)
-                        if logged_exc.app_error_id
-                        else None,
+                        "error_id": (
+                            str(logged_exc.app_error_id)
+                            if logged_exc.app_error_id
+                            else None
+                        ),
                     },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )

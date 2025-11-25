@@ -212,9 +212,11 @@ def get_pay_runs() -> List[Dict[str, Any]]:
                 pay_runs.append(
                     {
                         "pay_run_id": str(pr.pay_run_id) if pr.pay_run_id else None,
-                        "payroll_calendar_id": str(pr.payroll_calendar_id)
-                        if pr.payroll_calendar_id
-                        else None,
+                        "payroll_calendar_id": (
+                            str(pr.payroll_calendar_id)
+                            if pr.payroll_calendar_id
+                            else None
+                        ),
                         "period_start_date": pr.period_start_date,
                         "period_end_date": pr.period_end_date,
                         "payment_date": pr.payment_date,
