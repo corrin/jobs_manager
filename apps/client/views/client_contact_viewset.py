@@ -27,7 +27,7 @@ class ClientContactViewSet(viewsets.ModelViewSet):
     - client_id: Filter contacts by client UUID
     """
 
-    queryset = ClientContact.objects.all()
+    queryset = ClientContact.objects.filter(is_active=True)
     serializer_class = ClientContactSerializer
     permission_classes = [permissions.IsAuthenticated]
 
