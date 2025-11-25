@@ -92,6 +92,14 @@ class CompanyDefaults(models.Model):
         help_text="Name of the internal shop client for tracking shop work (e.g., 'MSM (Shop)')",
     )
 
+    # Test client configuration
+    test_client_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Name of the test client used for testing (e.g., 'ABC Carpet Cleaning TEST IGNORE'). This client's name is preserved during data backports.",
+    )
+
     # KPI thresholds
     billable_threshold_green = models.DecimalField(
         max_digits=5,
