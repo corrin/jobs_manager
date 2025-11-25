@@ -9,7 +9,6 @@ from xero_python.accounting.models import PurchaseOrder as XeroPurchaseOrder
 
 from apps.purchasing.models import PurchaseOrder
 from apps.workflow.models import XeroAccount
-from apps.workflow.services.error_persistence import persist_app_error
 
 from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import clean_payload, convert_to_pascal_case, format_date
@@ -514,9 +513,6 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                     "error_message": str(e),
                 },
             )
-            persist_app_error(
-                e, additional_context={"purchase_order_id": str(self.purchase_order.id)}
-            )
             return {
                 "success": False,
                 "error": f"Failed to prepare Xero document: {str(e)}",
@@ -567,10 +563,6 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                         else None
                     ),
                 },
-            )
-
-            persist_app_error(
-                e, additional_context={"purchase_order_id": str(self.purchase_order.id)}
             )
 
             # Try to extract more specific error information
@@ -636,9 +628,6 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
         except Exception as e:
             logger.error(
                 f"Error serializing XeroDocument for delete: {str(e)}", exc_info=True
-            )
-            persist_app_error(
-                e, additional_context={"purchase_order_id": str(self.purchase_order.id)}
             )
             return {
                 "success": False,
@@ -735,9 +724,6 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 {str(e)}
                 """.strip(),
                 exc_info=True,
-            )
-            persist_app_error(
-                e, additional_context={"purchase_order_id": str(self.purchase_order.id)}
             )
             return {
                 "success": False,

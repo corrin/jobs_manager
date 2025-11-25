@@ -9,7 +9,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 from jobs_manager.authentication import JWTAuthentication
 
 # Get access logger configured in Django settings
@@ -79,7 +79,7 @@ class AccessLoggingMiddleware:
         except Exception as e:
             # Log any errors that occur during logging
             access_logger.error(f"Error logging access: {e}")
-            persist_app_error(e)
+            persist_and_raise(e)
         return self.get_response(request)
 
 

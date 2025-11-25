@@ -18,20 +18,14 @@ from rest_framework.response import Response
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.serializers import AWSInstanceStatusResponseSerializer
 from apps.workflow.services.aws_service import AWSService
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
 
 def _build_error_payload(message: str, exc: Exception) -> dict[str, object]:
-    if isinstance(exc, AlreadyLoggedException):
-        root_exc = exc.original
-        error_id = exc.app_error_id
-    else:
-        app_error = persist_app_error(exc)
-        root_exc = exc
-        error_id = getattr(app_error, "id", None)
-
+    root_exc = exc.original if isinstance(exc, AlreadyLoggedException) else exc
+    error_id = exc.app_error_id if isinstance(exc, AlreadyLoggedException) else None
     payload: dict[str, object] = {
         "success": False,
         "error": message,
@@ -72,9 +66,14 @@ def get_instance_status(request):
             {"success": False, "error": "AWS configuration error", "details": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    except AlreadyLoggedException as exc:
+        return _drf_error_response("Internal server error", exc)
     except Exception as exc:
         logger.error(f"Unexpected error getting instance status: {str(exc)}")
-        return _drf_error_response("Internal server error", exc)
+        try:
+            persist_and_raise(exc)
+        except AlreadyLoggedException as logged_exc:
+            return _drf_error_response("Internal server error", logged_exc)
 
 
 @extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
@@ -98,9 +97,14 @@ def start_instance(request):
             {"success": False, "error": "AWS configuration error", "details": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    except AlreadyLoggedException as exc:
+        return _drf_error_response("Internal server error", exc)
     except Exception as exc:
         logger.error(f"Unexpected error starting instance: {str(exc)}")
-        return _drf_error_response("Internal server error", exc)
+        try:
+            persist_and_raise(exc)
+        except AlreadyLoggedException as logged_exc:
+            return _drf_error_response("Internal server error", logged_exc)
 
 
 @extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
@@ -124,9 +128,14 @@ def stop_instance(request):
             {"success": False, "error": "AWS configuration error", "details": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    except AlreadyLoggedException as exc:
+        return _drf_error_response("Internal server error", exc)
     except Exception as exc:
         logger.error(f"Unexpected error stopping instance: {str(exc)}")
-        return _drf_error_response("Internal server error", exc)
+        try:
+            persist_and_raise(exc)
+        except AlreadyLoggedException as logged_exc:
+            return _drf_error_response("Internal server error", logged_exc)
 
 
 @extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
@@ -150,9 +159,14 @@ def reboot_instance(request):
             {"success": False, "error": "AWS configuration error", "details": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    except AlreadyLoggedException as exc:
+        return _drf_error_response("Internal server error", exc)
     except Exception as exc:
         logger.error(f"Unexpected error rebooting instance: {str(exc)}")
-        return _drf_error_response("Internal server error", exc)
+        try:
+            persist_and_raise(exc)
+        except AlreadyLoggedException as logged_exc:
+            return _drf_error_response("Internal server error", logged_exc)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -243,4 +257,7 @@ class AWSInstanceManagementView(View):
             )
         except Exception as exc:
             logger.error(f"Unexpected error in AWS operation '{action}': {str(exc)}")
-            return _json_error_response("Internal server error", exc)
+            try:
+                persist_and_raise(exc)
+            except AlreadyLoggedException as logged_exc:
+                return _json_error_response("Internal server error", logged_exc)

@@ -34,7 +34,6 @@ from apps.workflow.api.xero.xero import (
 from apps.workflow.exceptions import XeroValidationError
 from apps.workflow.models import CompanyDefaults, XeroAccount, XeroJournal
 from apps.workflow.services.error_persistence import (
-    persist_app_error,
     persist_xero_error,
 )
 from apps.workflow.services.validation import validate_required_fields
@@ -517,18 +516,6 @@ def transform_purchase_order(xero_po, xero_id):
                     f"Missing required field for PurchaseOrderLine in PO {xero_id}"
                 )
                 logger.error(error_msg)
-                persist_app_error(
-                    ValueError(error_msg),
-                    additional_context={
-                        "xero_entity_type": "PurchaseOrder",
-                        "xero_id": xero_id,
-                        "po_number": po_number,
-                        "sync_operation": "transform_line_items",
-                        "missing_description": not description,
-                        "missing_quantity": quantity is None,
-                        "supplier_item_code": getattr(line, "item_code", None),
-                    },
-                )
                 continue
             try:
                 PurchaseOrderLine.objects.update_or_create(
@@ -545,19 +532,6 @@ def transform_purchase_order(xero_po, xero_id):
                     f"Multiple PurchaseOrderLine records found for document '{po_number}' "
                     f"(Xero ID: {xero_id}), line item: '{description}', "
                     f"supplier_item_code: '{line.item_code or ''}'"
-                )
-                persist_app_error(
-                    exc,
-                    additional_context={
-                        "xero_entity_type": "PurchaseOrder",
-                        "xero_id": xero_id,
-                        "po_number": po_number,
-                        "sync_operation": "create_line_items",
-                        "description": description,
-                        "supplier_item_code": line.item_code or "",
-                        "quantity": quantity,
-                        "unit_cost": getattr(line, "unit_amount", None),
-                    },
                 )
                 continue
     return po
@@ -708,20 +682,6 @@ def process_xero_item(item, sync_function, entity_type):
             "progress": None,
         }
     except Exception as exc:
-        persist_app_error(
-            exc,
-            additional_context={
-                "xero_entity_type": entity_type,
-                "xero_item_id": getattr(item, "id", None)
-                or getattr(item, "xero_id", None),
-                "operation": "sync_to_local_database",
-                "sync_function": (
-                    sync_function.__name__
-                    if hasattr(sync_function, "__name__")
-                    else str(sync_function)
-                ),
-            },
-        )
         return False, {
             "datetime": timezone.now().isoformat(),
             "severity": "error",
@@ -837,22 +797,6 @@ def sync_xero_data(
             persist_xero_error(exc)
             raise
         except Exception as exc:
-            persist_app_error(
-                exc,
-                additional_context={
-                    "xero_entity_type": xero_entity_type,
-                    "our_entity_type": our_entity_type,
-                    "operation": "bulk_sync_from_xero_api",
-                    "items_count": len(items),
-                    "page": page,
-                    "total_processed": total_processed,
-                    "sync_function": (
-                        sync_function.__name__
-                        if hasattr(sync_function, "__name__")
-                        else str(sync_function)
-                    ),
-                },
-            )
             raise
 
         yield {
@@ -1000,15 +944,6 @@ def sync_all_xero_data(use_latest_timestamps=True, days_back=30, entities=None):
     for entity in entities:
         if entity not in ENTITY_CONFIGS:
             logger.error(f"Unknown entity type: {entity}")
-            persist_app_error(
-                ValueError(f"Unknown entity type: {entity}"),
-                additional_context={
-                    "operation": "sync_all_xero_data",
-                    "unknown_entity": entity,
-                    "available_entities": list(ENTITY_CONFIGS.keys()),
-                    "requested_entities": entities,
-                },
-            )
             continue
 
         (
@@ -1088,13 +1023,6 @@ def sync_local_stock_to_xero():
 
     except Exception as e:
         logger.error(f"Error syncing local stock to Xero: {str(e)}")
-        persist_app_error(
-            e,
-            additional_context={
-                "operation": "sync_local_stock_to_xero",
-                "sync_direction": "local_to_xero",
-            },
-        )
         yield {
             "datetime": timezone.now().isoformat(),
             "entity": "stock_local_to_xero",
@@ -1212,15 +1140,6 @@ def sync_job_to_xero(job):
     # Validation
     if not job.client:
         logger.error(f"Job {job.job_number} has no client - cannot sync to Xero")
-        persist_app_error(
-            ValueError(f"Job {job.job_number} has no client"),
-            additional_context={
-                "operation": "sync_job_to_xero",
-                "job_id": str(job.id),
-                "job_number": job.job_number,
-                "job_name": job.name,
-            },
-        )
         return False
 
     if not job.client.xero_contact_id:
@@ -1238,16 +1157,6 @@ def sync_job_to_xero(job):
     except Exception as e:
         logger.error(
             f"Job {job.job_number} client contact_id {job.client.xero_contact_id} does not exist in Xero: {e}"
-        )
-        persist_app_error(
-            e,
-            additional_context={
-                "operation": "sync_job_to_xero",
-                "job_id": str(job.id),
-                "job_number": job.job_number,
-                "client_name": job.client.name,
-                "contact_id": job.client.xero_contact_id,
-            },
         )
         return False
 
@@ -1335,15 +1244,6 @@ def sync_job_to_xero(job):
 
     except Exception as e:
         logger.error(f"Failed to sync Job {job.job_number} to Xero: {e}", exc_info=True)
-        persist_app_error(
-            e,
-            additional_context={
-                "operation": "sync_job_to_xero",
-                "job_id": str(job.id),
-                "job_number": job.job_number,
-                "job_name": job.name,
-            },
-        )
         return False
 
 
@@ -1361,14 +1261,6 @@ def sync_costlines_to_xero(job) -> bool:
 
     if not job.xero_project_id:
         error = ValueError(f"Job {job.job_number} has no xero_project_id")
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "sync_costlines_to_xero",
-                "job_id": str(job.id),
-                "job_number": job.job_number,
-            },
-        )
         raise error
 
     # Get CostLines from actual cost sets only
@@ -1422,14 +1314,6 @@ def map_costline_to_time_entry(costline, task_id: str) -> TimeEntryCreateOrUpdat
     staff_id = costline.meta.get("staff_id")
     if not staff_id:
         error = ValueError(f"CostLine {costline.id} has no staff_id in meta")
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "map_costline_to_time_entry",
-                "costline_id": str(costline.id),
-                "meta": costline.meta,
-            },
-        )
         raise error
 
     try:
@@ -1438,26 +1322,11 @@ def map_costline_to_time_entry(costline, task_id: str) -> TimeEntryCreateOrUpdat
         error = ValueError(
             f"CostLine {costline.id} references non-existent staff {staff_id}"
         )
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "map_costline_to_time_entry",
-                "costline_id": str(costline.id),
-                "staff_id": staff_id,
-            },
-        )
         raise error
 
     # Convert hours to minutes (Xero uses minutes)
     if costline.quantity is None:
         error = ValueError(f"CostLine {costline.id} has null quantity")
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "map_costline_to_time_entry",
-                "costline_id": str(costline.id),
-            },
-        )
         raise error
 
     minutes = int(float(costline.quantity) * 60)
@@ -1465,13 +1334,6 @@ def map_costline_to_time_entry(costline, task_id: str) -> TimeEntryCreateOrUpdat
     # Get date from accounting_date field - must exist
     if not costline.accounting_date:
         error = ValueError(f"CostLine {costline.id} has no accounting_date")
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "map_costline_to_time_entry",
-                "costline_id": str(costline.id),
-            },
-        )
         raise error
 
     date_utc = datetime.combine(costline.accounting_date, datetime.min.time())
@@ -1502,24 +1364,10 @@ def map_costline_to_expense_entry(costline) -> Dict[str, Any]:
     """
     if costline.quantity is None:
         error = ValueError(f"CostLine {costline.id} has null quantity")
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "map_costline_to_expense_entry",
-                "costline_id": str(costline.id),
-            },
-        )
         raise error
 
     if costline.unit_cost is None:
         error = ValueError(f"CostLine {costline.id} has null unit_cost")
-        persist_app_error(
-            error,
-            additional_context={
-                "operation": "map_costline_to_expense_entry",
-                "costline_id": str(costline.id),
-            },
-        )
         raise error
 
     # Calculate total amount
@@ -1568,15 +1416,6 @@ def sync_time_entries_bulk(project_id, time_entries_list):
             error = ValueError(
                 f"Xero returned {len(created)} time entries but expected {len(create_costlines)}"
             )
-            persist_app_error(
-                error,
-                additional_context={
-                    "operation": "sync_time_entries_bulk",
-                    "project_id": project_id,
-                    "expected_count": len(create_costlines),
-                    "returned_count": len(created),
-                },
-            )
             raise error
 
         # Update CostLines with returned Xero IDs
@@ -1623,15 +1462,6 @@ def sync_expense_entries_bulk(project_id, expense_entries_list):
             error = ValueError(
                 f"Xero returned {len(created)} expense entries but expected {len(create_costlines)}"
             )
-            persist_app_error(
-                error,
-                additional_context={
-                    "operation": "sync_expense_entries_bulk",
-                    "project_id": project_id,
-                    "expected_count": len(create_costlines),
-                    "returned_count": len(created),
-                },
-            )
             raise error
 
         # Update CostLines with returned Xero task IDs
@@ -1676,7 +1506,6 @@ def get_all_xero_contacts():
 
     except Exception as e:
         logger.error(f"Error fetching existing contacts from Xero: {e}")
-        persist_app_error(e, additional_context={"operation": "get_all_xero_contacts"})
         raise
 
     return all_contacts
@@ -1707,14 +1536,6 @@ def create_client_contact_in_xero(client):
 
     except Exception as e:
         logger.error(f"Error creating client {client.name} in Xero: {e}")
-        persist_app_error(
-            e,
-            additional_context={
-                "operation": "create_client_contact_in_xero",
-                "client_id": str(client.id),
-                "client_name": client.name,
-            },
-        )
         return False
 
 
@@ -1737,14 +1558,6 @@ def bulk_create_contacts_in_xero(clients_to_create, batch_size=50):
         for client in batch:
             if not client.validate_for_xero():
                 logger.error(f"Client {client.name} failed Xero validation")
-                persist_app_error(
-                    ValueError(f"Client {client.name} failed Xero validation"),
-                    additional_context={
-                        "operation": "bulk_create_contacts_in_xero",
-                        "client_id": str(client.id),
-                        "client_name": client.name,
-                    },
-                )
                 raise ValueError(
                     f"Client {client.name} failed Xero validation"
                 )  # FAIL EARLY
@@ -1752,14 +1565,6 @@ def bulk_create_contacts_in_xero(clients_to_create, batch_size=50):
             contact_data = client.get_client_for_xero()
             if not contact_data:
                 logger.error(f"Client {client.name} failed to generate Xero data")
-                persist_app_error(
-                    ValueError(f"Client {client.name} failed to generate Xero data"),
-                    additional_context={
-                        "operation": "bulk_create_contacts_in_xero",
-                        "client_id": str(client.id),
-                        "client_name": client.name,
-                    },
-                )
                 raise ValueError(
                     f"Client {client.name} failed to generate Xero data"
                 )  # FAIL EARLY
@@ -1768,19 +1573,6 @@ def bulk_create_contacts_in_xero(clients_to_create, batch_size=50):
             if "name" not in contact_data:
                 logger.error(
                     f"Client {client.name} contact data missing 'name' field: {contact_data}"
-                )
-                persist_app_error(
-                    ValueError(
-                        f"Client {client.name} contact data missing 'name' field"
-                    ),
-                    additional_context={
-                        "operation": "bulk_create_contacts_in_xero",
-                        "client_id": str(client.id),
-                        "client_name": client.name,
-                        "contact_data_keys": (
-                            list(contact_data.keys()) if contact_data else None
-                        ),
-                    },
                 )
                 raise ValueError(
                     f"Client {client.name} contact data missing 'name' field"
@@ -1837,15 +1629,6 @@ def bulk_create_contacts_in_xero(clients_to_create, batch_size=50):
             logger.error(
                 f"Failed to create batch of {len(contact_batch)} contacts: {e}"
             )
-            persist_app_error(
-                e,
-                additional_context={
-                    "operation": "bulk_create_contacts_in_xero",
-                    "batch_size": len(contact_batch),
-                    "batch_number": i // batch_size + 1,
-                    "client_names": [client.name for client in batch],
-                },
-            )
             raise  # FAIL EARLY
 
     return total_created
@@ -1858,7 +1641,6 @@ def seed_clients_to_xero(clients):
         existing_contacts = get_all_xero_contacts()
     except Exception as e:
         logger.error(f"Failed to fetch existing Xero contacts: {e}")
-        persist_app_error(e, additional_context={"operation": "seed_clients_to_xero"})
         raise  # FAIL EARLY
 
     existing_names = {
@@ -1910,14 +1692,6 @@ def seed_clients_to_xero(clients):
             )
         except Exception as e:
             logger.error(f"Error linking client {client.name}: {e}")
-            persist_app_error(
-                e,
-                additional_context={
-                    "operation": "seed_clients_to_xero_link",
-                    "client_id": str(client.id),
-                    "client_name": client.name,
-                },
-            )
             raise  # FAIL EARLY
 
     # Process creation in batches using dedicated function
@@ -1942,28 +1716,12 @@ def seed_jobs_to_xero(jobs):
                 )
             else:
                 logger.error(f"Failed to create Xero project for job {job.name}")
-                persist_app_error(
-                    Exception(f"Failed to create project for {job.name}"),
-                    additional_context={
-                        "operation": "seed_jobs_to_xero",
-                        "job_id": str(job.id),
-                        "job_name": job.name,
-                    },
-                )
                 raise Exception(
                     f"Failed to create Xero project for job {job.name}"
                 )  # FAIL EARLY
 
         except Exception as e:
             logger.error(f"Error processing job {job.name}: {e}")
-            persist_app_error(
-                e,
-                additional_context={
-                    "operation": "seed_jobs_to_xero",
-                    "job_id": str(job.id),
-                    "job_name": job.name,
-                },
-            )
             raise  # FAIL EARLY
 
     return results

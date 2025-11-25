@@ -9,7 +9,6 @@ from xero_python.accounting import AccountingApi
 from apps.purchasing.models import Stock
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.models import XeroAccount
-from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger("xero")
 SLEEP_TIME = 1  # Sleep after every API call to avoid hitting rate limits
@@ -143,16 +142,6 @@ def _ensure_unique_xero_link(
         f"Both have item_code '{code_display}'. This indicates duplicate stock items."
     )
     logger.warning(message)
-    persist_app_error(
-        ValueError(f"Duplicate stock items share Xero item {xero_item_id}"),
-        additional_context={
-            "stock_id": str(stock_item.id),
-            "duplicate_stock_id": str(duplicate.id),
-            "item_code": code_display,
-            "xero_id": xero_item_id,
-            "operation": operation,
-        },
-    )
     return False
 
 
@@ -313,27 +302,10 @@ def sync_stock_to_xero(stock_item: Stock) -> bool:
                 return True
             except Exception as e2:
                 logger.error(f"Failed to update after linking by Code: {e2}")
-                persist_app_error(
-                    e2,
-                    additional_context={
-                        "stock_id": str(stock_item.id),
-                        "operation": "sync_stock_to_xero_update_after_duplicate",
-                        "item_code": stock_item.item_code,
-                    },
-                )
                 return False
 
-        # Other errors: log and persist
+        # Other errors: log and fail
         logger.error(f"Failed to sync stock item {stock_item.id} to Xero: {msg}")
-        persist_app_error(
-            e,
-            additional_context={
-                "stock_id": str(stock_item.id),
-                "operation": "sync_stock_to_xero",
-                "item_code": stock_item.item_code,
-                "description": stock_item.description,
-            },
-        )
         return False
 
 
@@ -389,7 +361,6 @@ def sync_all_local_stock_to_xero(limit: Optional[int] = None) -> Dict[str, Any]:
                 }
             )
             logger.error(f"Exception syncing stock item {stock_item.id}: {str(e)}")
-            persist_app_error(e, additional_context={"stock_id": str(stock_item.id)})
 
     result = {
         "total_items": total_items,
@@ -445,7 +416,6 @@ def update_stock_item_codes():
             logger.error(
                 f"Failed to update item_code for stock {stock_item.id}: {str(e)}"
             )
-            persist_app_error(e, additional_context={"stock_id": str(stock_item.id)})
 
     logger.info(f"Updated item_code for {updated_count} stock items")
     return updated_count
@@ -493,7 +463,6 @@ def fix_long_item_codes():
             logger.error(
                 f"Failed to fix long item_code for stock {stock_item.id}: {str(e)}"
             )
-            persist_app_error(e, additional_context={"stock_id": str(stock_item.id)})
 
     logger.info(f"Fixed {fixed_count} long item codes")
     return fixed_count

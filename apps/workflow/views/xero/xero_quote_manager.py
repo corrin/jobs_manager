@@ -20,7 +20,6 @@ from apps.accounting.models import Quote
 from apps.job.models.costing import CostSet
 
 # Import error persistence service
-from apps.workflow.services.error_persistence import persist_app_error
 
 # Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
@@ -249,7 +248,6 @@ class XeroQuoteManager(XeroDocumentManager):
                     )
                 except Exception as e:
                     logger.error(f"Failed to create job event for quote creation: {e}")
-                    persist_app_error(e, job_id=str(self.job.id))
 
                 # Return success details for the view
                 return {
@@ -293,7 +291,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
@@ -312,7 +309,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
@@ -325,7 +321,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
@@ -406,7 +401,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
@@ -420,7 +414,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
@@ -433,7 +426,6 @@ class XeroQuoteManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
