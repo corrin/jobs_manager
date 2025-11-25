@@ -28,7 +28,8 @@ from apps.job.serializers.job_file_serializer import (
     JobFileUploadSuccessResponseSerializer,
 )
 from apps.job.services.file_service import create_thumbnail, get_thumbnail_folder
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ class JobFilesCollectionView(APIView):
 
         except Exception as e:
             logger.error("Error saving file %s: %s", file_obj.name, str(e))
-            persist_app_error(
+            persist_and_raise(
                 e,
                 job_id=str(job.id),
                 user_id=(
@@ -101,7 +102,6 @@ class JobFilesCollectionView(APIView):
                 ),
                 additional_context={"filename": file_obj.name},
             )
-            raise
 
     @extend_schema(
         operation_id="uploadJobFiles",

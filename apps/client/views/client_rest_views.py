@@ -43,9 +43,37 @@ from apps.client.serializers import (
     JobContactUpdateRequestSerializer,
 )
 from apps.client.services.client_rest_service import ClientRestService
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_app_error
 from apps.client.utils import date_to_datetime
 
 logger = logging.getLogger(__name__)
+
+
+def _build_server_error_response(
+    *,
+    message: str,
+    exc: Exception,
+    status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+) -> Response:
+    """Serialize an error response while ensuring exceptions persist only once."""
+    if isinstance(exc, AlreadyLoggedException):
+        root_exc = exc.original
+        error_id = exc.app_error_id
+    else:
+        root_exc = exc
+        app_error = persist_app_error(exc)
+        error_id = getattr(app_error, "id", None)
+
+    logger.error("%s: %s", message, root_exc)
+
+    payload: Dict[str, Any] = {"error": message, "details": str(root_exc)}
+    if error_id:
+        payload["error_id"] = str(error_id)
+
+    serializer = ClientErrorResponseSerializer(data=payload)
+    serializer.is_valid(raise_exception=True)
+    return Response(serializer.data, status=status_code)
 
 
 @extend_schema_view(
@@ -75,14 +103,9 @@ class ClientListAllRestView(APIView):
         try:
             clients_data = ClientRestService.get_all_clients()
             return Response(clients_data)
-        except Exception as e:
-            logger.error(f"Error fetching all clients: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error fetching all clients", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error fetching all clients", exc=exc
             )
 
 
@@ -147,14 +170,9 @@ class ClientSearchRestView(APIView):
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data)
 
-        except Exception as e:
-            logger.error(f"Error searching clients: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error searching clients", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error searching clients", exc=exc
             )
 
 
@@ -198,14 +216,9 @@ class ClientRetrieveRestView(APIView):
             error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
             error_serializer.is_valid(raise_exception=True)
             return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"Error retrieving client {client_id}: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error retrieving client", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error retrieving client", exc=exc
             )
 
 
@@ -327,14 +340,9 @@ class ClientUpdateRestView(APIView):
                 return Response(
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
-        except Exception as e:
-            logger.error(f"Error updating client {client_id}: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error updating client", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error updating client", exc=exc
             )
 
 
@@ -393,14 +401,9 @@ class ClientContactsRestView(APIView):
             error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
             error_serializer.is_valid(raise_exception=True)
             return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"Error fetching client contacts: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error fetching client contacts", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error fetching client contacts", exc=exc
             )
 
 
@@ -490,14 +493,9 @@ class ClientContactCreateRestView(APIView):
             error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
             error_serializer.is_valid(raise_exception=True)
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error creating contact: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error creating contact", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error creating contact", exc=exc
             )
 
 
@@ -602,14 +600,9 @@ class ClientCreateRestView(APIView):
             error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
             error_serializer.is_valid(raise_exception=True)
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error creating client: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error creating client", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error creating client", exc=exc
             )
 
     def _format_client_data(self, client: Client) -> Dict[str, Any]:
@@ -711,14 +704,9 @@ class JobContactRestView(APIView):
             error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
             error_serializer.is_valid(raise_exception=True)
             return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"Error retrieving job contact for job {job_id}: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error retrieving job contact", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error retrieving job contact", exc=exc
             )
 
     def put(self, request: Request, job_id: str) -> Response:
@@ -757,14 +745,9 @@ class JobContactRestView(APIView):
             error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
             error_serializer.is_valid(raise_exception=True)
             return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            logger.error(f"Error updating job contact for job {job_id}: {str(e)}")
-            error_serializer = ClientErrorResponseSerializer(
-                data={"error": "Error updating job contact", "details": str(e)}
-            )
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        except Exception as exc:
+            return _build_server_error_response(
+                message="Error updating job contact", exc=exc
             )
 
 

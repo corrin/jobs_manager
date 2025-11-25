@@ -13,12 +13,25 @@ from apps.accounting.serializers import (
     StandardErrorSerializer,
 )
 from apps.accounting.services import JobAgingService
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import (
     extract_request_context,
     persist_app_error,
 )
 
 logger = getLogger(__name__)
+
+
+def _build_standard_error_response(
+    *, message: str, status_code: int, details: dict[str, Any] | None = None
+) -> Response:
+    payload: dict[str, Any] = {"error": message}
+    if details is not None:
+        payload["details"] = details
+
+    serializer = StandardErrorSerializer(data=payload)
+    serializer.is_valid(raise_exception=True)
+    return Response(serializer.data, status=status_code)
 
 
 class JobAgingAPIView(APIView):
@@ -70,13 +83,17 @@ class JobAgingAPIView(APIView):
 
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 
+        except AlreadyLoggedException as exc:
+            logger.error("Job Aging API Error: %s", exc.original)
+            return _build_standard_error_response(
+                message=f"Error obtaining job aging data: {exc.original}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         except Exception as exc:
             logger.error(f"Job Aging API Error: {str(exc)}")
 
-            # Extract request context
             request_context = extract_request_context(request)
-
-            persist_app_error(
+            app_error = persist_app_error(
                 exc,
                 user_id=request_context["user_id"],
                 additional_context={
@@ -90,12 +107,8 @@ class JobAgingAPIView(APIView):
                 },
             )
 
-            error_serializer = StandardErrorSerializer(
-                data={"error": f"Error obtaining job aging data: {str(exc)}"}
-            )
-            error_serializer.is_valid(raise_exception=True)
-
-            return Response(
-                error_serializer.data,
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            return _build_standard_error_response(
+                message=f"Error obtaining job aging data: {str(exc)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                details={"error_id": str(app_error.id)},
             )

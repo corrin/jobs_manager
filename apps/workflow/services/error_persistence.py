@@ -7,7 +7,7 @@ from typing import Any, Dict
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
-from apps.workflow.exceptions import XeroValidationError
+from apps.workflow.exceptions import AlreadyLoggedException, XeroValidationError
 from apps.workflow.models import AppError, XeroError
 
 
@@ -168,3 +168,15 @@ def list_app_errors(
         "previous": prev_offset,
         "results": results,
     }
+
+
+def persist_and_raise(exception: Exception, **context: Any) -> None:
+    """
+    Persist the exception via ``persist_app_error`` and raise AlreadyLoggedException.
+
+    Args:
+        exception: The original exception to persist.
+        context: Additional keyword arguments forwarded to ``persist_app_error``.
+    """
+    app_error = persist_app_error(exception, **context)
+    raise AlreadyLoggedException(exception, app_error.id)

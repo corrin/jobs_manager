@@ -39,8 +39,6 @@ def ensure_json_serializable(obj):
 class DailyTimesheetService:
     """Service for handling daily timesheet operations"""
 
-    EXCLUDED_STAFF_IDS = get_excluded_staff()
-
     @classmethod
     def get_daily_summary(cls, target_date: date) -> Dict:
         """
@@ -71,12 +69,12 @@ class DailyTimesheetService:
     def _get_staff_daily_data(cls, target_date: date) -> List[Dict]:
         """Get timesheet data for each staff member"""
         staff_data = []
+        excluded_staff_ids = get_excluded_staff(target_date=target_date)
 
-        # Get active staff excluding those in EXCLUDED_STAFF_IDS
-        # EXCLUDED_STAFF_IDS now includes staff with no working hours
+        # Mirror weekly timesheet inclusion: exclude admin/system users and excluded list,
+        # but do not drop staff based on date_left/date_joined (handled by scheduler checks instead).
         active_staff = (
-            Staff.objects.active_on_date(target_date)
-            .exclude(id__in=cls.EXCLUDED_STAFF_IDS)
+            Staff.objects.exclude(models.Q(is_staff=True) | models.Q(id__in=excluded_staff_ids))
             .order_by("first_name", "last_name")
         )
 

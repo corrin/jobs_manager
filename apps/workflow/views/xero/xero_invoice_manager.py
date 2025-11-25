@@ -285,7 +285,6 @@ class XeroInvoiceManager(XeroDocumentManager):
 
                 return {"success": False, "message": error_msg, "status": 400}
         except AccountingBadRequestException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
 
             logger.error(
                 (
@@ -296,7 +295,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             default_message = (
                 f"Xero validation error ({e.status}): {e.reason}. "
@@ -308,7 +306,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
             return {"success": False, "message": error_message, "status": e.status}
         except ApiException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
 
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
@@ -320,11 +317,9 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {"success": False, "message": error_message, "status": e.status}
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
 
             job_id = self.job.id if self.job else "Unknown"
             logger.exception(
@@ -332,7 +327,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
@@ -396,7 +390,6 @@ class XeroInvoiceManager(XeroDocumentManager):
                 logger.error(error_msg)
                 return {"success": False, "message": error_msg, "status": 400}
         except AccountingBadRequestException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
 
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
@@ -408,7 +401,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             error_message = parse_xero_api_error_message(
                 exception_body=e.body,
@@ -419,7 +411,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
             return {"success": False, "message": error_message, "status": e.status}
         except ApiException as e:
-            from apps.workflow.services.error_persistence import persist_app_error
 
             job_id = self.job.id if self.job else "Unknown"
             logger.error(
@@ -431,7 +422,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
@@ -439,7 +429,6 @@ class XeroInvoiceManager(XeroDocumentManager):
                 "status": e.status,
             }
         except Exception as e:
-            from apps.workflow.services.error_persistence import persist_app_error
 
             job_id = self.job.id if self.job else "Unknown"
             logger.exception(
@@ -447,7 +436,6 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
 
             # MANDATORY: Persist error to database
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
 
             return {
                 "success": False,
@@ -463,14 +451,12 @@ class XeroInvoiceManager(XeroDocumentManager):
         Searches for an existing Xero contact by client name. If found, returns the Contact object with ContactID.
         If not found, creates a new contact and returns the created Contact object.
         """
-        from apps.workflow.services.error_persistence import persist_app_error
 
         client_name = (
             self.client.name.strip() if self.client and self.client.name else None
         )
         if not client_name:
             error = ValueError("Client name is required to sync with Xero.")
-            persist_app_error(error, job_id=str(self.job.id) if self.job else None)
             raise error
 
         try:
@@ -486,7 +472,6 @@ class XeroInvoiceManager(XeroDocumentManager):
                 return contacts[0]  # Return the first found contact
         except Exception as e:
             logger.warning(f"Error searching for existing Xero contact: {str(e)}")
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
             # Do not interrupt the flow, try to create contact below
 
         # If not found, create new contact
@@ -542,11 +527,9 @@ class XeroInvoiceManager(XeroDocumentManager):
                 error = ValueError(
                     f"Xero API returned empty contacts list for '{client_name}'"
                 )
-                persist_app_error(error, job_id=str(self.job.id) if self.job else None)
                 raise error
         except Exception as e:
             logger.error(f"Failed to create Xero contact for '{client_name}': {str(e)}")
-            persist_app_error(e, job_id=str(self.job.id) if self.job else None)
             raise ValueError(
                 f"Could not create or find Xero contact for '{client_name}'. {str(e)}"
             )

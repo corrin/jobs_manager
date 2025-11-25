@@ -17,10 +17,17 @@ from apps.accounts.utils import get_excluded_staff
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.job.models.costing import CostLine
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = getLogger(__name__)
+
+
+def _persist_and_raise(exception: Exception, **context) -> None:
+    """Persist an exception and re-raise as AlreadyLoggedException."""
+    app_error = persist_app_error(exception, **context)
+    raise AlreadyLoggedException(exception, app_error.id)
 
 
 class KPIService:
@@ -806,9 +813,11 @@ class JobAgingService:
                 jobs_query = jobs_query.exclude(status="archived")
 
             jobs = jobs_query.order_by("-created_at")
+        except AlreadyLoggedException:
+            raise
         except Exception as exc:
             logger.error(f"Database error fetching jobs: {str(exc)}")
-            persist_app_error(
+            _persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "fetch_jobs_for_aging_report",
@@ -816,7 +825,6 @@ class JobAgingService:
                     "query_filters": "active_jobs_with_client_and_cost_data",
                 },
             )
-            return {"jobs": []}
 
         job_data = []
         for job in jobs:
@@ -984,6 +992,12 @@ class JobAgingService:
             last_activity = JobAgingService._get_last_activity(job)
             if last_activity:
                 timing_data.update(last_activity)
+        except AlreadyLoggedException as exc:
+            logger.warning(
+                "Error getting last activity for job %s: %s",
+                job.job_number,
+                exc.original,
+            )
         except Exception as exc:
             logger.warning(
                 f"Error getting last activity for job {job.job_number}: {str(exc)}"
@@ -1100,8 +1114,19 @@ class JobAgingService:
                                 f"staff_id={staff_id})"
                             )
                             logger.error(message)
-                            persist_app_error(exc)
-                            raise ValueError(message) from exc
+                            logged_exc = ValueError(message)
+                            app_error = persist_app_error(
+                                logged_exc,
+                                job_id=job.id,
+                                additional_context={
+                                    "operation": "cost_line_staff_resolution",
+                                    "cost_line_id": cost_line.id,
+                                    "staff_id": staff_id,
+                                },
+                            )
+                            raise AlreadyLoggedException(
+                                logged_exc, app_error.id
+                            ) from exc
 
                     activities.append(
                         {
@@ -1110,6 +1135,8 @@ class JobAgingService:
                             "description": description,
                         }
                     )
+        except AlreadyLoggedException:
+            raise
         except Exception as exc:
             logger.error(
                 (
@@ -1117,8 +1144,14 @@ class JobAgingService:
                     f"{job.job_number}: {str(exc)}"
                 )
             )
-            persist_app_error(exc)
-            raise
+            _persist_and_raise(
+                exc,
+                job_id=job.id,
+                additional_context={
+                    "operation": "gather_cost_line_activities",
+                    "job_number": job.job_number,
+                },
+            )
 
         # Find the most recent activity
         if activities:
@@ -1233,10 +1266,19 @@ class StaffPerformanceService:
                 "period_summary": period_summary,
             }
 
+        except AlreadyLoggedException:
+            raise
         except Exception as exc:
             logger.error(f"Error getting staff performance data: {str(exc)}")
-            persist_app_error(exc)
-            raise
+            _persist_and_raise(
+                exc,
+                additional_context={
+                    "operation": "staff_performance_data",
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "staff_id": staff_id,
+                },
+            )
 
     @staticmethod
     def _calculate_staff_metrics(

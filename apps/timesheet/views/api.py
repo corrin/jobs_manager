@@ -4,7 +4,6 @@ Provides endpoints for the Vue.js frontend to interact with timesheet data.
 """
 
 import logging
-import traceback
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -37,9 +36,46 @@ from apps.timesheet.serializers.payroll_serializers import (
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
 from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
+
+
+def build_internal_error_response(
+    *,
+    request,
+    message: str,
+    exc: Exception,
+    status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
+    staff_only_details: bool = False,
+):
+    """
+    Construct a consistent error response while ensuring exceptions are persisted once.
+    """
+    if isinstance(exc, AlreadyLoggedException):
+        root_exception = exc.original
+        error_id = exc.app_error_id
+    else:
+        app_error = persist_app_error(exc)
+        error_id = getattr(app_error, "id", None)
+        root_exception = exc
+
+    logger.error(f"{message}: {root_exception}", exc_info=True)
+
+    payload = {"error": message}
+    details_text = str(root_exception)
+    if staff_only_details and request is not None:
+        payload["details"] = (
+            details_text if request.user.is_staff else "Internal server error"
+        )
+    else:
+        payload["details"] = details_text
+
+    if error_id:
+        payload["error_id"] = str(error_id)
+
+    return Response(payload, status=status_code)
 
 
 class StaffListAPIView(APIView):
@@ -115,14 +151,11 @@ class StaffListAPIView(APIView):
 
             return Response({"staff": staff_data, "total_count": len(staff_data)})
 
-        except Exception as e:
-            logger.error(f"Error fetching staff list: {e}")
-
-            persist_app_error(e)
-
-            return Response(
-                {"error": "Failed to fetch staff list", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to fetch staff list",
+                exc=exc,
             )
 
 
@@ -170,14 +203,11 @@ class JobsAPIView(APIView):
                 {"jobs": serializer.data, "total_count": len(serializer.data)}
             )
 
-        except Exception as e:
-            logger.error(f"Error fetching jobs: {e}")
-
-            persist_app_error(e)
-
-            return Response(
-                {"error": "Failed to fetch jobs", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to fetch jobs",
+                exc=exc,
             )
 
 
@@ -248,20 +278,12 @@ class DailyTimesheetAPIView(APIView):
 
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            logger.error(f"Error in DailyTimesheetAPIView: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-
-            persist_app_error(e)
-
-            return Response(
-                {
-                    "error": "Failed to get daily timesheet overview",
-                    "details": (
-                        str(e) if request.user.is_staff else "Internal server error"
-                    ),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to get daily timesheet overview",
+                exc=exc,
+                staff_only_details=True,
             )
 
     def _get_staff_daily_detail(self, staff_id, target_date, request):
@@ -331,20 +353,12 @@ class DailyTimesheetAPIView(APIView):
 
             return Response(staff_data, status=status.HTTP_200_OK)
 
-        except Exception as e:
-            logger.error(f"Error getting staff daily detail: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-
-            persist_app_error(e)
-
-            return Response(
-                {
-                    "error": "Failed to get staff daily detail",
-                    "details": (
-                        str(e) if request.user.is_staff else "Internal server error"
-                    ),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to get staff daily detail",
+                exc=exc,
+                staff_only_details=True,
             )
 
 
@@ -388,19 +402,12 @@ class TimesheetResponseMixin:
                 status=status.HTTP_200_OK,
             )
 
-        except Exception as e:
-            logger.error(f"Error building weekly timesheet response: {e}")
-
-            persist_app_error(e)
-
-            return Response(
-                {
-                    "error": "Failed to build weekly timesheet response",
-                    "details": (
-                        str(e) if request.user.is_staff else "Internal server error"
-                    ),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to build weekly timesheet response",
+                exc=exc,
+                staff_only_details=True,
             )
 
     def _is_weekend_enabled(self):
@@ -514,20 +521,12 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
             else:
                 return Response(result, status=status.HTTP_400_BAD_REQUEST)
 
-        except Exception as e:
-            logger.error(f"Error submitting paid absence: {e}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-
-            persist_app_error(e)
-
-            return Response(
-                {
-                    "error": "Failed to submit paid absence",
-                    "details": (
-                        str(e) if request.user.is_staff else "Internal server error"
-                    ),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to submit paid absence",
+                exc=exc,
+                staff_only_details=True,
             )
 
 
@@ -598,21 +597,19 @@ class CreatePayRunAPIView(APIView):
                 status=status.HTTP_201_CREATED,
             )
 
-        except ValueError as e:
+        except ValueError as exc:
             # Client errors (bad date, not Monday)
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            logger.error(f"Error creating pay run: {e}", exc_info=True)
-            persist_app_error(e)
-
-            # Check for conflict (draft already exists)
-            error_msg = str(e)
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            error_msg = str(exc)
             if "only be one draft pay run" in error_msg.lower():
+                logger.warning("Draft pay run already exists: %s", error_msg)
                 return Response({"error": error_msg}, status=status.HTTP_409_CONFLICT)
 
-            return Response(
-                {"error": f"Failed to create pay run: {error_msg}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            return build_internal_error_response(
+                request=request,
+                message="Failed to create pay run",
+                exc=exc,
             )
 
 
@@ -673,16 +670,11 @@ class PayRunForWeekAPIView(APIView):
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:
-            logger.error(f"Error fetching pay run: {exc}", exc_info=True)
-            persist_app_error(exc)
-            return Response(
-                {
-                    "error": "Failed to fetch pay run for week",
-                    "details": (
-                        str(exc) if request.user.is_staff else "Internal server error"
-                    ),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            return build_internal_error_response(
+                request=request,
+                message="Failed to fetch pay run for week",
+                exc=exc,
+                staff_only_details=True,
             )
 
 
@@ -699,17 +691,16 @@ class RefreshPayRunsAPIView(APIView):
             500: ClientErrorResponseSerializer,
         },
     )
-    def post(self, _):
+    def post(self, request):
         """Synchronize local pay run cache with Xero."""
         try:
             result = PayrollSyncService.sync_pay_runs()
             return Response(result, status=status.HTTP_200_OK)
         except Exception as exc:
-            logger.error(f"Error refreshing pay runs: {exc}", exc_info=True)
-            persist_app_error(exc)
-            return Response(
-                {"error": "Failed to refresh pay runs", "details": str(exc)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            return build_internal_error_response(
+                request=request,
+                message="Failed to refresh pay runs",
+                exc=exc,
             )
 
 
@@ -755,12 +746,21 @@ class PostWeekToXeroPayrollAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Post to Xero (service validates Monday, checks pay run status, posts data)
-        result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+        try:
+            # Post to Xero (service validates Monday, checks pay run status, posts data)
+            result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to post week to Xero Payroll",
+                exc=exc,
+            )
+
         logger.info(f"Result from payroll POST: {result}")
 
         # Return appropriate HTTP status based on success
         if result["success"]:
             return Response(result, status=status.HTTP_200_OK)
-        else:
-            return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result, status=status.HTTP_400_BAD_REQUEST)

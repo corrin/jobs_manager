@@ -18,7 +18,8 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 
 from apps.job.enums import SpeedQualityTradeoff
 from apps.job.models import Job
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,6 @@ def get_workshop_hours(job: Job) -> float:
     estimate = job.cost_sets.filter(kind="estimate").order_by("-rev").first()
     if not estimate:
         exc = ValueError(f"Job {job.job_number} has no estimate CostSet")
-        persist_app_error(exc)
         raise exc
 
     lines = estimate.cost_lines.filter(kind="time").exclude(
@@ -47,7 +47,6 @@ def get_workshop_hours(job: Job) -> float:
             exc = ValueError(
                 f"Job {job.job_number} has no quote CostSet to fall back to"
             )
-            persist_app_error(exc)
             raise exc
 
         lines = quote.cost_lines.filter(kind="time").exclude(
@@ -96,7 +95,6 @@ def get_time_breakdown(job: Job) -> dict:
                 exc = ValueError(
                     f"CostLine {line.id} for job {job.job_number} has no staff_id in meta"
                 )
-                persist_app_error(exc)
                 raise exc
 
             # Trust the data - staff must exist
@@ -1015,4 +1013,7 @@ def merge_pdfs(pdf_sources):
                 buffer.close()
             except Exception as e:
                 logger.error(f"Error closing buffer: {str(e)}")
-                persist_app_error(e)
+                try:
+                    persist_and_raise(e)
+                except AlreadyLoggedException:
+                    pass

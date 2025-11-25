@@ -368,15 +368,12 @@ Consider the full conversation context when processing this input."""
         """
         import google.generativeai as genai
 
-        from apps.workflow.services.error_persistence import persist_app_error
-
         # FAIL EARLY - current_mode must be valid if provided
         if current_mode and current_mode not in self.MODES:
             error_msg = (
                 f"Invalid current_mode '{current_mode}', expected one of {self.MODES}"
             )
             exc = ValueError(error_msg)
-            persist_app_error(exc)
             raise exc
 
         model = genai.GenerativeModel("gemini-2.0-flash-exp")
@@ -414,14 +411,12 @@ Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
                 error_msg = f"LLM returned invalid mode '{inferred_mode}', expected one of {self.MODES}"
                 logger.error(error_msg)
                 exc = ValueError(error_msg)
-                persist_app_error(exc)
                 raise exc
 
             logger.info(f"Mode decision: {current_mode} -> {inferred_mode}")
             return inferred_mode
 
         except Exception as exc:
-            persist_app_error(exc)
             raise
 
     def run(

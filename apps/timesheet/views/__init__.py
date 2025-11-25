@@ -15,6 +15,7 @@ try:
             StaffListAPIView,
             TimesheetResponseMixin,
             WeeklyTimesheetAPIView,
+            build_internal_error_response,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -30,4 +31,5 @@ __all__ = [
     "StaffListAPIView",
     "TimesheetResponseMixin",
     "WeeklyTimesheetAPIView",
+    "build_internal_error_response",
 ]

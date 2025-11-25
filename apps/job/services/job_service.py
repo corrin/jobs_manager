@@ -9,7 +9,8 @@ from apps.accounting.enums import InvoiceStatus
 from apps.accounting.models.invoice import Invoice
 from apps.accounts.models import Staff
 from apps.job.models import Job
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +115,10 @@ def recalculate_job_invoicing_state(job_id: str) -> None:
         logger.error("Provided job id doesn't exist")
         raise
     except Exception as e:
-        persist_app_error(e)
-        raise e
+        try:
+            persist_and_raise(e)
+        except AlreadyLoggedException:
+            raise
 
 
 class JobStaffService:

@@ -11,7 +11,7 @@ from apps.job.models import Job
 from apps.purchasing.models import Stock
 from apps.workflow.api.xero.stock_sync import sync_all_local_stock_to_xero
 from apps.workflow.api.xero.sync import seed_clients_to_xero, seed_jobs_to_xero
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 
 load_dotenv()
 
@@ -71,11 +71,9 @@ class Command(BaseCommand):
 
         except Exception as e:
             logger.error(f"Error during Xero seeding: {e}", exc_info=True)
-            persist_app_error(
+            persist_and_raise(
                 e, additional_context={"operation": "seed_xero_from_database"}
             )
-            self.stdout.write(self.style.ERROR(f"Seeding failed: {e}"))
-            raise  # FAIL EARLY
 
     def process_contacts(self, dry_run):
         """Phase 1: Link/Create contacts for all clients with jobs"""

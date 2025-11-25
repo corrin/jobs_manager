@@ -24,6 +24,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Staff
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.job.helpers import get_company_defaults
 from apps.job.models import Job, JobDeltaRejection
 from apps.job.serializers.job_serializer import (
@@ -83,11 +84,14 @@ class BaseJobRestView(APIView):
         """
         Centralise service layer error handling with error persistence.
         """
+        error_id = None
         try:
             # Persist error for debugging
-            from apps.workflow.services.error_persistence import persist_app_error
+            from apps.workflow.services.error_persistence import persist_and_raise
 
-            persist_app_error(error)
+            persist_and_raise(error)
+        except AlreadyLoggedException as logged_exc:
+            error_id = logged_exc.app_error_id
             logger.error(
                 f"[JOB-REST-VIEW] Handled and persisted error {str(error)} in database."
             )

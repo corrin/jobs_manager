@@ -13,9 +13,22 @@ from apps.accounting.serializers import (
     StaffPerformanceResponseSerializer,
 )
 from apps.accounting.services import StaffPerformanceService
+from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = getLogger(__name__)
+
+
+def _build_staff_error_response(
+    *, message: str, status_code: int, details: dict[str, Any] | None = None
+) -> Response:
+    payload: dict[str, Any] = {"error": message}
+    if details is not None:
+        payload["details"] = details
+
+    serializer = StaffPerformanceErrorResponseSerializer(data=payload)
+    serializer.is_valid(raise_exception=True)
+    return Response(serializer.data, status=status_code)
 
 
 class StaffPerformanceTemplateView(TemplateView):
@@ -35,111 +48,11 @@ class StaffPerformanceSummaryAPIView(APIView):
     serializer_class = StaffPerformanceResponseSerializer
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+
         try:
             # Validate query parameters
-            start_date_str = request.query_params.get("start_date")
-            end_date_str = request.query_params.get("end_date")
-
-            if not start_date_str or not end_date_str:
-                error_data = {
-                    "error": (
-                        "Both start_date and end_date query parameters are required"
-                    )
-                }
-                error_serializer = StaffPerformanceErrorResponseSerializer(
-                    data=error_data
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            try:
-                start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-            except ValueError as exc:
-                error_data = {"error": "Invalid date format. Use YYYY-MM-DD format"}
-                error_serializer = StaffPerformanceErrorResponseSerializer(
-                    data=error_data
-                )
-                error_serializer.is_valid(raise_exception=True)
-                persist_app_error(
-                    exc,
-                    additional_context={
-                        "start_date": start_date_str,
-                        "end_date": end_date_str,
-                    },
-                )
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            if start_date > end_date:
-                error_data = {"error": "start_date must be before or equal to end_date"}
-                error_serializer = StaffPerformanceErrorResponseSerializer(
-                    data=error_data
-                )
-                error_serializer.is_valid(raise_exception=True)
-                persist_app_error(
-                    ValueError("start_date must be before or equal to end_date"),
-                    additional_context={
-                        "start_date": start_date_str,
-                        "end_date": end_date_str,
-                    },
-                )
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Get staff performance data
-            performance_data = StaffPerformanceService.get_staff_performance_data(
-                start_date=start_date, end_date=end_date
-            )
-
-            # Serialize and return response
-            response_serializer = StaffPerformanceResponseSerializer(
-                data=performance_data
-            )
-            response_serializer.is_valid(raise_exception=True)
-
-            return Response(response_serializer.data, status=status.HTTP_200_OK)
-
-        except Exception as exc:
-            logger.error(f"Error in staff performance summary API: {str(exc)}")
-            persist_app_error(
-                exc,
-                additional_context={
-                    "operation": "staff_performance_summary",
-                    "start_date": start_date_str,
-                    "end_date": end_date_str,
-                },
-            )
-            error_data = {
-                "error": (
-                    "Internal server error occurred while generating staff "
-                    "performance report"
-                )
-            }
-            error_serializer = StaffPerformanceErrorResponseSerializer(data=error_data)
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-
-class StaffPerformanceDetailAPIView(APIView):
-    """API endpoint for individual staff performance detail"""
-
-    serializer_class = StaffPerformanceResponseSerializer
-
-    def get(
-        self, request: Request, staff_id: str, *args: Any, **kwargs: Any
-    ) -> Response:
-        try:
-            # Validate query parameters
-            start_date_str = request.query_params.get("start_date")
-            end_date_str = request.query_params.get("end_date")
-
             if not start_date_str or not end_date_str:
                 error_data = {
                     "error": (
@@ -159,6 +72,79 @@ class StaffPerformanceDetailAPIView(APIView):
                 end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
             except ValueError:
                 error_data = {"error": "Invalid date format. Use YYYY-MM-DD format"}
+                return _build_staff_error_response(
+                    message=error_data["error"],
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if start_date > end_date:
+                error_data = {"error": "start_date must be before or equal to end_date"}
+                return _build_staff_error_response(
+                    message=error_data["error"],
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Get staff performance data
+            performance_data = StaffPerformanceService.get_staff_performance_data(
+                start_date=start_date, end_date=end_date
+            )
+
+            # Serialize and return response
+            response_serializer = StaffPerformanceResponseSerializer(
+                data=performance_data
+            )
+            response_serializer.is_valid(raise_exception=True)
+
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+        except AlreadyLoggedException as exc:
+            logger.error("Error in staff performance summary API: %s", exc.original)
+            return _build_staff_error_response(
+                message=(
+                    "Internal server error occurred while generating staff "
+                    "performance report"
+                ),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        except Exception as exc:
+            logger.error(f"Error in staff performance summary API: {str(exc)}")
+            app_error = persist_app_error(
+                exc,
+                additional_context={
+                    "operation": "staff_performance_summary",
+                    "start_date": start_date_str,
+                    "end_date": end_date_str,
+                },
+            )
+            return _build_staff_error_response(
+                message=(
+                    "Internal server error occurred while generating staff "
+                    "performance report"
+                ),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                details={"error_id": str(app_error.id)},
+            )
+
+
+class StaffPerformanceDetailAPIView(APIView):
+    """API endpoint for individual staff performance detail"""
+
+    serializer_class = StaffPerformanceResponseSerializer
+
+    def get(
+        self, request: Request, staff_id: str, *args: Any, **kwargs: Any
+    ) -> Response:
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+
+        try:
+            # Validate query parameters
+            if not start_date_str or not end_date_str:
+                error_data = {
+                    "error": (
+                        "Both start_date and end_date query parameters are required"
+                    )
+                }
                 error_serializer = StaffPerformanceErrorResponseSerializer(
                     data=error_data
                 )
@@ -167,14 +153,21 @@ class StaffPerformanceDetailAPIView(APIView):
                     error_serializer.data, status=status.HTTP_400_BAD_REQUEST
                 )
 
+            try:
+                start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+            except ValueError:
+                error_data = {"error": "Invalid date format. Use YYYY-MM-DD format"}
+                return _build_staff_error_response(
+                    message=error_data["error"],
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
             if start_date > end_date:
                 error_data = {"error": "start_date must be before or equal to end_date"}
-                error_serializer = StaffPerformanceErrorResponseSerializer(
-                    data=error_data
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                return _build_staff_error_response(
+                    message=error_data["error"],
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
             # Get individual staff performance data with job breakdown
@@ -201,9 +194,18 @@ class StaffPerformanceDetailAPIView(APIView):
 
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 
+        except AlreadyLoggedException as exc:
+            logger.error("Error in staff performance detail API: %s", exc.original)
+            return _build_staff_error_response(
+                message=(
+                    "Internal server error occurred while generating staff "
+                    "performance report"
+                ),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
         except Exception as exc:
             logger.error(f"Error in staff performance detail API: {str(exc)}")
-            persist_app_error(
+            app_error = persist_app_error(
                 exc,
                 additional_context={
                     "operation": "staff_performance_detail",
@@ -212,14 +214,11 @@ class StaffPerformanceDetailAPIView(APIView):
                     "end_date": end_date_str,
                 },
             )
-            error_data = {
-                "error": (
+            return _build_staff_error_response(
+                message=(
                     "Internal server error occurred while generating staff "
                     "performance report"
-                )
-            }
-            error_serializer = StaffPerformanceErrorResponseSerializer(data=error_data)
-            error_serializer.is_valid(raise_exception=True)
-            return Response(
-                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                details={"error_id": str(app_error.id)},
             )

@@ -32,6 +32,7 @@ class GetCurrentUserAPIView(APIView):
     def get(self, request: Request) -> Response:
         # Defensive guard: return 401 when unauthenticated instead of 500
         user = getattr(request, "user", None)
+        logger.info(f"[/ME] -> received request: {request} and user: {user}")
         if user is None or not getattr(user, "is_authenticated", False):
             logger.info("Unauthorized access to /accounts/me/ (anonymous user)")
             return Response(

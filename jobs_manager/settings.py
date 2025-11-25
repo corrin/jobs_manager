@@ -138,7 +138,6 @@ def get_auth_cookie_samesite():
         return "none"
     return env.capitalize()
 
-
 # Control scheduler registration - only register jobs when explicitly enabled
 RUN_SCHEDULER = os.getenv("DJANGO_RUN_SCHEDULER")
 
