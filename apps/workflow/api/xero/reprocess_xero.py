@@ -16,6 +16,7 @@ from apps.accounting.models import (
 )
 from apps.client.models import Client, ClientContact
 from apps.workflow.models import XeroAccount, XeroJournal, XeroJournalLineItem
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger("xero")
 
@@ -299,14 +300,16 @@ def set_client_fields(client, new_from_xero=False):
                         contact.email = email
                         contact.save()
                 except ClientContact.MultipleObjectsReturned as exc:
-                    # Should NEVER happen after migrations + constraint
-                    # If we hit this, data integrity is broken - fail fast
-                    from apps.workflow.services.error_persistence import (
-                        persist_app_error,
+                    # Should NEVER happen after migrations + constraint.
+                    # If we hit this, data integrity is broken - fail fast.
+                    persist_and_raise(
+                        exc,
+                        additional_context={
+                            "operation": "set_client_fields_duplicate_contact",
+                            "client_id": str(client.id),
+                            "contact_name": name,
+                        },
                     )
-
-                    persist_app_error(exc)
-                    raise  # Crash - don't mask the problem
 
     phones = raw_json.get("_phones", [])
     if phones:

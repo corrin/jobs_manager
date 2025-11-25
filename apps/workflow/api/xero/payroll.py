@@ -9,7 +9,7 @@ from xero_python.payrollnz import PayrollNzApi
 from xero_python.payrollnz.models import Address, Employee, Timesheet, TimesheetLine
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger("xero.payroll")
 
@@ -51,8 +51,7 @@ def get_employees() -> List[Employee]:
         return employees
     except Exception as exc:
         logger.error(f"Failed to get Xero Payroll employees: {exc}", exc_info=True)
-        persist_app_error(exc)
-        raise
+        persist_and_raise(exc)
 
 
 def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
@@ -137,14 +136,13 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
             exc,
             exc_info=True,
         )
-        persist_app_error(
+        persist_and_raise(
             exc,
             additional_context={
                 "operation": "create_payroll_employee",
                 "email": employee_data.get("email"),
             },
         )
-        raise
 
 
 def get_payroll_calendars() -> List[Dict[str, Any]]:
@@ -185,8 +183,7 @@ def get_payroll_calendars() -> List[Dict[str, Any]]:
         return calendars
     except Exception as exc:
         logger.error(f"Failed to get Xero Payroll calendars: {exc}", exc_info=True)
-        persist_app_error(exc)
-        raise
+        persist_and_raise(exc)
 
 
 def get_pay_runs() -> List[Dict[str, Any]]:
@@ -230,8 +227,7 @@ def get_pay_runs() -> List[Dict[str, Any]]:
         return pay_runs
     except Exception as exc:
         logger.error(f"Failed to get Xero Payroll pay runs: {exc}", exc_info=True)
-        persist_app_error(exc)
-        raise
+        persist_and_raise(exc)
 
 
 def get_pay_run_for_week(week_start_date: date) -> Optional[Dict[str, Any]]:
@@ -312,8 +308,7 @@ def get_leave_types() -> List[Dict[str, Any]]:
         return leave_types
     except Exception as exc:
         logger.error(f"Failed to get Xero Payroll leave types: {exc}", exc_info=True)
-        persist_app_error(exc)
-        raise
+        persist_and_raise(exc)
 
 
 def get_earnings_rates() -> List[Dict[str, Any]]:
@@ -353,8 +348,7 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
         return earnings_rates
     except Exception as exc:
         logger.error(f"Failed to get Xero Payroll earnings rates: {exc}", exc_info=True)
-        persist_app_error(exc)
-        raise
+        persist_and_raise(exc)
 
 
 def _coerce_xero_date(value: Any) -> Optional[date]:
@@ -456,8 +450,13 @@ def create_pay_run(
         logger.error(
             f"Failed to create pay run for week {week_start_date}: {exc}", exc_info=True
         )
-        persist_app_error(exc)
-        raise
+        persist_and_raise(
+            exc,
+            additional_context={
+                "operation": "create_pay_run",
+                "week": str(week_start_date),
+            },
+        )
 
 
 def find_payroll_calendar_for_week(week_start_date: date) -> str:
@@ -683,8 +682,14 @@ def post_timesheet(
             f"Failed to post timesheet for employee {employee_id}: {exc}",
             exc_info=True,
         )
-        persist_app_error(exc)
-        raise
+        persist_and_raise(
+            exc,
+            additional_context={
+                "operation": "post_timesheet",
+                "employee_id": str(employee_id),
+                "week_start_date": week_start_date.isoformat(),
+            },
+        )
 
 
 def create_employee_leave(
@@ -780,5 +785,11 @@ def create_employee_leave(
             f"Failed to create leave for employee {employee_id}: {exc}",
             exc_info=True,
         )
-        persist_app_error(exc)
-        raise
+        persist_and_raise(
+            exc,
+            additional_context={
+                "operation": "create_employee_leave",
+                "employee_id": str(employee_id),
+                "leave_type_id": leave_type_id,
+            },
+        )

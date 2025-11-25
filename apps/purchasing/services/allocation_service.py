@@ -10,7 +10,7 @@ from django.db.models.functions import Coalesce, Greatest
 from apps.job.models import CostLine
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ class AllocationService:
             raise
         except Exception as exc:
             logger.error("Unexpected error during allocation deletion: %s", exc)
-            AllocationService._persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "po_id": str(po_id),
@@ -161,7 +161,7 @@ class AllocationService:
             raise
         except Exception as exc:
             logger.error("Error getting allocation details: %s", exc)
-            AllocationService._persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "po_id": str(po_id),
@@ -373,8 +373,3 @@ class AllocationService:
         po.status = new_status
         po.save(update_fields=["status"])
         logger.debug("Updated PO %s status to %s", po.po_number, po.status)
-
-    @staticmethod
-    def _persist_and_raise(exception: Exception, **context) -> None:
-        app_error = persist_app_error(exception, **context)
-        raise AlreadyLoggedException(exception, app_error.id)

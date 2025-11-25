@@ -22,15 +22,9 @@ from apps.client.models import Client, ClientContact
 from apps.workflow.api.xero.sync import sync_clients
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
-
-
-def _persist_and_raise(exception: Exception, **context) -> None:
-    """Persist the exception and re-raise as AlreadyLoggedException."""
-    app_error = persist_app_error(exception, **context)
-    raise AlreadyLoggedException(exception, app_error.id)
 
 
 class ClientRestService:
@@ -59,7 +53,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(exc)
+            persist_and_raise(exc)
 
     @staticmethod
     def search_clients(query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -92,7 +86,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(exc, additional_context={"query": query, "limit": limit})
+            persist_and_raise(exc, additional_context={"query": query, "limit": limit})
 
     @staticmethod
     def get_client_by_id(client_id: UUID) -> Dict[str, Any]:
@@ -116,7 +110,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "get_client_by_id",
@@ -163,7 +157,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "create_client",
@@ -250,7 +244,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "update_client",
@@ -292,7 +286,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "get_client_contacts",
@@ -353,7 +347,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "create_client_contact",
@@ -385,7 +379,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "get_job_contact",
@@ -411,7 +405,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "serialize_job_contact",
@@ -486,7 +480,7 @@ class ClientRestService:
         except AlreadyLoggedException:
             raise
         except Exception as exc:
-            _persist_and_raise(
+            persist_and_raise(
                 exc,
                 additional_context={
                     "operation": "update_job_contact",
