@@ -46,4 +46,4 @@ class ClientContactViewSet(viewsets.ModelViewSet):
         Soft delete - set is_active=False instead of actually deleting.
         """
         instance.is_active = False
-        instance.save(update_fields=["is_active", "updated_at"])
+        instance.save(update_fields=["is_active"])
