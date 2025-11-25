@@ -27,6 +27,7 @@
       "last_xero_sync": null,
       "last_xero_deep_sync": null,
       "shop_client_name": "Demo Company Shop",
+      "test_client_name": "ABC Carpet Cleaning TEST IGNORE",
       "billable_threshold_green": "45.00",
       "billable_threshold_amber": "30.00",
       "daily_gp_target": "1250.00",

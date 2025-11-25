@@ -12,6 +12,8 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 from faker import Faker
 
+from apps.workflow.models import CompanyDefaults
+
 
 class Command(BaseCommand):
     help = "Backs up necessary production data, excluding Xero-related models."
@@ -159,13 +161,17 @@ class Command(BaseCommand):
             data.extend(migrations_data)
             fake = Faker()
 
+            # Get preserved client names from CompanyDefaults
+            preserved_client_names = self._get_preserved_client_names()
+            self.stdout.write(f"Preserving client names: {preserved_client_names}")
+
             self.stdout.write(
                 f"Anonymizing {len(data)} records "
                 f"(including {len(migrations_data)} migrations)..."
             )
 
             for item in data:
-                self.anonymize_item(item, fake)
+                self.anonymize_item(item, fake, preserved_client_names)
 
             # Step 3: Write anonymized data (compressed)
             with gzip.open(output_path, "wt", encoding="utf-8") as f:
@@ -190,18 +196,27 @@ class Command(BaseCommand):
             if os.path.exists(output_path):
                 os.remove(output_path)
 
-    def anonymize_item(self, item, fake):
+    def _get_preserved_client_names(self):
+        """Get the list of client names that should not be anonymized."""
+        preserved_names = set()
+        company_defaults = CompanyDefaults.objects.get()
+        if company_defaults.shop_client_name:
+            preserved_names.add(company_defaults.shop_client_name)
+        if company_defaults.test_client_name:
+            preserved_names.add(company_defaults.test_client_name)
+        return preserved_names
+
+    def anonymize_item(self, item, fake, preserved_client_names=None):
         """Anonymize PII fields in the serialized item using configuration"""
+        if preserved_client_names is None:
+            preserved_client_names = set()
+
         model = item["model"]
         fields = item["fields"]
 
-        # Special case: preserve the shop client
-        if (
-            model == "client.client"
-            and item["pk"] == "00000000-0000-0000-0000-000000000001"
-        ):
-            fields["name"] = "Demo Company Shop"
-            # Skip other anonymization for shop client
+        # Special case: preserve shop and test clients by name
+        if model == "client.client" and fields.get("name") in preserved_client_names:
+            # Skip anonymization entirely for preserved clients
             return
 
         if model not in self.PII_CONFIG:
