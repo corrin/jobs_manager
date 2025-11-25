@@ -16,6 +16,7 @@
 #### Reports
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
+| `/api/reports/job-movement/` | `JobMovementMetricsView` | `accounting:api_job_movement` | API endpoint for job movement and conversion metrics. |
 | `/api/reports/profit-and-loss/` | `CompanyProfitAndLossReport` | `accounting:api_profit_and_loss` | No description available |
 
 #### System

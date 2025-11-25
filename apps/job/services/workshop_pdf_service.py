@@ -400,18 +400,10 @@ def create_delivery_docket_pdf(job):
     """
     Generate a delivery docket PDF (no materials, workshop time, or internal notes).
     Includes handover section with signature, date, and notes fields.
+    Does not include job attachments - delivery dockets are kept minimal.
     """
     try:
-        main_buffer = create_delivery_docket_main_document(job)
-
-        files_to_print = job.files.filter(print_on_jobsheet=True)
-        if not files_to_print.exists():
-            return main_buffer
-
-        image_files = [f for f in files_to_print if f.mime_type.startswith("image/")]
-        pdf_files = [f for f in files_to_print if f.mime_type == "application/pdf"]
-
-        return process_attachments(main_buffer, image_files, pdf_files)
+        return create_delivery_docket_main_document(job)
     except Exception as e:
         logger.error(f"Error creating delivery docket PDF: {str(e)}")
         raise e

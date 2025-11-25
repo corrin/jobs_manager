@@ -179,6 +179,21 @@ def set_client_fields(client, new_from_xero=False):
         client.save()
         return
 
+    # Capture old values for change tracking (only for updates, not new clients)
+    tracked_fields = [
+        "name",
+        "email",
+        "phone",
+        "address",
+        "is_account_customer",
+        "primary_contact_name",
+        "primary_contact_email",
+        "xero_archived",
+    ]
+    old_values = {}
+    if not new_from_xero:
+        old_values = {field: getattr(client, field, None) for field in tracked_fields}
+
     client.name = raw_json.get("_name", client.name or "Unnamed Client")
     # This is the general email for the contact/company
     client.email = raw_json.get("_email_address", client.email)
@@ -347,7 +362,23 @@ def set_client_fields(client, new_from_xero=False):
             f"created from Xero data."
         )
     else:
-        logger.info(f"Client {client.name} (ID: {client.id}) updated from Xero data.")
+        # Compare old and new values to report changes
+        changes = []
+        for field in tracked_fields:
+            old_val = old_values.get(field)
+            new_val = getattr(client, field, None)
+            if old_val != new_val:
+                changes.append(f"{field}: {old_val!r} → {new_val!r}")
+
+        if changes:
+            logger.info(
+                f"Client {client.name} (ID: {client.id}) updated from Xero data. "
+                f"Changes: {', '.join(changes)}"
+            )
+        else:
+            logger.info(
+                f"Client {client.name} (ID: {client.id}) synced from Xero (no changes)."
+            )
 
 
 def set_journal_fields(journal: XeroJournal):

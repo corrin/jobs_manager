@@ -19,6 +19,7 @@ from xero_python.accounting import AccountingApi
 
 from apps.client.forms import ClientForm
 from apps.client.models import Client, ClientContact
+from apps.client.utils import date_to_datetime
 from apps.workflow.api.xero.sync import sync_clients
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
 from apps.workflow.exceptions import AlreadyLoggedException
@@ -531,12 +532,6 @@ class ClientRestService:
         """
         formatted = []
         for client in clients:
-            # Guard None for date
-            date_str = (
-                client.last_invoice_date.strftime("%d/%m/%Y")
-                if client.last_invoice_date
-                else ""
-            )
             formatted.append(
                 {
                     "id": str(client.id),
@@ -546,7 +541,7 @@ class ClientRestService:
                     "address": client.address or "",
                     "is_account_customer": client.is_account_customer,
                     "xero_contact_id": client.xero_contact_id or "",
-                    "last_invoice_date": date_str,
+                    "last_invoice_date": date_to_datetime(client.last_invoice_date),
                     "total_spend": f"${client.total_spend:,.2f}",
                 }
             )
@@ -571,24 +566,14 @@ class ClientRestService:
             "primary_contact_email": client.primary_contact_email or "",
             "additional_contact_persons": client.additional_contact_persons or [],
             "all_phones": client.all_phones or [],
-            "xero_last_modified": (
-                client.xero_last_modified.isoformat()
-                if client.xero_last_modified
-                else None
-            ),
-            "xero_last_synced": (
-                client.xero_last_synced.isoformat() if client.xero_last_synced else None
-            ),
+            "xero_last_modified": client.xero_last_modified,
+            "xero_last_synced": client.xero_last_synced,
             "xero_archived": client.xero_archived,
             "xero_merged_into_id": client.xero_merged_into_id or "",
             "merged_into": str(client.merged_into.id) if client.merged_into else None,
-            "django_created_at": client.django_created_at.isoformat(),
-            "django_updated_at": client.django_updated_at.isoformat(),
-            "last_invoice_date": (
-                client.get_last_invoice_date().strftime("%d/%m/%Y")
-                if client.get_last_invoice_date()
-                else ""
-            ),
+            "django_created_at": client.django_created_at,
+            "django_updated_at": client.django_updated_at,
+            "last_invoice_date": date_to_datetime(client.get_last_invoice_date()),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 
@@ -786,3 +771,71 @@ class ClientRestService:
             else:
                 # If both Xero and local update fail, raise the original Xero error
                 raise ValueError(f"Xero update failed: {str(e)}")
+
+    @staticmethod
+    def get_client_jobs(client_id: UUID) -> List[Dict[str, Any]]:
+        """
+        Retrieves all jobs for a specific client.
+
+        Args:
+            client_id: Client UUID
+
+        Returns:
+            List of job header dictionaries
+
+        Raises:
+            ValueError: If client not found
+        """
+        try:
+            # Guard clause - verify client exists
+            if not Client.objects.filter(id=client_id).exists():
+                raise ValueError(f"Client with id {client_id} not found")
+
+            # Import here to avoid circular imports
+            from apps.job.models import Job
+
+            # Get all jobs for this client
+            jobs = (
+                Job.objects.filter(client_id=client_id)
+                .select_related("client")
+                .only(
+                    "id",
+                    "job_number",
+                    "name",
+                    "client_id",
+                    "status",
+                    "pricing_methodology",
+                    "fully_invoiced",
+                    "quote_acceptance_date",
+                    "paid",
+                    "rejected_flag",
+                )
+                .order_by("-job_number")
+            )
+
+            # Format job data
+            return [
+                {
+                    "job_id": str(job.id),
+                    "job_number": job.job_number,
+                    "name": job.name,
+                    "client": (
+                        {"id": str(job.client.id), "name": job.client.name}
+                        if job.client
+                        else None
+                    ),
+                    "status": job.status,
+                    "pricing_methodology": job.pricing_methodology,
+                    "fully_invoiced": job.fully_invoiced,
+                    "has_quote_in_xero": job.quoted,
+                    "is_fixed_price": job.pricing_methodology == "fixed_price",
+                    "quote_acceptance_date": job.quote_acceptance_date,
+                    "paid": job.paid,
+                    "rejected_flag": job.rejected_flag,
+                }
+                for job in jobs
+            ]
+
+        except Exception as e:
+            persist_app_error(e)
+            raise

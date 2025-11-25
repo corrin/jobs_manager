@@ -11,7 +11,7 @@ from apps.accounting.views.staff_performance_views import (
     StaffPerformanceSummaryAPIView,
     StaffPerformanceTemplateView,
 )
-from apps.workflow.api.reports import CompanyProfitAndLossReport
+from apps.workflow.api.reports import CompanyProfitAndLossReport, JobMovementMetricsView
 
 app_name = "accounting"
 
@@ -26,6 +26,11 @@ urlpatterns = [
         "api/reports/job-aging/",
         JobAgingAPIView.as_view(),
         name="api_job_aging",
+    ),
+    path(
+        "api/reports/job-movement/",
+        JobMovementMetricsView.as_view(),
+        name="api_job_movement",
     ),
     path(
         "api/reports/profit-and-loss/",

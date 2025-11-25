@@ -489,17 +489,25 @@ def transform_purchase_order(xero_po, xero_id):
         "purchase_order",
         xero_id,
     )
-    po, created = PurchaseOrder.objects.get_or_create(
-        xero_id=xero_id,
-        defaults={
-            "supplier": supplier,
-            "po_number": po_number,
-            "order_date": order_date,
-            "status": status_map.get(status, "draft"),
-            "xero_last_modified": xero_last_modified,
-            "raw_json": raw_json,
-        },
-    )
+    # Check for existing PO by xero_id first, then by po_number
+    # (po_number has unique constraint but xero_id is the canonical link)
+    po = PurchaseOrder.objects.filter(xero_id=xero_id).first()
+    if not po:
+        po = PurchaseOrder.objects.filter(po_number=po_number).first()
+        if po:
+            # Link existing PO to Xero
+            po.xero_id = xero_id
+            logger.info(f"Linked existing PO {po_number} to Xero ID {xero_id}")
+    if not po:
+        po = PurchaseOrder.objects.create(
+            xero_id=xero_id,
+            supplier=supplier,
+            po_number=po_number,
+            order_date=order_date,
+            status=status_map.get(status, "draft"),
+            xero_last_modified=xero_last_modified,
+            raw_json=raw_json,
+        )
     po.po_number = po_number
     po.order_date = order_date
     po.expected_delivery = getattr(xero_po, "delivery_date", None)

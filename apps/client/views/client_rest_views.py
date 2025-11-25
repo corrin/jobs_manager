@@ -33,6 +33,7 @@ from apps.client.serializers import (
     ClientDetailResponseSerializer,
     ClientDuplicateErrorResponseSerializer,
     ClientErrorResponseSerializer,
+    ClientJobsResponseSerializer,
     ClientListResponseSerializer,
     ClientNameOnlySerializer,
     ClientSearchResponseSerializer,
@@ -44,6 +45,7 @@ from apps.client.serializers import (
 from apps.client.services.client_rest_service import ClientRestService
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
+from apps.client.utils import date_to_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -615,11 +617,7 @@ class ClientCreateRestView(APIView):
             "address": client.address or "",
             "is_account_customer": client.is_account_customer,
             "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": (
-                client.get_last_invoice_date().strftime("%d/%m/%Y")
-                if client.get_last_invoice_date()
-                else ""
-            ),
+            "last_invoice_date": date_to_datetime(client.get_last_invoice_date()),
             "total_spend": f"${client.get_total_spend():,.2f}",
         }
 
@@ -750,4 +748,70 @@ class JobContactRestView(APIView):
         except Exception as exc:
             return _build_server_error_response(
                 message="Error updating job contact", exc=exc
+            )
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get client jobs",
+        description="Retrieve all jobs for a specific client.",
+        parameters=[
+            OpenApiParameter(
+                name="client_id",
+                location=OpenApiParameter.PATH,
+                description="UUID of the client",
+                required=True,
+                type=OpenApiTypes.UUID,
+            )
+        ],
+        responses={
+            200: ClientJobsResponseSerializer,
+            404: ClientErrorResponseSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+        tags=["Clients"],
+    )
+)
+class ClientJobsRestView(APIView):
+    """
+    REST view for fetching all jobs for a specific client.
+    Returns job header information for fast loading.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ClientJobsResponseSerializer
+
+    def get(self, request: Request, client_id: str) -> Response:
+        """
+        Retrieves all jobs for a specific client.
+        """
+        try:
+            # Guard clause: validate client_id
+            if not client_id:
+                error_serializer = ClientErrorResponseSerializer(
+                    data={"error": "Client ID is required"}
+                )
+                error_serializer.is_valid(raise_exception=True)
+                return Response(
+                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                )
+
+            jobs = ClientRestService.get_client_jobs(client_id)
+            response_data = {"results": jobs}
+            serializer = ClientJobsResponseSerializer(data=response_data)
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data)
+
+        except ValueError as e:
+            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
+            error_serializer.is_valid(raise_exception=True)
+            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error fetching jobs for client {client_id}: {str(e)}")
+            error_serializer = ClientErrorResponseSerializer(
+                data={"error": "Error fetching client jobs", "details": str(e)}
+            )
+            error_serializer.is_valid(raise_exception=True)
+            return Response(
+                error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
