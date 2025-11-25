@@ -17,10 +17,11 @@ class ClientContactSerializer(serializers.ModelSerializer):
             "position",
             "is_primary",
             "notes",
+            "is_active",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_active", "created_at", "updated_at"]
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -28,7 +29,30 @@ class ClientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = "__all__"
+        fields = [
+            "id",
+            "xero_contact_id",
+            "xero_tenant_id",
+            "name",
+            "email",
+            "phone",
+            "address",
+            "is_account_customer",
+            "is_supplier",
+            "xero_last_modified",
+            "raw_json",
+            "primary_contact_name",
+            "primary_contact_email",
+            "additional_contact_persons",
+            "all_phones",
+            "django_created_at",
+            "django_updated_at",
+            "xero_last_synced",
+            "xero_archived",
+            "xero_merged_into_id",
+            "merged_into",
+            "contacts",
+        ]
 
 
 class ClientNameOnlySerializer(serializers.ModelSerializer):

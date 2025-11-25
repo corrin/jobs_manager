@@ -25,9 +25,6 @@ from rest_framework.views import APIView
 
 from apps.client.models import Client
 from apps.client.serializers import (
-    ClientContactCreateRequestSerializer,
-    ClientContactCreateResponseSerializer,
-    ClientContactResponseSerializer,
     ClientCreateRequestSerializer,
     ClientCreateResponseSerializer,
     ClientDetailResponseSerializer,
@@ -43,9 +40,9 @@ from apps.client.serializers import (
     JobContactUpdateRequestSerializer,
 )
 from apps.client.services.client_rest_service import ClientRestService
+from apps.client.utils import date_to_datetime
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
-from apps.client.utils import date_to_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -343,159 +340,6 @@ class ClientUpdateRestView(APIView):
         except Exception as exc:
             return _build_server_error_response(
                 message="Error updating client", exc=exc
-            )
-
-
-@extend_schema_view(
-    get=extend_schema(
-        summary="Get client contacts",
-        description="Retrieve all contacts for a specific client.",
-        parameters=[
-            OpenApiParameter(
-                name="client_id",
-                location=OpenApiParameter.PATH,
-                description="UUID of the client",
-                required=True,
-                type=OpenApiTypes.UUID,
-            )
-        ],
-        responses={
-            200: ClientContactResponseSerializer,
-            400: ClientErrorResponseSerializer,
-            404: ClientErrorResponseSerializer,
-            500: ClientErrorResponseSerializer,
-        },
-        tags=["Clients"],
-    )
-)
-class ClientContactsRestView(APIView):
-    """
-    REST view for fetching contacts of a client.
-    """
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = ClientContactResponseSerializer
-
-    def get(self, request: Request, client_id: str) -> Response:
-        """
-        Fetches contacts for a specific client.
-        """
-        try:
-            # Guard clause: validate client_id
-            if not client_id:
-                error_serializer = ClientErrorResponseSerializer(
-                    data={"error": "Client ID is required"}
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            results = ClientRestService.get_client_contacts(client_id)
-            response_data = {"results": results}
-            serializer = ClientContactResponseSerializer(data=response_data)
-            serializer.is_valid(raise_exception=True)
-            return Response(serializer.data)
-
-        except ValueError as e:
-            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
-            error_serializer.is_valid(raise_exception=True)
-            return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
-        except Exception as exc:
-            return _build_server_error_response(
-                message="Error fetching client contacts", exc=exc
-            )
-
-
-@extend_schema_view(
-    post=extend_schema(
-        summary="Create a new client contact",
-        request=ClientContactCreateRequestSerializer,
-        responses={
-            201: ClientContactCreateResponseSerializer,
-            400: ClientErrorResponseSerializer,
-            500: ClientErrorResponseSerializer,
-        },
-    )
-)
-class ClientContactCreateRestView(APIView):
-    """
-    REST view for creating client contacts.
-    Follows SRP - single responsibility of orchestrating contact creation.
-    """
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = ClientContactCreateResponseSerializer
-
-    def get_serializer_class(self):
-        """Return the appropriate serializer class based on the request method"""
-        if self.request.method == "POST":
-            return ClientContactCreateRequestSerializer
-        return ClientContactCreateResponseSerializer
-
-    def get_serializer(self, *args, **kwargs):
-        """Return the serializer instance for the request for OpenAPI compatibility"""
-        serializer_class = self.get_serializer_class()
-        return serializer_class(*args, **kwargs)
-
-    def post(self, request: Request) -> Response:
-        """
-        Create a new client contact.
-
-        Expected JSON:
-        {
-            "client_id": "uuid-of-client",
-            "name": "Contact Name",
-            "email": "contact@example.com",
-            "phone": "123-456-7890",
-            "position": "Job Title",
-            "is_primary": false,
-            "notes": "Additional notes"
-        }
-        """
-        try:
-            # Validate input data
-            input_serializer = ClientContactCreateRequestSerializer(data=request.data)
-            if not input_serializer.is_valid():
-                error_serializer = ClientErrorResponseSerializer(
-                    data={"error": f"Invalid input data: {input_serializer.errors}"}
-                )
-                error_serializer.is_valid(raise_exception=True)
-                return Response(
-                    error_serializer.data, status=status.HTTP_400_BAD_REQUEST
-                )
-
-            validated_data = input_serializer.validated_data
-            logger.info(f"Received contact creation data: {validated_data}")
-            contact = ClientRestService.create_client_contact(validated_data)
-
-            response_data = {
-                "success": True,
-                "contact": {
-                    "id": str(contact.id),
-                    "name": contact.name,
-                    "email": contact.email or "",
-                    "phone": contact.phone or "",
-                    "position": contact.position or "",
-                    "is_primary": contact.is_primary,
-                    "notes": contact.notes or "",
-                },
-                "message": "Contact created successfully",
-            }
-
-            response_serializer = ClientContactCreateResponseSerializer(
-                data=response_data
-            )
-            response_serializer.is_valid(raise_exception=True)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-        except ValueError as e:
-            error_serializer = ClientErrorResponseSerializer(data={"error": str(e)})
-            error_serializer.is_valid(raise_exception=True)
-            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as exc:
-            return _build_server_error_response(
-                message="Error creating contact", exc=exc
             )
 
 

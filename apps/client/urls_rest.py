@@ -7,11 +7,11 @@ REST URLs for Client module following RESTful patterns:
 - Consistent structure with other REST modules
 """
 
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
+from apps.client.views.client_contact_viewset import ClientContactViewSet
 from apps.client.views.client_rest_views import (
-    ClientContactCreateRestView,
-    ClientContactsRestView,
     ClientCreateRestView,
     ClientJobsRestView,
     ClientListAllRestView,
@@ -22,6 +22,10 @@ from apps.client.views.client_rest_views import (
 )
 
 app_name = "clients_rest"
+
+# Router for ViewSet-based endpoints
+router = DefaultRouter()
+router.register("contacts", ClientContactViewSet, basename="client-contact")
 
 urlpatterns = [
     # Client list all REST endpoint
@@ -54,23 +58,11 @@ urlpatterns = [
         ClientUpdateRestView.as_view(),
         name="client_update_rest",
     ),
-    # Client contacts REST endpoint
-    path(
-        "<uuid:client_id>/contacts/",
-        ClientContactsRestView.as_view(),
-        name="client_contacts_rest",
-    ),
     # Client jobs REST endpoint
     path(
         "<uuid:client_id>/jobs/",
         ClientJobsRestView.as_view(),
         name="client_jobs_rest",
-    ),
-    # Client contact creation REST endpoint
-    path(
-        "contacts/",
-        ClientContactCreateRestView.as_view(),
-        name="client_contact_create_rest",
     ),
     # Job contact REST endpoint
     path(
@@ -78,4 +70,6 @@ urlpatterns = [
         JobContactRestView.as_view(),
         name="job_contact_rest",
     ),
+    # ViewSet routes (contacts CRUD)
+    path("", include(router.urls)),
 ]

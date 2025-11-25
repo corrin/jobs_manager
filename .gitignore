@@ -136,3 +136,4 @@ cookies.txt
 .env.uat
 adhoc/performance_investigation/*.json
 adhoc/
+schema.yml

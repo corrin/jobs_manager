@@ -7,12 +7,6 @@
 |-------------|------|------|-------------|
 | `/all/` | `client_rest_views.ClientListAllRestView` | `clients:client_list_all_rest` | REST view for listing all clients. |
 
-### Contacts Management
-| URL Pattern | View | Name | Description |
-|-------------|------|------|-------------|
-| `/<uuid:client_id>/contacts/` | `client_rest_views.ClientContactsRestView` | `clients:client_contacts_rest` | REST view for fetching contacts of a client. |
-| `/contacts/` | `client_rest_views.ClientContactCreateRestView` | `clients:client_contact_create_rest` | REST view for creating client contacts. |
-
 ### Create Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|

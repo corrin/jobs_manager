@@ -257,6 +257,10 @@ class ClientContact(models.Model):
     notes = models.TextField(
         null=True, blank=True, help_text="Additional notes about this contact"
     )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Soft delete flag - inactive contacts are hidden from normal queries",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
