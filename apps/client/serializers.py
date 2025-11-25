@@ -8,19 +8,8 @@ class ClientContactSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientContact
-        fields = [
-            "id",
-            "client",
-            "name",
-            "email",
-            "phone",
-            "position",
-            "is_primary",
-            "notes",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at"]
+        fields = "__all__"
+        read_only_fields = ["id", "is_active", "created_at", "updated_at"]
 
 
 class ClientSerializer(serializers.ModelSerializer):
