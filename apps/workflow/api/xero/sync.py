@@ -33,9 +33,7 @@ from apps.workflow.api.xero.xero import (
 )
 from apps.workflow.exceptions import XeroValidationError
 from apps.workflow.models import CompanyDefaults, XeroAccount, XeroJournal
-from apps.workflow.services.error_persistence import (
-    persist_xero_error,
-)
+from apps.workflow.services.error_persistence import persist_xero_error
 from apps.workflow.services.validation import validate_required_fields
 from apps.workflow.utils import get_machine_id
 
@@ -535,7 +533,7 @@ def transform_purchase_order(xero_po, xero_id):
                         "unit_cost": getattr(line, "unit_amount", None),
                     },
                 )
-            except PurchaseOrderLine.MultipleObjectsReturned as exc:
+            except PurchaseOrderLine.MultipleObjectsReturned:
                 logger.error(
                     f"Multiple PurchaseOrderLine records found for document '{po_number}' "
                     f"(Xero ID: {xero_id}), line item: '{description}', "
@@ -804,7 +802,7 @@ def sync_xero_data(
         except XeroValidationError as exc:
             persist_xero_error(exc)
             raise
-        except Exception as exc:
+        except Exception:
             raise
 
         yield {
