@@ -1,3 +1,4 @@
+import datetime
 import json
 import logging
 import os
@@ -196,8 +197,6 @@ class GeminiPriceExtractionProvider:
             response: The response object from Gemini API
             file_path: Original file path being processed
         """
-        import datetime
-
         debug_data = {
             "timestamp": datetime.datetime.now().isoformat(),
             "source_file": os.path.basename(file_path),

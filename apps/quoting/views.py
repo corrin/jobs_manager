@@ -1,5 +1,8 @@
 import logging
+import os
+import tempfile
 
+from django.db import transaction
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from drf_spectacular.utils import extend_schema
@@ -10,6 +13,9 @@ from apps.quoting.serializers import (
     ExtractSupplierPriceListResponseSerializer,
     SupplierPriceListUploadSerializer,
 )
+from apps.quoting.services.ai_price_extraction import extract_price_data
+from apps.quoting.services.pdf_data_validation import PDFDataValidationService
+from apps.quoting.services.pdf_import_service import PDFImportService
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -56,15 +62,6 @@ def extract_supplier_price_list_data_view(request):
     4. Import products to database
     5. Return detailed processing results
     """
-    import os
-    import tempfile
-
-    from django.db import transaction
-
-    from apps.quoting.services.ai_price_extraction import extract_price_data
-    from apps.quoting.services.pdf_data_validation import PDFDataValidationService
-    from apps.quoting.services.pdf_import_service import PDFImportService
-
     temp_file_path = None
 
     try:

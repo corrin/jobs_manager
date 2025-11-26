@@ -1,4 +1,6 @@
 import logging
+from datetime import datetime
+from uuid import UUID
 
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import JsonResponse
@@ -8,6 +10,7 @@ from django.views.generic import CreateView, ListView, UpdateView
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import generics
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.forms import StaffChangeForm, StaffCreationForm
@@ -76,20 +79,14 @@ class StaffListAPIView(generics.ListAPIView):
 
         if actual_users:
             excluded_ids_str = get_excluded_staff()
-            from uuid import UUID
-
             excluded_ids = [UUID(id_str) for id_str in excluded_ids_str]
             queryset = queryset.exclude(id__in=excluded_ids)
 
         if date_param:
             try:
-                from datetime import datetime
-
                 target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
                 queryset = queryset.active_on_date(target_date)
             except ValueError:
-                from rest_framework.exceptions import ValidationError
-
                 raise ValidationError("Invalid date format. Use YYYY-MM-DD")
 
         return queryset

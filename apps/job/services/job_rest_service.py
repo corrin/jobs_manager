@@ -1269,8 +1269,6 @@ class JobRestService:
         Accept a quote for a job by setting the quote_acceptance_date and changing status to approved.
         Enforces optimistic concurrency via If-Match (ETag) precondition.
         """
-        from datetime import datetime
-
         # Lock row to ensure atomic precondition check + update
         job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
 

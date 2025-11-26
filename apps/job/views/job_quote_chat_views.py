@@ -6,6 +6,7 @@ Follows the same pattern as other job REST views.
 """
 
 import logging
+import traceback
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -236,8 +237,6 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
         except Exception as e:
             logger.error(f"Quote chat POST - Exception occurred: {str(e)}")
             logger.error(f"Quote chat POST - Exception type: {type(e).__name__}")
-            import traceback
-
             logger.error(f"Quote chat POST - Traceback: {traceback.format_exc()}")
             return self.handle_error(e)
 

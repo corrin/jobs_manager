@@ -4,6 +4,7 @@ Service for posting weekly timesheets to Xero Payroll NZ.
 """
 
 import logging
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -459,8 +460,6 @@ class PayrollSyncService:
         }
 
         # Group entries by leave type and sort by date
-        from collections import defaultdict
-
         grouped = defaultdict(list)
         for entry in entries:
             job = entry.cost_set.job
