@@ -90,9 +90,9 @@ class BaseJobRestView(APIView):
 
             persist_and_raise(error)
         except AlreadyLoggedException as logged_exc:
-            logged_exc.app_error_id
             logger.error(
-                f"[JOB-REST-VIEW] Handled and persisted error {str(error)} in database."
+                f"[JOB-REST-VIEW] Handled and persisted error {str(error)} "
+                f"(error_id={logged_exc.app_error_id})"
             )
         except Exception as persist_error:
             logger.error(f"Failed to persist error: {persist_error}")
