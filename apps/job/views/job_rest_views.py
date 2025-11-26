@@ -50,6 +50,7 @@ from apps.job.serializers.job_serializer import (
 )
 from apps.job.services.job_rest_service import DeltaValidationError, JobRestService
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 from apps.workflow.utils import parse_pagination_params
 
 logger = logging.getLogger(__name__)
@@ -86,8 +87,6 @@ class BaseJobRestView(APIView):
         """
         try:
             # Persist error for debugging
-            from apps.workflow.services.error_persistence import persist_and_raise
-
             persist_and_raise(error)
         except AlreadyLoggedException as logged_exc:
             logger.error(
