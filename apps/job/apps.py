@@ -17,6 +17,7 @@ class JobConfig(AppConfig):
             self._register_job_jobs()
 
     def _register_job_jobs(self) -> None:
+        # Import here to avoid AppRegistryNotReady during Django startup
         from apps.job.scheduler_jobs import set_paid_flag_jobs
 
         scheduler = get_scheduler()
@@ -47,6 +48,7 @@ class JobConfig(AppConfig):
         discourages. Consider lazy initialization or environment variable config.
         """
         try:
+            # Import here to avoid AppRegistryNotReady during Django startup
             import google.generativeai as genai
 
             from apps.workflow.enums import AIProviderTypes

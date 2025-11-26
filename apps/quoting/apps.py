@@ -24,7 +24,7 @@ class QuotingConfig(AppConfig):
 
     def _register_scraper_jobs(self) -> None:
         """Register scraper-related jobs with the shared scheduler."""
-        # Import the standalone job functions
+        # Import here to avoid AppRegistryNotReady during Django startup
         from apps.quoting.scheduler_jobs import (
             delete_old_job_executions,
             run_all_scrapers_job,
