@@ -6,8 +6,10 @@ Command to test the complete quote import service functionality.
 
 from pathlib import Path
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
+from apps.client.models import Client
 from apps.job.models import Job
 from apps.job.services.import_quote_service import (
     QuoteImportError,
@@ -53,8 +55,6 @@ class Command(BaseCommand):
         file_path = options["file"]
         if not Path(file_path).is_absolute():
             # If relative path, assume it's from project root
-            from django.conf import settings
-
             project_root = Path(settings.BASE_DIR)
             file_path = project_root / file_path
 
@@ -106,8 +106,6 @@ class Command(BaseCommand):
             return test_job
 
         # Create new test job
-        from apps.client.models import Client
-
         # Get first available client or create one
         client = Client.objects.first()
         if not client:

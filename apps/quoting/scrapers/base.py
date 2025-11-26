@@ -1,5 +1,9 @@
 # quoting/scrapers/base.py
 import logging
+import os
+import tempfile
+import time
+import uuid
 from abc import ABC, abstractmethod
 
 from django.utils import timezone
@@ -28,9 +32,6 @@ class BaseScraper(ABC):
 
     def setup_driver(self):
         """Setup Selenium WebDriver - common for all scrapers"""
-        import tempfile
-        import uuid
-
         chrome_options = Options()
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -54,9 +55,6 @@ class BaseScraper(ABC):
         chrome_options.add_argument("--disable-ipc-flooding-protection")
 
         # Use unique temp directory with timestamp to avoid conflicts
-        import os
-        import time
-
         unique_id = f"{int(time.time())}_{str(uuid.uuid4())[:8]}"
         temp_dir = tempfile.mkdtemp(prefix=f"scraper_chrome_{unique_id}_")
         chrome_options.add_argument(f"--user-data-dir={temp_dir}")

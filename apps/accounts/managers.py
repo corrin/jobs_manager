@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from django.contrib.auth.base_user import BaseUserManager
 from django.db import models
+from django.utils import timezone
 
 if TYPE_CHECKING:
     from apps.accounts.models import Staff
@@ -57,8 +58,6 @@ class StaffManager(BaseManagerClass):
 
     def currently_active(self) -> models.QuerySet["Staff"]:
         """Get currently active staff (replaces is_active=True filters)"""
-        from django.utils import timezone
-
         return self.active_on_date(timezone.now().date())
 
     def active_between_dates(

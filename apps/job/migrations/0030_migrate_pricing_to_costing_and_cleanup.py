@@ -100,7 +100,7 @@ def migrate_pricing_to_costing(apps, schema_editor):
                 job=jp.job, kind=kind, rev=rev
             ).first()
             if existing_costset:
-                print(f"DUPLICATE DETECTED - COMBINING:")
+                print("DUPLICATE DETECTED - COMBINING:")
                 print(
                     f"  Current JobPricing: ID={jp.id}, Job={jp.job.job_number}, Kind={kind}, Rev={rev}"
                 )

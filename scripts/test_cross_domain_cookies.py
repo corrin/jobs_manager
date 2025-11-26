@@ -35,9 +35,8 @@ def test_login_and_cookie(
     print(f"Frontend URL: {frontend_url}")
     print(f"Username:     {username}\n")
 
-    # DON'T use a session - simulate browser behavior
-    # Each request is separate, cookies must be manually managed
-    cookies = {}
+    # Use a session to maintain cookies across requests
+    session = requests.Session()
 
     # Test 1: Login and get cookies
     print("Step 1: Logging in to get JWT cookies...")
@@ -45,7 +44,7 @@ def test_login_and_cookie(
     login_data = {"username": username, "password": password}
 
     try:
-        response = requests.post(
+        response = session.post(
             login_url,
             json=login_data,
             # Simulate cross-origin request from browser
@@ -69,11 +68,11 @@ def test_login_and_cookie(
             print(f"Available cookies: {list(cookies.keys())}")
             return False
 
-        print(f"✓ access_token cookie found")
+        print("✓ access_token cookie found")
 
         # Inspect cookie attributes from Set-Cookie header
         set_cookie_header = response.headers.get("Set-Cookie", "")
-        print(f"\nCookie attributes:")
+        print("\nCookie attributes:")
         print(f"  Set-Cookie header: {set_cookie_header[:200]}...")
 
         # Check for critical attributes
@@ -102,7 +101,7 @@ def test_login_and_cookie(
         return False
 
     # Test 2: Make authenticated request
-    print(f"\nStep 2: Making authenticated request to /accounts/me/...")
+    print("\nStep 2: Making authenticated request to /accounts/me/...")
     me_url = f"{backend_url}/accounts/me/"
 
     try:
@@ -138,13 +137,13 @@ def test_login_and_cookie(
         return False
 
     # Test 3: Verify cookie sent in request
-    print(f"\nStep 3: Verifying cookie behavior...")
+    print("\nStep 3: Verifying cookie behavior...")
     print(f"  Cookies in session: {list(session.cookies.keys())}")
 
     if "access_token" in session.cookies:
-        print(f"✓ access_token cookie persisted in session")
+        print("✓ access_token cookie persisted in session")
     else:
-        print(f"✗ access_token cookie not in session")
+        print("✗ access_token cookie not in session")
         return False
 
     print(f"\n{'='*60}")

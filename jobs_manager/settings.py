@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -137,6 +138,7 @@ def get_auth_cookie_samesite():
     if env.lower() == "none":
         return "none"
     return env.capitalize()
+
 
 # Control scheduler registration - only register jobs when explicitly enabled
 RUN_SCHEDULER = os.getenv("DJANGO_RUN_SCHEDULER")
@@ -958,11 +960,11 @@ if PRODUCTION_LIKE:
                     Site.objects.create(
                         pk=SITE_ID, domain=current_domain, name=current_name
                     )
-        except ProgrammingError:
-            pass  # YEAH, LET"S IGNORE THE INSTRUCTIONS ABOUT NEVER EATING ERRORS, SWEET< THIS IS THE WAY TO GET FIRED.  DO IT!!!
+        except ProgrammingError as e:
+            # Database tables don't exist yet (pre-migration) - unusual but possible
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Site configuration skipped - database not ready: {e}")
         except Exception as e:
-            import logging
-
             logger = logging.getLogger(__name__)
             logger.error(f"Error configuring the site: {e}")
 

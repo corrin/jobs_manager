@@ -70,9 +70,11 @@ def parse_existing_products(apps, schema_editor):
                         "product_name": stock.item_code,
                         "specifications": stock.specifics,
                         "item_no": stock.item_code,
-                        "variant_id": f"{stock.metal_type}_{stock.alloy}"
-                        if stock.metal_type and stock.alloy
-                        else stock.item_code,
+                        "variant_id": (
+                            f"{stock.metal_type}_{stock.alloy}"
+                            if stock.metal_type and stock.alloy
+                            else stock.item_code
+                        ),
                     }
                 )
 

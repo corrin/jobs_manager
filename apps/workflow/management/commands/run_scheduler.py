@@ -1,3 +1,6 @@
+import signal
+import sys
+
 from django.apps import apps
 from django.core.management.base import BaseCommand
 
@@ -8,9 +11,6 @@ class Command(BaseCommand):
     help = "Start the shared APScheduler loop (runs forever)."
 
     def handle(self, *args, **options):
-        import signal
-        import sys
-
         # Register jobs from each app that has them
         workflow_app = apps.get_app_config("workflow")
         workflow_app._register_xero_jobs()

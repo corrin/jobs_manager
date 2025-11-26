@@ -28,7 +28,6 @@ from apps.job.serializers.job_file_serializer import (
     JobFileUploadSuccessResponseSerializer,
 )
 from apps.job.services.file_service import create_thumbnail, get_thumbnail_folder
-from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)

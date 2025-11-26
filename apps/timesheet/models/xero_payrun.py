@@ -1,4 +1,4 @@
-﻿"""Timesheet pay run cache model."""
+"""Timesheet pay run cache model."""
 
 from __future__ import annotations
 

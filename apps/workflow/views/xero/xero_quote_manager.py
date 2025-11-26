@@ -19,14 +19,15 @@ from apps.accounting.enums import QuoteStatus
 from apps.accounting.models import Quote
 from apps.job.models.costing import CostSet
 
-# Import error persistence service
-
 # Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import (  # Assuming format_date is needed
     format_date,
     parse_xero_api_error_message,
 )
+
+# Import error persistence service
+
 
 logger = logging.getLogger("xero")
 

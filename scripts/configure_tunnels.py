@@ -235,7 +235,7 @@ def update_backend_env(backend_url: str, frontend_url: str, env_path: Path) -> N
         print(f"  - {key}")
     cookie_domain = determine_cookie_domain(backend_url)
     print(f"Cookie domain set to: {cookie_domain}")
-    print(f"Cookie SameSite set to: None (required for cross-origin requests)")
+    print("Cookie SameSite set to: None (required for cross-origin requests)")
 
 
 def update_frontend_env(backend_url: str, frontend_url: str, env_path: Path) -> None:

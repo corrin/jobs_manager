@@ -7,5 +7,5 @@ class AccountsConfig(AppConfig):
     verbose_name = "User Accounts"
 
     def ready(self) -> None:
-        # Import to register DRF Spectacular authentication extensions
+        # Import here to avoid AppRegistryNotReady during Django startup
         import jobs_manager.extensions  # noqa: F401

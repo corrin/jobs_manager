@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import time
+from collections import defaultdict
 from io import BytesIO
 from typing import Callable, Optional
 
@@ -69,8 +70,6 @@ def get_time_breakdown(job: Job) -> dict:
             - is_over_budget: True if over budget
             - staff_breakdown: List of dicts with staff name and hours worked
     """
-    from collections import defaultdict
-
     budgeted_hours = get_workshop_hours(job)
     used_hours = 0.0
     staff_breakdown = []

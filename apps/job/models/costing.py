@@ -1,3 +1,4 @@
+import logging
 import uuid
 from decimal import Decimal
 
@@ -6,6 +7,8 @@ from django.db import models
 from django.utils import timezone
 
 from .job import Job
+
+logger = logging.getLogger(__name__)
 
 
 def get_default_cost_set_summary():
@@ -162,10 +165,6 @@ class CostLine(models.Model):
         return self.quantity * self.unit_rev
 
     def clean(self):
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         # Log negative quantities but allow them (for adjustments, corrections, returns, etc.)
         if self.quantity < 0:
             logger.warning(

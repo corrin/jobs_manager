@@ -24,11 +24,11 @@ import django
 
 django.setup()
 
+import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-import requests
 
 # Test credentials (from docs/initial_install.md)
 TEST_CREDENTIALS = {
@@ -40,11 +40,10 @@ TEST_CREDENTIALS = {
         "username": "invalid@example.com",
         "password": "wrongpassword",
     },
-    "wronguser":
-    {
+    "wronguser": {
         "username": "fred@example.com",
-        "password":"defaultadmin",
-    }
+        "password": "defaultadmin",
+    },
 }
 
 
@@ -148,7 +147,7 @@ def test_login_logging():
     # Get initial log size (if file exists)
     initial_size = log_file.stat().st_size if log_file.exists() else 0
 
-    print(f"Testing login logging...")
+    print("Testing login logging...")
     print(f"Auth log file: {log_file}")
     print(f"Initial log size: {initial_size} bytes")
 

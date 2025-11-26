@@ -5,6 +5,7 @@ Management command to test event deduplication functionality.
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from apps.accounts.models import Staff
 from apps.client.models import Client
@@ -72,8 +73,6 @@ class Command(BaseCommand):
             self.user2.save()
 
         # Create test client
-        from django.utils import timezone
-
         self.client_obj, created = Client.objects.get_or_create(
             name="Test Dedup Client",
             defaults={

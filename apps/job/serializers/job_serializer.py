@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Optional
 
@@ -819,9 +820,7 @@ class JobDeltaRejectionSerializer(serializers.Serializer):
         if not raw:
             return None
         try:
-            import json as _json
-
-            return _json.loads(raw)
+            return json.loads(raw)
         except Exception:
             return raw
 

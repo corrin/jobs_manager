@@ -100,7 +100,7 @@ def push_clients_to_xero(clients, dry_run=False):
         # Validate client has required data
         try:
             if not client.validate_for_xero():
-                print(f"  ⚠️  Skipping - missing required data for Xero")
+                print("  ⚠️  Skipping - missing required data for Xero")
                 results["skipped"].append((client, "Missing required data"))
                 continue
         except Exception as e:
@@ -120,7 +120,7 @@ def push_clients_to_xero(clients, dry_run=False):
                 print(f"  ✅ Created in Xero with ID: {client.xero_contact_id}")
                 results["success"].append((client, client.xero_contact_id))
             else:
-                print(f"  ❌ Failed to create in Xero")
+                print("  ❌ Failed to create in Xero")
                 results["failed"].append((client, "sync_client_to_xero returned False"))
         except Exception as e:
             print(f"  ❌ Error creating in Xero: {e}")

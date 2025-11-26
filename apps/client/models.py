@@ -4,6 +4,8 @@ import uuid
 from django.db import models
 from django.utils import timezone
 
+from apps.workflow.models import CompanyDefaults
+
 logger = logging.getLogger(__name__)
 
 
@@ -154,8 +156,6 @@ class Client(models.Model):
                 or if shop_client_name not configured
             RuntimeError: If CompanyDefaults singleton is violated
         """
-        from apps.workflow.models import CompanyDefaults
-
         # Validate CompanyDefaults singleton
         company_count = CompanyDefaults.objects.count()
         if company_count == 0:

@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from apps.client.models import Client
 from apps.job.enums import MetalType
+from apps.purchasing.models import Stock
 
 
 class SupplierProduct(models.Model):
@@ -282,8 +283,6 @@ class ProductParsingMapping(models.Model):
         If item doesn't exist in Xero, clear mapped_item_code to maintain FK integrity.
         """
         if self.mapped_item_code:
-            from apps.purchasing.models import Stock
-
             self.item_code_is_in_xero = Stock.objects.filter(
                 item_code=self.mapped_item_code
             ).exists()

@@ -1,6 +1,7 @@
 import logging
 from datetime import date
 from decimal import Decimal
+from pprint import pprint
 from typing import Any, Dict, List
 
 from django.core.cache import cache
@@ -351,8 +352,6 @@ class PurchasingRestService:
 
             po.save()
             po.refresh_from_db()
-
-            from pprint import pprint
 
             logger.info("PO after update:")
             pprint(po.__dict__)

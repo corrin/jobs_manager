@@ -152,7 +152,7 @@ def test_conversation(file_path=None):
             content=f"Uploaded: {filename}",
             metadata={"file_ids": [str(job_file.id)], "filenames": [filename]},
         )
-        print(f"Created upload message with file attachment\n")
+        print("Created upload message with file attachment\n")
 
     # Initialize the service
     service = GeminiChatService()
@@ -196,7 +196,7 @@ def test_conversation(file_path=None):
 
         try:
             # Save user message to database
-            user_msg = JobQuoteChat.objects.create(
+            JobQuoteChat.objects.create(
                 job=job,
                 message_id=f"user-test-{i}",
                 role="user",
@@ -211,7 +211,7 @@ def test_conversation(file_path=None):
             )
 
             # Display response
-            print(f"Assistant response (first 500 chars):")
+            print("Assistant response (first 500 chars):")
             print(response.content[:500])
             if len(response.content) > 500:
                 print(f"... (truncated, total length: {len(response.content)} chars)")
@@ -252,9 +252,7 @@ def test_conversation(file_path=None):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Test chat conversation scenarios"
-    )
+    parser = argparse.ArgumentParser(description="Test chat conversation scenarios")
     parser.add_argument(
         "--test",
         type=str,

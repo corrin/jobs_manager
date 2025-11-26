@@ -1,4 +1,5 @@
 import logging
+import os
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -119,10 +120,10 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     ):
                         logger.info("User %s needs password reset", username)
                         response.data["password_needs_reset"] = True
-                        response.data[
-                            "password_reset_url"
-                        ] = request.build_absolute_uri(
-                            reverse("accounts:password_change")
+                        response.data["password_reset_url"] = (
+                            request.build_absolute_uri(
+                                reverse("accounts:password_change")
+                            )
                         )
 
                     if getattr(settings, "ENABLE_JWT_AUTH", False):
@@ -145,8 +146,6 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
     def _set_jwt_cookies(self, response: Response, data: dict) -> None:
         """Set JWT tokens as httpOnly cookies"""
-        import os
-
         simple_jwt_settings = getattr(settings, "SIMPLE_JWT", {})
         # Master toggle to force dev-friendly cookie behavior
         dev_mode = os.getenv("JWT_COOKIE_DEV_MODE", "False").lower() == "true"

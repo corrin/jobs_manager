@@ -47,7 +47,7 @@ def check_basic_restore():
                 f"Company: {company.company_name}",
             )
         )
-    except:
+    except Exception:
         checks.append(("Company defaults loaded", False, "Not found"))
 
     # Check admin user
@@ -101,7 +101,7 @@ def check_xero_config():
                 "Tenant ID configured" if has_tenant else "Not set",
             )
         )
-    except:
+    except Exception:
         checks.append(("Xero tenant ID set", False, "Company defaults not found"))
 
     # Check if Xero IDs are cleared (they should be null or have new IDs)

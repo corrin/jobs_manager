@@ -978,9 +978,9 @@ class JobAgingService:
         }
 
         try:
-            timing_data[
-                "days_in_current_status"
-            ] = JobAgingService._calculate_time_in_status(job)
+            timing_data["days_in_current_status"] = (
+                JobAgingService._calculate_time_in_status(job)
+            )
         except Exception as exc:
             logger.warning(
                 f"Error calculating time in status for job {job.job_number}: {str(exc)}"

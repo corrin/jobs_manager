@@ -33,8 +33,8 @@ from apps.job.serializers.job_serializer import (
     QuoteSerializer,
 )
 from apps.job.services.delta_checksum import compute_job_delta_checksum, normalise_value
-from apps.workflow.models import CompanyDefaults
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
@@ -1269,8 +1269,6 @@ class JobRestService:
         Accept a quote for a job by setting the quote_acceptance_date and changing status to approved.
         Enforces optimistic concurrency via If-Match (ETag) precondition.
         """
-        from datetime import datetime
-
         # Lock row to ensure atomic precondition check + update
         job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
 
@@ -1423,7 +1421,7 @@ class JobRestService:
                     # FAIL EARLY: Invalid staff_id indicates data corruption
                     try:
                         staff_ids.add(UUID(str(staff_id)))
-                    except (ValueError, TypeError) as e:
+                    except (ValueError, TypeError):
                         error_msg = (
                             f"Invalid staff_id in cost_line {cost_line.id}: {staff_id}"
                         )

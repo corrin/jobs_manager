@@ -99,9 +99,9 @@ class KanbanService:
             status_choices[column.column_id] = column.column_title
 
             # Create tooltip based on column's status key
-            status_tooltips[
-                column.column_id
-            ] = f"Status: {column.status_key.replace('_', ' ').title()}"
+            status_tooltips[column.column_id] = (
+                f"Status: {column.status_key.replace('_', ' ').title()}"
+            )
 
         return {"statuses": status_choices, "tooltips": status_tooltips}
 

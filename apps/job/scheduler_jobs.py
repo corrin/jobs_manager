@@ -6,6 +6,7 @@ from datetime import datetime
 from django.db import close_old_connections
 
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,6 @@ def set_paid_flag_jobs():
     except AlreadyLoggedException:
         raise
     except Exception as exc:
-        from apps.workflow.services.error_persistence import persist_and_raise
+
         logger.error(f"Error during set_paid_flag_jobs: {exc}", exc_info=True)
         persist_and_raise(exc)

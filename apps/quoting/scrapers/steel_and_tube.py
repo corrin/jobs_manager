@@ -1,3 +1,4 @@
+import os
 import re
 import time
 
@@ -18,8 +19,6 @@ class SteelAndTubeScraper(BaseScraper):
 
     def get_credentials(self):
         """Get Steel & Tube credentials from environment variables"""
-        import os
-
         username = os.getenv("STEEL_TUBE_USERNAME")
         password = os.getenv("STEEL_TUBE_PASSWORD")
         return username, password
