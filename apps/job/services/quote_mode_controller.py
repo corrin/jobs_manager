@@ -9,6 +9,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+import google.generativeai as genai
 import jsonschema
 from google.generativeai.types import FunctionDeclaration
 
@@ -366,8 +367,6 @@ Consider the full conversation context when processing this input."""
         Returns:
             The mode to use
         """
-        import google.generativeai as genai
-
         # FAIL EARLY - current_mode must be valid if provided
         if current_mode and current_mode not in self.MODES:
             error_msg = (
@@ -480,9 +479,6 @@ Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
 
         # Configure Gemini with mode-specific settings
         gemini_client.system_instruction = self.get_system_prompt()
-
-        # Import Gemini components
-        import google.generativeai as genai
 
         # Start chat with history if provided
         if chat_history:
