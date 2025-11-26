@@ -14,30 +14,35 @@ logger = logging.getLogger("xero")
 SLEEP_TIME = 1  # Sleep after every API call to avoid hitting rate limits
 
 
-def _escape_where_value(v: str) -> str:
-    """Escape special characters for Xero WHERE clause queries"""
-    # Escape backslashes first to avoid double-escaping
-    v = v.replace("\\", "\\\\")
-    # Escape double quotes
-    v = v.replace('"', r"\"")
-    # Escape parentheses (Xero API treats these as special characters)
-    v = v.replace("(", r"\(")
-    v = v.replace(")", r"\)")
-    return v
+def fetch_all_xero_items(api: AccountingApi, tenant_id: str) -> Dict[str, Any]:
+    """Fetch all Xero items and return a code -> item lookup dictionary.
 
-
-def get_xero_item_by_code(api: AccountingApi, tenant_id: str, code: str):
-    if not code:
-        return None
+    This is more efficient than per-item queries and handles special characters
+    in codes that can't be escaped in WHERE clauses (e.g., double quotes).
+    """
     try:
-        where = f'Code=="{_escape_where_value(code)}"'
-        resp = api.get_items(tenant_id, where=where)
+        resp = api.get_items(tenant_id)
         time.sleep(SLEEP_TIME)
         items = getattr(resp, "items", None) or getattr(resp, "Items", None) or []
-        return items[0] if items else None
+        lookup = {}
+        for item in items:
+            code = getattr(item, "code", None)
+            if code:
+                lookup[code] = item
+        logger.info(f"Fetched {len(lookup)} Xero items for lookup")
+        return lookup
     except Exception as e:
-        logger.error(f"Failed to fetch Xero item by code '{code}': {e}")
+        logger.error(f"Failed to fetch all Xero items: {e}")
+        raise
+
+
+def get_xero_item_by_code_from_lookup(
+    code: str, xero_items_lookup: Dict[str, Any]
+) -> Optional[Any]:
+    """Look up a Xero item by code using pre-fetched lookup dictionary."""
+    if not code:
         return None
+    return xero_items_lookup.get(code)
 
 
 def generate_item_code(stock_item: Stock) -> str:
@@ -145,12 +150,16 @@ def _ensure_unique_xero_link(
     return False
 
 
-def sync_stock_to_xero(stock_item: Stock) -> bool:
+def sync_stock_to_xero(
+    stock_item: Stock, xero_items_lookup: Optional[Dict[str, Any]] = None
+) -> bool:
     """
     Push a stock item to Xero as an inventory item.
 
     Args:
         stock_item: Stock instance to sync
+        xero_items_lookup: Pre-fetched dict of code -> Xero item for efficient lookup.
+                          If None, will be fetched (less efficient for batch operations).
 
     Returns:
         bool: True if successful
@@ -214,10 +223,16 @@ def sync_stock_to_xero(stock_item: Stock) -> bool:
 
     logger.info(f"Sending item data to Xero: {item_data}")
 
+    # Fetch lookup if not provided (less efficient for batch operations)
+    if xero_items_lookup is None:
+        xero_items_lookup = fetch_all_xero_items(api, tenant_id)
+
     try:
         # 1) If we don't have xero_id, try to find by Code first
         if not stock_item.xero_id:
-            existing = get_xero_item_by_code(api, tenant_id, stock_item.item_code)
+            existing = get_xero_item_by_code_from_lookup(
+                stock_item.item_code, xero_items_lookup
+            )
             if existing:
                 if not _ensure_unique_xero_link(
                     stock_item,
@@ -265,16 +280,21 @@ def sync_stock_to_xero(stock_item: Stock) -> bool:
     except Exception as e:
         msg = str(e)
 
-        # 3) Valid fallback: if error is "already exists" by Code, link and update
+        # 3) If error is "already exists" by Code, refresh lookup and try to link
         # Note: this should be rare due to the initial lookup by Code above
         if "already exists" in msg and "Code" in msg:
             logger.warning(
-                f"Create failed due to duplicate Code. Attempting link+update for {stock_item.item_code}"
+                f"Create failed due to duplicate Code. Refreshing lookup for {stock_item.item_code}"
             )
-            existing = get_xero_item_by_code(api, tenant_id, stock_item.item_code)
+            # Refresh the lookup in case item was created since we fetched
+            xero_items_lookup = fetch_all_xero_items(api, tenant_id)
+            existing = get_xero_item_by_code_from_lookup(
+                stock_item.item_code, xero_items_lookup
+            )
             if not existing:
                 logger.error(
-                    "Duplicate reported, but item not found by Code — aborting"
+                    f"Duplicate reported for code '{stock_item.item_code}', "
+                    f"but item not found in refreshed lookup — aborting"
                 )
                 return False
 
@@ -336,9 +356,14 @@ def sync_all_local_stock_to_xero(limit: Optional[int] = None) -> Dict[str, Any]:
 
     logger.info(f"Found {total_items} stock items to sync to Xero")
 
+    # Fetch all Xero items once for efficient lookup
+    api = AccountingApi(api_client)
+    tenant_id = get_tenant_id()
+    xero_items_lookup = fetch_all_xero_items(api, tenant_id)
+
     for stock_item in queryset:
         try:
-            if sync_stock_to_xero(stock_item):
+            if sync_stock_to_xero(stock_item, xero_items_lookup):
                 synced_count += 1
                 logger.info(f"Successfully synced stock item {stock_item.id}")
             else:

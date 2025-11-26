@@ -4,7 +4,19 @@
 
 ALL MySQL commands must include: `-h "$DB_HOST" -P "$DB_PORT"`
 
-Example: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"`
+**Linux/WSL (bash):**
+```bash
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "SHOW TABLES;"
+```
+
+**Windows (PowerShell):**
+```powershell
+$env:MYSQL_PWD = $env:DB_PASSWORD
+mysql.exe -h $env:DB_HOST -P $env:DB_PORT -u $env:MYSQL_DB_USER $env:MYSQL_DATABASE -e "SHOW TABLES;"
+Remove-Item Env:MYSQL_PWD
+```
+
+Note: On Windows, always use `--execute "source path\to\file.sql"` for loading SQL files, and remove MYSQL_PWD after each command.
 
 ## Complete Step-by-Step Guide
 
@@ -414,6 +426,20 @@ print(f'Shop client: {shop.name}')
 Shop client: Demo Company Shop
 ```
 
+#### Step 15.5: Verify Test Client Exists
+
+```bash
+python manage.py shell -c "
+from apps.workflow.models import CompanyDefaults
+from apps.client.models import Client
+cd = CompanyDefaults.get_instance()
+c = Client.objects.filter(name=cd.test_client_name).first()
+print(f'Test client: {c.name if c else \"NOT FOUND - create in Xero Demo Company first\"}')
+"
+```
+
+If missing, create a contact named "ABC Carpet Cleaning TEST IGNORE" in Xero
+
 #### Step 16: Start Development Server
 
 **Run as:** Development system user
@@ -474,10 +500,13 @@ print(f'✅ Token expires at: {token.expires_at}')
 
 **Steps:**
 
-- Navigate to http://localhost:8000
-- Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
-- Go to **Xero menu > Connect to Xero**
-- Complete the OAuth flow to authorize the application
+
+1. Start the frontend (in separate terminal, in jobs_manager_front directory)
+2. Run ngrok if needed for the backend and frontend
+3. Navigate to FRONT_END_URL from .env (e.g., https://your-company-front.ngrok-free.app)
+4. Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
+5. Go to **Xero menu > Connect to Xero**
+6. Complete the OAuth flow to authorize the application
 
 **Check:** You should see "Connected to Xero" status in the web interface.
 
