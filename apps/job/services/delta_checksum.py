@@ -8,11 +8,14 @@ and backend can compute identical hashes when constructing the delta envelope.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Iterable, Mapping, Sequence
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 NULL_SENTINEL = "__NULL__"
 
@@ -56,10 +59,6 @@ def compute_job_delta_checksum(
     Raises:
         ValueError: If ``job_id`` is falsy or a requested field is missing.
     """
-    import logging
-
-    logger = logging.getLogger(__name__)
-
     logger.debug(f"[CHECKSUM_COMPUTE] Starting checksum computation for job {job_id}")
     logger.debug(f"[CHECKSUM_COMPUTE] Input field_values: {dict(field_values)}")
 

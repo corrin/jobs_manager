@@ -6,6 +6,7 @@ Following SRP principles and clean architecture
 """
 
 import logging
+import os
 import traceback
 import uuid
 from datetime import date
@@ -356,6 +357,4 @@ class DailyTimesheetService:
     @classmethod
     def _is_weekend_enabled(cls) -> bool:
         """Check if weekend timesheet functionality is enabled"""
-        import os
-
         return os.getenv("WEEKEND_TIMESHEETS_ENABLED", "false").lower() == "true"

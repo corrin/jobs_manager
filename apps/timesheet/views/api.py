@@ -4,6 +4,7 @@ Provides endpoints for the Vue.js frontend to interact with timesheet data.
 """
 
 import logging
+import os
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -412,8 +413,6 @@ class TimesheetResponseMixin:
 
     def _is_weekend_enabled(self):
         """Check if weekend timesheet functionality is enabled"""
-        import os
-
         return os.getenv("WEEKEND_TIMESHEETS_ENABLED", "false").lower() == "true"
 
 
