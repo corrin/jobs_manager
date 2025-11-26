@@ -27,6 +27,22 @@ YOU MUST RUN EVERY SINGLE STEP IN THE RESTORE. No step can be skipped, including
 Make sure you create an audit log of any run of this script in logs, e.g restore_log_20250711.txt
 Write to this log each step, and the outcome from running that step (e.g. test results). Do this after each step, don't wait until the end.
 
+## Overview/Target State
+
+You should end up with:
+1. The backend running on port 8000
+2. ngrok mapping a public domain to the backend
+3. ngrok mapping a public domain to the frontend
+4. The frontend (in its own repo) running on port 5173
+5. The database fully deleted, then restored from prod
+6. All migrations applied
+7. Linked to the dev Xero
+8. Key data from prod's restore synced to the dev xero
+9. The Xero token is locked in via python manage.py run_scheduler
+9. LLM keys set up and configured
+10. Testing passes - confirm using playwright test
+
+
 ## CRITICAL ORDER ENFORCEMENT
 
 **NEVER run steps out of order. The following steps MUST be completed before ANY testing:**
@@ -612,36 +628,18 @@ print(f'Stock items synced to Xero: {stock_with_xero}')
 
 **Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands).
 
-#### Step 20: Test Admin User Login
+#### Step 20: Sync Xero
 
 **Run as:** Development system user
 **Command:**
 
 ```bash
-python manage.py shell -c "
-from django.contrib.auth import authenticate
-from apps.accounts.models import Staff
-
-# Test authentication
-user = authenticate(email='defaultadmin@example.com', password='Default-admin-password')
-if user:
-    print(f'✓ Login successful: {user.email}')
-    print(f'✓ Is active: {user.is_active}')
-    print(f'✓ Is staff: {user.is_staff}')
-    print(f'✓ Is superuser: {user.is_superuser}')
-else:
-    print('✗ Login failed - check credentials')
-"
+python manage.py start_xero_sync
 ```
 
 **Expected output:**
 
-```
-✓ Login successful: defaultadmin@example.com
-✓ Is active: True
-✓ Is staff: True
-✓ Is superuser: True
-```
+Error and warning free sync between local and xero data.
 
 #### Step 21: Test Serializers (Before API Testing)
 

@@ -11,11 +11,6 @@ try:
         from .forms import ClientForm
         from .models import Client, ClientContact, Supplier
         from .serializers import (
-            ClientContactCreateRequestSerializer,
-            ClientContactCreateResponseSerializer,
-            ClientContactListResponseSerializer,
-            ClientContactResponseSerializer,
-            ClientContactResultSerializer,
             ClientContactSerializer,
             ClientCreateRequestSerializer,
             ClientCreateResponseSerializer,
@@ -43,11 +38,6 @@ __all__ = [
     "Client",
     "ClientConfig",
     "ClientContact",
-    "ClientContactCreateRequestSerializer",
-    "ClientContactCreateResponseSerializer",
-    "ClientContactListResponseSerializer",
-    "ClientContactResponseSerializer",
-    "ClientContactResultSerializer",
     "ClientContactSerializer",
     "ClientCreateRequestSerializer",
     "ClientCreateResponseSerializer",

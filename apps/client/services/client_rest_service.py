@@ -299,67 +299,6 @@ class ClientRestService:
             )
 
     @staticmethod
-    def create_client_contact(data: Dict[str, Any]) -> ClientContact:
-        """
-        Creates a new client contact.
-
-        Args:
-            data: Contact creation data
-
-        Returns:
-            Created ClientContact instance
-
-        Raises:
-            ValueError: If validation fails
-        """
-        try:
-            # Guard clauses - validate required fields
-            if not data.get("client_id"):
-                raise ValueError("client_id is required")
-
-            if not data.get("name") or not data["name"].strip():
-                raise ValueError("name is required")
-
-            # Get client with early return on not found
-            try:
-                client = Client.objects.get(id=data["client_id"])
-            except Client.DoesNotExist:
-                raise ValueError("Client not found")
-
-            # Create contact following clean data handling
-            contact = ClientContact.objects.create(
-                client=client,
-                name=data["name"].strip(),
-                email=data.get("email", "").strip() or None,
-                phone=data.get("phone", "").strip() or None,
-                position=data.get("position", "").strip() or None,
-                is_primary=data.get("is_primary", False),
-                notes=data.get("notes", "").strip() or None,
-            )
-
-            logger.info(
-                f"Contact {contact.id} created for client {client.id}",
-                extra={
-                    "contact_id": str(contact.id),
-                    "client_id": str(client.id),
-                    "operation": "create_client_contact",
-                },
-            )
-
-            return contact
-
-        except AlreadyLoggedException:
-            raise
-        except Exception as exc:
-            persist_and_raise(
-                exc,
-                additional_context={
-                    "operation": "create_client_contact",
-                    "client_id": data.get("client_id"),
-                },
-            )
-
-    @staticmethod
     def get_job_contact(job_id: UUID) -> Dict[str, Any]:
         """
         Retrieves contact information for a specific job.
