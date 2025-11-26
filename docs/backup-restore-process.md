@@ -38,6 +38,7 @@ You should end up with:
 6. All migrations applied
 7. Linked to the dev Xero
 8. Key data from prod's restore synced to the dev xero
+9. The Xero token is locked in via python manage.py run_scheduler
 9. LLM keys set up and configured
 10. Testing passes - confirm using playwright test
 

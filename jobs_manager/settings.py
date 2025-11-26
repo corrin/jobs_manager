@@ -421,6 +421,10 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Jobs Manager API",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
+    # Split request/response schemas so code generators don't require readOnly fields
+    # on request bodies. This creates e.g. ClientContact (response) and
+    # ClientContactRequest (request) schemas automatically.
+    "COMPONENT_SPLIT_REQUEST": True,
     # DRF Spectacular auto-generates enum names based on content hashes when multiple
     # models have fields with the same name (e.g., "status", "type", "kind").
     # ENUM_NAME_OVERRIDES maps hash-based names to actual choice tuples for better naming.

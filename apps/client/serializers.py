@@ -62,21 +62,6 @@ class ClientNameOnlySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "name"]
 
 
-class ClientContactListResponseSerializer(serializers.Serializer):
-    """Serialiser for client contact list response"""
-
-    id = serializers.IntegerField()
-    client = serializers.IntegerField()
-    name = serializers.CharField()
-    email = serializers.EmailField(allow_blank=True)
-    phone = serializers.CharField(allow_blank=True)
-    position = serializers.CharField(allow_blank=True)
-    is_primary = serializers.BooleanField()
-    notes = serializers.CharField(allow_blank=True)
-    created_at = serializers.DateTimeField()
-    updated_at = serializers.DateTimeField()
-
-
 class StandardErrorSerializer(serializers.Serializer):
     """Standard serialiser for error responses"""
 
@@ -109,43 +94,6 @@ class ClientSearchResponseSerializer(serializers.Serializer):
     """Serializer for client search response"""
 
     results = ClientSearchResultSerializer(many=True)
-
-
-class ClientContactResultSerializer(serializers.Serializer):
-    """Serializer for individual client contact result"""
-
-    id = serializers.CharField()
-    name = serializers.CharField()
-    email = serializers.CharField(allow_blank=True)
-    phone = serializers.CharField(allow_blank=True)
-    position = serializers.CharField(allow_blank=True)
-    is_primary = serializers.BooleanField()
-
-
-class ClientContactResponseSerializer(serializers.Serializer):
-    """Serializer for client contacts response"""
-
-    results = ClientContactResultSerializer(many=True)
-
-
-class ClientContactCreateRequestSerializer(serializers.Serializer):
-    """Serializer for client contact creation request"""
-
-    client_id = serializers.UUIDField()
-    name = serializers.CharField(max_length=255)
-    email = serializers.EmailField(required=False, allow_blank=True)
-    phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    position = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    is_primary = serializers.BooleanField(default=False)
-    notes = serializers.CharField(required=False, allow_blank=True)
-
-
-class ClientContactCreateResponseSerializer(serializers.Serializer):
-    """Serializer for client contact creation response"""
-
-    success = serializers.BooleanField()
-    contact = ClientContactResultSerializer()
-    message = serializers.CharField()
 
 
 class ClientCreateRequestSerializer(serializers.Serializer):
