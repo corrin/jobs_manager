@@ -3,7 +3,7 @@
 from django.core.management.base import BaseCommand
 from django.db.models import Count
 
-from apps.client.models import ClientContact
+from apps.client.models import Client, ClientContact
 from apps.job.models import Job
 
 
@@ -96,8 +96,6 @@ class Command(BaseCommand):
                 count = dup["count"]
 
                 # Get the client
-                from apps.client.models import Client
-
                 client = Client.objects.get(id=client_id)
 
                 self.stdout.write(f"\n{i}. Client: {client.name} (ID: {client.id})")

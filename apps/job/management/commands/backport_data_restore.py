@@ -7,6 +7,9 @@ from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 
+from apps.accounts.models import Staff
+from apps.job.models import JobFile
+
 
 class Command(BaseCommand):
     help = "Restore data from backup with cleanup"
@@ -82,8 +85,6 @@ class Command(BaseCommand):
 
     def post_restore_fixes(self):
         # Create dummy files for JobFile instances
-        from apps.job.models import JobFile
-
         self.stdout.write("Creating dummy files for JobFile instances...")
         for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(
             file_path=""
@@ -96,8 +97,6 @@ class Command(BaseCommand):
             self.stdout.write(f"Created dummy file: {dummy_path}")
 
         # Create default admin if needed
-        from apps.accounts.models import Staff
-
         self.stdout.write("Creating default admin user...")
         admin_user, created = Staff.objects.get_or_create(
             email="defaultadmin@example.com",
