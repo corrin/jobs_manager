@@ -30,9 +30,10 @@ try:
             set_journal_fields,
         )
         from .stock_sync import (
+            fetch_all_xero_items,
             fix_long_item_codes,
             generate_item_code,
-            get_xero_item_by_code,
+            get_xero_item_by_code_from_lookup,
             sync_all_local_stock_to_xero,
             sync_stock_to_xero,
             update_stock_item_codes,
@@ -113,6 +114,7 @@ __all__ = [
     "create_time_entries",
     "deep_sync_xero_data",
     "exchange_code_for_token",
+    "fetch_all_xero_items",
     "find_payroll_calendar_for_week",
     "fix_long_item_codes",
     "generate_item_code",
@@ -131,7 +133,7 @@ __all__ = [
     "get_tenant_id_from_connections",
     "get_token",
     "get_valid_token",
-    "get_xero_item_by_code",
+    "get_xero_item_by_code_from_lookup",
     "get_xero_items",
     "map_costline_to_expense_entry",
     "map_costline_to_time_entry",
