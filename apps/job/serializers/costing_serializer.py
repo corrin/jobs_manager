@@ -289,8 +289,7 @@ class CostSetSerializer(serializers.ModelSerializer):
         # Check for missing summary data - log error but don't crash frontend
         summary = data.get("summary")
         if not summary:
-            ValueError(f"CostSet {instance.id} missing required summary data")
-            logger.error(f"CostSet {instance.id} missing summary data")
+            logger.error(f"CostSet {instance.id} missing required summary data")
             # Return minimal safe structure
             data["summary"] = {"cost": 0, "rev": 0, "hours": 0, "profitMargin": 0.0}
             return data
