@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("workflow", "0169_remove_aiprovider_company_field"),
+        ("workflow", "0172_alter_xerotoken_scope"),
     ]
 
     operations = [
