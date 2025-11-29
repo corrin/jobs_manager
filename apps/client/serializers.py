@@ -33,15 +33,12 @@ class ClientSerializer(serializers.ModelSerializer):
             ["id"]
             + Client.CLIENT_DIRECT_FIELDS
             + [
-                "xero_last_modified",
-                "raw_json",
-                "additional_contact_persons",
-                "all_phones",
-                "django_created_at",
-                "django_updated_at",
-                "xero_last_synced",
-                "merged_into",
-                "contacts",
+                # Excluded from CLIENT_DIRECT_FIELDS:
+                "raw_json",  # debugging blob, not business data
+                "django_created_at",  # auto timestamp
+                "django_updated_at",  # auto timestamp
+                "merged_into",  # ForeignKey relation
+                "contacts",  # reverse relation
             ]
         )
 

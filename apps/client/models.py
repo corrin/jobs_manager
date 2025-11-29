@@ -39,6 +39,10 @@ class Client(models.Model):
         "xero_tenant_id",
         "primary_contact_name",
         "primary_contact_email",
+        "additional_contact_persons",
+        "all_phones",
+        "xero_last_modified",
+        "xero_last_synced",
         "xero_archived",
         "xero_merged_into_id",
     ]
