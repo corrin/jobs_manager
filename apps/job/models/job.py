@@ -37,6 +37,8 @@ class Job(models.Model):
     #  11. serialize_job_list() in apps/workflow/api/reports/job_movement.py
     #  12. get_jobs_for_dropdown() in apps/job/utils.py
     #  13. jobs_data dict in apps/purchasing/views/purchasing_rest_views.py
+    #  14. job_metrics dict in JobRestService.get_weekly_metrics() in apps/job/services/job_rest_service.py
+    #  15. job_data dict in DailyTimesheetService._get_job_breakdown() in apps/timesheet/services/daily_timesheet_service.py
     #
     # Direct scalar model fields (not related objects, not properties).
     # These are enumerated here to make it easier to avoid code duplication.
