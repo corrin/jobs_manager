@@ -19,6 +19,37 @@ logger = logging.getLogger(__name__)
 class PurchaseOrder(models.Model):
     """A request to purchase materials from a supplier."""
 
+    # CHECKLIST - when adding a new field or property to PurchaseOrder, check these locations:
+    #   1. PO_ALL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderDetailSerializer in apps/purchasing/serializers.py
+    #   3. PurchaseOrderListSerializer in apps/purchasing/serializers.py (subset for lists)
+    #   4. list_purchase_orders() in apps/purchasing/services/purchasing_rest_service.py
+    #   5. create_purchase_order() in apps/purchasing/services/purchasing_rest_service.py
+    #   6. update_purchase_order() in apps/purchasing/services/purchasing_rest_service.py
+    #   7. get_xero_document() in apps/workflow/views/xero/xero_po_manager.py (Xero API format)
+    #   8. PurchaseOrderPDFGenerator in apps/purchasing/services/purchase_order_pdf_service.py
+    #   9. create_purchase_order_email() in apps/purchasing/services/purchase_order_email_service.py
+    #
+    # All PurchaseOrder model fields for serialization.
+    PO_ALL_FIELDS = [
+        "id",
+        "supplier",
+        "job",
+        "po_number",
+        "reference",
+        "order_date",
+        "expected_delivery",
+        "xero_id",
+        "xero_tenant_id",
+        "status",
+        "created_at",
+        "updated_at",
+        "xero_last_modified",
+        "xero_last_synced",
+        "online_url",
+        "raw_json",
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(
         "client.Client",
@@ -118,6 +149,36 @@ class PurchaseOrder(models.Model):
 
 class PurchaseOrderLine(models.Model):
     """A line item on a PO."""
+
+    # CHECKLIST - when adding a new field or property to PurchaseOrderLine, check these locations:
+    #   1. PO_LINE_ALL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderLineSerializer in apps/purchasing/serializers.py
+    #   3. PurchaseOrderLineCreateSerializer in apps/purchasing/serializers.py (create fields)
+    #   4. PurchaseOrderLineUpdateSerializer in apps/purchasing/serializers.py (update fields)
+    #   5. FIELD_UPDATERS in apps/purchasing/services/purchasing_rest_service.py
+    #   6. _create_line() in apps/purchasing/services/purchasing_rest_service.py
+    #   7. get_line_items() in apps/workflow/views/xero/xero_po_manager.py (Xero API format)
+    #   8. add_line_items_table() in apps/purchasing/services/purchase_order_pdf_service.py
+    #
+    # All PurchaseOrderLine model fields for serialization.
+    PO_LINE_ALL_FIELDS = [
+        "id",
+        "purchase_order",
+        "job",
+        "description",
+        "quantity",
+        "dimensions",
+        "unit_cost",
+        "price_tbc",
+        "supplier_item_code",
+        "item_code",
+        "received_quantity",
+        "metal_type",
+        "alloy",
+        "specifics",
+        "location",
+        "raw_line_data",
+    ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     purchase_order = models.ForeignKey(
