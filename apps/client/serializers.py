@@ -194,7 +194,7 @@ class JobContactUpdateRequestSerializer(JobContactResponseSerializer):
 
 
 class ClientJobHeaderSerializer(serializers.Serializer):
-    """Serializer for job header in client jobs list"""
+    """Serializer for job header in client jobs list."""
 
     job_id = serializers.UUIDField()
     job_number = serializers.IntegerField()
@@ -202,6 +202,7 @@ class ClientJobHeaderSerializer(serializers.Serializer):
     client = serializers.DictField(allow_null=True)
     status = serializers.CharField()
     pricing_methodology = serializers.CharField(allow_null=True)
+    speed_quality_tradeoff = serializers.CharField()
     fully_invoiced = serializers.BooleanField()
     has_quote_in_xero = serializers.BooleanField()
     is_fixed_price = serializers.BooleanField()

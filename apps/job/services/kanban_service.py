@@ -140,6 +140,7 @@ class KanbanService:
             "rejected_flag": job.rejected_flag,
             "paid": job.paid,
             "fully_invoiced": job.fully_invoiced,
+            "speed_quality_tradeoff": job.speed_quality_tradeoff,
             "created_by_id": str(job.created_by.id) if job.created_by else None,
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "priority": job.priority,

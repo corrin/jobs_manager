@@ -736,22 +736,12 @@ class ClientRestService:
             # Import here to avoid circular imports
             from apps.job.models import Job
 
-            # Get all jobs for this client
+            # Get all jobs for this client using JOB_DIRECT_FIELDS as source of truth
+            query_fields = ["id", "client_id"] + Job.JOB_DIRECT_FIELDS
             jobs = (
                 Job.objects.filter(client_id=client_id)
                 .select_related("client")
-                .only(
-                    "id",
-                    "job_number",
-                    "name",
-                    "client_id",
-                    "status",
-                    "pricing_methodology",
-                    "fully_invoiced",
-                    "quote_acceptance_date",
-                    "paid",
-                    "rejected_flag",
-                )
+                .only(*query_fields)
                 .order_by("-job_number")
             )
 
@@ -768,6 +758,7 @@ class ClientRestService:
                     ),
                     "status": job.status,
                     "pricing_methodology": job.pricing_methodology,
+                    "speed_quality_tradeoff": job.speed_quality_tradeoff,
                     "fully_invoiced": job.fully_invoiced,
                     "has_quote_in_xero": job.quoted,
                     "is_fixed_price": job.pricing_methodology == "fixed_price",

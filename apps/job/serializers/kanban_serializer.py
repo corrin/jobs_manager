@@ -92,6 +92,10 @@ class KanbanJobSerializer(serializers.Serializer):
 
     # Financial
     paid = serializers.BooleanField()
+    fully_invoiced = serializers.BooleanField()
+
+    # Job settings
+    speed_quality_tradeoff = serializers.CharField()
 
     # User who created the job
     created_by_id = serializers.UUIDField(allow_null=True)

@@ -23,11 +23,18 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
-    # Direct scalar fields on the Job model (not related objects or properties).
+    # Direct scalar fields on the Job model (not related objects).
+    # These are the fields that when serialising, saving, etc. all need to be handled
+    # Often other fields are saved by their own serialisers
     # SINGLE SOURCE OF TRUTH - when adding a new field:
     #   1. Add the field to this list
     #   2. Add a change handler in _create_change_events() field_handlers dict
     #   3. Add to JobSerializer.Meta.fields if needed for full job data
+    #   4. Add to ClientJobHeaderSerializer in apps/client/serializers.py
+    #   5. Add to get_client_jobs() response dict in apps/client/services/client_rest_service.py
+    #   6. Add to KanbanService.serialize_job_for_api() in apps/job/services/kanban_service.py
+    #   7. Add to KanbanJobSerializer in apps/job/serializers/kanban_serializer.py
+    #   8. Review data_quality_report.py if field affects archived job compliance
     # Excludes: id (special handling), client/contact (related), quoted (property)
     JOB_DIRECT_FIELDS = [
         "job_number",
