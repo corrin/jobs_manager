@@ -10,6 +10,34 @@ logger = logging.getLogger(__name__)
 
 
 class Client(models.Model):
+    # CHECKLIST - when adding a new field or property to Client, check these locations:
+    #   1. CLIENT_DIRECT_FIELDS below (if it's a model field)
+    #   2. _format_client_detail() in apps/client/services/client_rest_service.py
+    #   3. _format_client_list_item() in apps/client/services/client_rest_service.py
+    #   4. _format_client_data() in apps/client/views/client_rest_views.py
+    #   5. get_client_for_xero() in this file
+    #   6. update_client_from_raw_json() in apps/workflow/api/xero/reprocess_xero.py
+    #   7. _sync_client_to_xero() in apps/client/services/client_rest_service.py
+    #   8. ClientSerializer.Meta.fields in apps/client/serializers.py
+    #   9. ClientDetailResponseSerializer in apps/client/serializers.py
+    #  10. ClientSearchResultSerializer in apps/client/serializers.py
+    #
+    # Direct scalar model fields (not related objects, not properties).
+    CLIENT_DIRECT_FIELDS = [
+        "name",
+        "email",
+        "phone",
+        "address",
+        "is_account_customer",
+        "is_supplier",
+        "xero_contact_id",
+        "xero_tenant_id",
+        "primary_contact_name",
+        "primary_contact_email",
+        "xero_archived",
+        "xero_merged_into_id",
+    ]
+
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
     )  # Internal UUID
