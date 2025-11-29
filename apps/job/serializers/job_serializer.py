@@ -752,6 +752,7 @@ class JobHeaderResponseSerializer(serializers.Serializer):
     client = JobClientHeaderSerializer()
     status = serializers.CharField()
     pricing_methodology = serializers.CharField(allow_null=True)
+    speed_quality_tradeoff = serializers.CharField()
     fully_invoiced = serializers.BooleanField()
     quoted = serializers.BooleanField()
     quote_acceptance_date = serializers.DateTimeField(allow_null=True)

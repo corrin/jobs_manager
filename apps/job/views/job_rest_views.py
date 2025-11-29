@@ -831,6 +831,7 @@ class JobHeaderRestView(BaseJobRestView):
                     "client_id",
                     "status",
                     "pricing_methodology",
+                    "speed_quality_tradeoff",
                     "fully_invoiced",
                     "quote_acceptance_date",
                     "paid",
@@ -859,6 +860,7 @@ class JobHeaderRestView(BaseJobRestView):
                 ),
                 "status": job.status,
                 "pricing_methodology": job.pricing_methodology,
+                "speed_quality_tradeoff": job.speed_quality_tradeoff,
                 "fully_invoiced": job.fully_invoiced,
                 "quoted": job.quoted,
                 "quote_acceptance_date": (
