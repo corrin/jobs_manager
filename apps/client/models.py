@@ -13,14 +13,19 @@ class Client(models.Model):
     # CHECKLIST - when adding a new field or property to Client, check these locations:
     #   1. CLIENT_DIRECT_FIELDS below (if it's a model field)
     #   2. _format_client_detail() in apps/client/services/client_rest_service.py
-    #   3. _format_client_list_item() in apps/client/services/client_rest_service.py
+    #   3. _format_client_search_results() in apps/client/services/client_rest_service.py
     #   4. _format_client_data() in apps/client/views/client_rest_views.py
     #   5. get_client_for_xero() in this file
     #   6. update_client_from_raw_json() in apps/workflow/api/xero/reprocess_xero.py
     #   7. _sync_client_to_xero() in apps/client/services/client_rest_service.py
-    #   8. ClientSerializer.Meta.fields in apps/client/serializers.py
-    #   9. ClientDetailResponseSerializer in apps/client/serializers.py
-    #  10. ClientSearchResultSerializer in apps/client/serializers.py
+    #   8. ClientDetailResponseSerializer in apps/client/serializers.py
+    #   9. ClientSearchResultSerializer in apps/client/serializers.py
+    #
+    # POSSIBLE BUGS FOUND during checklist creation:
+    #   - _format_client_search_results() missing: is_supplier
+    #   - _format_client_data() missing: is_supplier
+    #   - ClientSearchResultSerializer missing: is_supplier
+    #   (These may be intentional subsets for list views, but should be verified)
     #
     # Direct scalar model fields (not related objects, not properties).
     CLIENT_DIRECT_FIELDS = [

@@ -29,30 +29,21 @@ class ClientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = [
-            "id",
-            "xero_contact_id",
-            "xero_tenant_id",
-            "name",
-            "email",
-            "phone",
-            "address",
-            "is_account_customer",
-            "is_supplier",
-            "xero_last_modified",
-            "raw_json",
-            "primary_contact_name",
-            "primary_contact_email",
-            "additional_contact_persons",
-            "all_phones",
-            "django_created_at",
-            "django_updated_at",
-            "xero_last_synced",
-            "xero_archived",
-            "xero_merged_into_id",
-            "merged_into",
-            "contacts",
-        ]
+        fields = (
+            ["id"]
+            + Client.CLIENT_DIRECT_FIELDS
+            + [
+                "xero_last_modified",
+                "raw_json",
+                "additional_contact_persons",
+                "all_phones",
+                "django_created_at",
+                "django_updated_at",
+                "xero_last_synced",
+                "merged_into",
+                "contacts",
+            ]
+        )
 
 
 class ClientNameOnlySerializer(serializers.ModelSerializer):
