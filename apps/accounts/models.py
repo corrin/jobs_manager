@@ -22,8 +22,6 @@ class Staff(AbstractBaseUser, PermissionsMixin):
     #   7. ModernStaffSerializer in apps/timesheet/serializers/modern_timesheet_serializers.py (subset)
     #   8. StaffDailyDataSerializer in apps/timesheet/serializers/daily_timesheet_serializers.py (subset)
     #
-    # POSSIBLE BUG: #5, #6, #7, #8 use "avatar_url" but Staff has "icon" field. Always returns None.
-    #
     # All Staff model fields for serialization.
     STAFF_ALL_FIELDS = [
         "id",
