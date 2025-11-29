@@ -24,7 +24,10 @@ logger = logging.getLogger(__name__)
 
 class Job(models.Model):
     # Direct scalar fields on the Job model (not related objects or properties).
-    # SINGLE SOURCE OF TRUTH - add new Job fields here, serializers/views derive from this.
+    # SINGLE SOURCE OF TRUTH - when adding a new field:
+    #   1. Add the field to this list
+    #   2. Add a change handler in _create_change_events() field_handlers dict
+    #   3. Add to JobSerializer.Meta.fields if needed for full job data
     # Excludes: id (special handling), client/contact (related), quoted (property)
     JOB_DIRECT_FIELDS = [
         "job_number",
