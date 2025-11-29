@@ -23,20 +23,23 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
-    # Direct scalar fields on the Job model (not related objects).
-    # These are the fields that when serialising, saving, etc. all need to be handled
-    # Often other fields are saved by their own serialisers
-    # SINGLE SOURCE OF TRUTH - when adding a new field:
-    #   1. Add the field to this list
-    #   2. Add a change handler in _create_change_events() field_handlers dict
-    #   3. Add to JobSerializer.Meta.fields if needed for full job data
-    #   4. Add to ClientJobHeaderSerializer in apps/client/serializers.py
-    #   5. Add to get_client_jobs() response dict in apps/client/services/client_rest_service.py
-    #   6. Add to KanbanService.serialize_job_for_api() in apps/job/services/kanban_service.py
-    #   7. Add to KanbanJobSerializer and KanbanColumnJobSerializer in apps/job/serializers/kanban_serializer.py
-    #   8. Add to original_values dict in JobRestService.update_job() for change tracking
-    #   9. Review data_quality_report.py if field affects archived job compliance
-    # Excludes: id (special handling), client/contact (related), quoted (property)
+    # CHECKLIST - when adding a new field or property to Job, check these locations:
+    #   1. JOB_DIRECT_FIELDS below (if it's a model field)
+    #   2. _create_change_events() field_handlers dict in this file
+    #   3. JobSerializer.Meta.fields in apps/job/serializers/job_serializer.py
+    #   4. ClientJobHeaderSerializer in apps/client/serializers.py
+    #   5. get_client_jobs() response dict in apps/client/services/client_rest_service.py
+    #   6. KanbanService.serialize_job_for_api() in apps/job/services/kanban_service.py
+    #   7. KanbanJobSerializer and KanbanColumnJobSerializer in apps/job/serializers/kanban_serializer.py
+    #   8. original_values dict in JobRestService.update_job() in apps/job/services/job_rest_service.py
+    #   9. data_quality_report.py in apps/job/services/
+    #  10. JobAgingService job_info dict in apps/accounting/services.py
+    #  11. serialize_job_list() in apps/workflow/api/reports/job_movement.py
+    #  12. get_jobs_for_dropdown() in apps/job/utils.py
+    #  13. jobs_data dict in apps/purchasing/views/purchasing_rest_views.py
+    #
+    # Direct scalar model fields (not related objects, not properties).
+    # These are enumerated here to make it easier to avoid code duplication.
     JOB_DIRECT_FIELDS = [
         "job_number",
         "name",
