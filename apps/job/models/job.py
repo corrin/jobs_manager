@@ -33,8 +33,9 @@ class Job(models.Model):
     #   4. Add to ClientJobHeaderSerializer in apps/client/serializers.py
     #   5. Add to get_client_jobs() response dict in apps/client/services/client_rest_service.py
     #   6. Add to KanbanService.serialize_job_for_api() in apps/job/services/kanban_service.py
-    #   7. Add to KanbanJobSerializer in apps/job/serializers/kanban_serializer.py
-    #   8. Review data_quality_report.py if field affects archived job compliance
+    #   7. Add to KanbanJobSerializer and KanbanColumnJobSerializer in apps/job/serializers/kanban_serializer.py
+    #   8. Add to original_values dict in JobRestService.update_job() for change tracking
+    #   9. Review data_quality_report.py if field affects archived job compliance
     # Excludes: id (special handling), client/contact (related), quoted (property)
     JOB_DIRECT_FIELDS = [
         "job_number",
