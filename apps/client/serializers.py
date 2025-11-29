@@ -73,6 +73,7 @@ class ClientSearchResultSerializer(serializers.Serializer):
     phone = serializers.CharField(allow_blank=True)
     address = serializers.CharField(allow_blank=True)
     is_account_customer = serializers.BooleanField()
+    is_supplier = serializers.BooleanField()
     xero_contact_id = serializers.CharField(allow_blank=True)
     last_invoice_date = serializers.DateTimeField(allow_null=True)
     total_spend = serializers.CharField()

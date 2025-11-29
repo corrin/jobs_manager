@@ -23,7 +23,6 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.client.models import Client
 from apps.client.serializers import (
     ClientCreateRequestSerializer,
     ClientCreateResponseSerializer,
@@ -40,7 +39,6 @@ from apps.client.serializers import (
     JobContactUpdateRequestSerializer,
 )
 from apps.client.services.client_rest_service import ClientRestService
-from apps.client.utils import date_to_datetime
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_app_error
 
@@ -395,7 +393,7 @@ class ClientCreateRestView(APIView):
 
             response_data = {
                 "success": True,
-                "client": self._format_client_data(created_client),
+                "client": ClientRestService._format_client_summary(created_client),
                 "message": f'Client "{created_client.name}" created successfully',
             }
 
@@ -448,22 +446,6 @@ class ClientCreateRestView(APIView):
             return _build_server_error_response(
                 message="Error creating client", exc=exc
             )
-
-    def _format_client_data(self, client: Client) -> Dict[str, Any]:
-        """
-        Format client data for response following SRP.
-        """
-        return {
-            "id": str(client.id),
-            "name": client.name,
-            "email": client.email or "",
-            "phone": client.phone or "",
-            "address": client.address or "",
-            "is_account_customer": client.is_account_customer,
-            "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": date_to_datetime(client.get_last_invoice_date()),
-            "total_spend": f"${client.get_total_spend():,.2f}",
-        }
 
 
 @extend_schema_view(

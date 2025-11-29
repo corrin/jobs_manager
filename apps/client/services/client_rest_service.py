@@ -468,26 +468,29 @@ class ClientRestService:
         )
 
     @staticmethod
+    def _format_client_summary(client: Client) -> Dict[str, Any]:
+        """
+        Formats a single client summary for list/search responses.
+        """
+        return {
+            "id": str(client.id),
+            "name": client.name,
+            "email": client.email or "",
+            "phone": client.phone or "",
+            "address": client.address or "",
+            "is_account_customer": client.is_account_customer,
+            "is_supplier": client.is_supplier,
+            "xero_contact_id": client.xero_contact_id or "",
+            "last_invoice_date": date_to_datetime(client.last_invoice_date),
+            "total_spend": f"${client.total_spend:,.2f}",
+        }
+
+    @staticmethod
     def _format_client_search_results(clients) -> List[Dict[str, Any]]:
         """
         Formats client search results for API response.
         """
-        formatted = []
-        for client in clients:
-            formatted.append(
-                {
-                    "id": str(client.id),
-                    "name": client.name,
-                    "email": client.email or "",
-                    "phone": client.phone or "",
-                    "address": client.address or "",
-                    "is_account_customer": client.is_account_customer,
-                    "xero_contact_id": client.xero_contact_id or "",
-                    "last_invoice_date": date_to_datetime(client.last_invoice_date),
-                    "total_spend": f"${client.total_spend:,.2f}",
-                }
-            )
-        return formatted
+        return [ClientRestService._format_client_summary(client) for client in clients]
 
     @staticmethod
     def _format_client_detail(client: Client) -> Dict[str, Any]:
