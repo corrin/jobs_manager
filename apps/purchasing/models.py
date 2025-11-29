@@ -309,6 +309,45 @@ class Stock(models.Model):
     EARLY DRAFT: REVIEW AND TEST
     """
 
+    # CHECKLIST - when adding a new field or property to Stock, check these locations:
+    #   1. STOCK_ALL_FIELDS below (if it's a model field)
+    #   2. StockItemSerializer in apps/purchasing/serializers.py
+    #   3. StockCreateSerializer in apps/purchasing/serializers.py (create fields)
+    #   4. create_stock() in apps/purchasing/services/purchasing_rest_service.py
+    #   5. _create_stock_from_allocation() in apps/purchasing/services/delivery_receipt_service.py
+    #   6. get_allocation_details() in apps/purchasing/services/allocation_service.py (subset)
+    #   7. sync_stock_to_xero() in apps/workflow/api/xero/stock_sync.py (Xero API format)
+    #   8. consume_stock() in apps/purchasing/services/stock_service.py
+    #
+    # All Stock model fields for serialization.
+    STOCK_ALL_FIELDS = [
+        "id",
+        "job",
+        "item_code",
+        "description",
+        "quantity",
+        "unit_cost",
+        "unit_revenue",
+        "date",
+        "source",
+        "source_purchase_order_line",
+        "active_source_purchase_order_line_id",
+        "source_parent_stock",
+        "location",
+        "notes",
+        "metal_type",
+        "alloy",
+        "specifics",
+        "is_active",
+        "xero_id",
+        "xero_last_modified",
+        "raw_json",
+        "xero_inventory_tracked",
+        "parsed_at",
+        "parser_version",
+        "parser_confidence",
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     job = models.ForeignKey(

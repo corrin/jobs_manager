@@ -65,6 +65,7 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "item_code",
+            "supplier_item_code",
             "description",
             "quantity",
             "received_quantity",
@@ -296,6 +297,7 @@ class StockItemSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_null=True)
     quantity = serializers.FloatField(required=False, allow_null=True)
     unit_cost = serializers.FloatField(required=False, allow_null=True)
+    unit_revenue = serializers.FloatField(required=False, allow_null=True)
     metal_type = serializers.CharField(
         required=False, allow_null=True, allow_blank=True
     )
@@ -307,6 +309,7 @@ class StockItemSerializer(serializers.Serializer):
     job_id = serializers.UUIDField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
     item_code = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    is_active = serializers.BooleanField(required=False, default=True)
 
 
 class StockListSerializer(serializers.Serializer):
