@@ -851,7 +851,6 @@ class JobRestService:
                 )
 
                 # Store original values for comparison
-                # NOTE: Keep in sync with Job.JOB_DIRECT_FIELDS
                 original_values = {
                     "name": job.name,
                     "description": job.description,
