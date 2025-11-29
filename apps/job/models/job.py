@@ -23,6 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
+    # Direct scalar fields on the Job model (not related objects or properties).
+    # SINGLE SOURCE OF TRUTH - add new Job fields here, serializers/views derive from this.
+    # Excludes: id (special handling), client/contact (related), quoted (property)
+    JOB_DIRECT_FIELDS = [
+        "job_number",
+        "name",
+        "status",
+        "pricing_methodology",
+        "speed_quality_tradeoff",
+        "fully_invoiced",
+        "quote_acceptance_date",
+        "paid",
+        "rejected_flag",
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, null=False, blank=False)
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [

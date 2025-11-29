@@ -743,21 +743,17 @@ class JobClientHeaderSerializer(serializers.Serializer):
     name = serializers.CharField()
 
 
-class JobHeaderResponseSerializer(serializers.Serializer):
-    """Serializer for job header response - essential job data for fast loading"""
+class JobHeaderResponseSerializer(serializers.ModelSerializer):
+    """Serializer for job header response - essential job data for fast loading."""
 
-    job_id = serializers.UUIDField()
-    job_number = serializers.IntegerField()
-    name = serializers.CharField()
+    job_id = serializers.UUIDField(source="id")
     client = JobClientHeaderSerializer()
-    status = serializers.CharField()
-    pricing_methodology = serializers.CharField(allow_null=True)
-    speed_quality_tradeoff = serializers.CharField()
-    fully_invoiced = serializers.BooleanField()
     quoted = serializers.BooleanField()
-    quote_acceptance_date = serializers.DateTimeField(allow_null=True)
-    paid = serializers.BooleanField()
-    rejected_flag = serializers.BooleanField()
+
+    class Meta:
+        model = Job
+        # Derive fields from Job.JOB_DIRECT_FIELDS, plus special fields
+        fields = ["job_id", "client", "quoted"] + Job.JOB_DIRECT_FIELDS
 
 
 class JobStatusChoicesResponseSerializer(serializers.Serializer):
