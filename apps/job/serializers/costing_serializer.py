@@ -22,21 +22,7 @@ class CostLineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CostLine
-        fields = [
-            "id",
-            "kind",
-            "desc",
-            "quantity",
-            "unit_cost",
-            "unit_rev",
-            "total_cost",
-            "total_rev",
-            "accounting_date",
-            "ext_refs",
-            "meta",
-            "created_at",
-            "updated_at",
-        ]
+        fields = CostLine.COSTLINE_API_FIELDS + ["total_cost", "total_rev"]
 
     def get_total_cost(self, obj) -> float:
         """Get total cost (quantity * unit_cost)"""
@@ -115,20 +101,10 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CostLine
-        fields = [
-            "id",
-            "kind",
-            "desc",
-            "quantity",
-            "unit_cost",
-            "unit_rev",
+        # COSTLINE_API_FIELDS + timesheet-specific computed fields
+        fields = CostLine.COSTLINE_API_FIELDS + [
             "total_cost",
             "total_rev",
-            "accounting_date",
-            "ext_refs",
-            "meta",
-            "created_at",
-            "updated_at",
             "job_id",
             "job_number",
             "job_name",
@@ -146,6 +122,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CostLine
+        # Write fields - subset of API fields that can be written
         fields = [
             "kind",
             "desc",
@@ -307,7 +284,7 @@ class CostSetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CostSet
-        fields = ["id", "kind", "rev", "summary", "created", "cost_lines"]
+        fields = CostSet.COSTSET_ALL_FIELDS + ["cost_lines"]
         read_only_fields = fields
 
 
@@ -315,23 +292,6 @@ class CostLineErrorResponseSerializer(serializers.Serializer):
     """Serializer for cost line error responses."""
 
     error = serializers.CharField()
-
-
-class CostLineCreateResponseSerializer(serializers.Serializer):
-    """Serializer for cost line creation success response."""
-
-    # Uses the full CostLineSerializer data structure
-    id = serializers.CharField()
-    kind = serializers.CharField()
-    desc = serializers.CharField()
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
-    unit_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
-    unit_rev = serializers.DecimalField(max_digits=10, decimal_places=2)
-    total_cost = serializers.ReadOnlyField()
-    total_rev = serializers.ReadOnlyField()
-    accounting_date = serializers.DateField()
-    ext_refs = serializers.JSONField(required=False)
-    meta = serializers.JSONField(required=False)
 
 
 class QuoteImportStatusResponseSerializer(serializers.Serializer):

@@ -151,8 +151,8 @@ class PurchaseOrderLine(models.Model):
     """A line item on a PO."""
 
     # CHECKLIST - when adding a new field or property to PurchaseOrderLine, check these locations:
-    #   1. PO_LINE_ALL_FIELDS below (if it's a model field)
-    #   2. PurchaseOrderLineSerializer in apps/purchasing/serializers.py
+    #   1. PO_LINE_API_FIELDS or PO_LINE_INTERNAL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderLineSerializer in apps/purchasing/serializers.py (uses PO_LINE_API_FIELDS)
     #   3. PurchaseOrderLineCreateSerializer in apps/purchasing/serializers.py (create fields)
     #   4. PurchaseOrderLineUpdateSerializer in apps/purchasing/serializers.py (update fields)
     #   5. FIELD_UPDATERS in apps/purchasing/services/purchasing_rest_service.py
@@ -160,10 +160,9 @@ class PurchaseOrderLine(models.Model):
     #   7. get_line_items() in apps/workflow/views/xero/xero_po_manager.py (Xero API format)
     #   8. add_line_items_table() in apps/purchasing/services/purchase_order_pdf_service.py
     #
-    # All PurchaseOrderLine model fields for serialization.
-    PO_LINE_ALL_FIELDS = [
+    # Fields exposed via API serializers
+    PO_LINE_API_FIELDS = [
         "id",
-        "purchase_order",
         "job",
         "description",
         "quantity",
@@ -177,8 +176,16 @@ class PurchaseOrderLine(models.Model):
         "alloy",
         "specifics",
         "location",
+    ]
+
+    # Internal fields not exposed in API
+    PO_LINE_INTERNAL_FIELDS = [
+        "purchase_order",
         "raw_line_data",
     ]
+
+    # All PurchaseOrderLine model fields (derived)
+    PO_LINE_ALL_FIELDS = PO_LINE_API_FIELDS + PO_LINE_INTERNAL_FIELDS
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     purchase_order = models.ForeignKey(
@@ -310,8 +317,8 @@ class Stock(models.Model):
     """
 
     # CHECKLIST - when adding a new field or property to Stock, check these locations:
-    #   1. STOCK_ALL_FIELDS below (if it's a model field)
-    #   2. StockItemSerializer in apps/purchasing/serializers.py
+    #   1. STOCK_API_FIELDS or STOCK_INTERNAL_FIELDS below (if it's a model field)
+    #   2. StockItemSerializer in apps/purchasing/serializers.py (uses STOCK_API_FIELDS)
     #   3. StockCreateSerializer in apps/purchasing/serializers.py (create fields)
     #   4. create_stock() in apps/purchasing/services/purchasing_rest_service.py
     #   5. _create_stock_from_allocation() in apps/purchasing/services/delivery_receipt_service.py
@@ -319,8 +326,8 @@ class Stock(models.Model):
     #   7. sync_stock_to_xero() in apps/workflow/api/xero/stock_sync.py (Xero API format)
     #   8. consume_stock() in apps/purchasing/services/stock_service.py
     #
-    # All Stock model fields for serialization.
-    STOCK_ALL_FIELDS = [
+    # Fields exposed via API serializers
+    STOCK_API_FIELDS = [
         "id",
         "job",
         "item_code",
@@ -330,15 +337,19 @@ class Stock(models.Model):
         "unit_revenue",
         "date",
         "source",
-        "source_purchase_order_line",
-        "active_source_purchase_order_line_id",
-        "source_parent_stock",
         "location",
         "notes",
         "metal_type",
         "alloy",
         "specifics",
         "is_active",
+    ]
+
+    # Internal fields not exposed in API
+    STOCK_INTERNAL_FIELDS = [
+        "source_purchase_order_line",
+        "active_source_purchase_order_line_id",
+        "source_parent_stock",
         "xero_id",
         "xero_last_modified",
         "raw_json",
@@ -347,6 +358,9 @@ class Stock(models.Model):
         "parser_version",
         "parser_confidence",
     ]
+
+    # All Stock model fields (derived)
+    STOCK_ALL_FIELDS = STOCK_API_FIELDS + STOCK_INTERNAL_FIELDS
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
