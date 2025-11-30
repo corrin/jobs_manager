@@ -14,17 +14,7 @@ class JobFileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobFile
-        fields = [
-            "id",
-            "filename",
-            "size",
-            "mime_type",
-            "uploaded_at",
-            "print_on_jobsheet",
-            "download_url",
-            "thumbnail_url",
-            "status",
-        ]
+        fields = JobFile.JOBFILE_API_FIELDS + JobFile.JOBFILE_API_PROPERTIES
 
     def get_size(self, obj: JobFile) -> int | None:
         """Get file size in bytes"""

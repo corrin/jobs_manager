@@ -418,21 +418,7 @@ class JobEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobEvent
-        fields = [
-            "id",
-            "description",
-            "timestamp",
-            "staff",
-            "event_type",
-            "schema_version",
-            "change_id",
-            "delta_before",
-            "delta_after",
-            "delta_meta",
-            "delta_checksum",
-            "can_undo",
-            "undo_description",
-        ]
+        fields = JobEvent.JOBEVENT_API_FIELDS + JobEvent.JOBEVENT_API_PROPERTIES
         read_only_fields = fields
 
 

@@ -8,6 +8,40 @@ from apps.job.services.file_service import get_thumbnail_folder
 
 
 class JobFile(models.Model):
+    # CHECKLIST - when adding a new field or property to JobFile, check these locations:
+    #   1. JOBFILE_API_FIELDS or JOBFILE_INTERNAL_FIELDS below (if it's a model field)
+    #   2. JobFileSerializer in apps/job/serializers/job_file_serializer.py (uses JOBFILE_API_FIELDS)
+    #   3. UploadedFileSerializer in apps/job/serializers/job_file_serializer.py (upload response)
+    #   4. sync_job_files() in apps/job/services/file_service.py (creates JobFile records)
+    #   5. create_delivery_docket() in apps/job/services/delivery_docket_service.py (creates JobFile)
+    #   6. _add_images_to_pdf() in apps/job/services/workshop_pdf_service.py (uses file_path, filename)
+    #
+    # Database fields exposed via API serializers
+    JOBFILE_API_FIELDS = [
+        "id",
+        "filename",
+        "mime_type",
+        "uploaded_at",
+        "status",
+        "print_on_jobsheet",
+    ]
+
+    # Computed properties exposed via API serializers
+    JOBFILE_API_PROPERTIES = [
+        "size",
+        "download_url",
+        "thumbnail_url",
+    ]
+
+    # Internal fields not exposed in API
+    JOBFILE_INTERNAL_FIELDS = [
+        "job",
+        "file_path",
+    ]
+
+    # All JobFile model fields (derived)
+    JOBFILE_ALL_FIELDS = JOBFILE_API_FIELDS + JOBFILE_INTERNAL_FIELDS
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey("Job", related_name="files", on_delete=models.CASCADE)
     filename = models.CharField(max_length=255)

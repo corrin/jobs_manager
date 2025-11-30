@@ -10,6 +10,46 @@ from apps.accounts.models import Staff
 
 
 class JobEvent(models.Model):
+    # CHECKLIST - when adding a new field or property to JobEvent, check these locations:
+    #   1. JOBEVENT_API_FIELDS or JOBEVENT_INTERNAL_FIELDS below (if it's a model field)
+    #   2. JobEventSerializer in apps/job/serializers/job_serializer.py (uses JOBEVENT_API_FIELDS)
+    #   3. _track_field_changes() in apps/job/models/job.py (creates JobEvent for field changes)
+    #   4. _handle_status_change() in apps/job/models/job.py (creates JobEvent for status changes)
+    #   5. create_job() in apps/job/services/job_rest_service.py (creates job_created event)
+    #   6. _build_and_apply_delta() in apps/job/services/job_rest_service.py (creates job_updated event)
+    #   7. create_job_event() in apps/job/services/job_rest_service.py (creates manual_note event)
+    #   8. generate_delivery_docket() in apps/job/services/delivery_docket_service.py (creates event)
+    #
+    # Database fields exposed via API serializers
+    JOBEVENT_API_FIELDS = [
+        "id",
+        "description",
+        "timestamp",
+        "staff",
+        "event_type",
+        "schema_version",
+        "change_id",
+        "delta_before",
+        "delta_after",
+        "delta_meta",
+        "delta_checksum",
+    ]
+
+    # Computed properties exposed via API serializers
+    JOBEVENT_API_PROPERTIES = [
+        "can_undo",
+        "undo_description",
+    ]
+
+    # Internal fields not exposed in API
+    JOBEVENT_INTERNAL_FIELDS = [
+        "job",
+        "dedup_hash",
+    ]
+
+    # All JobEvent model fields (derived)
+    JOBEVENT_ALL_FIELDS = JOBEVENT_API_FIELDS + JOBEVENT_INTERNAL_FIELDS
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(
         "Job", on_delete=models.CASCADE, related_name="events", null=True, blank=True
