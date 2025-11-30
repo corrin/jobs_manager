@@ -62,7 +62,7 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrderLine
-        fields = PurchaseOrderLine.PO_LINE_API_FIELDS + ["job_id"]
+        fields = PurchaseOrderLine.PURCHASEORDERLINE_API_FIELDS + ["job_id"]
 
 
 class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
@@ -75,7 +75,10 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrder
-        fields = PurchaseOrder.PO_API_FIELDS + PurchaseOrder.PO_API_PROPERTIES
+        fields = (
+            PurchaseOrder.PURCHASEORDER_API_FIELDS
+            + PurchaseOrder.PURCHASEORDER_API_PROPERTIES
+        )
 
     def get_supplier(self, obj) -> str:
         return obj.supplier.name if obj.supplier else ""

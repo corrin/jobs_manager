@@ -20,8 +20,8 @@ class PurchaseOrder(models.Model):
     """A request to purchase materials from a supplier."""
 
     # CHECKLIST - when adding a new field or property to PurchaseOrder, check these locations:
-    #   1. PO_API_FIELDS or PO_INTERNAL_FIELDS below (if it's a model field)
-    #   2. PurchaseOrderSerializer in apps/purchasing/serializers.py (uses PO_API_FIELDS)
+    #   1. PURCHASEORDER_API_FIELDS or PURCHASEORDER_INTERNAL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderSerializer in apps/purchasing/serializers.py (uses PURCHASEORDER_API_FIELDS)
     #   3. PurchaseOrderListSerializer in apps/purchasing/serializers.py (subset for lists)
     #   4. list_purchase_orders() in apps/purchasing/services/purchasing_rest_service.py
     #   5. create_purchase_order() in apps/purchasing/services/purchasing_rest_service.py
@@ -31,7 +31,7 @@ class PurchaseOrder(models.Model):
     #   9. create_purchase_order_email() in apps/purchasing/services/purchase_order_email_service.py
     #
     # Database fields exposed via API serializers
-    PO_API_FIELDS = [
+    PURCHASEORDER_API_FIELDS = [
         "id",
         "po_number",
         "reference",
@@ -43,7 +43,7 @@ class PurchaseOrder(models.Model):
     ]
 
     # Computed properties exposed via API serializers
-    PO_API_PROPERTIES = [
+    PURCHASEORDER_API_PROPERTIES = [
         "supplier",
         "supplier_id",
         "supplier_has_xero_id",
@@ -51,7 +51,7 @@ class PurchaseOrder(models.Model):
     ]
 
     # Internal fields not exposed in API
-    PO_INTERNAL_FIELDS = [
+    PURCHASEORDER_INTERNAL_FIELDS = [
         "job",
         "xero_tenant_id",
         "created_at",
@@ -62,7 +62,7 @@ class PurchaseOrder(models.Model):
     ]
 
     # All PurchaseOrder model fields (derived)
-    PO_ALL_FIELDS = PO_API_FIELDS + PO_INTERNAL_FIELDS
+    PURCHASEORDER_ALL_FIELDS = PURCHASEORDER_API_FIELDS + PURCHASEORDER_INTERNAL_FIELDS
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(
@@ -165,8 +165,8 @@ class PurchaseOrderLine(models.Model):
     """A line item on a PO."""
 
     # CHECKLIST - when adding a new field or property to PurchaseOrderLine, check these locations:
-    #   1. PO_LINE_API_FIELDS or PO_LINE_INTERNAL_FIELDS below (if it's a model field)
-    #   2. PurchaseOrderLineSerializer in apps/purchasing/serializers.py (uses PO_LINE_API_FIELDS)
+    #   1. PURCHASEORDERLINE_API_FIELDS or PURCHASEORDERLINE_INTERNAL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderLineSerializer in apps/purchasing/serializers.py (uses PURCHASEORDERLINE_API_FIELDS)
     #   3. PurchaseOrderLineCreateSerializer in apps/purchasing/serializers.py (create fields)
     #   4. PurchaseOrderLineUpdateSerializer in apps/purchasing/serializers.py (update fields)
     #   5. FIELD_UPDATERS in apps/purchasing/services/purchasing_rest_service.py
@@ -175,9 +175,8 @@ class PurchaseOrderLine(models.Model):
     #   8. add_line_items_table() in apps/purchasing/services/purchase_order_pdf_service.py
     #
     # Fields exposed via API serializers
-    PO_LINE_API_FIELDS = [
+    PURCHASEORDERLINE_API_FIELDS = [
         "id",
-        "job",
         "description",
         "quantity",
         "dimensions",
@@ -193,13 +192,16 @@ class PurchaseOrderLine(models.Model):
     ]
 
     # Internal fields not exposed in API
-    PO_LINE_INTERNAL_FIELDS = [
+    PURCHASEORDERLINE_INTERNAL_FIELDS = [
         "purchase_order",
+        "job",
         "raw_line_data",
     ]
 
     # All PurchaseOrderLine model fields (derived)
-    PO_LINE_ALL_FIELDS = PO_LINE_API_FIELDS + PO_LINE_INTERNAL_FIELDS
+    PURCHASEORDERLINE_ALL_FIELDS = (
+        PURCHASEORDERLINE_API_FIELDS + PURCHASEORDERLINE_INTERNAL_FIELDS
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     purchase_order = models.ForeignKey(
@@ -343,7 +345,6 @@ class Stock(models.Model):
     # Fields exposed via API serializers
     STOCK_API_FIELDS = [
         "id",
-        "job",
         "item_code",
         "description",
         "quantity",
@@ -361,6 +362,7 @@ class Stock(models.Model):
 
     # Internal fields not exposed in API
     STOCK_INTERNAL_FIELDS = [
+        "job",
         "source_purchase_order_line",
         "active_source_purchase_order_line_id",
         "source_parent_stock",
