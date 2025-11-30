@@ -260,6 +260,35 @@ class ClientContact(models.Model):
     but is now managed entirely within our application.
     """
 
+    # CHECKLIST - when adding a new field or property to ClientContact, check these locations:
+    #   1. CLIENTCONTACT_API_FIELDS or CLIENTCONTACT_INTERNAL_FIELDS below (if it's a model field)
+    #   2. ClientContactSerializer in apps/client/serializers.py (uses CLIENTCONTACT_API_FIELDS)
+    #   3. JobContactResponseSerializer in apps/client/serializers.py (subset for job context)
+    #   4. ClientContactViewSet in apps/client/views/client_contact_viewset.py (CRUD operations)
+    #   5. Job.contact FK in apps/job/models/job.py (relationship to ClientContact)
+    #   6. reprocess_xero.py in apps/workflow/api/xero/ (Xero sync creates contacts)
+    #
+    # Database fields exposed via API serializers
+    CLIENTCONTACT_API_FIELDS = [
+        "id",
+        "client",
+        "name",
+        "email",
+        "phone",
+        "position",
+        "is_primary",
+        "notes",
+        "is_active",
+        "created_at",
+        "updated_at",
+    ]
+
+    # No internal fields for ClientContact - all fields are exposed
+    CLIENTCONTACT_INTERNAL_FIELDS = []
+
+    # All ClientContact model fields (derived)
+    CLIENTCONTACT_ALL_FIELDS = CLIENTCONTACT_API_FIELDS + CLIENTCONTACT_INTERNAL_FIELDS
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = models.ForeignKey(
         Client,

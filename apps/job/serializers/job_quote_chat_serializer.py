@@ -11,6 +11,7 @@ class JobQuoteChatCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobQuoteChat
+        # Write subset: API fields except timestamp (auto-generated)
         fields = ["message_id", "role", "content", "metadata"]
         extra_kwargs = {
             "metadata": {"default": dict, "required": False},
@@ -39,7 +40,7 @@ class JobQuoteChatSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobQuoteChat
-        fields = ["message_id", "role", "content", "metadata", "timestamp"]
+        fields = JobQuoteChat.JOBQUOTECHAT_API_FIELDS
         read_only_fields = ["timestamp"]
         extra_kwargs = {
             "metadata": {"default": dict, "required": False},

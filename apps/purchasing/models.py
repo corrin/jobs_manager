@@ -20,8 +20,8 @@ class PurchaseOrder(models.Model):
     """A request to purchase materials from a supplier."""
 
     # CHECKLIST - when adding a new field or property to PurchaseOrder, check these locations:
-    #   1. PO_ALL_FIELDS below (if it's a model field)
-    #   2. PurchaseOrderDetailSerializer in apps/purchasing/serializers.py
+    #   1. PO_API_FIELDS or PO_INTERNAL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderSerializer in apps/purchasing/serializers.py (uses PO_API_FIELDS)
     #   3. PurchaseOrderListSerializer in apps/purchasing/serializers.py (subset for lists)
     #   4. list_purchase_orders() in apps/purchasing/services/purchasing_rest_service.py
     #   5. create_purchase_order() in apps/purchasing/services/purchasing_rest_service.py
@@ -30,25 +30,39 @@ class PurchaseOrder(models.Model):
     #   8. PurchaseOrderPDFGenerator in apps/purchasing/services/purchase_order_pdf_service.py
     #   9. create_purchase_order_email() in apps/purchasing/services/purchase_order_email_service.py
     #
-    # All PurchaseOrder model fields for serialization.
-    PO_ALL_FIELDS = [
+    # Database fields exposed via API serializers
+    PO_API_FIELDS = [
         "id",
-        "supplier",
-        "job",
         "po_number",
         "reference",
+        "status",
         "order_date",
         "expected_delivery",
+        "online_url",
         "xero_id",
+    ]
+
+    # Computed properties exposed via API serializers
+    PO_API_PROPERTIES = [
+        "supplier",
+        "supplier_id",
+        "supplier_has_xero_id",
+        "lines",
+    ]
+
+    # Internal fields not exposed in API
+    PO_INTERNAL_FIELDS = [
+        "job",
         "xero_tenant_id",
-        "status",
         "created_at",
         "updated_at",
         "xero_last_modified",
         "xero_last_synced",
-        "online_url",
         "raw_json",
     ]
+
+    # All PurchaseOrder model fields (derived)
+    PO_ALL_FIELDS = PO_API_FIELDS + PO_INTERNAL_FIELDS
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(

@@ -75,20 +75,7 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrder
-        fields = [
-            "id",
-            "po_number",
-            "reference",
-            "supplier",
-            "supplier_id",
-            "supplier_has_xero_id",
-            "status",
-            "order_date",
-            "expected_delivery",
-            "lines",
-            "online_url",
-            "xero_id",
-        ]
+        fields = PurchaseOrder.PO_API_FIELDS + PurchaseOrder.PO_API_PROPERTIES
 
     def get_supplier(self, obj) -> str:
         return obj.supplier.name if obj.supplier else ""
