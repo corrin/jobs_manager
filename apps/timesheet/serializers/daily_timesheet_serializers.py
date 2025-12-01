@@ -26,10 +26,7 @@ class StaffDailyDataSerializer(serializers.Serializer):
     staff_id = serializers.CharField()
     staff_name = serializers.CharField()
     staff_initials = serializers.CharField()
-    icon = serializers.CharField(allow_null=True)
-    avatar_url = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True
-    )
+    icon_url = serializers.CharField(allow_null=True)
     scheduled_hours = serializers.FloatField()
     actual_hours = serializers.FloatField()
     billable_hours = serializers.FloatField()

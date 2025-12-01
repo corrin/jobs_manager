@@ -63,7 +63,7 @@ class KanbanJobPersonSerializer(serializers.Serializer):
 
     id = serializers.UUIDField()
     display_name = serializers.CharField()
-    icon = serializers.URLField(allow_null=True)
+    icon_url = serializers.URLField(allow_null=True)
 
 
 class KanbanJobSerializer(serializers.Serializer):

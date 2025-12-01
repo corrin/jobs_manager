@@ -52,7 +52,7 @@ class ModernStaffSerializer(serializers.Serializer):
     firstName = serializers.CharField()
     lastName = serializers.CharField()
     email = serializers.CharField()
-    icon = serializers.CharField(allow_null=True, allow_blank=True, required=False)
+    icon_url = serializers.CharField(allow_null=True, allow_blank=True, required=False)
     wageRate = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 

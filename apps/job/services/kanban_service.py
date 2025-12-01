@@ -131,7 +131,7 @@ class KanbanService:
                 {
                     "id": str(staff.id),
                     "display_name": staff.get_display_full_name(),
-                    "icon": staff.icon.url if staff.icon else None,
+                    "icon_url": staff.icon.url if staff.icon else None,
                 }
                 for staff in job.people.all()
             ],
