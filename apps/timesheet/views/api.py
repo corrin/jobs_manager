@@ -146,7 +146,9 @@ class StaffListAPIView(APIView):
                             if member.wage_rate
                             else Decimal(0)
                         ),
-                        "avatarUrl": None,  # TODO: add avatar logic
+                        # Provide both icon (legacy) and avatarUrl for frontend schema compatibility
+                        "icon": member.icon.url if member.icon else None,
+                        "avatarUrl": member.icon.url if member.icon else None,
                     }
                 )
 
