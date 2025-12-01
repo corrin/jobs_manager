@@ -2,13 +2,10 @@
 
 import logging
 import traceback
-from decimal import Decimal, InvalidOperation
 
 from django.db.models import OuterRef, Subquery
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
@@ -41,12 +38,6 @@ from apps.purchasing.serializers import (
     PurchaseOrderUpdateSerializer,
     PurchasingErrorResponseSerializer,
     PurchasingJobsResponseSerializer,
-    StockConsumeRequestSerializer,
-    StockConsumeResponseSerializer,
-    StockCreateResponseSerializer,
-    StockCreateSerializer,
-    StockDeactivateResponseSerializer,
-    StockListSerializer,
     SupplierPriceStatusResponseSerializer,
     XeroItemListResponseSerializer,
 )
@@ -65,7 +56,6 @@ from apps.purchasing.services.purchasing_rest_service import (
     PreconditionFailedError,
     PurchasingRestService,
 )
-from apps.purchasing.services.stock_service import consume_stock
 
 logger = logging.getLogger(__name__)
 
@@ -551,174 +541,6 @@ class DeliveryReceiptRestView(PurchaseOrderETagMixin, APIView):
             return Response(
                 response_serializer.data, status=status.HTTP_400_BAD_REQUEST
             )
-
-
-@method_decorator(
-    cache_page(
-        10
-    ),  # Short cache to de-duplicate immediate double fetches from jobs page
-    name="dispatch",
-)
-class StockListRestView(APIView):
-    """
-    REST API view for listing and creating stock items.
-
-    GET: Returns list of all stock items
-    POST: Creates new stock item from provided data
-    """
-
-    # Why cached:
-    # - The jobs page triggers two back-to-back GETs to this endpoint on load.
-    # - Caching for 10s removes redundant work and reduces perceived wait without changing frontend.
-    # - Safe to revert by removing the cache_page decorator if behavior changes.
-
-    def get_serializer_class(self):
-        """Return appropriate serializer class based on request method."""
-        if self.request.method == "POST":
-            return StockCreateSerializer
-        return StockListSerializer
-
-    def get(self, request):
-        """Get list of all active stock items."""
-        # Get data from service (returns list of dictionaries)
-        items = PurchasingRestService.list_stock()
-
-        payload = {
-            "items": items,
-            "total_count": len(items),
-        }
-
-        # Serialize the data from service using the serializer
-        serializer = StockListSerializer(payload)
-        return Response(serializer.data)
-
-    def post(self, request):
-        """Create new stock item."""
-        serializer = StockCreateSerializer(data=request.data)
-
-        if not serializer.is_valid():
-            return Response(
-                {"error": "Invalid input data", "details": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            # Create stock item using service
-            item = PurchasingRestService.create_stock(serializer.validated_data)
-
-            # Return response
-            response_data = {"id": str(item.id)}
-            response_serializer = StockCreateResponseSerializer(response_data)
-            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-
-        except ValueError as exc:
-            return Response(
-                {"error": "Validation error", "details": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as e:
-            logger.error(f"Error creating stock item: {str(e)}")
-            return Response(
-                {"error": "Failed to create stock item", "details": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-
-class StockDeactivateRestView(APIView):
-    """
-    REST API view for deactivating stock items.
-
-    DELETE: Marks a stock item as inactive instead of deleting it
-    """
-
-    serializer_class = StockDeactivateResponseSerializer
-
-    def delete(self, request, stock_id):
-        item = get_object_or_404(Stock, id=stock_id)
-        if item.is_active:
-            item.is_active = False
-            item.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(
-            {"error": "Item is already inactive"}, status=status.HTTP_400_BAD_REQUEST
-        )
-
-
-class StockConsumeRestView(APIView):
-    """
-    REST API view for consuming stock items for jobs.
-
-    POST: Records stock consumption for a specific job, reducing available quantity
-    """
-
-    serializer_class = StockConsumeResponseSerializer
-
-    def get_serializer_class(self):
-        """Return the appropriate serializer class based on the request method"""
-        if self.request.method == "POST":
-            return StockConsumeRequestSerializer
-        return StockConsumeResponseSerializer
-
-    @extend_schema(
-        request=StockConsumeRequestSerializer,
-        responses=StockConsumeResponseSerializer,
-        operation_id="consumeStock",
-        description="Consume stock for a job, reducing available quantity.",
-    )
-    def post(self, request, stock_id):
-        # Use serializer for proper validation
-        serializer = StockConsumeRequestSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                {"error": "Invalid input data", "details": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        job_id = serializer.validated_data["job_id"]
-        qty_dec = serializer.validated_data["quantity"]
-
-        job = get_object_or_404(Job, id=job_id)
-        item = get_object_or_404(Stock, id=stock_id)
-
-        # Validating because unit cost and revenue are optional in consumption
-        # (But stock alocation in JobActualTab might override default values for cost and revenue)
-        unit_cost = request.data.get("unit_cost", None)
-        unit_rev = request.data.get("unit_rev", None)
-        cost_dec = None
-        revenue_dec = None
-
-        try:
-            if unit_cost is not None:
-                cost_dec = Decimal(str(unit_cost))
-            if unit_rev is not None:
-                revenue_dec = Decimal(str(unit_rev))
-        except (InvalidOperation, TypeError):
-            return Response(
-                {
-                    "error": "Invalid state detected: unit cost or unit revenue are not valid decimals"
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            if cost_dec and revenue_dec:
-                line = consume_stock(
-                    item, job, qty_dec, request.user, cost_dec, revenue_dec
-                )
-            else:
-                line = consume_stock(item, job, qty_dec, request.user)
-        except ValueError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        payload = {
-            "success": True,
-            "message": "Stock consumed successfully",
-            "remaining_quantity": item.quantity - qty_dec,
-            "line": line,
-        }
-        return Response(
-            StockConsumeResponseSerializer(payload).data, status=status.HTTP_200_OK
-        )
 
 
 class PurchaseOrderAllocationsAPIView(APIView):

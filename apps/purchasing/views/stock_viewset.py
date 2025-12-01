@@ -5,13 +5,13 @@ ViewSet for Stock CRUD operations using DRF's ModelViewSet.
 Provides list, create, retrieve, update, partial_update, and destroy actions.
 """
 
-from decimal import Decimal
-
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.job.models import Job
 from apps.purchasing.models import Stock
 from apps.purchasing.serializers import (
     StockConsumeRequestSerializer,
@@ -79,28 +79,27 @@ class StockViewSet(viewsets.ModelViewSet):
         unit_cost = serializer.validated_data.get("unit_cost")
         unit_rev = serializer.validated_data.get("unit_rev")
 
-        if qty_dec <= Decimal("0"):
-            return Response(
-                {"error": "Quantity must be positive"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Get the job object
+        job = get_object_or_404(Job, id=job_id)
 
-        if qty_dec > stock_item.quantity:
-            return Response(
-                {
-                    "error": f"Insufficient stock. Available: {stock_item.quantity}, "
-                    f"Requested: {qty_dec}"
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+        try:
+            line = consume_stock(
+                stock_item,
+                job,
+                qty_dec,
+                request.user,
+                unit_cost=unit_cost,
+                unit_rev=unit_rev,
             )
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        result = consume_stock(
-            stock_item,
-            job_id,
-            qty_dec,
-            unit_cost=unit_cost,
-            unit_rev=unit_rev,
+        payload = {
+            "success": True,
+            "message": "Stock consumed successfully",
+            "remaining_quantity": stock_item.quantity - qty_dec,
+            "line": line,
+        }
+        return Response(
+            StockConsumeResponseSerializer(payload).data, status=status.HTTP_200_OK
         )
-
-        response_serializer = StockConsumeResponseSerializer(result)
-        return Response(response_serializer.data)
