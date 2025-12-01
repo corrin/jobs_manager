@@ -1,4 +1,5 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
 from apps.purchasing.views.purchasing_rest_views import (
     AllJobsAPIView,
@@ -13,12 +14,14 @@ from apps.purchasing.views.purchasing_rest_views import (
     PurchaseOrderListCreateRestView,
     PurchaseOrderPDFView,
     PurchasingJobsAPIView,
-    StockConsumeRestView,
-    StockDeactivateRestView,
-    StockListRestView,
     SupplierPriceStatusAPIView,
     XeroItemList,
 )
+from apps.purchasing.views.stock_viewset import StockViewSet
+
+# Router for ViewSet-based endpoints
+router = DefaultRouter()
+router.register("stock", StockViewSet, basename="stock")
 
 urlpatterns = [
     path(
@@ -39,12 +42,6 @@ urlpatterns = [
         DeliveryReceiptRestView.as_view(),
         name="delivery_receipts_rest",
     ),
-    path("stock/", StockListRestView.as_view(), name="stock_list_rest"),
-    path(
-        "stock/<uuid:stock_id>/consume/",
-        StockConsumeRestView.as_view(),
-        name="stock_consume_rest",
-    ),
     path(
         "purchase-orders/<uuid:id>/",
         PurchaseOrderDetailRestView.as_view(),
@@ -54,11 +51,6 @@ urlpatterns = [
         "purchase-orders/<uuid:po_id>/allocations/",
         PurchaseOrderAllocationsAPIView.as_view(),
         name="purchase_order_allocations_rest",
-    ),
-    path(
-        "stock/<uuid:stock_id>/",
-        StockDeactivateRestView.as_view(),
-        name="stock_deactivate_rest",
     ),
     path(
         "purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/",
@@ -90,4 +82,6 @@ urlpatterns = [
         ProductMappingValidateView.as_view(),
         name="product_mapping_validate_rest",
     ),
+    # ViewSet routes (stock CRUD)
+    path("", include(router.urls)),
 ]

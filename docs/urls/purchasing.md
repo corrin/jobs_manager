@@ -34,13 +34,6 @@
 | `/purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/` | `purchasing_rest_views.AllocationDeleteAPIView` | `purchasing:allocation_delete_rest` | API endpoint to delete specific allocations from a purchase order. |
 | `/purchase-orders/<uuid:po_id>/pdf/` | `purchasing_rest_views.PurchaseOrderPDFView` | `purchasing:purchase_order_pdf_rest` | REST API view for generating and downloading purchase order PDFs. |
 
-### Stock Management
-| URL Pattern | View | Name | Description |
-|-------------|------|------|-------------|
-| `/stock/` | `purchasing_rest_views.StockListRestView` | `purchasing:stock_list_rest` | REST API view for listing and creating stock items. |
-| `/stock/<uuid:stock_id>/` | `purchasing_rest_views.StockDeactivateRestView` | `purchasing:stock_deactivate_rest` | REST API view for deactivating stock items. |
-| `/stock/<uuid:stock_id>/consume/` | `purchasing_rest_views.StockConsumeRestView` | `purchasing:stock_consume_rest` | REST API view for consuming stock items for jobs. |
-
 ### Supplier-Price-Status Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
