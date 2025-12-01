@@ -388,6 +388,7 @@ def transform_stock(xero_item, xero_id):
         "raw_json": raw_json,
         "xero_last_modified": xero_last_modified,
         "xero_inventory_tracked": is_tracked,
+        "source": "product_catalog",
     }
     # Handle missing sales_details.unit_price (set default if missing)
     if not xero_item.sales_details or xero_item.sales_details.unit_price is None:

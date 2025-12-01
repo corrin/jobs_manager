@@ -423,6 +423,7 @@ class Stock(models.Model):
             ("purchase_order", "Purchase Order Receipt"),
             ("split_from_stock", "Split/Offcut from Stock"),
             ("manual", "Manual Adjustment/Stocktake"),
+            ("product_catalog", "Product Catalog"),
         ],
         help_text="Origin of this stock item",
     )
