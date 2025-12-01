@@ -14,12 +14,19 @@ from .purchasing_rest_views import (
     PurchaseOrderListCreateRestView,
     PurchaseOrderPDFView,
     PurchasingJobsAPIView,
-    StockConsumeRestView,
-    StockDeactivateRestView,
-    StockListRestView,
     SupplierPriceStatusAPIView,
     XeroItemList,
 )
+
+# Conditional imports (only when Django is ready)
+try:
+    from django.apps import apps
+
+    if apps.ready:
+        from .stock_viewset import StockViewSet
+except (ImportError, RuntimeError):
+    # Django not ready or circular import, skip conditional imports
+    pass
 
 __all__ = [
     "AllJobsAPIView",
@@ -35,9 +42,7 @@ __all__ = [
     "PurchaseOrderListCreateRestView",
     "PurchaseOrderPDFView",
     "PurchasingJobsAPIView",
-    "StockConsumeRestView",
-    "StockDeactivateRestView",
-    "StockListRestView",
+    "StockViewSet",
     "SupplierPriceStatusAPIView",
     "XeroItemList",
 ]
