@@ -92,6 +92,10 @@ class KanbanJobSerializer(serializers.Serializer):
 
     # Financial
     paid = serializers.BooleanField()
+    fully_invoiced = serializers.BooleanField()
+
+    # Job settings
+    speed_quality_tradeoff = serializers.CharField()
 
     # User who created the job
     created_by_id = serializers.UUIDField(allow_null=True)
@@ -146,7 +150,7 @@ class AdvancedSearchResponseSerializer(serializers.Serializer):
 class KanbanColumnJobSerializer(serializers.Serializer):
     """
     Serializer for job data in kanban column context
-    (from get_jobs_by_kanban_column).
+    (from get_jobs_by_kanban_column - uses serialize_job_for_api).
     """
 
     # Basic job info
@@ -165,9 +169,14 @@ class KanbanColumnJobSerializer(serializers.Serializer):
     # Status info
     status = serializers.CharField()
     status_key = serializers.CharField()
+    rejected_flag = serializers.BooleanField()
 
     # Financial
     paid = serializers.BooleanField()
+    fully_invoiced = serializers.BooleanField()
+
+    # Job settings
+    speed_quality_tradeoff = serializers.CharField()
 
     # User who created the job
     created_by_id = serializers.CharField(allow_null=True)

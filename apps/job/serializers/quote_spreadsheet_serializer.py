@@ -24,13 +24,8 @@ class QuoteSpreadsheetSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuoteSpreadsheet
-        fields = [
-            "id",
-            "sheet_id",
-            "sheet_url",
-            "tab",
-            "job_id",
-            "job_number",
-            "job_name",
-        ]
+        fields = (
+            QuoteSpreadsheet.QUOTESPREADSHEET_API_FIELDS
+            + QuoteSpreadsheet.QUOTESPREADSHEET_API_PROPERTIES
+        )
         read_only_fields = ["id", "job_id", "job_number", "job_name"]

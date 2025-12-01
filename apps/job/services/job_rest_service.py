@@ -864,6 +864,12 @@ class JobRestService:
                     "contact_name": job.contact.name if job.contact else None,
                     "contact_email": job.contact.email if job.contact else None,
                     "contact_phone": job.contact.phone if job.contact else None,
+                    "speed_quality_tradeoff": job.speed_quality_tradeoff,
+                    "pricing_methodology": job.pricing_methodology,
+                    "fully_invoiced": job.fully_invoiced,
+                    "quote_acceptance_date": job.quote_acceptance_date,
+                    "paid": job.paid,
+                    "rejected_flag": job.rejected_flag,
                 }
 
                 logger.debug(

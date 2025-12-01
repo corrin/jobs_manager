@@ -6,7 +6,6 @@ try:
 
     if apps.ready:
         from .costing_serializer import (
-            CostLineCreateResponseSerializer,
             CostLineCreateUpdateSerializer,
             CostLineErrorResponseSerializer,
             CostLineSerializer,
@@ -158,7 +157,6 @@ __all__ = [
     "CompanyDefaultsJobDetailSerializer",
     "CompleteJobSerializer",
     "ComplianceSummarySerializer",
-    "CostLineCreateResponseSerializer",
     "CostLineCreateUpdateSerializer",
     "CostLineErrorResponseSerializer",
     "CostLineSerializer",

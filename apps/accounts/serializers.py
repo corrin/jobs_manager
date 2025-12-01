@@ -115,36 +115,7 @@ class StaffSerializer(BaseStaffSerializer):
 
     class Meta:
         model = Staff
-        fields = [
-            "id",
-            "email",
-            "first_name",
-            "last_name",
-            "preferred_name",
-            "password",
-            "wage_rate",
-            "ims_payroll_id",
-            "icon",
-            "raw_ims_data",
-            "xero_user_id",
-            "date_left",
-            "is_staff",
-            "is_superuser",
-            "groups",
-            "user_permissions",
-            "hours_mon",
-            "hours_tue",
-            "hours_wed",
-            "hours_thu",
-            "hours_fri",
-            "hours_sat",
-            "hours_sun",
-            # Read-only fields
-            "last_login",
-            "date_joined",
-            "created_at",
-            "updated_at",
-        ]
+        fields = Staff.STAFF_ALL_FIELDS
         read_only_fields = [
             "id",
             "last_login",
@@ -187,33 +158,17 @@ class StaffCreateSerializer(BaseStaffSerializer):
 
     class Meta:
         model = Staff
-        fields = [
-            "first_name",
-            "last_name",
-            "preferred_name",
-            "email",
-            "password",
-            "wage_rate",
-            "ims_payroll_id",
-            "icon",
-            "hours_mon",
-            "hours_tue",
-            "hours_wed",
-            "hours_thu",
-            "hours_fri",
-            "hours_sat",
-            "hours_sun",
-            "is_staff",
-            "is_superuser",
-            "groups",
-            "user_permissions",
-        ]
+        fields = Staff.STAFF_ALL_FIELDS
 
         extra_kwargs = {
             "password": {"required": True, "write_only": True},
             "groups": {"required": False},
             "user_permissions": {"required": False},
             "preferred_name": {"required": False},
+            # Fields not typically set on create
+            "xero_user_id": {"required": False},
+            "date_left": {"required": False},
+            "password_needs_reset": {"required": False},
         }
 
 

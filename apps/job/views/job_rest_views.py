@@ -821,22 +821,10 @@ class JobHeaderRestView(BaseJobRestView):
         Fetch essential job header data for fast initial loading.
         """
         try:
+            # Query fields derived from JOB_DIRECT_FIELDS, plus id and client for joins
+            query_fields = ["id", "updated_at", "client_id"] + Job.JOB_DIRECT_FIELDS
             job = (
-                Job.objects.select_related("client")
-                .only(
-                    "id",
-                    "updated_at",
-                    "job_number",
-                    "name",
-                    "client_id",
-                    "status",
-                    "pricing_methodology",
-                    "fully_invoiced",
-                    "quote_acceptance_date",
-                    "paid",
-                    "rejected_flag",
-                )
-                .get(id=job_id)
+                Job.objects.select_related("client").only(*query_fields).get(id=job_id)
             )
 
             current_etag = self._gen_job_etag(job)
@@ -847,30 +835,9 @@ class JobHeaderRestView(BaseJobRestView):
                 resp = Response(status=status.HTTP_304_NOT_MODIFIED)
                 return self._set_etag(resp, current_etag)
 
-            # Build essential header data only
-            header_data = {
-                "job_id": str(job.id),
-                "job_number": job.job_number,
-                "name": job.name,
-                "client": (
-                    {"id": str(job.client.id), "name": job.client.name}
-                    if job.client
-                    else None
-                ),
-                "status": job.status,
-                "pricing_methodology": job.pricing_methodology,
-                "fully_invoiced": job.fully_invoiced,
-                "quoted": job.quoted,
-                "quote_acceptance_date": (
-                    job.quote_acceptance_date.isoformat()
-                    if job.quote_acceptance_date
-                    else None
-                ),
-                "paid": job.paid,
-                "rejected_flag": job.rejected_flag,
-            }
-
-            resp = Response(header_data, status=status.HTTP_200_OK)
+            # Let the serializer handle field serialization
+            serializer = JobHeaderResponseSerializer(job)
+            resp = Response(serializer.data, status=status.HTTP_200_OK)
             resp = self._set_etag(resp, current_etag)
             return resp
 

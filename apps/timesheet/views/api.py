@@ -324,7 +324,7 @@ class DailyTimesheetAPIView(APIView):
                     "staff_id": str(staff_id),
                     "staff_name": f"{staff.first_name} {staff.last_name}",
                     "staff_initials": initials,
-                    "avatar_url": None,
+                    "icon": None,
                     "scheduled_hours": scheduled_hours,
                     "actual_hours": 0.0,
                     "billable_hours": 0.0,

@@ -23,6 +23,37 @@ logger = logging.getLogger(__name__)
 
 
 class Job(models.Model):
+    # CHECKLIST - when adding a new field or property to Job, check these locations:
+    #   1. JOB_DIRECT_FIELDS below (if it's a model field)
+    #   2. _create_change_events() field_handlers dict in this file
+    #   3. JobSerializer.Meta.fields in apps/job/serializers/job_serializer.py
+    #   4. ClientJobHeaderSerializer in apps/client/serializers.py
+    #   5. get_client_jobs() response dict in apps/client/services/client_rest_service.py
+    #   6. KanbanService.serialize_job_for_api() in apps/job/services/kanban_service.py
+    #   7. KanbanJobSerializer and KanbanColumnJobSerializer in apps/job/serializers/kanban_serializer.py
+    #   8. original_values dict in JobRestService.update_job() in apps/job/services/job_rest_service.py
+    #   9. data_quality_report.py in apps/job/services/
+    #  10. JobAgingService job_info dict in apps/accounting/services.py
+    #  11. serialize_job_list() in apps/workflow/api/reports/job_movement.py
+    #  12. get_jobs_for_dropdown() in apps/job/utils.py
+    #  13. jobs_data dict in apps/purchasing/views/purchasing_rest_views.py
+    #  14. job_metrics dict in JobRestService.get_weekly_metrics() in apps/job/services/job_rest_service.py
+    #  15. job_data dict in DailyTimesheetService._get_job_breakdown() in apps/timesheet/services/daily_timesheet_service.py
+    #
+    # Direct scalar model fields (not related objects, not properties).
+    # These are enumerated here to make it easier to avoid code duplication.
+    JOB_DIRECT_FIELDS = [
+        "job_number",
+        "name",
+        "status",
+        "pricing_methodology",
+        "speed_quality_tradeoff",
+        "fully_invoiced",
+        "quote_acceptance_date",
+        "paid",
+        "rejected_flag",
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100, null=False, blank=False)
     JOB_STATUS_CHOICES: List[tuple[str, str]] = [

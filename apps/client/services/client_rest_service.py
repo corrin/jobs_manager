@@ -468,26 +468,29 @@ class ClientRestService:
         )
 
     @staticmethod
+    def _format_client_summary(client: Client) -> Dict[str, Any]:
+        """
+        Formats a single client summary for list/search responses.
+        """
+        return {
+            "id": str(client.id),
+            "name": client.name,
+            "email": client.email or "",
+            "phone": client.phone or "",
+            "address": client.address or "",
+            "is_account_customer": client.is_account_customer,
+            "is_supplier": client.is_supplier,
+            "xero_contact_id": client.xero_contact_id or "",
+            "last_invoice_date": date_to_datetime(client.last_invoice_date),
+            "total_spend": f"${client.total_spend:,.2f}",
+        }
+
+    @staticmethod
     def _format_client_search_results(clients) -> List[Dict[str, Any]]:
         """
         Formats client search results for API response.
         """
-        formatted = []
-        for client in clients:
-            formatted.append(
-                {
-                    "id": str(client.id),
-                    "name": client.name,
-                    "email": client.email or "",
-                    "phone": client.phone or "",
-                    "address": client.address or "",
-                    "is_account_customer": client.is_account_customer,
-                    "xero_contact_id": client.xero_contact_id or "",
-                    "last_invoice_date": date_to_datetime(client.last_invoice_date),
-                    "total_spend": f"${client.total_spend:,.2f}",
-                }
-            )
-        return formatted
+        return [ClientRestService._format_client_summary(client) for client in clients]
 
     @staticmethod
     def _format_client_detail(client: Client) -> Dict[str, Any]:
@@ -736,22 +739,12 @@ class ClientRestService:
             # Import here to avoid circular imports
             from apps.job.models import Job
 
-            # Get all jobs for this client
+            # Get all jobs for this client using JOB_DIRECT_FIELDS as source of truth
+            query_fields = ["id", "client_id"] + Job.JOB_DIRECT_FIELDS
             jobs = (
                 Job.objects.filter(client_id=client_id)
                 .select_related("client")
-                .only(
-                    "id",
-                    "job_number",
-                    "name",
-                    "client_id",
-                    "status",
-                    "pricing_methodology",
-                    "fully_invoiced",
-                    "quote_acceptance_date",
-                    "paid",
-                    "rejected_flag",
-                )
+                .only(*query_fields)
                 .order_by("-job_number")
             )
 
@@ -768,6 +761,7 @@ class ClientRestService:
                     ),
                     "status": job.status,
                     "pricing_methodology": job.pricing_methodology,
+                    "speed_quality_tradeoff": job.speed_quality_tradeoff,
                     "fully_invoiced": job.fully_invoiced,
                     "has_quote_in_xero": job.quoted,
                     "is_fixed_price": job.pricing_methodology == "fixed_price",

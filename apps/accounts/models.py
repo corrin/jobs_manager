@@ -12,6 +12,48 @@ from .managers import StaffManager
 
 
 class Staff(AbstractBaseUser, PermissionsMixin):
+    # CHECKLIST - when adding a new field or property to Staff, check these locations:
+    #   1. STAFF_ALL_FIELDS below (if it's a model field)
+    #   2. KanbanStaffSerializer.Meta.fields in apps/accounts/serializers.py (subset for kanban)
+    #   3. _format_staff() in apps/timesheet/services/payroll_employee_sync.py (subset for payroll)
+    #   4. staff dict in modern_timesheet_views.py get() method (subset for timesheet)
+    #   5. staff_data dict in daily_timesheet_service.py _get_staff_daily_data() (subset for daily view)
+    #   6. staff_data dict in timesheet/views/api.py (fallback staff data)
+    #   7. ModernStaffSerializer in apps/timesheet/serializers/modern_timesheet_serializers.py (subset)
+    #   8. StaffDailyDataSerializer in apps/timesheet/serializers/daily_timesheet_serializers.py (subset)
+    #
+    # All Staff model fields for serialization.
+    STAFF_ALL_FIELDS = [
+        "id",
+        "email",
+        "password",
+        "first_name",
+        "last_name",
+        "preferred_name",
+        "wage_rate",
+        "ims_payroll_id",
+        "xero_user_id",
+        "date_left",
+        "is_staff",
+        "is_superuser",
+        "password_needs_reset",
+        "icon",
+        "raw_ims_data",
+        "hours_mon",
+        "hours_tue",
+        "hours_wed",
+        "hours_thu",
+        "hours_fri",
+        "hours_sat",
+        "hours_sun",
+        "date_joined",
+        "created_at",
+        "updated_at",
+        "last_login",
+        "groups",
+        "user_permissions",
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     icon = models.ImageField(upload_to="staff_icons/", null=True, blank=True)
     password_needs_reset: bool = models.BooleanField(default=False)

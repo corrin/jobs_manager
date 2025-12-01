@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from apps.job.models import Job
 from apps.job.serializers.costing_serializer import CostLineSerializer
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine
+from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 
 
 class SupplierPriceStatusItemSerializer(serializers.Serializer):
@@ -58,25 +58,11 @@ class JobForPurchasingSerializer(serializers.ModelSerializer):
 class PurchaseOrderLineSerializer(serializers.ModelSerializer):
     """Serializer for PurchaseOrderLine model."""
 
-    job_id = serializers.UUIDField(required=False, allow_null=True)
+    job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
 
     class Meta:
         model = PurchaseOrderLine
-        fields = [
-            "id",
-            "item_code",
-            "description",
-            "quantity",
-            "received_quantity",
-            "unit_cost",
-            "price_tbc",
-            "metal_type",
-            "alloy",
-            "specifics",
-            "location",
-            "dimensions",
-            "job_id",
-        ]
+        fields = PurchaseOrderLine.PURCHASEORDERLINE_API_FIELDS + ["job_id"]
 
 
 class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
@@ -89,20 +75,10 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrder
-        fields = [
-            "id",
-            "po_number",
-            "reference",
-            "supplier",
-            "supplier_id",
-            "supplier_has_xero_id",
-            "status",
-            "order_date",
-            "expected_delivery",
-            "lines",
-            "online_url",
-            "xero_id",
-        ]
+        fields = (
+            PurchaseOrder.PURCHASEORDER_API_FIELDS
+            + PurchaseOrder.PURCHASEORDER_API_PROPERTIES
+        )
 
     def get_supplier(self, obj) -> str:
         return obj.supplier.name if obj.supplier else ""
@@ -289,24 +265,14 @@ class PurchaseOrderAllocationsResponseSerializer(serializers.Serializer):
     )
 
 
-class StockItemSerializer(serializers.Serializer):
+class StockItemSerializer(serializers.ModelSerializer):
     """Serializer for individual stock items."""
 
-    id = serializers.UUIDField(required=False, allow_null=True)
-    description = serializers.CharField(required=False, allow_null=True)
-    quantity = serializers.FloatField(required=False, allow_null=True)
-    unit_cost = serializers.FloatField(required=False, allow_null=True)
-    metal_type = serializers.CharField(
-        required=False, allow_null=True, allow_blank=True
-    )
-    alloy = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    specifics = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    location = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    source = serializers.CharField(required=False, allow_null=True)
-    date = serializers.DateTimeField(required=False, allow_null=True)
-    job_id = serializers.UUIDField(required=False, allow_null=True)
-    notes = serializers.CharField(required=False, allow_null=True, allow_blank=True)
-    item_code = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
+
+    class Meta:
+        model = Stock
+        fields = Stock.STOCK_API_FIELDS + ["job_id"]
 
 
 class StockListSerializer(serializers.Serializer):

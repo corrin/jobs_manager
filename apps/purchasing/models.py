@@ -19,6 +19,51 @@ logger = logging.getLogger(__name__)
 class PurchaseOrder(models.Model):
     """A request to purchase materials from a supplier."""
 
+    # CHECKLIST - when adding a new field or property to PurchaseOrder, check these locations:
+    #   1. PURCHASEORDER_API_FIELDS or PURCHASEORDER_INTERNAL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderSerializer in apps/purchasing/serializers.py (uses PURCHASEORDER_API_FIELDS)
+    #   3. PurchaseOrderListSerializer in apps/purchasing/serializers.py (subset for lists)
+    #   4. list_purchase_orders() in apps/purchasing/services/purchasing_rest_service.py
+    #   5. create_purchase_order() in apps/purchasing/services/purchasing_rest_service.py
+    #   6. update_purchase_order() in apps/purchasing/services/purchasing_rest_service.py
+    #   7. get_xero_document() in apps/workflow/views/xero/xero_po_manager.py (Xero API format)
+    #   8. PurchaseOrderPDFGenerator in apps/purchasing/services/purchase_order_pdf_service.py
+    #   9. create_purchase_order_email() in apps/purchasing/services/purchase_order_email_service.py
+    #
+    # Database fields exposed via API serializers
+    PURCHASEORDER_API_FIELDS = [
+        "id",
+        "po_number",
+        "reference",
+        "status",
+        "order_date",
+        "expected_delivery",
+        "online_url",
+        "xero_id",
+    ]
+
+    # Computed properties exposed via API serializers
+    PURCHASEORDER_API_PROPERTIES = [
+        "supplier",
+        "supplier_id",
+        "supplier_has_xero_id",
+        "lines",
+    ]
+
+    # Internal fields not exposed in API
+    PURCHASEORDER_INTERNAL_FIELDS = [
+        "job",
+        "xero_tenant_id",
+        "created_at",
+        "updated_at",
+        "xero_last_modified",
+        "xero_last_synced",
+        "raw_json",
+    ]
+
+    # All PurchaseOrder model fields (derived)
+    PURCHASEORDER_ALL_FIELDS = PURCHASEORDER_API_FIELDS + PURCHASEORDER_INTERNAL_FIELDS
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     supplier = models.ForeignKey(
         "client.Client",
@@ -118,6 +163,45 @@ class PurchaseOrder(models.Model):
 
 class PurchaseOrderLine(models.Model):
     """A line item on a PO."""
+
+    # CHECKLIST - when adding a new field or property to PurchaseOrderLine, check these locations:
+    #   1. PURCHASEORDERLINE_API_FIELDS or PURCHASEORDERLINE_INTERNAL_FIELDS below (if it's a model field)
+    #   2. PurchaseOrderLineSerializer in apps/purchasing/serializers.py (uses PURCHASEORDERLINE_API_FIELDS)
+    #   3. PurchaseOrderLineCreateSerializer in apps/purchasing/serializers.py (create fields)
+    #   4. PurchaseOrderLineUpdateSerializer in apps/purchasing/serializers.py (update fields)
+    #   5. FIELD_UPDATERS in apps/purchasing/services/purchasing_rest_service.py
+    #   6. _create_line() in apps/purchasing/services/purchasing_rest_service.py
+    #   7. get_line_items() in apps/workflow/views/xero/xero_po_manager.py (Xero API format)
+    #   8. add_line_items_table() in apps/purchasing/services/purchase_order_pdf_service.py
+    #
+    # Fields exposed via API serializers
+    PURCHASEORDERLINE_API_FIELDS = [
+        "id",
+        "description",
+        "quantity",
+        "dimensions",
+        "unit_cost",
+        "price_tbc",
+        "supplier_item_code",
+        "item_code",
+        "received_quantity",
+        "metal_type",
+        "alloy",
+        "specifics",
+        "location",
+    ]
+
+    # Internal fields not exposed in API
+    PURCHASEORDERLINE_INTERNAL_FIELDS = [
+        "purchase_order",
+        "job",
+        "raw_line_data",
+    ]
+
+    # All PurchaseOrderLine model fields (derived)
+    PURCHASEORDERLINE_ALL_FIELDS = (
+        PURCHASEORDERLINE_API_FIELDS + PURCHASEORDERLINE_INTERNAL_FIELDS
+    )
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     purchase_order = models.ForeignKey(
@@ -247,6 +331,52 @@ class Stock(models.Model):
 
     EARLY DRAFT: REVIEW AND TEST
     """
+
+    # CHECKLIST - when adding a new field or property to Stock, check these locations:
+    #   1. STOCK_API_FIELDS or STOCK_INTERNAL_FIELDS below (if it's a model field)
+    #   2. StockItemSerializer in apps/purchasing/serializers.py (uses STOCK_API_FIELDS)
+    #   3. StockCreateSerializer in apps/purchasing/serializers.py (create fields)
+    #   4. create_stock() in apps/purchasing/services/purchasing_rest_service.py
+    #   5. _create_stock_from_allocation() in apps/purchasing/services/delivery_receipt_service.py
+    #   6. get_allocation_details() in apps/purchasing/services/allocation_service.py (subset)
+    #   7. sync_stock_to_xero() in apps/workflow/api/xero/stock_sync.py (Xero API format)
+    #   8. consume_stock() in apps/purchasing/services/stock_service.py
+    #
+    # Fields exposed via API serializers
+    STOCK_API_FIELDS = [
+        "id",
+        "item_code",
+        "description",
+        "quantity",
+        "unit_cost",
+        "unit_revenue",
+        "date",
+        "source",
+        "location",
+        "notes",
+        "metal_type",
+        "alloy",
+        "specifics",
+        "is_active",
+    ]
+
+    # Internal fields not exposed in API
+    STOCK_INTERNAL_FIELDS = [
+        "job",
+        "source_purchase_order_line",
+        "active_source_purchase_order_line_id",
+        "source_parent_stock",
+        "xero_id",
+        "xero_last_modified",
+        "raw_json",
+        "xero_inventory_tracked",
+        "parsed_at",
+        "parser_version",
+        "parser_confidence",
+    ]
+
+    # All Stock model fields (derived)
+    STOCK_ALL_FIELDS = STOCK_API_FIELDS + STOCK_INTERNAL_FIELDS
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 

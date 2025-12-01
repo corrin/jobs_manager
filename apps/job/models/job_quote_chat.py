@@ -12,6 +12,32 @@ class JobQuoteChat(models.Model):
     with an LLM to generate quotes.
     """
 
+    # CHECKLIST - when adding a new field or property to JobQuoteChat, check these locations:
+    #   1. JOBQUOTECHAT_API_FIELDS or JOBQUOTECHAT_INTERNAL_FIELDS below (if it's a model field)
+    #   2. JobQuoteChatSerializer in apps/job/serializers/job_quote_chat_serializer.py (read)
+    #   3. JobQuoteChatCreateSerializer in apps/job/serializers/job_quote_chat_serializer.py (write)
+    #   4. JobQuoteChatUpdateSerializer in apps/job/serializers/job_quote_chat_serializer.py (patch)
+    #   5. JobQuoteChatViewSet in apps/job/views/job_quote_chat_views.py (CRUD operations)
+    #   6. GeminiChatService in apps/job/services/gemini_chat_service.py (AI chat logic)
+    #
+    # Database fields exposed via API serializers
+    JOBQUOTECHAT_API_FIELDS = [
+        "message_id",
+        "role",
+        "content",
+        "metadata",
+        "timestamp",
+    ]
+
+    # Internal fields not exposed in API
+    JOBQUOTECHAT_INTERNAL_FIELDS = [
+        "id",
+        "job",
+    ]
+
+    # All JobQuoteChat model fields (derived)
+    JOBQUOTECHAT_ALL_FIELDS = JOBQUOTECHAT_API_FIELDS + JOBQUOTECHAT_INTERNAL_FIELDS
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(
         Job, on_delete=models.CASCADE, related_name="quote_chat_messages"

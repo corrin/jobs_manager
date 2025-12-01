@@ -8,19 +8,7 @@ class ClientContactSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ClientContact
-        fields = [
-            "id",
-            "client",
-            "name",
-            "email",
-            "phone",
-            "position",
-            "is_primary",
-            "notes",
-            "is_active",
-            "created_at",
-            "updated_at",
-        ]
+        fields = ClientContact.CLIENTCONTACT_API_FIELDS
         read_only_fields = ["id", "is_active", "created_at", "updated_at"]
 
 
@@ -29,30 +17,18 @@ class ClientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = [
-            "id",
-            "xero_contact_id",
-            "xero_tenant_id",
-            "name",
-            "email",
-            "phone",
-            "address",
-            "is_account_customer",
-            "is_supplier",
-            "xero_last_modified",
-            "raw_json",
-            "primary_contact_name",
-            "primary_contact_email",
-            "additional_contact_persons",
-            "all_phones",
-            "django_created_at",
-            "django_updated_at",
-            "xero_last_synced",
-            "xero_archived",
-            "xero_merged_into_id",
-            "merged_into",
-            "contacts",
-        ]
+        fields = (
+            ["id"]
+            + Client.CLIENT_DIRECT_FIELDS
+            + [
+                # Excluded from CLIENT_DIRECT_FIELDS:
+                "raw_json",  # debugging blob, not business data
+                "django_created_at",  # auto timestamp
+                "django_updated_at",  # auto timestamp
+                "merged_into",  # ForeignKey relation
+                "contacts",  # reverse relation
+            ]
+        )
 
 
 class ClientNameOnlySerializer(serializers.ModelSerializer):
@@ -85,6 +61,7 @@ class ClientSearchResultSerializer(serializers.Serializer):
     phone = serializers.CharField(allow_blank=True)
     address = serializers.CharField(allow_blank=True)
     is_account_customer = serializers.BooleanField()
+    is_supplier = serializers.BooleanField()
     xero_contact_id = serializers.CharField(allow_blank=True)
     last_invoice_date = serializers.DateTimeField(allow_null=True)
     total_spend = serializers.CharField()
@@ -194,7 +171,7 @@ class JobContactUpdateRequestSerializer(JobContactResponseSerializer):
 
 
 class ClientJobHeaderSerializer(serializers.Serializer):
-    """Serializer for job header in client jobs list"""
+    """Serializer for job header in client jobs list."""
 
     job_id = serializers.UUIDField()
     job_number = serializers.IntegerField()
@@ -202,6 +179,7 @@ class ClientJobHeaderSerializer(serializers.Serializer):
     client = serializers.DictField(allow_null=True)
     status = serializers.CharField()
     pricing_methodology = serializers.CharField(allow_null=True)
+    speed_quality_tradeoff = serializers.CharField()
     fully_invoiced = serializers.BooleanField()
     has_quote_in_xero = serializers.BooleanField()
     is_fixed_price = serializers.BooleanField()

@@ -418,21 +418,7 @@ class JobEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobEvent
-        fields = [
-            "id",
-            "description",
-            "timestamp",
-            "staff",
-            "event_type",
-            "schema_version",
-            "change_id",
-            "delta_before",
-            "delta_after",
-            "delta_meta",
-            "delta_checksum",
-            "can_undo",
-            "undo_description",
-        ]
+        fields = JobEvent.JOBEVENT_API_FIELDS + JobEvent.JOBEVENT_API_PROPERTIES
         read_only_fields = fields
 
 
@@ -743,20 +729,17 @@ class JobClientHeaderSerializer(serializers.Serializer):
     name = serializers.CharField()
 
 
-class JobHeaderResponseSerializer(serializers.Serializer):
-    """Serializer for job header response - essential job data for fast loading"""
+class JobHeaderResponseSerializer(serializers.ModelSerializer):
+    """Serializer for job header response - essential job data for fast loading."""
 
-    job_id = serializers.UUIDField()
-    job_number = serializers.IntegerField()
-    name = serializers.CharField()
+    job_id = serializers.UUIDField(source="id")
     client = JobClientHeaderSerializer()
-    status = serializers.CharField()
-    pricing_methodology = serializers.CharField(allow_null=True)
-    fully_invoiced = serializers.BooleanField()
     quoted = serializers.BooleanField()
-    quote_acceptance_date = serializers.DateTimeField(allow_null=True)
-    paid = serializers.BooleanField()
-    rejected_flag = serializers.BooleanField()
+
+    class Meta:
+        model = Job
+        # Derive fields from Job.JOB_DIRECT_FIELDS, plus special fields
+        fields = ["job_id", "client", "quoted"] + Job.JOB_DIRECT_FIELDS
 
 
 class JobStatusChoicesResponseSerializer(serializers.Serializer):

@@ -22,6 +22,24 @@ class CostSet(models.Model):
     Can be an estimate, quote or actual cost.
     """
 
+    # CHECKLIST - when adding a new field or property to CostSet, check these locations:
+    #   1. COSTSET_ALL_FIELDS below (if it's a model field)
+    #   2. CostSetSerializer in apps/job/serializers/costing_serializer.py
+    #   3. QuoteImportStatusResponseSerializer in apps/job/serializers/costing_serializer.py (subset)
+    #   4. get_job_costing() in apps/job/services/job_rest_service.py
+    #   5. _ensure_actual_costset() in apps/purchasing/services/delivery_receipt_service.py
+    #   6. Job.get_latest() method in apps/job/models/job.py (returns CostSet)
+    #
+    # All CostSet model fields for serialization.
+    COSTSET_ALL_FIELDS = [
+        "id",
+        "job",
+        "kind",
+        "rev",
+        "summary",
+        "created",
+    ]
+
     KIND_CHOICES = [
         ("estimate", "Estimate"),
         ("quote", "Quote"),
@@ -94,6 +112,45 @@ class CostLine(models.Model):
         - comments (str): Explanation of the adjustment
         - source (str): Origin of adjustment ('manual_adjustment' for user-created)
     """
+
+    # CHECKLIST - when adding a new field or property to CostLine, check these locations:
+    #   1. COSTLINE_API_FIELDS or COSTLINE_INTERNAL_FIELDS below (if it's a model field)
+    #   2. CostLineSerializer in apps/job/serializers/costing_serializer.py (uses COSTLINE_API_FIELDS)
+    #   3. TimesheetCostLineSerializer in apps/job/serializers/costing_serializer.py (extends API fields)
+    #   4. CostLineCreateUpdateSerializer in apps/job/serializers/costing_serializer.py (write fields)
+    #   5. _get_staff_timesheet_data() in apps/timesheet/services/daily_timesheet_service.py
+    #   6. _create_costline_from_allocation() in apps/purchasing/services/delivery_receipt_service.py
+    #   7. consume_stock() in apps/purchasing/services/stock_service.py
+    #   8. get_allocation_details() in apps/purchasing/services/allocation_service.py (subset)
+    #   9. _process_time_entries() in apps/timesheet/services/weekly_timesheet_service.py
+    #  10. sync_time_entries_from_xero() in apps/workflow/api/xero/sync.py (Xero format)
+    #
+    # Fields exposed via API serializers
+    COSTLINE_API_FIELDS = [
+        "id",
+        "kind",
+        "desc",
+        "quantity",
+        "unit_cost",
+        "unit_rev",
+        "ext_refs",
+        "meta",
+        "created_at",
+        "updated_at",
+        "accounting_date",
+        "xero_time_id",
+        "xero_expense_id",
+        "xero_last_modified",
+        "xero_last_synced",
+    ]
+
+    # Internal fields not exposed in API
+    COSTLINE_INTERNAL_FIELDS = [
+        "cost_set",
+    ]
+
+    # All CostLine model fields (derived)
+    COSTLINE_ALL_FIELDS = COSTLINE_API_FIELDS + COSTLINE_INTERNAL_FIELDS
 
     KIND_CHOICES = [
         ("time", "Time"),

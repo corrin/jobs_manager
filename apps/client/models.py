@@ -10,6 +10,36 @@ logger = logging.getLogger(__name__)
 
 
 class Client(models.Model):
+    # CHECKLIST - when adding a new field or property to Client, check these locations:
+    #   1. CLIENT_DIRECT_FIELDS below (if it's a model field)
+    #   2. _format_client_detail() in apps/client/services/client_rest_service.py
+    #   3. _format_client_summary() in apps/client/services/client_rest_service.py (subset for lists)
+    #   4. get_client_for_xero() in this file (Xero API format)
+    #   5. update_client_from_raw_json() in apps/workflow/api/xero/reprocess_xero.py (Xero-sourced fields only)
+    #   6. _update_client_in_xero() in apps/client/services/client_rest_service.py (Xero API format)
+    #   7. ClientDetailResponseSerializer in apps/client/serializers.py
+    #   8. ClientSearchResultSerializer in apps/client/serializers.py (subset for lists)
+    #
+    # Direct scalar model fields (not related objects, not properties).
+    CLIENT_DIRECT_FIELDS = [
+        "name",
+        "email",
+        "phone",
+        "address",
+        "is_account_customer",
+        "is_supplier",
+        "xero_contact_id",
+        "xero_tenant_id",
+        "primary_contact_name",
+        "primary_contact_email",
+        "additional_contact_persons",
+        "all_phones",
+        "xero_last_modified",
+        "xero_last_synced",
+        "xero_archived",
+        "xero_merged_into_id",
+    ]
+
     id = models.UUIDField(
         primary_key=True, default=uuid.uuid4, editable=False
     )  # Internal UUID
@@ -229,6 +259,35 @@ class ClientContact(models.Model):
     This model stores contact information that was previously synced with Xero
     but is now managed entirely within our application.
     """
+
+    # CHECKLIST - when adding a new field or property to ClientContact, check these locations:
+    #   1. CLIENTCONTACT_API_FIELDS or CLIENTCONTACT_INTERNAL_FIELDS below (if it's a model field)
+    #   2. ClientContactSerializer in apps/client/serializers.py (uses CLIENTCONTACT_API_FIELDS)
+    #   3. JobContactResponseSerializer in apps/client/serializers.py (subset for job context)
+    #   4. ClientContactViewSet in apps/client/views/client_contact_viewset.py (CRUD operations)
+    #   5. Job.contact FK in apps/job/models/job.py (relationship to ClientContact)
+    #   6. reprocess_xero.py in apps/workflow/api/xero/ (Xero sync creates contacts)
+    #
+    # Database fields exposed via API serializers
+    CLIENTCONTACT_API_FIELDS = [
+        "id",
+        "client",
+        "name",
+        "email",
+        "phone",
+        "position",
+        "is_primary",
+        "notes",
+        "is_active",
+        "created_at",
+        "updated_at",
+    ]
+
+    # No internal fields for ClientContact - all fields are exposed
+    CLIENTCONTACT_INTERNAL_FIELDS = []
+
+    # All ClientContact model fields (derived)
+    CLIENTCONTACT_ALL_FIELDS = CLIENTCONTACT_API_FIELDS + CLIENTCONTACT_INTERNAL_FIELDS
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = models.ForeignKey(
