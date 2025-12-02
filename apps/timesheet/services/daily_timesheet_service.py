@@ -154,7 +154,7 @@ class DailyTimesheetService:
                 "staff_id": str(staff.id),
                 "staff_name": f"{staff.first_name} {staff.last_name}",
                 "staff_initials": f"{staff.first_name[0]}{staff.last_name[0]}".upper(),
-                "icon": staff.icon.url if staff.icon else None,
+                "icon_url": staff.icon.url if staff.icon else None,
                 "scheduled_hours": float(scheduled_hours),
                 "actual_hours": float(total_hours),
                 "billable_hours": float(billable_hours),

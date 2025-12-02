@@ -11,6 +11,20 @@ from apps.accounts.models import Staff
 logger = logging.getLogger(__name__)
 
 
+def _build_icon_url(staff: Staff, context: Optional[Dict[str, Any]]) -> Optional[str]:
+    """
+    Build an absolute icon URL when possible, otherwise fall back to the stored path.
+    """
+    if not staff.icon:
+        return None
+
+    request = (context or {}).get("request")
+    try:
+        return request.build_absolute_uri(staff.icon.url) if request else staff.icon.url
+    except Exception:
+        return staff.icon.url
+
+
 class EmptySerializer(serializers.Serializer):
     """An empty serializer for schema generation. Helper serializer for CustomTokenObtainPairView."""
 
@@ -105,7 +119,11 @@ class BaseStaffSerializer(GenericStaffMethodsMixin, serializers.ModelSerializer)
 
 
 class StaffSerializer(BaseStaffSerializer):
-    icon = serializers.ImageField(required=False, allow_null=True)
+    icon = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    icon_url = serializers.SerializerMethodField(read_only=True)
+
+    def get_icon_url(self, obj: Staff) -> Optional[str]:
+        return _build_icon_url(obj, self.context)
 
     def update(self, instance: Staff, validated_data: Dict[str, Any]) -> Staff:
         password = validated_data.pop("password", None)
@@ -115,14 +133,18 @@ class StaffSerializer(BaseStaffSerializer):
 
     class Meta:
         model = Staff
-        fields = Staff.STAFF_ALL_FIELDS
+        fields = (
+            Staff.STAFF_API_FIELDS
+            + Staff.STAFF_INTERNAL_FIELDS
+            + Staff.STAFF_API_PROPERTIES
+        )
         read_only_fields = [
             "id",
             "last_login",
             "date_joined",
             "created_at",
             "updated_at",
-        ]
+        ] + Staff.STAFF_API_PROPERTIES
         extra_kwargs = {
             "password": {"required": False, "write_only": True},
             "groups": {"required": False},
@@ -132,12 +154,16 @@ class StaffSerializer(BaseStaffSerializer):
             "raw_ims_data": {"required": False},
             "xero_user_id": {"required": False},
             "date_left": {"required": False},
-            "icon": {"required": False},
+            "icon": {"required": False, "write_only": True},
         }
 
 
 class StaffCreateSerializer(BaseStaffSerializer):
-    icon = serializers.ImageField(required=False, allow_null=True)
+    icon = serializers.ImageField(required=False, allow_null=True, write_only=True)
+    icon_url = serializers.SerializerMethodField(read_only=True)
+
+    def get_icon_url(self, obj: Staff) -> Optional[str]:
+        return _build_icon_url(obj, self.context)
 
     def create(self, validated_data: Dict[str, Any]) -> Staff:
         password = validated_data.pop("password", None)
@@ -158,7 +184,11 @@ class StaffCreateSerializer(BaseStaffSerializer):
 
     class Meta:
         model = Staff
-        fields = Staff.STAFF_ALL_FIELDS
+        fields = (
+            Staff.STAFF_API_FIELDS
+            + Staff.STAFF_INTERNAL_FIELDS
+            + Staff.STAFF_API_PROPERTIES
+        )
 
         extra_kwargs = {
             "password": {"required": True, "write_only": True},
@@ -169,25 +199,23 @@ class StaffCreateSerializer(BaseStaffSerializer):
             "xero_user_id": {"required": False},
             "date_left": {"required": False},
             "password_needs_reset": {"required": False},
+            "icon": {"required": False, "write_only": True},
         }
 
 
 class KanbanStaffSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
-    icon = serializers.SerializerMethodField()
+    icon_url = serializers.SerializerMethodField()
 
-    def get_icon(self, obj: Staff) -> Optional[str]:
-        if obj.icon:
-            request = self.context.get("request")
-            return request.build_absolute_uri(obj.icon.url) if request else obj.icon.url
-        return None
+    def get_icon_url(self, obj: Staff) -> Optional[str]:
+        return _build_icon_url(obj, self.context)
 
     def get_display_name(self, obj: Staff) -> str:
         return obj.get_display_full_name()
 
     class Meta:
         model = Staff
-        fields = ["id", "first_name", "last_name", "icon", "display_name"]
+        fields = ["id", "first_name", "last_name", "icon_url", "display_name"]
         read_only_fields = ["display_name"]
 
 
