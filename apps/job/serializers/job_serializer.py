@@ -208,6 +208,7 @@ class JobSerializer(serializers.ModelSerializer):
             "job_files",
             "charge_out_rate",
             "pricing_methodology",
+            "price_cap",
             "speed_quality_tradeoff",
             "quote_sheet",
             "quoted",
@@ -1021,6 +1022,13 @@ class JobPatchRequestSerializer(serializers.Serializer):
         allow_null=True,
         allow_blank=True,
         help_text="Pricing methodology",
+    )
+    price_cap = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        required=False,
+        allow_null=True,
+        help_text="Maximum amount to invoice for T&M jobs (do not exceed)",
     )
 
     # Relationships (only IDs, no derived names)

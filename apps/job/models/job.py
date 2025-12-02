@@ -47,6 +47,7 @@ class Job(models.Model):
         "name",
         "status",
         "pricing_methodology",
+        "price_cap",
         "speed_quality_tradeoff",
         "fully_invoiced",
         "quote_acceptance_date",
@@ -132,6 +133,17 @@ class Job(models.Model):
         default="time_materials",
         help_text=(
             "Determines whether job uses quotes or time and materials pricing type."
+        ),
+    )
+
+    price_cap = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text=(
+            "Maximum amount to invoice for T&M jobs (do not exceed). "
+            "For quoted jobs it is set to the quote."
         ),
     )
 
@@ -473,6 +485,10 @@ class Job(models.Model):
             "charge_out_rate": lambda old, new: (
                 "pricing_changed",
                 f"Charge out rate changed from ${old}/hour to ${new}/hour",
+            ),
+            "price_cap": lambda old, new: (
+                "pricing_changed",
+                f"Price cap changed from ${old or 'None'} to ${new or 'None'}",
             ),
             "priority": lambda old, new: (
                 "priority_changed",

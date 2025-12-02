@@ -76,6 +76,7 @@ class ArchivedJobsComplianceService:
                                     else None
                                 ),
                                 "job_value": job_value,
+                                "price_cap": job.price_cap,
                             }
                         )
 

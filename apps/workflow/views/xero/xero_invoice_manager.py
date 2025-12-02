@@ -123,6 +123,16 @@ class XeroInvoiceManager(XeroDocumentManager):
             total_revenue = sum(cl.unit_rev for cl in latest_cost_set.cost_lines.all())
         total_revenue = float(total_revenue or 0.0)
 
+        # Apply price cap if set - invoice should not exceed the cap
+        if self.job.price_cap is not None:
+            price_cap = float(self.job.price_cap)
+            if total_revenue > price_cap:
+                logger.info(
+                    f"Job {self.job.job_number}: Capping invoice from ${total_revenue:.2f} "
+                    f"to price cap ${price_cap:.2f}"
+                )
+                total_revenue = price_cap
+
         description = f"Job: {self.job.job_number}"
         if self.job.description:
             description += f" - {self.job.description}"

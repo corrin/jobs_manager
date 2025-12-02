@@ -258,6 +258,7 @@ class DailyTimesheetService:
                         "job_number": job_number,
                         "job_name": job_name,
                         "client": job.client.name if job.client else "",
+                        "price_cap": job.price_cap,
                         "hours": Decimal("0.0"),
                         "revenue": Decimal("0.0"),
                         "cost": Decimal("0.0"),
