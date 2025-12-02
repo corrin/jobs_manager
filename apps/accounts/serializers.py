@@ -133,15 +133,18 @@ class StaffSerializer(BaseStaffSerializer):
 
     class Meta:
         model = Staff
-        fields = Staff.STAFF_ALL_FIELDS + ["icon_url"]
+        fields = (
+            Staff.STAFF_API_FIELDS
+            + Staff.STAFF_INTERNAL_FIELDS
+            + Staff.STAFF_API_PROPERTIES
+        )
         read_only_fields = [
             "id",
             "last_login",
             "date_joined",
             "created_at",
             "updated_at",
-            "icon_url",
-        ]
+        ] + Staff.STAFF_API_PROPERTIES
         extra_kwargs = {
             "password": {"required": False, "write_only": True},
             "groups": {"required": False},
@@ -181,7 +184,11 @@ class StaffCreateSerializer(BaseStaffSerializer):
 
     class Meta:
         model = Staff
-        fields = Staff.STAFF_ALL_FIELDS + ["icon_url"]
+        fields = (
+            Staff.STAFF_API_FIELDS
+            + Staff.STAFF_INTERNAL_FIELDS
+            + Staff.STAFF_API_PROPERTIES
+        )
 
         extra_kwargs = {
             "password": {"required": True, "write_only": True},
