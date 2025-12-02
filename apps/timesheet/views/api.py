@@ -147,7 +147,7 @@ class StaffListAPIView(APIView):
                             else Decimal(0)
                         ),
                         # Provide canonical icon URL for avatar rendering
-                        "icon_url": member.icon.url if member.icon else None,
+                        "iconUrl": member.icon.url if member.icon else None,
                     }
                 )
 
