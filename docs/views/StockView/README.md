@@ -90,7 +90,6 @@ Provides comprehensive interface and API for inventory management in jobbing sho
   - `quantity`: Initial quantity (required, positive decimal)
   - `unit_cost`: Cost per unit (required, positive decimal)
   - `source`: Source of stock (required)
-  - `notes`: Additional notes (optional)
   - `metal_type`: Material type (optional)
   - `alloy`: Alloy specification (optional)
   - `specifics`: Detailed specifications (optional)
