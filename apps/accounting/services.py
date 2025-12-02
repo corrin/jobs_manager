@@ -842,6 +842,7 @@ class JobAgingService:
                     "client_name": job.client.name if job.client else "No Client",
                     "status": job.status,
                     "status_display": job.get_status_display(),
+                    "price_cap": job.price_cap,
                     "financial_data": financial_data,
                     "timing_data": timing_data,
                 }

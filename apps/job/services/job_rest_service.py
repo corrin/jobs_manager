@@ -866,6 +866,7 @@ class JobRestService:
                     "contact_phone": job.contact.phone if job.contact else None,
                     "speed_quality_tradeoff": job.speed_quality_tradeoff,
                     "pricing_methodology": job.pricing_methodology,
+                    "price_cap": job.price_cap,
                     "fully_invoiced": job.fully_invoiced,
                     "quote_acceptance_date": job.quote_acceptance_date,
                     "paid": job.paid,
@@ -1608,6 +1609,7 @@ class JobRestService:
                     "client": job.client.name if job.client else None,
                     "description": job.description,
                     "status": job.status,
+                    "price_cap": job.price_cap,
                     "people": [
                         {"name": person.get_display_full_name(), "id": str(person.id)}
                         for person in job.people.all()
