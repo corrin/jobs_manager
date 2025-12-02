@@ -455,7 +455,7 @@ class Stock(models.Model):
     )
     location = models.TextField(blank=True, help_text="Where we are keeping this")
     notes = models.TextField(
-        blank=True, help_text="Additional notes about the stock item"
+        blank=True, null=True, help_text="Additional notes about the stock item"
     )
     metal_type = models.CharField(
         max_length=100,
