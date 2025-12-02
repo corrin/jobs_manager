@@ -353,7 +353,6 @@ class Stock(models.Model):
         "date",
         "source",
         "location",
-        "notes",
         "metal_type",
         "alloy",
         "specifics",
@@ -454,9 +453,6 @@ class Stock(models.Model):
         help_text="The parent stock item this was split from (if source='split_from_stock')",
     )
     location = models.TextField(blank=True, help_text="Where we are keeping this")
-    notes = models.TextField(
-        blank=True, null=True, help_text="Additional notes about the stock item"
-    )
     metal_type = models.CharField(
         max_length=100,
         choices=MetalType.choices,

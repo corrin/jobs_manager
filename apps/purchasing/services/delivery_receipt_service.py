@@ -200,7 +200,6 @@ def _create_stock_from_allocation(
         date=timezone.now(),
         source="purchase_order",
         source_purchase_order_line=line,
-        notes=f"Received from PO {purchase_order.po_number}",
     )
 
     # Parse extra metadata
