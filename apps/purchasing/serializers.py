@@ -274,17 +274,6 @@ class StockItemSerializer(serializers.ModelSerializer):
         model = Stock
         fields = Stock.STOCK_API_FIELDS + ["job_id"]
 
-    def to_representation(self, instance):
-        """
-        Normalize legacy data so the API always returns valid enum/string values:
-        - fallback empty/None sources to 'product_catalog' (matches current enum)
-        - coerce null notes to an empty string
-        """
-        data = super().to_representation(instance)
-        data["source"] = data.get("source") or "product_catalog"
-        data["notes"] = data.get("notes") or ""
-        return data
-
 
 class StockListSerializer(serializers.Serializer):
     """Serializer for listing stock items from service data."""
