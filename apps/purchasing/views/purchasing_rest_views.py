@@ -17,21 +17,21 @@ from apps.purchasing.etag import generate_po_etag, normalize_etag
 from apps.purchasing.models import PurchaseOrder, Stock
 from apps.purchasing.serializers import (
     AllJobsResponseSerializer,
-    AllocationDeleteRequestSerializer,
     AllocationDeleteResponseSerializer,
+    AllocationDeleteSerializer,
     AllocationDetailsResponseSerializer,
-    DeliveryReceiptRequestSerializer,
     DeliveryReceiptResponseSerializer,
+    DeliveryReceiptSerializer,
     ProductMappingListResponseSerializer,
     ProductMappingSerializer,
-    ProductMappingValidateRequestSerializer,
     ProductMappingValidateResponseSerializer,
+    ProductMappingValidateSerializer,
     PurchaseOrderAllocationsResponseSerializer,
     PurchaseOrderCreateResponseSerializer,
     PurchaseOrderCreateSerializer,
     PurchaseOrderDetailSerializer,
-    PurchaseOrderEmailRequestSerializer,
     PurchaseOrderEmailResponseSerializer,
+    PurchaseOrderEmailSerializer,
     PurchaseOrderListSerializer,
     PurchaseOrderPDFResponseSerializer,
     PurchaseOrderUpdateResponseSerializer,
@@ -477,7 +477,7 @@ class DeliveryReceiptRestView(PurchaseOrderETagMixin, APIView):
     Concurrency is controlled in this endpoint (ETag/If-Match).
     """
 
-    serializer_class = DeliveryReceiptRequestSerializer
+    serializer_class = DeliveryReceiptSerializer
 
     @extend_schema(
         responses={
@@ -707,7 +707,7 @@ class AllocationDeleteAPIView(APIView):
     serializer_class = AllocationDeleteResponseSerializer
 
     @extend_schema(
-        request=AllocationDeleteRequestSerializer,
+        request=AllocationDeleteSerializer,
         responses={
             status.HTTP_200_OK: AllocationDeleteResponseSerializer,
             status.HTTP_400_BAD_REQUEST: AllocationDeleteResponseSerializer,
@@ -719,7 +719,7 @@ class AllocationDeleteAPIView(APIView):
         """Delete a specific allocation from a purchase order line."""
         try:
             # Validate input data
-            serializer = AllocationDeleteRequestSerializer(data=request.data)
+            serializer = AllocationDeleteSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(
                     {
@@ -880,7 +880,7 @@ class ProductMappingValidateView(APIView):
 
     @extend_schema(
         operation_id="validateProductMapping",
-        request=ProductMappingValidateRequestSerializer,
+        request=ProductMappingValidateSerializer,
         responses={
             status.HTTP_200_OK: ProductMappingValidateResponseSerializer,
             status.HTTP_400_BAD_REQUEST: ProductMappingValidateResponseSerializer,
@@ -896,7 +896,7 @@ class ProductMappingValidateView(APIView):
             from apps.quoting.models import ProductParsingMapping, SupplierProduct
 
             # Validate input data
-            serializer = ProductMappingValidateRequestSerializer(data=request.data)
+            serializer = ProductMappingValidateSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(
                     {
@@ -1044,7 +1044,7 @@ class PurchaseOrderEmailView(APIView):
 
     @extend_schema(
         operation_id="getPurchaseOrderEmail",
-        request=PurchaseOrderEmailRequestSerializer,
+        request=PurchaseOrderEmailSerializer,
         responses={
             status.HTTP_200_OK: PurchaseOrderEmailResponseSerializer,
             status.HTTP_400_BAD_REQUEST: PurchaseOrderEmailResponseSerializer,
@@ -1055,7 +1055,7 @@ class PurchaseOrderEmailView(APIView):
         """Generate email data for a purchase order."""
         try:
             # Validate input data
-            serializer = PurchaseOrderEmailRequestSerializer(data=request.data)
+            serializer = PurchaseOrderEmailSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(
                     {

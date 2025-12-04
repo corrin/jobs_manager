@@ -24,7 +24,7 @@ from apps.job.serializers.job_file_serializer import (
     JobFileErrorResponseSerializer,
     JobFileSerializer,
     JobFileUploadPartialResponseSerializer,
-    JobFileUploadRequestSerializer,
+    JobFileUploadSerializer,
     JobFileUploadSuccessResponseSerializer,
 )
 from apps.job.services.file_service import create_thumbnail, get_thumbnail_folder
@@ -104,7 +104,7 @@ class JobFilesCollectionView(APIView):
 
     @extend_schema(
         operation_id="uploadJobFiles",
-        request=JobFileUploadRequestSerializer,
+        request=JobFileUploadSerializer,
         responses={
             201: JobFileUploadSuccessResponseSerializer,
             207: JobFileUploadPartialResponseSerializer,
@@ -118,7 +118,7 @@ class JobFilesCollectionView(APIView):
         job = get_object_or_404(Job, id=job_id)
 
         files_payload = request.FILES.getlist("files")
-        request_serializer = JobFileUploadRequestSerializer(
+        request_serializer = JobFileUploadSerializer(
             data={
                 "files": files_payload,
                 "print_on_jobsheet": request.data.get("print_on_jobsheet", True),

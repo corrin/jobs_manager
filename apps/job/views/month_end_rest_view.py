@@ -11,8 +11,8 @@ from rest_framework.views import APIView
 from apps.job.serializers.job_serializer import (
     MonthEndErrorResponseSerializer,
     MonthEndGetResponseSerializer,
-    MonthEndPostRequestSerializer,
     MonthEndPostResponseSerializer,
+    MonthEndPostSerializer,
 )
 from apps.job.services.month_end_service import MonthEndService
 
@@ -87,13 +87,13 @@ class MonthEndRestView(APIView):
 
     @extend_schema(
         summary="Runs month-end operation based on given processed ids",
-        request=MonthEndPostRequestSerializer,
+        request=MonthEndPostSerializer,
         responses={200: MonthEndPostResponseSerializer},
     )
     def post(self, request):
         try:
             # Validate input data
-            input_serializer = MonthEndPostRequestSerializer(data=request.data)
+            input_serializer = MonthEndPostSerializer(data=request.data)
             if not input_serializer.is_valid():
                 error_response = {"error": f"Invalid input: {input_serializer.errors}"}
                 error_serializer = MonthEndErrorResponseSerializer(data=error_response)
