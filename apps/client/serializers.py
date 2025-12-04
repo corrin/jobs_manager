@@ -73,7 +73,7 @@ class ClientSearchResponseSerializer(serializers.Serializer):
     results = ClientSearchResultSerializer(many=True)
 
 
-class ClientCreateRequestSerializer(serializers.Serializer):
+class ClientCreateSerializer(serializers.Serializer):
     """Serializer for client creation request"""
 
     name = serializers.CharField(max_length=255)
@@ -136,7 +136,7 @@ class ClientDetailResponseSerializer(serializers.Serializer):
     total_spend = serializers.CharField()
 
 
-class ClientUpdateRequestSerializer(serializers.Serializer):
+class ClientUpdateSerializer(serializers.Serializer):
     """Serializer for client update request"""
 
     name = serializers.CharField(max_length=255, required=False)
@@ -166,7 +166,7 @@ class JobContactResponseSerializer(serializers.Serializer):
     notes = serializers.CharField(allow_blank=True, allow_null=True)
 
 
-class JobContactUpdateRequestSerializer(JobContactResponseSerializer):
+class JobContactUpdateSerializer(JobContactResponseSerializer):
     """Serializer for job contact update request"""
 
 

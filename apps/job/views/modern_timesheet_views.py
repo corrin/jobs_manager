@@ -26,8 +26,8 @@ from apps.job.serializers.costing_serializer import TimesheetCostLineSerializer
 from apps.job.serializers.job_serializer import (
     ModernTimesheetDayGetResponseSerializer,
     ModernTimesheetEntryGetResponseSerializer,
-    ModernTimesheetEntryPostRequestSerializer,
     ModernTimesheetEntryPostResponseSerializer,
+    ModernTimesheetEntryPostSerializer,
     ModernTimesheetErrorResponseSerializer,
     ModernTimesheetJobGetResponseSerializer,
 )
@@ -261,7 +261,7 @@ class ModernTimesheetEntryView(APIView):
     @extend_schema(
         summary="Create a timesheet entry as a CostLine",
         description="Creates a new timesheet entry for a staff member on a specific date.",
-        request=ModernTimesheetEntryPostRequestSerializer,
+        request=ModernTimesheetEntryPostSerializer,
         responses={
             status.HTTP_201_CREATED: ModernTimesheetEntryPostResponseSerializer,
             status.HTTP_400_BAD_REQUEST: ModernTimesheetErrorResponseSerializer,
@@ -273,9 +273,7 @@ class ModernTimesheetEntryView(APIView):
         """Create a timesheet entry as a CostLine in the actual CostSet"""
         try:
             # Validate input data using serializer
-            input_serializer = ModernTimesheetEntryPostRequestSerializer(
-                data=request.data
-            )
+            input_serializer = ModernTimesheetEntryPostSerializer(data=request.data)
             if not input_serializer.is_valid():
                 error_response = {"error": f"Invalid input: {input_serializer.errors}"}
                 error_serializer = ModernTimesheetErrorResponseSerializer(

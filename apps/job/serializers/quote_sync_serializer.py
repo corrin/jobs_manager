@@ -31,7 +31,7 @@ class QuoteSyncErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
 
 
-class LinkQuoteSheetRequestSerializer(serializers.Serializer):
+class LinkQuoteSheetSerializer(serializers.Serializer):
     """Serializer for link quote sheet request data."""
 
     template_url = serializers.URLField(required=False, allow_blank=True)

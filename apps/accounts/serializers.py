@@ -308,7 +308,7 @@ class TokenRefreshResponseSerializer(serializers.Serializer):
     )
 
 
-class BearerTokenRequestSerializer(serializers.Serializer):
+class BearerTokenSerializer(serializers.Serializer):
     """
     Serializer for bearer token generation request.
     """

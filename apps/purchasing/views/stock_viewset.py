@@ -14,8 +14,8 @@ from rest_framework.response import Response
 from apps.job.models import Job
 from apps.purchasing.models import Stock
 from apps.purchasing.serializers import (
-    StockConsumeRequestSerializer,
     StockConsumeResponseSerializer,
+    StockConsumeSerializer,
     StockItemSerializer,
 )
 from apps.purchasing.services.stock_service import consume_stock
@@ -55,7 +55,7 @@ class StockViewSet(viewsets.ModelViewSet):
         instance.save(update_fields=["is_active"])
 
     @extend_schema(
-        request=StockConsumeRequestSerializer,
+        request=StockConsumeSerializer,
         responses=StockConsumeResponseSerializer,
         operation_id="consumeStock",
         description="Consume stock for a job, reducing available quantity.",
@@ -67,7 +67,7 @@ class StockViewSet(viewsets.ModelViewSet):
         """
         stock_item = self.get_object()
 
-        serializer = StockConsumeRequestSerializer(data=request.data)
+        serializer = StockConsumeSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
                 {"error": "Invalid input data", "details": serializer.errors},

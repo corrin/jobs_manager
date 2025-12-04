@@ -142,7 +142,7 @@ class WeeklyTimesheetDataSerializer(serializers.Serializer):
     week_type = serializers.CharField(required=False, allow_blank=True)
 
 
-class PaidAbsenceRequestSerializer(serializers.Serializer):
+class PaidAbsenceSerializer(serializers.Serializer):
     """Serializer for paid absence request submission"""
 
     staff_id = serializers.UUIDField()

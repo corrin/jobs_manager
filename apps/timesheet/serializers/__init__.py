@@ -18,7 +18,7 @@ try:
             JobsListResponseSerializer,
             ModernStaffSerializer,
             ModernTimesheetJobSerializer,
-            PaidAbsenceRequestSerializer,
+            PaidAbsenceSerializer,
             StaffListResponseSerializer,
             WeeklyStaffDataSerializer,
             WeeklyStaffDataWeeklyHoursSerializer,
@@ -26,21 +26,21 @@ try:
             WeeklyTimesheetDataSerializer,
         )
         from .payroll_serializers import (
-            CreatePayRunRequestSerializer,
             CreatePayRunResponseSerializer,
+            CreatePayRunSerializer,
             PayRunDetailsSerializer,
             PayRunForWeekResponseSerializer,
             PayRunSyncResponseSerializer,
-            PostWeekToXeroRequestSerializer,
             PostWeekToXeroResponseSerializer,
+            PostWeekToXeroSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
 __all__ = [
-    "CreatePayRunRequestSerializer",
     "CreatePayRunResponseSerializer",
+    "CreatePayRunSerializer",
     "DailyTimesheetSummarySerializer",
     "DailyTotalsSerializer",
     "JobBreakdownSerializer",
@@ -48,12 +48,12 @@ __all__ = [
     "JobsListResponseSerializer",
     "ModernStaffSerializer",
     "ModernTimesheetJobSerializer",
-    "PaidAbsenceRequestSerializer",
+    "PaidAbsenceSerializer",
     "PayRunDetailsSerializer",
     "PayRunForWeekResponseSerializer",
     "PayRunSyncResponseSerializer",
-    "PostWeekToXeroRequestSerializer",
     "PostWeekToXeroResponseSerializer",
+    "PostWeekToXeroSerializer",
     "StaffDailyDataSerializer",
     "StaffListResponseSerializer",
     "SummaryStatsSerializer",

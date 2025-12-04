@@ -29,14 +29,14 @@ from apps.job.models import Job, JobDeltaRejection
 from apps.job.serializers.job_serializer import (
     JobBasicInformationResponseSerializer,
     JobCostSummaryResponseSerializer,
-    JobCreateRequestSerializer,
     JobCreateResponseSerializer,
+    JobCreateSerializer,
     JobDeleteResponseSerializer,
     JobDeltaEnvelopeSerializer,
     JobDeltaRejectionListResponseSerializer,
     JobDetailResponseSerializer,
-    JobEventCreateRequestSerializer,
     JobEventCreateResponseSerializer,
+    JobEventCreateSerializer,
     JobEventsResponseSerializer,
     JobHeaderResponseSerializer,
     JobInvoicesResponseSerializer,
@@ -44,7 +44,7 @@ from apps.job.serializers.job_serializer import (
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
     JobTimelineResponseSerializer,
-    JobUndoRequestSerializer,
+    JobUndoSerializer,
     QuoteSerializer,
     WeeklyMetricsSerializer,
 )
@@ -223,7 +223,7 @@ class JobCreateRestView(BaseJobRestView):
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
         if self.request.method == "POST":
-            return JobCreateRequestSerializer
+            return JobCreateSerializer
         return JobCreateResponseSerializer
 
     def get_serializer(self, *args, **kwargs):
@@ -232,7 +232,7 @@ class JobCreateRestView(BaseJobRestView):
         return serializer_class(*args, **kwargs)
 
     @extend_schema(
-        request=JobCreateRequestSerializer,
+        request=JobCreateSerializer,
         responses={
             201: JobCreateResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -259,7 +259,7 @@ class JobCreateRestView(BaseJobRestView):
             data = self.parse_json_body(request)
 
             # Validate input data
-            input_serializer = JobCreateRequestSerializer(data=data)
+            input_serializer = JobCreateSerializer(data=data)
             if not input_serializer.is_valid():
                 error_response = {
                     "error": f"Validation failed: {input_serializer.errors}"
@@ -568,11 +568,11 @@ class JobEventRestView(BaseJobRestView):
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
         if self.request.method == "POST":
-            return JobEventCreateRequestSerializer
+            return JobEventCreateSerializer
         return JobEventCreateResponseSerializer
 
     @extend_schema(
-        request=JobEventCreateRequestSerializer,
+        request=JobEventCreateSerializer,
         responses={
             201: JobEventCreateResponseSerializer,
             409: JobRestErrorResponseSerializer,
@@ -610,7 +610,7 @@ class JobEventRestView(BaseJobRestView):
             data = self.parse_json_body(request)
 
             # Validate input data
-            input_serializer = JobEventCreateRequestSerializer(data=data)
+            input_serializer = JobEventCreateSerializer(data=data)
             if not input_serializer.is_valid():
                 error_response = {
                     "error": f"Validation failed: {input_serializer.errors}"
@@ -1269,10 +1269,10 @@ class JobTimelineRestView(BaseJobRestView):
 class JobUndoChangeRestView(BaseJobRestView):
     """Undo a previously applied job delta."""
 
-    serializer_class = JobUndoRequestSerializer
+    serializer_class = JobUndoSerializer
 
     @extend_schema(
-        request=JobUndoRequestSerializer,
+        request=JobUndoSerializer,
         responses={
             200: JobDetailResponseSerializer,
             400: JobRestErrorResponseSerializer,
@@ -1283,7 +1283,7 @@ class JobUndoChangeRestView(BaseJobRestView):
     def post(self, request, job_id):
         try:
             data = self.parse_json_body(request)
-            serializer = JobUndoRequestSerializer(data=data)
+            serializer = JobUndoSerializer(data=data)
             if not serializer.is_valid():
                 error_response = {"error": f"Validation failed: {serializer.errors}"}
                 error_serializer = JobRestErrorResponseSerializer(error_response)

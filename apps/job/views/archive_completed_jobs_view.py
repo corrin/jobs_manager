@@ -9,8 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.serializers.job_serializer import (
-    ArchiveJobsRequestSerializer,
     ArchiveJobsResponseSerializer,
+    ArchiveJobsSerializer,
     CompleteJobSerializer,
 )
 from apps.job.services.job_service import archive_complete_jobs, get_paid_complete_jobs
@@ -57,13 +57,13 @@ class ArchiveCompleteJobsViews:
         def get_serializer_class(self):
             """Return the serializer class for documentation"""
             if self.request.method == "POST":
-                return ArchiveJobsRequestSerializer
+                return ArchiveJobsSerializer
             return ArchiveJobsResponseSerializer
 
         def post(self, request, *args, **kwargs):
             try:
                 # Validate request data
-                request_serializer = ArchiveJobsRequestSerializer(data=request.data)
+                request_serializer = ArchiveJobsSerializer(data=request.data)
                 if not request_serializer.is_valid():
                     response_serializer = ArchiveJobsResponseSerializer(
                         data={

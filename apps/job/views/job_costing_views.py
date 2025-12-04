@@ -19,8 +19,8 @@ from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
 from apps.job.serializers import CostSetSerializer
 from apps.job.serializers.costing_serializer import (
-    QuoteRevisionRequestSerializer,
     QuoteRevisionResponseSerializer,
+    QuoteRevisionSerializer,
     QuoteRevisionsListSerializer,
 )
 
@@ -114,7 +114,7 @@ class JobQuoteRevisionView(APIView):
     Only works with kind='quote' CostSets.
     """
 
-    serializer_class = QuoteRevisionRequestSerializer
+    serializer_class = QuoteRevisionSerializer
 
     @extend_schema(
         summary="List archived quote revisions",
@@ -164,7 +164,7 @@ class JobQuoteRevisionView(APIView):
             "clears all current cost lines from the quote CostSet, and starts a new quote revision. "
             "Returns details of the archived revision and status."
         ),
-        request=QuoteRevisionRequestSerializer,
+        request=QuoteRevisionSerializer,
         responses={200: QuoteRevisionResponseSerializer},
     )
     def post(self, request, job_id):
@@ -181,7 +181,7 @@ class JobQuoteRevisionView(APIView):
             Response: Success/error details and revision information
         """
         # Validate request data
-        request_serializer = QuoteRevisionRequestSerializer(data=request.data)
+        request_serializer = QuoteRevisionSerializer(data=request.data)
         if not request_serializer.is_valid():
             return Response(
                 {"error": "Invalid request data", "details": request_serializer.errors},

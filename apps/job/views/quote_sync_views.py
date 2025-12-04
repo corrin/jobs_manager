@@ -21,8 +21,8 @@ from apps.job.serializers.costing_serializer import CostSetSerializer
 from apps.job.serializers.quote_sync_serializer import (
     ApplyQuoteErrorResponseSerializer,
     ApplyQuoteResponseSerializer,
-    LinkQuoteSheetRequestSerializer,
     LinkQuoteSheetResponseSerializer,
+    LinkQuoteSheetSerializer,
     PreviewQuoteResponseSerializer,
     QuoteSyncErrorResponseSerializer,
 )
@@ -44,7 +44,7 @@ class LinkQuoteSheetAPIView(APIView):
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
         if self.request.method == "POST":
-            return LinkQuoteSheetRequestSerializer
+            return LinkQuoteSheetSerializer
         return LinkQuoteSheetResponseSerializer
 
     def post(self, request: Request, pk: str) -> Response:
@@ -63,7 +63,7 @@ class LinkQuoteSheetAPIView(APIView):
 
             # Validate input data
             logger.info("Validating input data")
-            input_serializer = LinkQuoteSheetRequestSerializer(data=request.data)
+            input_serializer = LinkQuoteSheetSerializer(data=request.data)
             if not input_serializer.is_valid():
                 error_response = {"error": f"Invalid input: {input_serializer.errors}"}
                 error_serializer = QuoteSyncErrorResponseSerializer(data=error_response)

@@ -143,7 +143,7 @@ class XeroOperationResponseSerializer(serializers.Serializer):
     xero_id = serializers.UUIDField(required=True)
 
 
-class XeroQuoteCreateRequestSerializer(serializers.Serializer):
+class XeroQuoteCreateSerializer(serializers.Serializer):
     """
     Request serializer for creating a Xero quote.
     Requires explicit choice of breakdown format.

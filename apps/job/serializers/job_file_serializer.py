@@ -48,7 +48,7 @@ class UploadedFileSerializer(serializers.Serializer):
     print_on_jobsheet = serializers.BooleanField()
 
 
-class JobFileUploadRequestSerializer(serializers.Serializer):
+class JobFileUploadSerializer(serializers.Serializer):
     """Serializer for job file upload requests."""
 
     files = serializers.ListField(

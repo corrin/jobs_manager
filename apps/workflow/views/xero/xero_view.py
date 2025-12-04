@@ -42,7 +42,7 @@ from apps.workflow.serializers import (
     XeroDocumentSuccessResponseSerializer,
     XeroErrorSerializer,
     XeroPingResponseSerializer,
-    XeroQuoteCreateRequestSerializer,
+    XeroQuoteCreateSerializer,
     XeroSseEventSerializer,
     XeroSyncInfoResponseSerializer,
     XeroSyncStartResponseSerializer,
@@ -557,7 +557,7 @@ def create_xero_purchase_order(
 @csrf_exempt
 @extend_schema(
     tags=["Xero"],
-    request=XeroQuoteCreateRequestSerializer,
+    request=XeroQuoteCreateSerializer,
     responses={
         201: XeroDocumentSuccessResponseSerializer,
         400: XeroDocumentErrorResponseSerializer,
@@ -574,7 +574,7 @@ def create_xero_quote(request: Request, job_id: uuid.UUID) -> Response:
         return Response(json.loads(tenant_id.content), status=tenant_id.status_code)
 
     # Validate request body
-    request_serializer = XeroQuoteCreateRequestSerializer(data=request.data)
+    request_serializer = XeroQuoteCreateSerializer(data=request.data)
     if not request_serializer.is_valid():
         error_data = {
             "success": False,
