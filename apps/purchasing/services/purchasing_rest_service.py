@@ -375,7 +375,6 @@ class PurchasingRestService:
             quantity=Decimal(str(data["quantity"])),
             unit_cost=Decimal(str(data["unit_cost"])),
             source=data["source"],
-            notes=data.get("notes", ""),
             metal_type=data.get("metal_type", ""),
             alloy=data.get("alloy", ""),
             specifics=data.get("specifics", ""),
