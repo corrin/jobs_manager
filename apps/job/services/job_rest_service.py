@@ -1276,31 +1276,26 @@ class JobRestService:
         Accept a quote for a job by setting the quote_acceptance_date and changing status to approved.
         Enforces optimistic concurrency via If-Match (ETag) precondition.
         """
-        # Lock row to ensure atomic precondition check + update
-        job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-
-        # Concurrency precondition
-        if if_match:
-            current_norm = _current_job_etag_value(job)
-            if current_norm != if_match:
-                raise PreconditionFailed("ETag mismatch: resource has changed")
-
-        # Guard clause - check if job has a quote
-        if not job.latest_quote:
-            raise ValueError("No quote found for this job")
-
-        # Guard clause - check if quote is already accepted
-        if job.quote_acceptance_date:
-            raise ValueError("Quote has already been accepted")
-
-        # Guard clause - only allow acceptance from draft or awaiting_approval states
-        if job.status not in ["draft", "awaiting_approval"]:
-            raise ValueError(
-                f"Cannot accept quote when job status is '{job.status}'. Job must be in 'draft' or 'awaiting_approval' state."
-            )
-
         with transaction.atomic():
-            job.quote_acceptance_date = datetime.now()
+            job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
+
+            if if_match:
+                current_norm = _current_job_etag_value(job)
+                if current_norm != if_match:
+                    raise PreconditionFailed("ETag mismatch: resource has changed")
+
+            if not job.latest_quote:
+                raise ValueError("No quote found for this job")
+
+            if job.quote_acceptance_date:
+                raise ValueError("Quote has already been accepted")
+
+            if job.status not in ["draft", "awaiting_approval"]:
+                raise ValueError(
+                    f"Cannot accept quote when job status is '{job.status}'. Job must be in 'draft' or 'awaiting_approval' state."
+                )
+
+            job.quote_acceptance_date = timezone.now()
             job.status = "approved"
             job.save()
 
