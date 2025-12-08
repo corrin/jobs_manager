@@ -312,6 +312,13 @@ class AdvancedSearchAPIView(APIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(
+                name="q",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Universal search - searches across job number, name, description, and client name with OR logic",
+            ),
+            OpenApiParameter(
                 name="job_number",
                 type=str,
                 location=OpenApiParameter.QUERY,
@@ -402,6 +409,7 @@ class AdvancedSearchAPIView(APIView):
         try:
             # Extract filters from GET parameters
             filters = {
+                "universal_search": request.GET.get("q", ""),
                 "job_number": request.GET.get("job_number", ""),
                 "name": request.GET.get("name", ""),
                 "description": request.GET.get("description", ""),
