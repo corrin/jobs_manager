@@ -24,8 +24,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.client.serializers import (
-    ClientCreateRequestSerializer,
     ClientCreateResponseSerializer,
+    ClientCreateSerializer,
     ClientDetailResponseSerializer,
     ClientDuplicateErrorResponseSerializer,
     ClientErrorResponseSerializer,
@@ -33,10 +33,10 @@ from apps.client.serializers import (
     ClientListResponseSerializer,
     ClientNameOnlySerializer,
     ClientSearchResponseSerializer,
-    ClientUpdateRequestSerializer,
     ClientUpdateResponseSerializer,
+    ClientUpdateSerializer,
     JobContactResponseSerializer,
-    JobContactUpdateRequestSerializer,
+    JobContactUpdateSerializer,
 )
 from apps.client.services.client_rest_service import ClientRestService
 from apps.workflow.exceptions import AlreadyLoggedException
@@ -230,7 +230,7 @@ class ClientRetrieveRestView(APIView):
                 type=OpenApiTypes.UUID,
             )
         ],
-        request=ClientUpdateRequestSerializer,
+        request=ClientUpdateSerializer,
         responses={
             200: ClientUpdateResponseSerializer,
             400: ClientErrorResponseSerializer,
@@ -251,7 +251,7 @@ class ClientRetrieveRestView(APIView):
                 type=OpenApiTypes.UUID,
             )
         ],
-        request=ClientUpdateRequestSerializer,
+        request=ClientUpdateSerializer,
         responses={
             200: ClientUpdateResponseSerializer,
             400: ClientErrorResponseSerializer,
@@ -273,7 +273,7 @@ class ClientUpdateRestView(APIView):
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
         if self.request.method in ["PUT", "PATCH"]:
-            return ClientUpdateRequestSerializer
+            return ClientUpdateSerializer
         return ClientUpdateResponseSerializer
 
     def put(self, request: Request, client_id: str) -> Response:
@@ -296,7 +296,7 @@ class ClientUpdateRestView(APIView):
         """
         try:
             # Validate input data
-            input_serializer = ClientUpdateRequestSerializer(
+            input_serializer = ClientUpdateSerializer(
                 data=request.data, partial=partial
             )
             if not input_serializer.is_valid():
@@ -345,7 +345,7 @@ class ClientUpdateRestView(APIView):
     post=extend_schema(
         summary="Create a new client",
         description="Creates a new client in Xero first, then syncs locally. Requires valid Xero authentication.",
-        request=ClientCreateRequestSerializer,
+        request=ClientCreateSerializer,
         responses={
             201: ClientCreateResponseSerializer,
             400: ClientErrorResponseSerializer,
@@ -369,7 +369,7 @@ class ClientCreateRestView(APIView):
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
         if self.request.method == "POST":
-            return ClientCreateRequestSerializer
+            return ClientCreateSerializer
         return ClientCreateResponseSerializer
 
     def post(self, request: Request) -> Response:
@@ -378,7 +378,7 @@ class ClientCreateRestView(APIView):
         """
         try:
             # Validate input data
-            input_serializer = ClientCreateRequestSerializer(data=request.data)
+            input_serializer = ClientCreateSerializer(data=request.data)
             if not input_serializer.is_valid():
                 error_serializer = ClientErrorResponseSerializer(
                     data={"error": f"Invalid input data: {input_serializer.errors}"}
@@ -480,7 +480,7 @@ class ClientCreateRestView(APIView):
                 type=OpenApiTypes.UUID,
             )
         ],
-        request=JobContactUpdateRequestSerializer,
+        request=JobContactUpdateSerializer,
         responses={
             200: JobContactResponseSerializer,
             400: ClientErrorResponseSerializer,
@@ -503,7 +503,7 @@ class JobContactRestView(APIView):
     def get_serializer_class(self):
         """Return the appropriate serializer class based on the request method"""
         if self.request.method == "PUT":
-            return JobContactUpdateRequestSerializer
+            return JobContactUpdateSerializer
         return JobContactResponseSerializer
 
     def get(self, request: Request, job_id: str) -> Response:
@@ -551,7 +551,7 @@ class JobContactRestView(APIView):
                 )
 
             # Validate input data
-            input_serializer = JobContactUpdateRequestSerializer(data=request.data)
+            input_serializer = JobContactUpdateSerializer(data=request.data)
             if not input_serializer.is_valid():
                 error_serializer = ClientErrorResponseSerializer(
                     data={"error": f"Invalid input data: {input_serializer.errors}"}

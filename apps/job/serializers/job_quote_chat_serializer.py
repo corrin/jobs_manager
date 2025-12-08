@@ -126,7 +126,7 @@ class JobQuoteChatUpdateResponseSerializer(serializers.Serializer):
     data = serializers.DictField()
 
 
-class JobQuoteChatInteractionRequestSerializer(serializers.Serializer):
+class JobQuoteChatInteractionSerializer(serializers.Serializer):
     """Serializer for chat interaction request data."""
 
     message = serializers.CharField(

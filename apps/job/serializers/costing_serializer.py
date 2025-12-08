@@ -306,7 +306,7 @@ class QuoteImportStatusResponseSerializer(serializers.Serializer):
     summary = serializers.JSONField(required=False)
 
 
-class QuoteRevisionRequestSerializer(serializers.Serializer):
+class QuoteRevisionSerializer(serializers.Serializer):
     """Serializer for quote revision request - validates input data"""
 
     reason = serializers.CharField(

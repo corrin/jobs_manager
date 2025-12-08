@@ -123,7 +123,7 @@ class DeliveryReceiptLineSerializer(serializers.Serializer):
     allocations = DeliveryReceiptAllocationSerializer(many=True)
 
 
-class DeliveryReceiptRequestSerializer(serializers.Serializer):
+class DeliveryReceiptSerializer(serializers.Serializer):
     """Serializer for delivery receipt request data."""
 
     purchase_order_id = serializers.UUIDField()
@@ -336,7 +336,7 @@ class StockDeactivateResponseSerializer(serializers.Serializer):
     message = serializers.CharField(required=False)
 
 
-class StockConsumeRequestSerializer(serializers.Serializer):
+class StockConsumeSerializer(serializers.Serializer):
     """Serializer for stock consumption request"""
 
     job_id = serializers.UUIDField()
@@ -372,7 +372,7 @@ class PurchasingErrorResponseSerializer(serializers.Serializer):
 
 
 # Purchase Order Email and PDF serializers
-class PurchaseOrderEmailRequestSerializer(serializers.Serializer):
+class PurchaseOrderEmailSerializer(serializers.Serializer):
     """Serializer for purchase order email generation request"""
 
     recipient_email = serializers.EmailField(required=False)
@@ -400,7 +400,7 @@ class PurchaseOrderPDFResponseSerializer(serializers.Serializer):
 
 
 # Allocation deletion serializers
-class AllocationDeleteRequestSerializer(serializers.Serializer):
+class AllocationDeleteSerializer(serializers.Serializer):
     """Serializer for allocation deletion request"""
 
     allocation_type = serializers.ChoiceField(
@@ -480,7 +480,7 @@ class ProductMappingListResponseSerializer(serializers.Serializer):
     unvalidated_count = serializers.IntegerField()
 
 
-class ProductMappingValidateRequestSerializer(serializers.Serializer):
+class ProductMappingValidateSerializer(serializers.Serializer):
     """Serializer for product mapping validation request."""
 
     mapped_item_code = serializers.CharField(required=False, allow_blank=True)

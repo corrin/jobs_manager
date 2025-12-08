@@ -27,12 +27,12 @@ from apps.timesheet.serializers import (
     WeeklyTimesheetDataSerializer,
 )
 from apps.timesheet.serializers.payroll_serializers import (
-    CreatePayRunRequestSerializer,
     CreatePayRunResponseSerializer,
+    CreatePayRunSerializer,
     PayRunForWeekResponseSerializer,
     PayRunSyncResponseSerializer,
-    PostWeekToXeroRequestSerializer,
     PostWeekToXeroResponseSerializer,
+    PostWeekToXeroSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
 from apps.timesheet.services.payroll_sync import PayrollSyncService
@@ -534,11 +534,11 @@ class CreatePayRunAPIView(APIView):
     """API endpoint to create a pay run in Xero Payroll."""
 
     permission_classes = [IsAuthenticated]
-    serializer_class = CreatePayRunRequestSerializer
+    serializer_class = CreatePayRunSerializer
 
     @extend_schema(
         summary="Create pay run for a week",
-        request=CreatePayRunRequestSerializer,
+        request=CreatePayRunSerializer,
         responses={
             201: CreatePayRunResponseSerializer,
             400: ClientErrorResponseSerializer,
@@ -708,11 +708,11 @@ class PostWeekToXeroPayrollAPIView(APIView):
     """API endpoint to post a weekly timesheet to Xero Payroll."""
 
     permission_classes = [IsAuthenticated]
-    serializer_class = PostWeekToXeroRequestSerializer
+    serializer_class = PostWeekToXeroSerializer
 
     @extend_schema(
         summary="Post weekly timesheet to Xero Payroll",
-        request=PostWeekToXeroRequestSerializer,
+        request=PostWeekToXeroSerializer,
         responses={
             200: PostWeekToXeroResponseSerializer,
             400: ClientErrorResponseSerializer,
