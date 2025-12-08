@@ -65,6 +65,8 @@
 | `/rest/jobs/<uuid:job_id>/files/<uuid:file_id>/thumbnail/` | `job_file_thumbnail_view.JobFileThumbnailView` | `jobs:job_file_thumbnail` | Thumbnail serving for job files. |
 | `/rest/jobs/<uuid:job_id>/header/` | `job_rest_views.JobHeaderRestView` | `jobs:job_header_rest` | REST view for Job header information. |
 | `/rest/jobs/<uuid:job_id>/invoices/` | `job_rest_views.JobInvoicesRestView` | `jobs:job_invoices_rest` | REST view for Job invoices. |
+| `/rest/jobs/<uuid:job_id>/jsa/` | `jsa_views.JobJSAListView` | `jobs:job_jsa_list` | List JSAs for a specific job. |
+| `/rest/jobs/<uuid:job_id>/jsa/generate/` | `jsa_views.JobJSAGenerateView` | `jobs:job_jsa_generate` | Generate a new JSA for a specific job using AI. |
 | `/rest/jobs/<uuid:job_id>/quote/` | `job_rest_views.JobQuoteRestView` | `jobs:job_quote_rest` | REST view for Job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/accept/` | `job_rest_views.JobQuoteAcceptRestView` | `jobs:job_quote_accept_rest` | REST view for accepting job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/import/` | `<lambda>` | `jobs:quote_import_deprecated` | Lambda function endpoint |
@@ -81,6 +83,14 @@
 | `/rest/jobs/status-choices/` | `job_rest_views.JobStatusChoicesRestView` | `jobs:job_status_choices_rest` | REST view for Job status choices. |
 | `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
+| `/rest/safety-documents/` | `safety_document_views.SafetyDocumentListView` | `jobs:safety_documents_list` | List all safety documents (JSAs and SWPs). |
+| `/rest/safety-documents/<uuid:doc_id>/` | `safety_document_views.SafetyDocumentDetailView` | `jobs:safety_document_detail` | Retrieve, update, or delete a specific safety document. |
+| `/rest/safety-documents/<uuid:doc_id>/finalize/` | `safety_document_views.SafetyDocumentFinalizeView` | `jobs:safety_document_finalize` | Finalize a draft safety document by generating PDF. |
+| `/rest/safety-documents/<uuid:doc_id>/pdf/` | `safety_document_views.SafetyDocumentPDFView` | `jobs:safety_document_pdf` | Download the generated PDF for a finalized safety document. |
+| `/rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-controls/` | `safety_document_views.SafetyDocumentTaskControlsView` | `jobs:safety_document_task_controls` | Generate controls for a specific task's hazards using AI. |
+| `/rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-hazards/` | `safety_document_views.SafetyDocumentTaskHazardsView` | `jobs:safety_document_task_hazards` | Generate hazards for a specific task using AI. |
+| `/rest/swp/` | `swp_views.SWPListView` | `jobs:swp_list` | List all SWPs (Safe Work Procedures). |
+| `/rest/swp/generate/` | `swp_views.SWPGenerateView` | `jobs:swp_generate` | Generate a new SWP (Safe Work Procedure) using AI. |
 | `/rest/timesheet/entries/` | `modern_timesheet_views.ModernTimesheetEntryView` | `jobs:modern_timesheet_entry_rest` | Modern timesheet entry management using CostLine architecture |
 | `/rest/timesheet/jobs/<uuid:job_id>/` | `modern_timesheet_views.ModernTimesheetJobView` | `jobs:modern_timesheet_job_rest` | Get timesheet entries for a specific job |
 | `/rest/timesheet/staff/<uuid:staff_id>/date/<str:entry_date>/` | `modern_timesheet_views.ModernTimesheetDayView` | `jobs:modern_timesheet_day_rest` | Get timesheet entries for a specific day and staff |

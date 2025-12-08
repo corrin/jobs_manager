@@ -42,6 +42,7 @@ from .job_rest_views import (
     WeeklyMetricsRestView,
     get_company_defaults_api,
 )
+from .jsa_views import JobJSAGenerateView, JobJSAListView
 from .modern_timesheet_views import (
     ModernTimesheetDayView,
     ModernTimesheetEntryView,
@@ -58,6 +59,15 @@ from .quote_sync_views import (
     LinkQuoteSheetAPIView,
     PreviewQuoteAPIView,
 )
+from .safety_document_views import (
+    SafetyDocumentDetailView,
+    SafetyDocumentFinalizeView,
+    SafetyDocumentListView,
+    SafetyDocumentPDFView,
+    SafetyDocumentTaskControlsView,
+    SafetyDocumentTaskHazardsView,
+)
+from .swp_views import SWPGenerateView, SWPListView
 from .workshop_view import WorkshopPDFView
 
 # Conditional imports (only when Django is ready)
@@ -111,6 +121,8 @@ __all__ = [
     "JobFilesCollectionView",
     "JobHeaderRestView",
     "JobInvoicesRestView",
+    "JobJSAGenerateView",
+    "JobJSAListView",
     "JobQuoteAcceptRestView",
     "JobQuoteChatHistoryView",
     "JobQuoteChatInteractionView",
@@ -130,6 +142,14 @@ __all__ = [
     "QuoteImportStatusView",
     "QuoteImportView",
     "ReorderJobAPIView",
+    "SWPGenerateView",
+    "SWPListView",
+    "SafetyDocumentDetailView",
+    "SafetyDocumentFinalizeView",
+    "SafetyDocumentListView",
+    "SafetyDocumentPDFView",
+    "SafetyDocumentTaskControlsView",
+    "SafetyDocumentTaskHazardsView",
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
     "WeeklyMetricsRestView",

@@ -3,7 +3,6 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
-import google.generativeai as genai
 from django.utils import timezone
 
 from apps.job.enums import MetalType
@@ -13,7 +12,7 @@ from apps.quoting.utils import (
     calculate_supplier_product_hash,
 )
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider
+from apps.workflow.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -28,33 +27,10 @@ class ProductParser:
     BATCH_SIZE = 100
 
     def __init__(self):
-        """Initialize parser and validate AI provider configuration upfront."""
-        # Fail early - check AI provider configuration immediately
-        # Prefer Flash models (cheaper, faster, sufficient for parsing)
-        ai_provider = AIProvider.objects.filter(
-            provider_type=AIProviderTypes.GOOGLE, model_name__icontains="flash"
-        ).first()
-
-        # Fall back to any Gemini provider if no Flash model configured
-        if not ai_provider:
-            ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.GOOGLE
-            ).first()
-
-        if not ai_provider or not ai_provider.api_key:
-            raise ValueError("No Gemini AI provider configured with API key")
-
-        if not ai_provider.model_name:
-            raise ValueError("Gemini AI provider model name not configured")
-
-        # Configure and create client immediately
-        genai.configure(api_key=ai_provider.api_key)
-        self._gemini_client = genai.GenerativeModel(ai_provider.model_name)
-
-    @property
-    def gemini_client(self):
-        """Get the Gemini client (already initialized in __init__)."""
-        return self._gemini_client
+        """Initialize parser with LLM service."""
+        # Use the shared LLMService - prefer Google/Gemini Flash models for parsing
+        # as they are cheaper and faster while sufficient for this task
+        self.llm = LLMService(provider_type=AIProviderTypes.GOOGLE)
 
     def _calculate_input_hash(self, product_data: Dict[str, Any]) -> str:
         """Calculate SHA-256 hash based on description only."""
@@ -200,10 +176,12 @@ Price: {product_data.get("variant_price", "N/A")} \
     def _call_llm(self, prompt: str) -> Dict[str, Any]:
         """Call LLM and parse response."""
         try:
-            response = self.gemini_client.generate_content(prompt)
+            response = self.llm.completion(
+                messages=[{"role": "user", "content": prompt}],
+            )
 
             # Extract JSON from response
-            response_text = response.text.strip()
+            response_text = response.choices[0].message.content.strip()
 
             # Try to find JSON array or object in the response
             start_idx = response_text.find("[")

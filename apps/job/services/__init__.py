@@ -53,6 +53,9 @@ try:
         from .paid_flag_service import PaidFlagResult, PaidFlagService
         from .quote_mode_controller import QuoteModeController
         from .quote_sync_service import apply_quote, link_quote_sheet, preview_quote
+        from .safety_ai_service import SafetyAIService
+        from .safety_document_service import SafetyDocumentService
+        from .safety_pdf_service import SafetyPDFService
         from .workshop_pdf_service import (
             add_delivery_docket_details_table,
             add_handover_section,
@@ -101,6 +104,9 @@ __all__ = [
     "QuoteImportError",
     "QuoteImportResult",
     "QuoteModeController",
+    "SafetyAIService",
+    "SafetyDocumentService",
+    "SafetyPDFService",
     "add_delivery_docket_details_table",
     "add_handover_section",
     "add_logo",

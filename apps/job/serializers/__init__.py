@@ -137,6 +137,20 @@ try:
             QuoteSyncErrorResponseSerializer,
             ValidationReportSerializer,
         )
+        from .safety_document_serializer import (
+            ControlMeasureSerializer,
+            JSAGenerateRequestSerializer,
+            SWPGenerateRequestSerializer,
+            SafetyDocumentErrorResponseSerializer,
+            SafetyDocumentFinalizeResponseSerializer,
+            SafetyDocumentListSerializer,
+            SafetyDocumentSerializer,
+            SafetyTaskSerializer,
+            TaskControlsGenerateRequestSerializer,
+            TaskControlsResponseSerializer,
+            TaskHazardsGenerateRequestSerializer,
+            TaskHazardsResponseSerializer,
+        )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -157,6 +171,7 @@ __all__ = [
     "CompanyDefaultsJobDetailSerializer",
     "CompleteJobSerializer",
     "ComplianceSummarySerializer",
+    "ControlMeasureSerializer",
     "CostLineCreateUpdateSerializer",
     "CostLineErrorResponseSerializer",
     "CostLineSerializer",
@@ -171,6 +186,7 @@ __all__ = [
     "FetchJobsResponseSerializer",
     "FetchStatusValuesResponseSerializer",
     "InvoiceSerializer",
+    "JSAGenerateRequestSerializer",
     "JobBasicInformationResponseSerializer",
     "JobClientHeaderSerializer",
     "JobCostSetSummarySerializer",
@@ -250,6 +266,16 @@ __all__ = [
     "QuoteSerializer",
     "QuoteSpreadsheetSerializer",
     "QuoteSyncErrorResponseSerializer",
+    "SWPGenerateRequestSerializer",
+    "SafetyDocumentErrorResponseSerializer",
+    "SafetyDocumentFinalizeResponseSerializer",
+    "SafetyDocumentListSerializer",
+    "SafetyDocumentSerializer",
+    "SafetyTaskSerializer",
+    "TaskControlsGenerateRequestSerializer",
+    "TaskControlsResponseSerializer",
+    "TaskHazardsGenerateRequestSerializer",
+    "TaskHazardsResponseSerializer",
     "TimelineEntrySerializer",
     "TimesheetCostLineSerializer",
     "UploadedFileSerializer",

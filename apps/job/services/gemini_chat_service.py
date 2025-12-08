@@ -1,11 +1,11 @@
 """
-Gemini Chat Service
+Chat Service (LiteLLM)
 
-Handles AI-powered chat responses using Google's Gemini API and integrates
-with the application's internal tools (MCP - Model Context Protocol).
+Handles AI-powered chat responses using LiteLLM for provider-agnostic access
+and integrates with the application's internal tools (MCP - Model Context Protocol).
 
-This service replaces the Claude-based implementation and provides a
-seamless way to generate intelligent, context-aware responses for quoting.
+This service provides a seamless way to generate intelligent, context-aware
+responses for quoting across multiple LLM providers.
 """
 
 import json
@@ -13,25 +13,24 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-import google.generativeai as genai
 from django.db import transaction
-
-# Correct import path for Part helper used to send function responses
-from google.generativeai.types import FunctionDeclaration
 
 from apps.job.models import Job, JobQuoteChat
 from apps.job.services.chat_file_service import ChatFileService
 from apps.job.services.quote_mode_controller import QuoteModeController
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
-from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import CompanyDefaults
+from apps.workflow.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
 
 class GeminiChatService:
     """
-    Service for handling AI chat responses using Gemini with tool integration.
+    Service for handling AI chat responses using LiteLLM with tool integration.
+
+    Note: This class is named GeminiChatService for backwards compatibility,
+    but now uses LiteLLM for provider-agnostic LLM access.
     """
 
     def __init__(self) -> None:
@@ -41,68 +40,17 @@ class GeminiChatService:
         self.file_service = ChatFileService()
 
     def start_conversation(self) -> None:
-        """Configure Gemini API for this chat session."""
-        ai_provider = AIProvider.objects.filter(
-            provider_type=AIProviderTypes.GOOGLE
-        ).first()
+        """Initialize LLM service for this chat session."""
+        # LLMService handles configuration automatically from AIProvider model
+        self.llm = LLMService()
+        logger.info(f"LLM configured for chat session: {self.llm.model_name}")
 
-        if not ai_provider:
-            raise ValueError("No Gemini AI provider configured in the database")
-
-        if not ai_provider.api_key:
-            raise ValueError("Gemini AI provider is missing an API key")
-
-        genai.configure(api_key=ai_provider.api_key)
-        logger.info("Gemini API configured for chat session")
-
-    def get_gemini_client(self, mode: Optional[str] = None) -> genai.GenerativeModel:
-        """
-        Configures and returns a Gemini client based on the default AIProvider.
-        """
-        try:
-            ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.GOOGLE
-            ).first()
-
-            if not ai_provider:
-                raise ValueError(
-                    "No Gemini AI provider configured. "
-                    "Please add an AIProvider with type 'Gemini'."
-                )
-
-            if not ai_provider.api_key:
-                raise ValueError(
-                    "Gemini AI provider is missing an API key. "
-                    "Please set the api_key in the AIProvider record."
-                )
-
-            if not ai_provider.model_name:
-                raise ValueError(
-                    "Gemini AI provider is missing a model name. "
-                    "Please set the model_name in the AIProvider record."
-                )
-
-            genai.configure(api_key=ai_provider.api_key)
-
-            model_name = ai_provider.model_name
-
-            # Get tools based on mode if provided
-            if mode:
-                tools = self.mode_controller.get_mcp_tools_for_mode(mode)
-            else:
-                tools = self._get_mcp_tools()
-
-            return genai.GenerativeModel(
-                model_name=model_name,
-                tools=tools,
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to configure Gemini client: {e}")
-            raise
+    def get_llm_service(self) -> LLMService:
+        """Get a configured LLMService instance."""
+        return LLMService()
 
     def _get_system_prompt(self, job: Job) -> str:
-        """Generate system prompt with job context for Gemini."""
+        """Generate system prompt with job context."""
         company = CompanyDefaults.objects.first()
         return f"""You are an intelligent quoting assistant for {company.company_name},
 a custom metal fabrication business. Your role is to help estimators create accurate
@@ -121,102 +69,109 @@ pricing or material recommendations, explain your reasoning and mention any rele
 supplier information. Use the tools provided to answer user queries about products,
 pricing, and suppliers."""
 
-    def _get_mcp_tools(self) -> List[FunctionDeclaration]:
-        """Define MCP tools for the Gemini API using FunctionDeclaration."""
+    def _get_mcp_tools(self) -> List[Dict[str, Any]]:
+        """Define MCP tools in OpenAI format for LiteLLM."""
         return [
-            FunctionDeclaration(
-                name="search_products",
-                description="Search supplier products by description or specifications",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search term for products",
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_products",
+                    "description": "Search supplier products by description or specifications",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search term for products",
+                            },
+                            "supplier_name": {
+                                "type": "string",
+                                "description": "Optional supplier name to filter by",
+                            },
                         },
-                        "supplier_name": {
-                            "type": "string",
-                            "description": "Optional supplier name to filter by",
-                        },
-                    },
-                    "required": ["query"],
-                },
-            ),
-            FunctionDeclaration(
-                name="get_pricing_for_material",
-                description="Get pricing information for specific materials",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "material_type": {
-                            "type": "string",
-                            "description": "Type of material (e.g., steel, aluminum)",
-                        },
-                        "dimensions": {
-                            "type": "string",
-                            "description": "Optional dimensions like '4x8'",
-                        },
-                    },
-                    "required": ["material_type"],
-                },
-            ),
-            FunctionDeclaration(
-                name="create_quote_estimate",
-                description=(
-                    "Create a quote estimate for a job, including materials and labor"
-                ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "job_id": {
-                            "type": "string",
-                            "description": (
-                                "The UUID of the job to create the quote for"
-                            ),
-                        },
-                        "materials": {
-                            "type": "string",
-                            "description": "A description of the materials needed",
-                        },
-                        "labor_hours": {
-                            "type": "number",
-                            "description": "Estimated labor hours",
-                        },
-                    },
-                    "required": ["job_id", "materials"],
-                },
-            ),
-            FunctionDeclaration(
-                name="get_supplier_status",
-                description="Get the status of supplier data scraping and price lists",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "supplier_name": {
-                            "type": "string",
-                            "description": "Optional supplier name to filter by",
-                        },
+                        "required": ["query"],
                     },
                 },
-            ),
-            FunctionDeclaration(
-                name="compare_suppliers",
-                description=(
-                    "Compare pricing across different suppliers for a specific material"
-                ),
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "material_query": {
-                            "type": "string",
-                            "description": (
-                                "Material to compare prices for (e.g., 'steel angle')"
-                            ),
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_pricing_for_material",
+                    "description": "Get pricing information for specific materials",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "material_type": {
+                                "type": "string",
+                                "description": "Type of material (e.g., steel, aluminum)",
+                            },
+                            "dimensions": {
+                                "type": "string",
+                                "description": "Optional dimensions like '4x8'",
+                            },
+                        },
+                        "required": ["material_type"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_quote_estimate",
+                    "description": "Create a quote estimate for a job, including materials and labor",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "job_id": {
+                                "type": "string",
+                                "description": "The UUID of the job to create the quote for",
+                            },
+                            "materials": {
+                                "type": "string",
+                                "description": "A description of the materials needed",
+                            },
+                            "labor_hours": {
+                                "type": "number",
+                                "description": "Estimated labor hours",
+                            },
+                        },
+                        "required": ["job_id", "materials"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_supplier_status",
+                    "description": "Get the status of supplier data scraping and price lists",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "supplier_name": {
+                                "type": "string",
+                                "description": "Optional supplier name to filter by",
+                            },
                         },
                     },
-                    "required": ["material_query"],
                 },
-            ),
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "compare_suppliers",
+                    "description": "Compare pricing across different suppliers for a specific material",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "material_query": {
+                                "type": "string",
+                                "description": "Material to compare prices for (e.g., 'steel angle')",
+                            },
+                        },
+                        "required": ["material_query"],
+                    },
+                },
+            },
         ]
 
     def _execute_mcp_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
@@ -241,22 +196,21 @@ pricing, and suppliers."""
     # ---------------------------------------------------------------------
 
     @staticmethod
-    def _to_gemini_role(db_role: str) -> str:
+    def _to_openai_role(db_role: str) -> str:
         """
-        Convert roles stored in the database (`user`, `assistant`) to the
-        role names expected by the Gemini API (`user`, `model`).
+        Convert roles stored in the database to OpenAI format.
 
         Args:
             db_role: Role string from `JobQuoteChat.role`.
 
         Returns:
-            A valid Gemini role string.
+            A valid OpenAI role string.
         """
-        return "model" if db_role == "assistant" else "user"
+        return db_role  # 'user' and 'assistant' are already correct
 
     def _add_context_for_mode_transition(
-        self, chat_history: list, current_mode: str
-    ) -> list:
+        self, chat_history: List[Dict[str, Any]], current_mode: str
+    ) -> List[Dict[str, Any]]:
         """
         Add a synthetic context message when transitioning to PRICE mode.
 
@@ -277,22 +231,22 @@ pricing, and suppliers."""
         # Extract recent calculation results from assistant messages
         recent_context_parts = []
         for msg in chat_history[-6:]:  # Look at last 6 messages
-            if msg.get("role") == "model":
-                for part in msg.get("parts", []):
-                    if isinstance(part, str):
-                        # Look for calculation results or material specifications
-                        if any(
-                            keyword in part.lower()
-                            for keyword in [
-                                "calculation",
-                                "flat pattern",
-                                "dimensions",
-                                "thickness",
-                                "material",
-                                "quantity",
-                            ]
-                        ):
-                            recent_context_parts.append(part)
+            if msg.get("role") == "assistant":
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    # Look for calculation results or material specifications
+                    if any(
+                        keyword in content.lower()
+                        for keyword in [
+                            "calculation",
+                            "flat pattern",
+                            "dimensions",
+                            "thickness",
+                            "material",
+                            "quantity",
+                        ]
+                    ):
+                        recent_context_parts.append(content)
 
         # If no relevant context found, don't inject anything
         if not recent_context_parts:
@@ -307,7 +261,7 @@ pricing, and suppliers."""
             "Do not re-ask for details already provided above."
         )
 
-        context_msg = {"role": "user", "parts": [context_text]}
+        context_msg = {"role": "user", "content": context_text}
 
         # Insert context message before the final user message
         enhanced = chat_history.copy()
@@ -323,7 +277,7 @@ pricing, and suppliers."""
         self, job_id: str, user_message: str, mode: Optional[str] = None
     ) -> JobQuoteChat:
         """
-        Generates an AI response using the Gemini API and MCP tools.
+        Generates an AI response using LiteLLM and MCP tools.
 
         Args:
             job_id: The UUID of the job
@@ -341,22 +295,21 @@ pricing, and suppliers."""
             job = Job.objects.get(id=job_id)
             logger.debug(f"Retrieved job: {job.name} (#{job.job_number})")
 
-            model = self.get_gemini_client()
-            logger.info(f"Gemini client configured with model: {model.model_name}")
-            logger.debug(f"Tools configured for model: {self._get_mcp_tools()}")
+            llm = self.get_llm_service()
+            logger.info(f"LLM configured with model: {llm.model_name}")
 
             # -----------------------------------------------------------------
             # Initialise tool metadata tracking
             # -----------------------------------------------------------------
-            tool_definitions = self._get_mcp_tools()  # Available tools for this session
-            tool_calls: List[Dict[str, Any]] = []  # Record of executed tool calls
+            tool_definitions = self._get_mcp_tools()
+            tool_calls: List[Dict[str, Any]] = []
 
             system_prompt = self._get_system_prompt(job)
-            model.system_instruction = system_prompt
             logger.debug(f"System prompt set: {system_prompt}")
 
             # Build conversation history for the model
-            chat_history = []
+            messages = [{"role": "system", "content": system_prompt}]
+
             recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
                 "timestamp"
             )[:20]
@@ -364,140 +317,115 @@ pricing, and suppliers."""
                 f"Retrieved {len(recent_messages)} recent messages for context"
             )
 
+            history_for_metadata = []
             for msg in recent_messages:
                 logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
-                chat_history.append(
+                history_for_metadata.append(
                     {
-                        # Gemini expects roles to be either "user" or "model"
-                        "role": self._to_gemini_role(msg.role),
-                        "parts": [msg.content],
+                        "role": self._to_openai_role(msg.role),
+                        "content": msg.content,
+                    }
+                )
+                messages.append(
+                    {
+                        "role": self._to_openai_role(msg.role),
+                        "content": msg.content,
                     }
                 )
 
-            # Keep a copy of the history for metadata
-            history_for_metadata = chat_history.copy()
+            # Add the new user message
+            messages.append({"role": "user", "content": user_message})
+            logger.info(f"Sending message to LLM: {user_message}")
 
-            # Start a chat session with history
-            logger.debug(
-                f"Starting chat session with {len(chat_history)} history messages"
-            )
-            logger.debug(f"Chat history being sent to Gemini: {chat_history}")
-            chat = model.start_chat(history=chat_history)
+            # Process with tool calling loop
+            max_iterations = 10
+            iteration = 0
 
-            # Send the new user message
-            logger.info(f"Sending message to Gemini: {user_message}")
-            response = chat.send_message(user_message)
-            logger.debug("Received initial response from Gemini")
-            logger.debug(f"Raw response object: {response}")
-            logger.debug(f"Response candidates: {response.candidates}")
-            try:
-                logger.debug(f"Response text: {response.text}")
-            except ValueError as e:
-                logger.debug(f"No text response available (likely function call): {e}")
+            while iteration < max_iterations:
+                iteration += 1
 
-            # Process tool calls if the model requests them
-            tool_call_count = 0
-            while True:
-                # Locate the first part that contains a function call
-                call_part = next(
-                    (
-                        p
-                        for p in response.candidates[0].content.parts
-                        if hasattr(p, "function_call") and p.function_call
-                    ),
-                    None,
+                response = llm.completion(
+                    messages=messages,
+                    tools=tool_definitions,
                 )
 
-                if call_part is None:
-                    # No further tool invocations requested
-                    logger.info(
-                        f"No more tool calls requested. Total tool calls made: "
-                        f"{tool_call_count}"
-                    )
-                    break
+                assistant_message = response.choices[0].message
 
-                function_call = call_part.function_call
-                tool_name: str = function_call.name
-                # `args` may be `None` if no parameters supplied
-                raw_args = function_call.args or {}
-                tool_args: Dict[str, Any] = {k: v for k, v in raw_args.items()}
+                # Check for tool calls
+                if assistant_message.tool_calls:
+                    # Add assistant message to history
+                    messages.append(assistant_message.model_dump())
 
-                tool_call_count += 1
-                logger.info(
-                    f"Tool call #{tool_call_count}: Executing {tool_name} with "
-                    f"args: {tool_args}"
-                )
-                tool_result = self._execute_mcp_tool(tool_name, tool_args)
-                logger.debug(f"Tool {tool_name} returned: {tool_result[:200]}...")
+                    for tool_call in assistant_message.tool_calls:
+                        tool_name = tool_call.function.name
+                        try:
+                            tool_args = json.loads(tool_call.function.arguments)
+                        except json.JSONDecodeError:
+                            tool_args = {}
+                        tool_call_id = tool_call.id
 
-                # Record the tool invocation for metadata
-                tool_calls.append(
-                    {
-                        "name": tool_name,
-                        "arguments": tool_args,
-                        "result_preview": tool_result[
-                            :200
-                        ],  # Store a preview to keep metadata small
-                    }
-                )
+                        logger.info(
+                            f"Tool call: Executing {tool_name} with args: {tool_args}"
+                        )
+                        tool_result = self._execute_mcp_tool(tool_name, tool_args)
+                        logger.debug(
+                            f"Tool {tool_name} returned: {tool_result[:200]}..."
+                        )
 
-                # Send tool result back to the model
-                logger.debug("Sending tool result back to Gemini")
-                function_response = genai.protos.FunctionResponse(
-                    name=tool_name, response={"result": tool_result}
-                )
-                part = genai.protos.Part(function_response=function_response)
-                response = chat.send_message(part)
-                logger.debug(f"Received response after tool call #{tool_call_count}")
+                        # Record the tool invocation for metadata
+                        tool_calls.append(
+                            {
+                                "name": tool_name,
+                                "arguments": tool_args,
+                                "result_preview": tool_result[:200],
+                            }
+                        )
+
+                        # Add tool result to messages
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call_id,
+                                "content": str(tool_result),
+                            }
+                        )
+
+                    continue
+
+                # No more tool calls - we have the final response
+                break
 
             # The final response from the model
-            final_content = response.text
+            final_content = assistant_message.content or ""
             logger.info(
-                f"Final response from Gemini (length: {len(final_content)}): "
+                f"Final response from LLM (length: {len(final_content)}): "
                 f"{final_content[:100]}..."
             )
 
-            # -----------------------------------------------------------------
-            # Ensure all metadata is JSON-serialisable before saving
-            # -----------------------------------------------------------------
-            # Convert FunctionDeclaration objects to plain dictionaries
-            serialisable_tool_definitions = []
-            for t in tool_definitions:
-                try:
-                    serialisable_tool_definitions.append(json.loads(t.to_json()))
-                except Exception:
-                    serialisable_tool_definitions.append(
-                        {
-                            "name": getattr(t, "name", str(t)),
-                        }
-                    )
-
             # Persist the assistant's final message
             logger.debug("Saving assistant message to database")
-            assistant_message = JobQuoteChat.objects.create(
+            saved_message = JobQuoteChat.objects.create(
                 job=job,
                 message_id=f"assistant-{uuid.uuid4()}",
                 role="assistant",
                 content=final_content,
                 metadata={
-                    "model": model.model_name,
+                    "model": llm.model_name,
                     "system_prompt": system_prompt,
                     "user_message": user_message,
                     "chat_history": history_for_metadata,
-                    "tool_definitions": serialisable_tool_definitions,
+                    "tool_definitions": tool_definitions,
                     "tool_calls": tool_calls,
                 },
             )
             logger.info(
                 f"Successfully generated AI response for job {job_id}. "
-                f"Message ID: {assistant_message.message_id}"
+                f"Message ID: {saved_message.message_id}"
             )
-            return assistant_message
+            return saved_message
 
         except Exception as e:
-            logger.exception(
-                f"Gemini AI response generation failed for job {job_id}: {e}"
-            )
+            logger.exception(f"AI response generation failed for job {job_id}: {e}")
             # Create and return an error message to be displayed in the chat
             error_message = JobQuoteChat.objects.create(
                 job=Job.objects.get(id=job_id),
@@ -530,6 +458,7 @@ pricing, and suppliers."""
 
         try:
             job = Job.objects.get(id=job_id)
+            llm = self.get_llm_service()
 
             # Build conversation history from database
             chat_history = []
@@ -545,47 +474,37 @@ pricing, and suppliers."""
                 list(recent_messages)
             )
 
-            # Fetch all files once if any were found
+            # Note: File handling for vision models would need provider-specific
+            # handling. For now, we include file references as text.
             job_files_dict = {}
             if all_file_ids:
                 job_files = self.file_service.fetch_job_files(job_id, all_file_ids)
                 logger.info(f"Found {len(job_files)} files attached to conversation")
-                # Create a lookup dict for quick access
                 job_files_dict = {str(f.id): f for f in job_files}
 
             for msg in recent_messages:
                 logger.debug(f"Adding to history: {msg.role} - {msg.content[:50]}...")
 
-                # Build parts list - start with the text content
-                parts = [msg.content]
+                # Build content - start with text
+                content = msg.content
 
-                # Check if this specific message has file attachments
+                # Note: File handling for multimodal would need to be handled
+                # differently for each provider. For now, just mention file names.
                 if msg.metadata and "file_ids" in msg.metadata:
                     message_file_ids = msg.metadata["file_ids"]
-                    # Get the files for this specific message
                     message_files = [
                         job_files_dict[fid]
                         for fid in message_file_ids
                         if fid in job_files_dict
                     ]
-
                     if message_files:
-                        # Build file contents for this message's files
-                        file_contents = (
-                            self.file_service.build_file_contents_for_gemini(
-                                message_files
-                            )
-                        )
-                        parts.extend(file_contents)
-                        logger.debug(
-                            f"Added {len(file_contents)} file contents to message"
-                        )
+                        file_names = [f.filename for f in message_files]
+                        content += f"\n\n[Attached files: {', '.join(file_names)}]"
 
                 chat_history.append(
                     {
-                        # Gemini expects roles to be either "user" or "model"
-                        "role": self._to_gemini_role(msg.role),
-                        "parts": parts,
+                        "role": self._to_openai_role(msg.role),
+                        "content": content,
                     }
                 )
 
@@ -604,10 +523,6 @@ pricing, and suppliers."""
             else:
                 logger.info(f"Using explicit mode: {mode}")
 
-            # Get mode-specific Gemini client
-            model = self.get_gemini_client(mode=mode)
-            model.system_instruction = self.mode_controller.get_system_prompt()
-
             # Inject context summary as a message if switching modes
             enhanced_history = self._add_context_for_mode_transition(chat_history, mode)
 
@@ -616,7 +531,7 @@ pricing, and suppliers."""
                 mode=mode,
                 user_input=user_message,
                 job=job,
-                gemini_client=model,
+                llm_service=llm,
                 chat_history=enhanced_history,
             )
 
@@ -626,7 +541,7 @@ pricing, and suppliers."""
                 questions = response_data.get("questions", [])
                 content = "I need some clarification:\n\n"
                 for q in questions:
-                    content += f"• {q}\n"
+                    content += f"* {q}\n"
             else:
                 # Format the results based on mode
                 if mode == "CALC":
@@ -635,25 +550,25 @@ pricing, and suppliers."""
                     for key, value in results.items():
                         label = key.replace("_", " ").title()
                         if isinstance(value, float):
-                            content += f"• {label}: {value:.2f}\n"
+                            content += f"* {label}: {value:.2f}\n"
                         else:
-                            content += f"• {label}: {value}\n"
+                            content += f"* {label}: {value}\n"
 
                 elif mode == "PRICE":
                     candidates = response_data.get("candidates", [])
                     content = "**Material Options:**\n\n"
                     for i, candidate in enumerate(candidates, 1):
                         content += f"**Option {i}: {candidate['supplier']}**\n"
-                        content += f"• SKU: {candidate['sku']}\n"
-                        content += f"• Price: ${candidate['price_per_uom']:.2f}/{candidate['uom']}\n"
+                        content += f"* SKU: {candidate['sku']}\n"
+                        content += f"* Price: ${candidate['price_per_uom']:.2f}/{candidate['uom']}\n"
                         if candidate.get("lead_time_days"):
                             content += (
-                                f"• Lead Time: {candidate['lead_time_days']} days\n"
+                                f"* Lead Time: {candidate['lead_time_days']} days\n"
                             )
                         if candidate.get("delivery"):
-                            content += f"• Delivery: ${candidate['delivery']:.2f}\n"
+                            content += f"* Delivery: ${candidate['delivery']:.2f}\n"
                         if candidate.get("notes"):
-                            content += f"• Notes: {candidate['notes']}\n"
+                            content += f"* Notes: {candidate['notes']}\n"
                         content += "\n"
 
                 elif mode == "TABLE":
@@ -662,12 +577,12 @@ pricing, and suppliers."""
                     content = markdown
                     if not content:
                         content = "**Quote Summary:**\n\n"
-                        content += f"• Material: ${totals.get('material', 0):.2f}\n"
-                        content += f"• Labour: ${totals.get('labour', 0):.2f}\n"
-                        content += f"• Freight: ${totals.get('freight', 0):.2f}\n"
-                        content += f"• Overheads: ${totals.get('overheads', 0):.2f}\n"
-                        content += f"• Markup: {totals.get('markup_pct', 0)}%\n"
-                        content += f"• **Total (ex GST): ${totals.get('grand_total_ex_gst', 0):.2f}**\n"
+                        content += f"* Material: ${totals.get('material', 0):.2f}\n"
+                        content += f"* Labour: ${totals.get('labour', 0):.2f}\n"
+                        content += f"* Freight: ${totals.get('freight', 0):.2f}\n"
+                        content += f"* Overheads: ${totals.get('overheads', 0):.2f}\n"
+                        content += f"* Markup: {totals.get('markup_pct', 0)}%\n"
+                        content += f"* **Total (ex GST): ${totals.get('grand_total_ex_gst', 0):.2f}**\n"
 
             # Save the response
             assistant_message = JobQuoteChat.objects.create(
@@ -679,7 +594,7 @@ pricing, and suppliers."""
                     "mode": mode,
                     "response_data": response_data,
                     "has_questions": has_questions,
-                    "model": model.model_name,
+                    "model": llm.model_name,
                     "user_message": user_message,
                 },
             )

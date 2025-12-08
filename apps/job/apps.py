@@ -36,34 +36,3 @@ class JobConfig(AppConfig):
             coalesce=True,
         )
         logger.info("Added 'set_paid_flag_jobs' to shared scheduler.")
-
-    def configure_gemini_api(self) -> None:
-        """
-        Configure Gemini API once at Django startup.
-
-        This ensures the API is ready for file uploads and chat requests
-        without needing to reconfigure on every request.
-
-        TODO: This accesses the database during app initialization which Django
-        discourages. Consider lazy initialization or environment variable config.
-        """
-        try:
-            # Import here to avoid AppRegistryNotReady during Django startup
-            import google.generativeai as genai
-
-            from apps.workflow.enums import AIProviderTypes
-            from apps.workflow.models import AIProvider
-
-            ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.GOOGLE
-            ).first()
-
-            if ai_provider and ai_provider.api_key:
-                genai.configure(api_key=ai_provider.api_key)
-                logger.info("Gemini API configured successfully at startup")
-            else:
-                logger.warning(
-                    "No Gemini AI provider found - chat features may not work"
-                )
-        except Exception as e:
-            logger.error(f"Failed to configure Gemini API at startup: {e}")

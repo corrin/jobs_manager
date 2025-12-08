@@ -37,6 +37,7 @@ from apps.job.views.job_rest_views import (
     JobUndoChangeRestView,
     WeeklyMetricsRestView,
 )
+from apps.job.views.jsa_views import JobJSAGenerateView, JobJSAListView
 from apps.job.views.modern_timesheet_views import (
     ModernTimesheetDayView,
     ModernTimesheetEntryView,
@@ -49,6 +50,15 @@ from apps.job.views.quote_sync_views import (
     LinkQuoteSheetAPIView,
     PreviewQuoteAPIView,
 )
+from apps.job.views.safety_document_views import (
+    SafetyDocumentDetailView,
+    SafetyDocumentFinalizeView,
+    SafetyDocumentListView,
+    SafetyDocumentPDFView,
+    SafetyDocumentTaskControlsView,
+    SafetyDocumentTaskHazardsView,
+)
+from apps.job.views.swp_views import SWPGenerateView, SWPListView
 from apps.job.views.workshop_view import WorkshopPDFView
 
 # URLs for new REST views
@@ -296,5 +306,58 @@ rest_urlpatterns = [
         "rest/data-integrity/scan/",
         DataIntegrityReportView.as_view(),
         name="data_integrity_scan",
+    ),
+    # Safety Documents (JSA/SWP) - General endpoints
+    path(
+        "rest/safety-documents/",
+        SafetyDocumentListView.as_view(),
+        name="safety_documents_list",
+    ),
+    path(
+        "rest/safety-documents/<uuid:doc_id>/",
+        SafetyDocumentDetailView.as_view(),
+        name="safety_document_detail",
+    ),
+    path(
+        "rest/safety-documents/<uuid:doc_id>/pdf/",
+        SafetyDocumentPDFView.as_view(),
+        name="safety_document_pdf",
+    ),
+    path(
+        "rest/safety-documents/<uuid:doc_id>/finalize/",
+        SafetyDocumentFinalizeView.as_view(),
+        name="safety_document_finalize",
+    ),
+    path(
+        "rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-hazards/",
+        SafetyDocumentTaskHazardsView.as_view(),
+        name="safety_document_task_hazards",
+    ),
+    path(
+        "rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-controls/",
+        SafetyDocumentTaskControlsView.as_view(),
+        name="safety_document_task_controls",
+    ),
+    # JSA (Job Safety Analysis) - Job-linked endpoints
+    path(
+        "rest/jobs/<uuid:job_id>/jsa/",
+        JobJSAListView.as_view(),
+        name="job_jsa_list",
+    ),
+    path(
+        "rest/jobs/<uuid:job_id>/jsa/generate/",
+        JobJSAGenerateView.as_view(),
+        name="job_jsa_generate",
+    ),
+    # SWP (Safe Work Procedure) - Standalone endpoints
+    path(
+        "rest/swp/",
+        SWPListView.as_view(),
+        name="swp_list",
+    ),
+    path(
+        "rest/swp/generate/",
+        SWPGenerateView.as_view(),
+        name="swp_generate",
     ),
 ]
