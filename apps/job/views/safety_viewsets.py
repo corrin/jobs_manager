@@ -289,6 +289,8 @@ class JSAViewSet(viewsets.ViewSet):
     JSAs are always linked to a specific job.
     """
 
+    serializer_class = SafetyDocumentSerializer
+
     @extend_schema(
         operation_id="listJobJSAs",
         description="List all JSAs for a specific job",
@@ -355,6 +357,8 @@ class SWPViewSet(viewsets.ViewSet):
 
     SWPs are standalone safety procedures not linked to any job.
     """
+
+    serializer_class = SafetyDocumentSerializer
 
     @extend_schema(
         operation_id="listSWPs",
@@ -440,6 +444,8 @@ class SOPViewSet(viewsets.ViewSet):
     SOPs are general procedures (not safety-specific), like "How to enter an invoice".
     """
 
+    serializer_class = SafetyDocumentSerializer
+
     @extend_schema(
         operation_id="listSOPs",
         description="List all Standard Operating Procedures",
@@ -522,6 +528,8 @@ class SafetyAIViewSet(viewsets.ViewSet):
     Provides granular AI endpoints for generating hazards, controls,
     and improving document sections.
     """
+
+    serializer_class = GenerateHazardsResponseSerializer  # Default for schema
 
     @extend_schema(
         operation_id="generateHazards",
