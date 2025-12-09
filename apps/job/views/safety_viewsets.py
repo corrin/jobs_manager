@@ -232,7 +232,7 @@ class SafetyDocumentViewSet(viewsets.ModelViewSet):
         request=DocumentContentRequestSerializer,
         responses={200: SafetyDocumentSerializer},
     )
-    @content.mapping.put
+    @action(detail=True, methods=["put"], url_path="content", url_name="content-update")
     def update_content(self, request, pk=None):
         """Update Google Doc with new content."""
         document = self.get_object()
