@@ -227,6 +227,72 @@ Respond with JSON in this exact format:
 
         return result
 
+    def generate_full_sop(
+        self,
+        title: str,
+        description: str,
+        document_number: str = "",
+    ) -> dict[str, Any]:
+        """
+        Generate a complete SOP (Standard Operating Procedure) using AI.
+
+        SOPs are general procedures (not safety-specific), like "How to enter an invoice".
+
+        Args:
+            title: Name of the procedure
+            description: Scope and description of the procedure
+            document_number: Optional document number (e.g., '307')
+
+        Returns:
+            Dict with SOP structure
+        """
+        prompt = f"""Generate a Standard Operating Procedure (SOP) for:
+
+Procedure Name: {title}
+{f"Document Number: {document_number}" if document_number else ""}
+Description/Scope: {description}
+
+Generate a comprehensive SOP with:
+1. A clear title
+2. Purpose/objective of the procedure
+3. Scope (who this applies to)
+4. 4-10 sequential steps covering the procedure
+5. Any notes or tips for each step where helpful
+
+This is a standard business procedure (not safety-specific), so focus on:
+- Clear, actionable steps
+- Who is responsible for each action
+- Any systems or tools required
+- Expected outcomes
+
+Respond with JSON in this exact format:
+{{
+    "title": "SOP title",
+    "description": "Purpose and scope of the procedure",
+    "tasks": [
+        {{
+            "step_number": 1,
+            "description": "Detailed step description",
+            "summary": "1-3 word summary",
+            "notes": "Optional tips or additional info"
+        }}
+    ],
+    "additional_notes": "Any additional notes about this procedure"
+}}"""
+
+        result = self._call_llm(prompt, expect_json=True)
+
+        # Ensure all required fields exist with defaults
+        result.setdefault("title", title)
+        result.setdefault("description", description)
+        result.setdefault("tasks", [])
+        result.setdefault("additional_notes", "")
+        # SOPs don't have safety-specific fields
+        result.setdefault("ppe_requirements", [])
+        result.setdefault("site_location", "")
+
+        return result
+
     def generate_hazards(self, task_description: str) -> list[str]:
         """
         Generate potential hazards for a specific task.

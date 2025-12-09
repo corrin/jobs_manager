@@ -72,6 +72,7 @@ class GoogleDocsService:
         title: str,
         content: dict[str, Any],
         job: Any | None = None,
+        document_number: str = "",
     ) -> GoogleDocResult:
         """
         Create a formatted Google Doc from AI-generated safety content.
@@ -81,6 +82,7 @@ class GoogleDocsService:
             title: Document title
             content: AI-generated content dict with tasks, ppe_requirements, etc.
             job: Optional Job instance (for JSAs)
+            document_number: Optional document number (e.g., '307')
 
         Returns:
             GoogleDocResult with document_id and edit_url
@@ -92,8 +94,13 @@ class GoogleDocsService:
             raise ValueError("Document must have a title")
 
         try:
-            doc_type_label = "JSA" if document_type == "jsa" else "SWP"
-            full_title = f"{doc_type_label} - {title}"
+            doc_type_labels = {"jsa": "JSA", "swp": "SWP", "sop": "SOP"}
+            doc_type_label = doc_type_labels.get(document_type, "SWP")
+            # Include document number in title if provided
+            if document_number:
+                full_title = f"{doc_type_label} {document_number} - {title}"
+            else:
+                full_title = f"{doc_type_label} - {title}"
 
             # Phase 1: Create blank document
             document_id = self._create_blank_document(full_title)

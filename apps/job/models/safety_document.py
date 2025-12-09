@@ -27,6 +27,7 @@ class SafetyDocument(models.Model):
     DOCUMENT_TYPES = [
         ("jsa", "Job Safety Analysis"),
         ("swp", "Safe Work Procedure"),
+        ("sop", "Standard Operating Procedure"),
     ]
 
     # Primary key
@@ -55,6 +56,12 @@ class SafetyDocument(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     # Document metadata
+    document_number = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Document number for SWPs (e.g., '307' for section 3, doc 7)",
+    )
     title = models.CharField(
         max_length=255,
         help_text="Job name for JSA, procedure name for SWP",
@@ -84,7 +91,8 @@ class SafetyDocument(models.Model):
         verbose_name_plural = "Safety Documents"
 
     def __str__(self):
-        doc_type = "JSA" if self.document_type == "jsa" else "SWP"
+        doc_types = {"jsa": "JSA", "swp": "SWP", "sop": "SOP"}
+        doc_type = doc_types.get(self.document_type, "DOC")
         return f"{doc_type}: {self.title}"
 
     def clean(self):

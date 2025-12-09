@@ -102,6 +102,7 @@ class SafetyDocumentService:
         title: str,
         description: str,
         site_location: str = "",
+        document_number: str = "",
     ) -> SafetyDocument:
         """
         Generate a new SWP (standalone) using AI and create Google Doc.
@@ -110,11 +111,12 @@ class SafetyDocumentService:
             title: Name of the procedure
             description: Scope and description
             site_location: Optional site location
+            document_number: Optional document number (e.g., '307')
 
         Returns:
             Created SafetyDocument with Google Doc URL
         """
-        logger.info(f"Generating SWP: {title}")
+        logger.info(f"Generating SWP: {title} (doc #{document_number or 'N/A'})")
 
         try:
             # Generate SWP content using AI
@@ -134,12 +136,14 @@ class SafetyDocumentService:
                 title=swp_content.get("title", title),
                 content=swp_content,
                 job=None,
+                document_number=document_number,
             )
 
             # Create SafetyDocument record
             swp = SafetyDocument.objects.create(
                 document_type="swp",
                 job=None,  # SWPs are standalone
+                document_number=document_number or None,
                 title=swp_content.get("title", title),
                 company_name=company_name,
                 site_location=swp_content.get("site_location", site_location),
@@ -152,5 +156,68 @@ class SafetyDocumentService:
 
         except Exception as exc:
             logger.exception(f"Failed to generate SWP: {title}")
+            persist_app_error(exc)
+            raise
+
+    @transaction.atomic
+    def generate_sop(
+        self,
+        title: str,
+        description: str,
+        document_number: str = "",
+    ) -> SafetyDocument:
+        """
+        Generate a new SOP (Standard Operating Procedure) using AI and create Google Doc.
+
+        SOPs are general procedures (not safety-specific), like "How to enter an invoice".
+
+        Args:
+            title: Name of the procedure
+            description: Scope and description
+            document_number: Optional document number (e.g., '307')
+
+        Returns:
+            Created SafetyDocument with Google Doc URL
+        """
+        logger.info(f"Generating SOP: {title} (doc #{document_number or 'N/A'})")
+
+        try:
+            # Generate SOP content using AI
+            sop_content = self.ai_service.generate_full_sop(
+                title=title,
+                description=description,
+                document_number=document_number,
+            )
+
+            # Get company name
+            company = CompanyDefaults.objects.first()
+            company_name = company.company_name if company else "Morris Sheetmetal"
+
+            # Create Google Doc with formatted content
+            doc_result = self.docs_service.create_safety_document(
+                document_type="sop",
+                title=sop_content.get("title", title),
+                content=sop_content,
+                job=None,
+                document_number=document_number,
+            )
+
+            # Create SafetyDocument record
+            sop = SafetyDocument.objects.create(
+                document_type="sop",
+                job=None,  # SOPs are standalone
+                document_number=document_number or None,
+                title=sop_content.get("title", title),
+                company_name=company_name,
+                site_location="",  # SOPs don't have site location
+                google_doc_id=doc_result.document_id,
+                google_doc_url=doc_result.edit_url,
+            )
+
+            logger.info(f"SOP created: {sop.id} -> {doc_result.edit_url}")
+            return sop
+
+        except Exception as exc:
+            logger.exception(f"Failed to generate SOP: {title}")
             persist_app_error(exc)
             raise

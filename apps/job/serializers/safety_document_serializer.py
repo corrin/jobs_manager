@@ -35,6 +35,7 @@ class SafetyDocumentSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "document_type",
+            "document_number",
             "job_id",
             "job_number",
             "created_at",
@@ -73,6 +74,7 @@ class SafetyDocumentListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "document_type",
+            "document_number",
             "job_number",
             "created_at",
             "updated_at",
@@ -85,6 +87,12 @@ class SafetyDocumentListSerializer(serializers.ModelSerializer):
 class SWPGenerateRequestSerializer(serializers.Serializer):
     """Request serializer for generating a new SWP (standalone)."""
 
+    document_number = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="Document number (e.g., '307' for section 3, doc 7)",
+    )
     title = serializers.CharField(
         max_length=255,
         help_text="Name of the safe work procedure",
