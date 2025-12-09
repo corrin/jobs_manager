@@ -1,5 +1,5 @@
 from django.http import HttpResponse
-from django.urls import path
+from django.urls import include, path
 from rest_framework import status
 from rest_framework.routers import DefaultRouter
 
@@ -51,13 +51,26 @@ from apps.job.views.quote_sync_views import (
     PreviewQuoteAPIView,
 )
 from apps.job.views.safety_viewsets import (
-    JSAViewSet,
-    SafetyAIViewSet,
+    AIGenerateControlsView,
+    AIGenerateHazardsView,
+    AIImproveDocumentView,
+    AIImproveSectionView,
+    JSAGenerateView,
+    JSAListView,
+    SafetyDocumentContentView,
     SafetyDocumentViewSet,
-    SOPViewSet,
-    SWPViewSet,
+    SOPGenerateView,
+    SOPListView,
+    SWPGenerateView,
+    SWPListView,
 )
 from apps.job.views.workshop_view import WorkshopPDFView
+
+# Router for ViewSets
+router = DefaultRouter()
+router.register(
+    r"rest/safety-documents", SafetyDocumentViewSet, basename="safety-document"
+)
 
 # URLs for new REST views
 rest_urlpatterns = [
@@ -305,27 +318,50 @@ rest_urlpatterns = [
         DataIntegrityReportView.as_view(),
         name="data_integrity_scan",
     ),
-    # JSA (Job Safety Analysis) - Job-linked endpoints (manual paths for nested routes)
+    # Safety Document Content (separate from ViewSet for clean GET/PUT)
+    path(
+        "rest/safety-documents/<uuid:pk>/content/",
+        SafetyDocumentContentView.as_view(),
+        name="safety_document_content",
+    ),
+    # JSA (nested under jobs)
     path(
         "rest/jobs/<uuid:job_id>/jsa/",
-        JSAViewSet.as_view({"get": "list"}),
-        name="job_jsa_list",
+        JSAListView.as_view(),
+        name="jsa_list",
     ),
     path(
         "rest/jobs/<uuid:job_id>/jsa/generate/",
-        JSAViewSet.as_view({"post": "generate"}),
-        name="job_jsa_generate",
+        JSAGenerateView.as_view(),
+        name="jsa_generate",
     ),
+    # SWP
+    path("rest/swp/", SWPListView.as_view(), name="swp_list"),
+    path("rest/swp/generate/", SWPGenerateView.as_view(), name="swp_generate"),
+    # SOP
+    path("rest/sop/", SOPListView.as_view(), name="sop_list"),
+    path("rest/sop/generate/", SOPGenerateView.as_view(), name="sop_generate"),
+    # Safety AI
+    path(
+        "rest/safety-ai/generate-hazards/",
+        AIGenerateHazardsView.as_view(),
+        name="ai_generate_hazards",
+    ),
+    path(
+        "rest/safety-ai/generate-controls/",
+        AIGenerateControlsView.as_view(),
+        name="ai_generate_controls",
+    ),
+    path(
+        "rest/safety-ai/improve-section/",
+        AIImproveSectionView.as_view(),
+        name="ai_improve_section",
+    ),
+    path(
+        "rest/safety-ai/improve-document/",
+        AIImproveDocumentView.as_view(),
+        name="ai_improve_document",
+    ),
+    # Include router URLs (must be last to avoid conflicts)
+    path("", include(router.urls)),
 ]
-
-# Safety document routers
-safety_router = DefaultRouter()
-safety_router.register(
-    r"rest/safety-documents", SafetyDocumentViewSet, basename="safety-document"
-)
-safety_router.register(r"rest/swp", SWPViewSet, basename="swp")
-safety_router.register(r"rest/sop", SOPViewSet, basename="sop")
-safety_router.register(r"rest/safety-ai", SafetyAIViewSet, basename="safety-ai")
-
-# Add router URLs to rest_urlpatterns
-rest_urlpatterns += safety_router.urls

@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 from dateutil.relativedelta import relativedelta
 from django.db.models import Sum
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -90,6 +92,7 @@ class CompanyProfitAndLossReport(APIView):
             "Accounting Profit": accounting_profit,
         }
 
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         start_date = datetime.strptime(
             request.query_params.get("start_date"), "%Y-%m-%d"
