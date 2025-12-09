@@ -83,12 +83,13 @@
 | `/rest/jobs/status-choices/` | `job_rest_views.JobStatusChoicesRestView` | `jobs:job_status_choices_rest` | REST view for Job status choices. |
 | `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
+| `/rest/safety-ai/generate-controls/` | `safety_document_views.SafetyAIGenerateControlsView` | `jobs:safety_ai_generate_controls` | Generate control measures for hazards using AI. |
+| `/rest/safety-ai/generate-hazards/` | `safety_document_views.SafetyAIGenerateHazardsView` | `jobs:safety_ai_generate_hazards` | Generate hazards for a task using AI. |
+| `/rest/safety-ai/improve-document/` | `safety_document_views.SafetyAIImproveDocumentView` | `jobs:safety_ai_improve_document` | Improve an entire safety document using AI. |
+| `/rest/safety-ai/improve-section/` | `safety_document_views.SafetyAIImproveSectionView` | `jobs:safety_ai_improve_section` | Improve a section of a safety document using AI. |
 | `/rest/safety-documents/` | `safety_document_views.SafetyDocumentListView` | `jobs:safety_documents_list` | List all safety documents (JSAs and SWPs). |
-| `/rest/safety-documents/<uuid:doc_id>/` | `safety_document_views.SafetyDocumentDetailView` | `jobs:safety_document_detail` | Retrieve, update, or delete a specific safety document. |
-| `/rest/safety-documents/<uuid:doc_id>/finalize/` | `safety_document_views.SafetyDocumentFinalizeView` | `jobs:safety_document_finalize` | Finalize a draft safety document by generating PDF. |
-| `/rest/safety-documents/<uuid:doc_id>/pdf/` | `safety_document_views.SafetyDocumentPDFView` | `jobs:safety_document_pdf` | Download the generated PDF for a finalized safety document. |
-| `/rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-controls/` | `safety_document_views.SafetyDocumentTaskControlsView` | `jobs:safety_document_task_controls` | Generate controls for a specific task's hazards using AI. |
-| `/rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-hazards/` | `safety_document_views.SafetyDocumentTaskHazardsView` | `jobs:safety_document_task_hazards` | Generate hazards for a specific task using AI. |
+| `/rest/safety-documents/<uuid:doc_id>/` | `safety_document_views.SafetyDocumentDetailView` | `jobs:safety_document_detail` | Retrieve or delete a specific safety document. |
+| `/rest/safety-documents/<uuid:doc_id>/content/` | `safety_document_views.SafetyDocumentContentView` | `jobs:safety_document_content` | Read or update content of a safety document's Google Doc. |
 | `/rest/swp/` | `swp_views.SWPListView` | `jobs:swp_list` | List all SWPs (Safe Work Procedures). |
 | `/rest/swp/generate/` | `swp_views.SWPGenerateView` | `jobs:swp_generate` | Generate a new SWP (Safe Work Procedure) using AI. |
 | `/rest/timesheet/entries/` | `modern_timesheet_views.ModernTimesheetEntryView` | `jobs:modern_timesheet_entry_rest` | Modern timesheet entry management using CostLine architecture |

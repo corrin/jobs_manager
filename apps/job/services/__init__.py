@@ -20,6 +20,11 @@ try:
             sync_job_folder,
         )
         from .gemini_chat_service import GeminiChatService
+        from .google_docs_service import (
+            GoogleDocResult,
+            GoogleDocsService,
+            SafetyDocumentContent,
+        )
         from .import_quote_service import (
             QuoteImportError,
             QuoteImportResult,
@@ -55,7 +60,6 @@ try:
         from .quote_sync_service import apply_quote, link_quote_sheet, preview_quote
         from .safety_ai_service import SafetyAIService
         from .safety_document_service import SafetyDocumentService
-        from .safety_pdf_service import SafetyPDFService
         from .workshop_pdf_service import (
             add_delivery_docket_details_table,
             add_handover_section,
@@ -90,6 +94,8 @@ __all__ = [
     "DataIntegrityService",
     "DeltaValidationError",
     "GeminiChatService",
+    "GoogleDocResult",
+    "GoogleDocsService",
     "JobDeltaPayload",
     "JobRestService",
     "JobStaffService",
@@ -105,8 +111,8 @@ __all__ = [
     "QuoteImportResult",
     "QuoteModeController",
     "SafetyAIService",
+    "SafetyDocumentContent",
     "SafetyDocumentService",
-    "SafetyPDFService",
     "add_delivery_docket_details_table",
     "add_handover_section",
     "add_logo",

@@ -51,12 +51,13 @@ from apps.job.views.quote_sync_views import (
     PreviewQuoteAPIView,
 )
 from apps.job.views.safety_document_views import (
+    SafetyAIGenerateControlsView,
+    SafetyAIGenerateHazardsView,
+    SafetyAIImproveDocumentView,
+    SafetyAIImproveSectionView,
+    SafetyDocumentContentView,
     SafetyDocumentDetailView,
-    SafetyDocumentFinalizeView,
     SafetyDocumentListView,
-    SafetyDocumentPDFView,
-    SafetyDocumentTaskControlsView,
-    SafetyDocumentTaskHazardsView,
 )
 from apps.job.views.swp_views import SWPGenerateView, SWPListView
 from apps.job.views.workshop_view import WorkshopPDFView
@@ -319,24 +320,30 @@ rest_urlpatterns = [
         name="safety_document_detail",
     ),
     path(
-        "rest/safety-documents/<uuid:doc_id>/pdf/",
-        SafetyDocumentPDFView.as_view(),
-        name="safety_document_pdf",
+        "rest/safety-documents/<uuid:doc_id>/content/",
+        SafetyDocumentContentView.as_view(),
+        name="safety_document_content",
+    ),
+    # Safety AI endpoints - Granular generation
+    path(
+        "rest/safety-ai/generate-hazards/",
+        SafetyAIGenerateHazardsView.as_view(),
+        name="safety_ai_generate_hazards",
     ),
     path(
-        "rest/safety-documents/<uuid:doc_id>/finalize/",
-        SafetyDocumentFinalizeView.as_view(),
-        name="safety_document_finalize",
+        "rest/safety-ai/generate-controls/",
+        SafetyAIGenerateControlsView.as_view(),
+        name="safety_ai_generate_controls",
     ),
     path(
-        "rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-hazards/",
-        SafetyDocumentTaskHazardsView.as_view(),
-        name="safety_document_task_hazards",
+        "rest/safety-ai/improve-section/",
+        SafetyAIImproveSectionView.as_view(),
+        name="safety_ai_improve_section",
     ),
     path(
-        "rest/safety-documents/<uuid:doc_id>/tasks/<int:task_num>/generate-controls/",
-        SafetyDocumentTaskControlsView.as_view(),
-        name="safety_document_task_controls",
+        "rest/safety-ai/improve-document/",
+        SafetyAIImproveDocumentView.as_view(),
+        name="safety_ai_improve_document",
     ),
     # JSA (Job Safety Analysis) - Job-linked endpoints
     path(

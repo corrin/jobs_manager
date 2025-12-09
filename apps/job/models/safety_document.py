@@ -5,6 +5,8 @@ JSAs are generated from jobs and use job context for AI generation, but persist 
 reference documents even after jobs are archived.
 
 SWPs are standalone documents not linked to any job, used for generic workshop procedures.
+
+Document content is stored in Google Docs - this model stores metadata and the Doc reference.
 """
 
 import uuid
@@ -16,20 +18,15 @@ class SafetyDocument(models.Model):
     """
     Unified model for JSA and SWP safety documents.
 
-    CHECKLIST - when adding a new field, check these locations:
-      1. SafetyDocumentSerializer in apps/job/serializers/safety_document_serializer.py
-      2. SafetyDocument views if field affects API response
-      3. SafetyPDFService if field should appear in PDF
+    Document content is stored in Google Docs. This model stores:
+    - Metadata (type, title, job link, dates)
+    - Google Doc reference (ID and URL)
+    - AI generation context tracking
     """
 
     DOCUMENT_TYPES = [
         ("jsa", "Job Safety Analysis"),
         ("swp", "Safe Work Procedure"),
-    ]
-
-    STATUS_CHOICES = [
-        ("draft", "Draft"),
-        ("final", "Final"),
     ]
 
     # Primary key
@@ -53,17 +50,11 @@ class SafetyDocument(models.Model):
         help_text="Linked job (required for JSA, null for SWP)",
     )
 
-    # Generation metadata
-    status = models.CharField(
-        max_length=10,
-        choices=STATUS_CHOICES,
-        default="draft",
-        help_text="Draft = editable, Final = PDF generated",
-    )
+    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    # Document content
+    # Document metadata
     title = models.CharField(
         max_length=255,
         help_text="Job name for JSA, procedure name for SWP",
@@ -74,34 +65,16 @@ class SafetyDocument(models.Model):
         blank=True,
         help_text="Work site location (optional for SWPs)",
     )
-    description = models.TextField(
-        help_text="Job description for JSA, procedure scope for SWP"
-    )
-    ppe_requirements = models.JSONField(
-        default=list,
-        help_text='List of required PPE items, e.g. ["Hard hat", "Safety glasses"]',
-    )
-    tasks = models.JSONField(
-        default=list,
-        help_text="Array of task objects with hazards and controls",
-    )
-    additional_notes = models.TextField(
-        blank=True,
-        help_text="Additional safety notes or site-specific requirements",
-    )
 
-    # Reference to generated PDF (once finalized)
-    # Stored in /SafetyDocuments/ folder in Dropbox
-    pdf_file_path = models.CharField(
-        max_length=500,
+    # Google Doc reference
+    google_doc_id = models.CharField(
+        max_length=100,
         blank=True,
-        help_text="Relative path from DROPBOX_WORKFLOW_FOLDER to generated PDF",
+        help_text="Google Docs document ID",
     )
-
-    # Context tracking - which documents were used for AI generation
-    context_document_ids = models.JSONField(
-        default=list,
-        help_text="UUIDs of documents used as context during generation",
+    google_doc_url = models.URLField(
+        blank=True,
+        help_text="URL to edit the document in Google Docs",
     )
 
     class Meta:
@@ -126,26 +99,6 @@ class SafetyDocument(models.Model):
             )
 
     @property
-    def is_editable(self) -> bool:
-        """Check if document can be edited (only drafts are editable)."""
-        return self.status == "draft"
-
-    @property
-    def has_pdf(self) -> bool:
-        """Check if document has a generated PDF."""
-        return bool(self.pdf_file_path)
-
-
-# Task JSON structure reference (stored in tasks JSONField):
-# {
-#     "step_number": 1,
-#     "description": "Set up work area and exclusion zone",
-#     "summary": "Area setup",  # 1-3 word summary
-#     "potential_hazards": ["Pedestrian traffic", "Vehicle movements"],
-#     "initial_risk_rating": "Moderate",  # Low, Moderate, High, Extreme
-#     "control_measures": [
-#         {"measure": "Install barrier tape", "associated_hazard": "Pedestrian traffic"},
-#         {"measure": "Use spotters", "associated_hazard": "Vehicle movements"}
-#     ],
-#     "revised_risk_rating": "Low"
-# }
+    def has_google_doc(self) -> bool:
+        """Check if document has a Google Doc created."""
+        return bool(self.google_doc_id)

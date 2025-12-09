@@ -2,10 +2,8 @@
 SafetyAIService - AI prompting for JSA/SWP generation.
 
 Handles all AI interactions for generating safety document content including:
-- Full JSA/SWP generation
-- Individual hazard identification
-- Control measure generation
-- Task description expansion
+- Full JSA/SWP generation from job/procedure context
+- Structured output with tasks, hazards, controls, and PPE
 
 Uses the shared LLMService for provider-agnostic LLM access.
 """
@@ -13,7 +11,7 @@ Uses the shared LLMService for provider-agnostic LLM access.
 import logging
 from typing import Any
 
-from apps.job.models import Job, SafetyDocument
+from apps.job.models import Job
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.llm_service import LLMService
 
@@ -98,49 +96,22 @@ Always respond with valid JSON as specified in the prompt."""
                 system_prompt=self._get_system_prompt(),
             )
 
-    def generate_full_jsa(
-        self, job: Job, context_docs: list[SafetyDocument] | None = None
-    ) -> dict[str, Any]:
+    def generate_full_jsa(self, job: Job) -> dict[str, Any]:
         """
         Generate a complete JSA for a job using AI.
 
         Args:
             job: The job to generate a JSA for
-            context_docs: Optional list of similar JSAs to use as context
 
         Returns:
             Dict with JSA structure: title, description, ppe_requirements, tasks, etc.
         """
-        # Build context from similar JSAs
-        context_section = ""
-        if context_docs:
-            context_section = "\n\nREFERENCE JSAs FROM SIMILAR WORK:\n"
-            for i, doc in enumerate(context_docs, 1):
-                task_summaries = []
-                for task in doc.tasks[:3]:  # First 3 tasks
-                    task_summaries.append(
-                        f"  - {task.get('summary', task.get('description', '')[:50])}"
-                    )
-                hazards = []
-                for task in doc.tasks:
-                    hazards.extend(task.get("potential_hazards", [])[:2])
-
-                context_section += f"""
-JSA {i}: {doc.title}
-Description: {doc.description[:200]}...
-Key Tasks:
-{chr(10).join(task_summaries)}
-Key Hazards: {', '.join(hazards[:5])}
-"""
-            context_section += "\nUse these as reference for appropriate hazards and controls, but tailor specifically for the current job.\n"
-
         prompt = f"""Generate a Job Safety Analysis (JSA) for the following job:
 
 Job Name: {job.name}
 Job Number: {job.job_number}
 Client: {job.client.name if job.client else 'Unknown'}
 Description: {job.description or 'No description provided'}
-{context_section}
 
 Generate a comprehensive JSA with:
 1. A clear title (job name)
@@ -193,7 +164,6 @@ Respond with JSON in this exact format:
         title: str,
         description: str,
         site_location: str = "",
-        context_docs: list[SafetyDocument] | None = None,
     ) -> dict[str, Any]:
         """
         Generate a complete SWP (Safe Work Procedure) using AI.
@@ -202,42 +172,15 @@ Respond with JSON in this exact format:
             title: Name of the procedure
             description: Scope and description of the procedure
             site_location: Optional site location
-            context_docs: Optional list of similar documents for context
 
         Returns:
             Dict with SWP structure
         """
-        # Build context from similar documents
-        context_section = ""
-        if context_docs:
-            context_section = "\n\nREFERENCE DOCUMENTS FROM SIMILAR PROCEDURES:\n"
-            for i, doc in enumerate(context_docs, 1):
-                task_summaries = []
-                for task in doc.tasks[:3]:
-                    task_summaries.append(
-                        f"  - {task.get('summary', task.get('description', '')[:50])}"
-                    )
-                hazards = []
-                for task in doc.tasks:
-                    hazards.extend(task.get("potential_hazards", [])[:2])
-
-                context_section += f"""
-Document {i}: {doc.title}
-Description: {doc.description[:200]}...
-Key Tasks:
-{chr(10).join(task_summaries)}
-Key Hazards: {', '.join(hazards[:5])}
-"""
-            context_section += (
-                "\nUse these as reference but tailor for this specific procedure.\n"
-            )
-
         prompt = f"""Generate a Safe Work Procedure (SWP) for:
 
 Procedure Name: {title}
 Description/Scope: {description}
 Location: {site_location or 'General workshop/site'}
-{context_section}
 
 Generate a comprehensive SWP with:
 1. A clear title
@@ -292,17 +235,19 @@ Respond with JSON in this exact format:
             task_description: Description of the task
 
         Returns:
-            List of 3-5 potential hazards
+            List of potential hazards
         """
-        prompt = f"""Identify potential hazards for this task in a metal fabrication/installation context:
+        prompt = f"""Identify 3-5 potential hazards for this task in a metal fabrication context:
 
 Task: {task_description}
 
-Generate 3-5 specific, relevant hazards. Consider:
-- Physical hazards (machinery, manual handling, working at height)
-- Environmental hazards (weather, traffic, confined spaces)
-- Chemical hazards (fumes, dust, solvents)
-- Ergonomic hazards (repetitive tasks, awkward positions)
+Consider hazards related to:
+- Physical hazards (manual handling, noise, vibration, confined spaces)
+- Machinery/equipment hazards
+- Electrical hazards
+- Chemical hazards (fumes, dusts, solvents)
+- Environmental hazards (weather, heat, heights)
+- Ergonomic hazards
 
 Respond with JSON:
 {{
@@ -312,60 +257,144 @@ Respond with JSON:
         result = self._call_llm(prompt, expect_json=True)
         return result.get("hazards", [])
 
-    def generate_controls(self, hazards: list[str]) -> list[dict[str, str]]:
+    def generate_controls(
+        self, hazards: list[str], task_description: str = ""
+    ) -> list[dict[str, str]]:
         """
-        Generate control measures for a list of hazards.
+        Generate control measures for specified hazards.
 
         Args:
-            hazards: List of hazards to generate controls for
+            hazards: List of hazards to address
+            task_description: Optional task context
 
         Returns:
-            List of control measure dicts with 'measure' and 'associated_hazard'
+            List of control measures with associated hazards
         """
         hazards_text = "\n".join(f"- {h}" for h in hazards)
+        context = f"\nTask context: {task_description}" if task_description else ""
 
-        prompt = f"""Generate control measures for these hazards using the hierarchy of controls:
+        prompt = f"""Generate appropriate control measures for these hazards:{context}
 
 Hazards:
 {hazards_text}
 
-For each hazard, suggest 1-2 practical control measures.
-Apply the hierarchy: Elimination > Substitution > Engineering > Administrative > PPE
+Apply the hierarchy of controls:
+1. Elimination - Remove the hazard entirely
+2. Substitution - Replace with something less hazardous
+3. Engineering controls - Isolate people from the hazard
+4. Administrative controls - Change the way people work
+5. PPE - Protect the worker with equipment (last resort)
+
+For each hazard, provide 1-2 practical control measures.
 
 Respond with JSON:
 {{
     "controls": [
-        {{"measure": "Control measure description", "associated_hazard": "The hazard this controls"}}
+        {{"measure": "Control measure description", "associated_hazard": "Which hazard this addresses"}}
     ]
 }}"""
 
         result = self._call_llm(prompt, expect_json=True)
         return result.get("controls", [])
 
-    def generate_task_description(self, brief: str) -> str:
+    def improve_section(
+        self, section_text: str, section_type: str, context: str = ""
+    ) -> str:
         """
-        Expand a brief task into a detailed description.
+        Improve a specific section of a safety document.
 
         Args:
-            brief: Short task description or summary
+            section_text: Current text of the section
+            section_type: Type of section (description, ppe, notes, etc.)
+            context: Optional additional context
 
         Returns:
-            Expanded, detailed task description
+            Improved section text
         """
-        prompt = f"""Expand this brief task description into a detailed, safety-focused description:
+        context_text = f"\nAdditional context: {context}" if context else ""
 
-Brief: {brief}
+        prompt = f"""Improve this {section_type} section of a safety document:{context_text}
 
-The description should:
-- Be clear and specific
-- Include relevant safety considerations
-- Be appropriate for a JSA/SWP document
-- Be 1-2 sentences
+Current text:
+{section_text}
+
+Guidelines:
+- Make it clearer and more specific
+- Ensure compliance with NZ WorkSafe guidelines
+- Use active voice and imperative statements
+- Keep it concise but comprehensive
+- For PPE sections, ensure items are specific and appropriate
+- For procedure steps, ensure they are actionable
 
 Respond with JSON:
 {{
-    "description": "Detailed task description"
+    "improved_text": "The improved section text"
 }}"""
 
         result = self._call_llm(prompt, expect_json=True)
-        return result.get("description", brief)
+        return result.get("improved_text", section_text)
+
+    def improve_document(
+        self, raw_text: str, document_type: str = "swp"
+    ) -> dict[str, Any]:
+        """
+        AI improves an entire safety document from its raw text.
+
+        Args:
+            raw_text: Full text content of the document
+            document_type: 'jsa' or 'swp'
+
+        Returns:
+            Complete improved document structure
+        """
+        doc_type_name = (
+            "Job Safety Analysis (JSA)"
+            if document_type == "jsa"
+            else "Safe Work Procedure (SWP)"
+        )
+
+        prompt = f"""Review and improve this {doc_type_name} document:
+
+{raw_text}
+
+Your task:
+1. Parse the existing content
+2. Identify any missing or weak areas
+3. Improve hazard identification
+4. Strengthen control measures
+5. Ensure PPE requirements are complete
+6. Add any missing safety considerations
+
+Return a complete, improved document in this JSON format:
+{{
+    "title": "Document title",
+    "site_location": "Work location",
+    "description": "Improved description of the work/procedure",
+    "ppe_requirements": ["PPE item 1", "PPE item 2", ...],
+    "tasks": [
+        {{
+            "step_number": 1,
+            "description": "Detailed task/step description",
+            "summary": "1-3 word summary",
+            "potential_hazards": ["Hazard 1", "Hazard 2"],
+            "initial_risk_rating": "Low|Moderate|High|Extreme",
+            "control_measures": [
+                {{"measure": "Control measure text", "associated_hazard": "Hazard it addresses"}}
+            ],
+            "revised_risk_rating": "Low|Moderate|High|Extreme"
+        }}
+    ],
+    "additional_notes": "Any additional safety notes"
+}}"""
+
+        result = self._call_llm(prompt, expect_json=True)
+
+        # Ensure all required fields exist
+        result.setdefault("title", "Safety Document")
+        result.setdefault("site_location", "")
+        result.setdefault("description", "")
+        result.setdefault("ppe_requirements", DEFAULT_PPE.copy())
+        result.setdefault("tasks", [])
+        result.setdefault("additional_notes", "")
+
+        return result
