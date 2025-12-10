@@ -3,18 +3,19 @@ Quote Mode Controller
 
 Manages mode-based quote generation with structured JSON schemas and tool gating.
 Provides CALC, PRICE, and TABLE modes for focused quoting operations.
+
+Uses LiteLLM for provider-agnostic LLM access.
 """
 
 import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-import google.generativeai as genai
 import jsonschema
-from google.generativeai.types import FunctionDeclaration
 
 from apps.job.models import Job
 from apps.job.schemas import quote_mode_schemas
+from apps.workflow.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -178,16 +179,16 @@ Consider the full conversation context when processing this input."""
             # Primitive type or already converted
             return obj
 
-    def _clean_schema_for_gemini(self, schema: Dict[str, Any]) -> Dict[str, Any]:
+    def _clean_schema_for_tools(self, schema: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Remove JSON Schema fields that Gemini doesn't support.
+        Clean JSON Schema for use with LLM tool definitions.
         Keep only: type, description, properties, required, items, enum
 
         Args:
             schema: Original JSON schema
 
         Returns:
-            Cleaned schema compatible with Gemini
+            Cleaned schema compatible with LLM tools
         """
         # Only these fields are safe for Gemini
         allowed_fields = {
@@ -245,112 +246,133 @@ Consider the full conversation context when processing this input."""
 
         return clean_dict(schema)
 
-    def get_mcp_tools_for_mode(self, mode: str) -> List[FunctionDeclaration]:
+    def get_mcp_tools_for_mode(self, mode: str) -> List[Dict[str, Any]]:
         """
-        Get MCP tool declarations for a specific mode.
+        Get MCP tool definitions for a specific mode (OpenAI format for LiteLLM).
 
         Args:
             mode: The operation mode
 
         Returns:
-            List of FunctionDeclaration objects for allowed tools
+            List of tool definitions in OpenAI format
         """
         allowed_tool_names = self.tools.get(mode, [])
 
-        # Define all available tools
+        # Define all available tools in OpenAI format
         all_tools = {
-            "calc_sheet_tenths": FunctionDeclaration(
-                name="calc_sheet_tenths",
-                description="Calculate how many 'tenths' of a sheet a part occupies. Sheet divided into 5x2 grid (600x480mm sections for 1200x2400mm sheet). Returns number of sections needed.",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "part_width_mm": {
-                            "type": "number",
-                            "description": "Width of part in mm",
+            "calc_sheet_tenths": {
+                "type": "function",
+                "function": {
+                    "name": "calc_sheet_tenths",
+                    "description": "Calculate how many 'tenths' of a sheet a part occupies. Sheet divided into 5x2 grid (600x480mm sections for 1200x2400mm sheet). Returns number of sections needed.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "part_width_mm": {
+                                "type": "number",
+                                "description": "Width of part in mm",
+                            },
+                            "part_height_mm": {
+                                "type": "number",
+                                "description": "Height of part in mm",
+                            },
+                            "sheet_width_mm": {
+                                "type": "number",
+                                "description": "Sheet width in mm (default 1200)",
+                            },
+                            "sheet_height_mm": {
+                                "type": "number",
+                                "description": "Sheet height in mm (default 2400)",
+                            },
                         },
-                        "part_height_mm": {
-                            "type": "number",
-                            "description": "Height of part in mm",
-                        },
-                        "sheet_width_mm": {
-                            "type": "number",
-                            "description": "Sheet width in mm (default 1200)",
-                        },
-                        "sheet_height_mm": {
-                            "type": "number",
-                            "description": "Sheet height in mm (default 2400)",
-                        },
+                        "required": ["part_width_mm", "part_height_mm"],
                     },
-                    "required": ["part_width_mm", "part_height_mm"],
                 },
-            ),
-            "search_products": FunctionDeclaration(
-                name="search_products",
-                description="Search supplier products by description or specifications",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search term for products",
+            },
+            "search_products": {
+                "type": "function",
+                "function": {
+                    "name": "search_products",
+                    "description": "Search supplier products by description or specifications",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search term for products",
+                            },
+                            "supplier_name": {
+                                "type": "string",
+                                "description": "Optional supplier name to filter by",
+                            },
                         },
-                        "supplier_name": {
-                            "type": "string",
-                            "description": "Optional supplier name to filter by",
-                        },
+                        "required": ["query"],
                     },
-                    "required": ["query"],
                 },
-            ),
-            "get_pricing_for_material": FunctionDeclaration(
-                name="get_pricing_for_material",
-                description="Get pricing information for specific materials",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "material_type": {
-                            "type": "string",
-                            "description": "Type of material (e.g., steel, aluminum)",
+            },
+            "get_pricing_for_material": {
+                "type": "function",
+                "function": {
+                    "name": "get_pricing_for_material",
+                    "description": "Get pricing information for specific materials",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "material_type": {
+                                "type": "string",
+                                "description": "Type of material (e.g., steel, aluminum)",
+                            },
+                            "dimensions": {
+                                "type": "string",
+                                "description": "Optional dimensions like '4x8'",
+                            },
                         },
-                        "dimensions": {
-                            "type": "string",
-                            "description": "Optional dimensions like '4x8'",
-                        },
+                        "required": ["material_type"],
                     },
-                    "required": ["material_type"],
                 },
-            ),
-            "compare_suppliers": FunctionDeclaration(
-                name="compare_suppliers",
-                description="Compare pricing across different suppliers for a specific material",
-                parameters={
-                    "type": "object",
-                    "properties": {
-                        "material_query": {
-                            "type": "string",
-                            "description": "Material to compare prices for (e.g., 'steel angle')",
+            },
+            "compare_suppliers": {
+                "type": "function",
+                "function": {
+                    "name": "compare_suppliers",
+                    "description": "Compare pricing across different suppliers for a specific material",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "material_query": {
+                                "type": "string",
+                                "description": "Material to compare prices for (e.g., 'steel angle')",
+                            },
                         },
+                        "required": ["material_query"],
                     },
-                    "required": ["material_query"],
                 },
-            ),
+            },
             # Emit tools for structured output
-            "emit_calc_result": FunctionDeclaration(
-                name="emit_calc_result",
-                description="Submit the final calculation results. Call this after calculating all required items.",
-                parameters=self._clean_schema_for_gemini(self.schemas["CALC"]),
-            ),
-            "emit_price_result": FunctionDeclaration(
-                name="emit_price_result",
-                description="Submit the final pricing results. Call this after gathering all pricing information.",
-                parameters=self._clean_schema_for_gemini(self.schemas["PRICE"]),
-            ),
-            "emit_table_result": FunctionDeclaration(
-                name="emit_table_result",
-                description="Submit the final formatted table. Call this after formatting the quote table.",
-                parameters=self._clean_schema_for_gemini(self.schemas["TABLE"]),
-            ),
+            "emit_calc_result": {
+                "type": "function",
+                "function": {
+                    "name": "emit_calc_result",
+                    "description": "Submit the final calculation results. Call this after calculating all required items.",
+                    "parameters": self._clean_schema_for_tools(self.schemas["CALC"]),
+                },
+            },
+            "emit_price_result": {
+                "type": "function",
+                "function": {
+                    "name": "emit_price_result",
+                    "description": "Submit the final pricing results. Call this after gathering all pricing information.",
+                    "parameters": self._clean_schema_for_tools(self.schemas["PRICE"]),
+                },
+            },
+            "emit_table_result": {
+                "type": "function",
+                "function": {
+                    "name": "emit_table_result",
+                    "description": "Submit the final formatted table. Call this after formatting the quote table.",
+                    "parameters": self._clean_schema_for_tools(self.schemas["TABLE"]),
+                },
+            },
         }
 
         # Return only the tools allowed for this mode
@@ -375,7 +397,7 @@ Consider the full conversation context when processing this input."""
             exc = ValueError(error_msg)
             raise exc
 
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        llm = LLMService()
 
         current_mode_text = (
             f"CURRENT MODE: {current_mode}"
@@ -402,8 +424,10 @@ RULES:
 Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
 
         try:
-            response = model.generate_content(prompt)
-            inferred_mode = response.text.strip().upper()
+            response = llm.get_text_response(
+                messages=[{"role": "user", "content": prompt}],
+            )
+            inferred_mode = response.strip().upper()
 
             # FAIL EARLY if invalid
             if inferred_mode not in self.MODES:
@@ -423,18 +447,18 @@ Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
         mode: str,
         user_input: str,
         job: Optional[Job] = None,
-        gemini_client=None,
-        chat_history=None,
+        llm_service: Optional[LLMService] = None,
+        chat_history: Optional[List[Dict[str, Any]]] = None,
     ) -> Tuple[Dict[str, Any], bool]:
         """
-        Execute a mode with the given input.
+        Execute a mode with the given input using LiteLLM.
 
         Args:
             mode: The operation mode (CALC, PRICE, or TABLE)
             user_input: User's input text
             job: Optional Job instance for context
-            gemini_client: Optional Gemini client for API calls
-            chat_history: Optional list of previous messages in Gemini format
+            llm_service: Optional LLMService instance (creates one if not provided)
+            chat_history: Optional list of previous messages in OpenAI format
 
         Returns:
             Tuple of (response_data, has_questions)
@@ -461,47 +485,36 @@ Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
         schema = self.schemas[mode]
         allowed_tools = self.get_mcp_tools_for_mode(mode)
 
-        # If chat history exists, summarize previous context for mode transition
-        # TODO: Re-enable after debugging function calling issues
-        context_summary = None
-        # if chat_history and len(chat_history) > 0:
-        #     context_summary = self._summarize_previous_context(
-        #         chat_history, gemini_client
-        #     )
-        #     logger.info(f"Context summary for {mode} mode: {context_summary[:200]}...")
-
         # Render the prompt
-        prompt = self.render_prompt(mode, user_input, job_ctx, schema, context_summary)
+        prompt = self.render_prompt(mode, user_input, job_ctx, schema, None)
 
-        # Gemini client is required
-        if gemini_client is None:
-            raise ValueError("Gemini client is required")
+        # Create LLM service if not provided
+        if llm_service is None:
+            llm_service = LLMService()
 
-        # Configure Gemini with mode-specific settings
-        gemini_client.system_instruction = self.get_system_prompt()
+        # Build message history for LiteLLM
+        messages = []
 
-        # Start chat with history if provided
+        # Add system prompt
+        messages.append({"role": "system", "content": self.get_system_prompt()})
+
+        # Add chat history if provided (convert from Gemini format if needed)
         if chat_history:
-            logger.debug(f"Starting chat with {len(chat_history)} history messages")
-            chat = gemini_client.start_chat(history=chat_history)
-        else:
-            logger.debug("Starting fresh chat session (no history)")
-            chat = gemini_client.start_chat()
+            for msg in chat_history:
+                role = msg.get("role", "user")
+                # Convert Gemini 'model' role to 'assistant'
+                if role == "model":
+                    role = "assistant"
+                # Extract text content from parts if present
+                parts = msg.get("parts", [])
+                if parts:
+                    content = parts[0] if isinstance(parts[0], str) else str(parts[0])
+                else:
+                    content = msg.get("content", "")
+                messages.append({"role": role, "content": content})
 
-        # Send initial message (no JSON format enforcement - tools handle structure)
-        try:
-            response = chat.send_message(prompt, tools=allowed_tools)
-        except Exception as e:
-            logger.error(f"Error sending initial message: {e}")
-            logger.error(f"Full prompt:\n{prompt}")
-            logger.error(f"Tools configured: {[t.name for t in allowed_tools]}")
-            logger.error(
-                f"Chat history length: {len(chat_history) if chat_history else 0}"
-            )
-            # Log the actual function declaration to see what Gemini rejects
-            for tool in allowed_tools:
-                logger.error(f"Tool {tool.name} parameters: {tool.parameters}")
-            raise
+        # Add current user prompt
+        messages.append({"role": "user", "content": prompt})
 
         # Process response to find emit tool call
         emit_tool_name = f"emit_{mode.lower()}_result"
@@ -512,111 +525,118 @@ Reply with ONE WORD ONLY: CALC, PRICE, or TABLE"""
             iteration += 1
             logger.debug(f"Processing response iteration {iteration}")
 
+            try:
+                response = llm_service.completion(
+                    messages=messages,
+                    tools=allowed_tools,
+                )
+            except Exception as e:
+                logger.error(f"Error calling LLM: {e}")
+                logger.error(f"Messages: {messages[-1]}")
+                logger.error(f"Tools: {[t['function']['name'] for t in allowed_tools]}")
+                raise
+
+            # Get the assistant's message
+            assistant_message = response.choices[0].message
+
             # Check if response contains tool calls
-            if response.candidates and response.candidates[0].content.parts:
-                # Collect ALL function calls from this turn
-                function_calls = []
-                for part in response.candidates[0].content.parts:
-                    if hasattr(part, "function_call") and part.function_call:
-                        tool_name = part.function_call.name
-                        tool_args = (
-                            dict(part.function_call.args)
-                            if part.function_call.args
-                            else {}
-                        )
-                        function_calls.append((tool_name, tool_args, part))
-                        logger.info(f"Tool call detected: {tool_name}")
+            if assistant_message.tool_calls:
+                # Add assistant message to history
+                messages.append(assistant_message.model_dump())
 
-                # Process all function calls
-                if function_calls:
-                    # Check if any is the emit tool
-                    emit_call = None
-                    intermediate_calls = []
+                # Collect all function calls from this turn
+                emit_call = None
+                intermediate_calls = []
 
-                    for tool_name, tool_args, part in function_calls:
-                        if tool_name == emit_tool_name:
-                            emit_call = (tool_name, tool_args, part)
-                        else:
-                            intermediate_calls.append((tool_name, tool_args, part))
+                for tool_call in assistant_message.tool_calls:
+                    tool_name = tool_call.function.name
+                    try:
+                        tool_args = json.loads(tool_call.function.arguments)
+                    except json.JSONDecodeError:
+                        tool_args = {}
+                    tool_call_id = tool_call.id
 
-                    # If emit tool was called, return its results
-                    if emit_call:
-                        tool_name, tool_args, _ = emit_call
-                        logger.info(f"Emit tool called: {tool_name}")
-                        logger.debug(f"Emit tool args type: {type(tool_args)}")
+                    logger.info(f"Tool call detected: {tool_name}")
 
-                        # Convert protobuf wrapper to plain dict
-                        tool_args = self._proto_to_dict(tool_args)
-                        logger.debug(f"Converted tool args: {tool_args}")
+                    if tool_name == emit_tool_name:
+                        emit_call = (tool_name, tool_args, tool_call_id)
+                    else:
+                        intermediate_calls.append((tool_name, tool_args, tool_call_id))
 
-                        # Validate against schema
-                        validated_data = self.validate_json(tool_args, schema)
+                # If emit tool was called, return its results
+                if emit_call:
+                    tool_name, tool_args, _ = emit_call
+                    logger.info(f"Emit tool called: {tool_name}")
+                    logger.debug(f"Emit tool args: {tool_args}")
 
-                        # Check for questions
-                        questions = validated_data.get("questions", [])
-                        has_questions = len(questions) > 0
+                    # Validate against schema
+                    validated_data = self.validate_json(tool_args, schema)
 
-                        if has_questions:
-                            logger.info(
-                                f"Mode {mode} has {len(questions)} clarifying questions"
-                            )
-                        else:
-                            logger.info(
-                                f"Mode {mode} completed successfully with no questions"
-                            )
+                    # Check for questions
+                    questions = validated_data.get("questions", [])
+                    has_questions = len(questions) > 0
 
-                        return validated_data, has_questions
-
-                    # Otherwise, execute all intermediate tools and respond to ALL of them
-                    if intermediate_calls:
+                    if has_questions:
                         logger.info(
-                            f"Executing {len(intermediate_calls)} intermediate tool(s)"
+                            f"Mode {mode} has {len(questions)} clarifying questions"
                         )
-                        response_parts = []
-
-                        for tool_name, tool_args, _ in intermediate_calls:
-                            logger.info(
-                                f"Executing intermediate tool: {tool_name} with args: {tool_args}"
-                            )
-                            tool_result = self._execute_tool(tool_name, tool_args)
-
-                            # Create function response for this tool
-                            response_parts.append(
-                                genai.protos.Part(
-                                    function_response=genai.protos.FunctionResponse(
-                                        name=tool_name,
-                                        response={"result": tool_result},
-                                    )
-                                )
-                            )
-
-                        # Send ALL function responses back in one message
-                        response = chat.send_message(
-                            genai.protos.Content(parts=response_parts)
+                    else:
+                        logger.info(
+                            f"Mode {mode} completed successfully with no questions"
                         )
-                        continue
+
+                    return validated_data, has_questions
+
+                # Execute intermediate tools and add results to messages
+                if intermediate_calls:
+                    logger.info(
+                        f"Executing {len(intermediate_calls)} intermediate tool(s)"
+                    )
+
+                    for tool_name, tool_args, tool_call_id in intermediate_calls:
+                        logger.info(
+                            f"Executing intermediate tool: {tool_name} with args: {tool_args}"
+                        )
+                        tool_result = self._execute_tool(tool_name, tool_args)
+
+                        # Add tool result to messages
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call_id,
+                                "content": str(tool_result),
+                            }
+                        )
+
+                    continue
 
             # Check if there's text content (model might be explaining or asking)
-            try:
-                text_content = response.text
+            text_content = assistant_message.content
+            if text_content:
                 logger.debug(f"Model response text: {text_content[:200]}...")
+
+                # Add assistant message to history
+                messages.append({"role": "assistant", "content": text_content})
 
                 # If we're here and no emit tool was called, prompt for it
                 if iteration == 1:
                     logger.info(
                         f"No emit tool called yet, prompting for {emit_tool_name}"
                     )
-                    response = chat.send_message(
-                        f"Please complete your analysis and call the {emit_tool_name} tool with your final results."
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": f"Please complete your analysis and call the {emit_tool_name} tool with your final results.",
+                        }
                     )
                 else:
                     # Give model another chance
-                    response = chat.send_message(
-                        f"You must call {emit_tool_name} to submit your results. Please do so now."
+                    messages.append(
+                        {
+                            "role": "user",
+                            "content": f"You must call {emit_tool_name} to submit your results. Please do so now.",
+                        }
                     )
-            except Exception as e:
-                logger.debug(f"No text in response (likely a tool call): {e}")
-                # This is fine - might be a tool-only response
 
         # If we get here, something went wrong
         raise ValueError(

@@ -1,11 +1,11 @@
 """
-MCP Chat Service
+MCP Chat Service (LiteLLM)
 
 Handles AI-powered chat responses using the Model Context Protocol (MCP)
 for accessing supplier data, pricing, and job context in chat conversations.
 
 This service integrates:
-- Existing AIProvider system for Claude API access
+- LiteLLM for provider-agnostic LLM access
 - MCP tools for supplier/pricing data access
 - JobQuoteChat model for conversation persistence
 - Streaming response support
@@ -16,14 +16,12 @@ import logging
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
-from anthropic import Anthropic
-from anthropic.types import MessageParam, TextBlock
 from django.db import transaction
 
 from apps.job.models import Job, JobQuoteChat
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
-from apps.workflow.enums import AIProviderTypes  # NEW
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import CompanyDefaults
+from apps.workflow.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -40,39 +38,9 @@ class MCPChatService:
         self.quoting_tool = QuotingTool()
         self.query_tool = SupplierProductQueryTool()
 
-    def get_claude_client(self) -> tuple[Anthropic, AIProvider]:
-        """Get configured Claude client from AIProvider system."""
-        try:
-            # Look for the default Anthropic/Claude provider
-            ai_provider = AIProvider.objects.filter(
-                provider_type=AIProviderTypes.ANTHROPIC,
-                default=True,
-            ).first()
-
-            if not ai_provider:
-                raise ValueError(
-                    "No default Claude AI provider configured. "
-                    "Please add an AIProvider entry with provider_type='Claude' "
-                    "and mark it as default."
-                )
-
-            if not ai_provider.api_key:
-                raise ValueError(
-                    "Claude AI provider is missing an API key. "
-                    "Set the api_key field in the AIProvider record."
-                )
-
-            if not ai_provider.model_name:
-                raise ValueError(
-                    "Claude AI provider is missing a model name. "
-                    "Set the model_name field in the AIProvider record."
-                )
-
-            return Anthropic(api_key=ai_provider.api_key), ai_provider
-
-        except Exception as e:
-            logger.error(f"Failed to get Claude client: {e}")
-            raise
+    def get_llm_service(self) -> LLMService:
+        """Get configured LLMService instance."""
+        return LLMService()
 
     def _get_system_prompt(self, job: Job) -> str:
         """Generate system prompt with job context and MCP tool descriptions."""
@@ -92,8 +60,7 @@ You have access to the following tools to help with quoting and material sourcin
    - Use this to find specific materials or products
    - Example: search_products("steel sheet 4x8")
 
-2. **get_pricing_for_material**: Get pricing information for specific materials \\
-with dimensions
+2. **get_pricing_for_material**: Get pricing information for specific materials with dimensions
    - Use this to get current market pricing
    - Example: get_pricing_for_material("aluminum", "4x8")
 
@@ -114,91 +81,106 @@ pricing or material recommendations, explain your reasoning and mention any rele
 supplier information."""
 
     def _get_mcp_tools(self) -> List[Dict[str, Any]]:
-        """Define MCP tools for Claude API."""
+        """Define MCP tools in OpenAI format for LiteLLM."""
         return [
             {
-                "name": "search_products",
-                "description": "Search supplier products by description or specs",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search term for products",
+                "type": "function",
+                "function": {
+                    "name": "search_products",
+                    "description": "Search supplier products by description or specs",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search term for products",
+                            },
+                            "supplier_name": {
+                                "type": "string",
+                                "description": "Optional supplier name filter",
+                            },
                         },
-                        "supplier_name": {
-                            "type": "string",
-                            "description": "Optional supplier name filter",
-                        },
-                    },
-                    "required": ["query"],
-                },
-            },
-            {
-                "name": "get_pricing_for_material",
-                "description": "Get pricing information for specific materials",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "material_type": {
-                            "type": "string",
-                            "description": "Type of material (e.g., steel, aluminum)",
-                        },
-                        "dimensions": {
-                            "type": "string",
-                            "description": "Optional dimensions specification",
-                        },
-                    },
-                    "required": ["material_type"],
-                },
-            },
-            {
-                "name": "create_quote_estimate",
-                "description": "Create a quote estimate for a job",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "job_id": {
-                            "type": "string",
-                            "description": "Job ID to create quote for",
-                        },
-                        "materials": {
-                            "type": "string",
-                            "description": "Description of materials needed",
-                        },
-                        "labor_hours": {
-                            "type": "number",
-                            "description": "Estimated labor hours",
-                        },
-                    },
-                    "required": ["job_id", "materials"],
-                },
-            },
-            {
-                "name": "get_supplier_status",
-                "description": "Get status of supplier scraping and price lists",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "supplier_name": {
-                            "type": "string",
-                            "description": "Optional supplier name filter",
-                        }
+                        "required": ["query"],
                     },
                 },
             },
             {
-                "name": "compare_suppliers",
-                "description": "Compare pricing across suppliers for materials",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {
-                        "material_query": {
-                            "type": "string",
-                            "description": "Material to compare prices for",
-                        }
+                "type": "function",
+                "function": {
+                    "name": "get_pricing_for_material",
+                    "description": "Get pricing information for specific materials",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "material_type": {
+                                "type": "string",
+                                "description": "Type of material (e.g., steel, aluminum)",
+                            },
+                            "dimensions": {
+                                "type": "string",
+                                "description": "Optional dimensions specification",
+                            },
+                        },
+                        "required": ["material_type"],
                     },
-                    "required": ["material_query"],
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "create_quote_estimate",
+                    "description": "Create a quote estimate for a job",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "job_id": {
+                                "type": "string",
+                                "description": "Job ID to create quote for",
+                            },
+                            "materials": {
+                                "type": "string",
+                                "description": "Description of materials needed",
+                            },
+                            "labor_hours": {
+                                "type": "number",
+                                "description": "Estimated labor hours",
+                            },
+                        },
+                        "required": ["job_id", "materials"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_supplier_status",
+                    "description": "Get status of supplier scraping and price lists",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "supplier_name": {
+                                "type": "string",
+                                "description": "Optional supplier name filter",
+                            },
+                        },
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "compare_suppliers",
+                    "description": "Compare pricing across suppliers for materials",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "material_query": {
+                                "type": "string",
+                                "description": "Material to compare prices for",
+                            },
+                        },
+                        "required": ["material_query"],
+                    },
                 },
             },
         ]
@@ -241,7 +223,7 @@ supplier information."""
         stream_callback: Optional[Callable[..., None]] = None,
     ) -> JobQuoteChat:
         """
-        Generate AI response using Claude with MCP tools.
+        Generate AI response using LiteLLM with MCP tools.
 
         Args:
             job_id: UUID of the job for context
@@ -255,21 +237,25 @@ supplier information."""
             # Get job for context
             job = Job.objects.get(id=job_id)
 
+            # Get LLM service
+            llm = self.get_llm_service()
+
             # Get recent chat history for context
             recent_messages = JobQuoteChat.objects.filter(job=job).order_by(
                 "-timestamp"
             )[:10]
 
-            # Build conversation history
-            messages: List[MessageParam] = []
-            for msg in reversed(recent_messages):
+            # Build conversation messages
+            messages = [{"role": "system", "content": self._get_system_prompt(job)}]
+
+            for msg in reversed(list(recent_messages)):
                 messages.append({"role": msg.role, "content": msg.content})
 
             # Add current user message
             messages.append({"role": "user", "content": user_message})
 
-            # Get Claude client and AI provider
-            client, ai_provider = self.get_claude_client()
+            # Get tools
+            tools = self._get_mcp_tools()
 
             # Create assistant message for streaming
             assistant_message = JobQuoteChat.objects.create(
@@ -280,134 +266,170 @@ supplier information."""
                 metadata={"streaming": True, "tool_uses": []},
             )
 
-            # Make Claude API call with tools
-            response = client.messages.create(
-                model=ai_provider.model_name,
-                max_tokens=4000,
-                system=self._get_system_prompt(job),
-                messages=messages,
-                tools=self._get_mcp_tools(),
-                stream=True,
-            )
+            # Process with streaming if callback provided
+            if stream_callback:
+                current_content = ""
+                tool_uses = []
 
-            # Process streaming response
-            content_blocks = []
-            current_content = ""
-            tool_uses = []
+                # Make streaming LLM call
+                response = llm.completion(
+                    messages=messages,
+                    tools=tools,
+                    stream=True,
+                )
 
-            for chunk in response:
-                if chunk.type == "content_block_start":
-                    if chunk.content_block.type == "text":
-                        content_blocks.append({"type": "text", "text": ""})
-                    elif chunk.content_block.type == "tool_use":
-                        content_blocks.append(
+                # Process streaming chunks
+                collected_tool_calls = {}
+
+                for chunk in response:
+                    delta = chunk.choices[0].delta if chunk.choices else None
+                    if not delta:
+                        continue
+
+                    # Accumulate content
+                    if delta.content:
+                        current_content += delta.content
+                        assistant_message.content = current_content
+                        assistant_message.save(update_fields=["content"])
+                        stream_callback(assistant_message)
+
+                    # Accumulate tool calls
+                    if delta.tool_calls:
+                        for tc in delta.tool_calls:
+                            idx = tc.index
+                            if idx not in collected_tool_calls:
+                                collected_tool_calls[idx] = {
+                                    "id": tc.id or "",
+                                    "name": "",
+                                    "arguments": "",
+                                }
+                            if tc.id:
+                                collected_tool_calls[idx]["id"] = tc.id
+                            if tc.function:
+                                if tc.function.name:
+                                    collected_tool_calls[idx]["name"] = tc.function.name
+                                if tc.function.arguments:
+                                    collected_tool_calls[idx][
+                                        "arguments"
+                                    ] += tc.function.arguments
+
+                # Process any tool calls after streaming completes
+                if collected_tool_calls:
+                    # Add assistant message with tool calls to history
+                    tool_calls_for_message = []
+                    for tc_data in collected_tool_calls.values():
+                        tool_calls_for_message.append(
                             {
-                                "type": "tool_use",
-                                "id": chunk.content_block.id,
-                                "name": chunk.content_block.name,
-                                "input": "",
+                                "id": tc_data["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": tc_data["name"],
+                                    "arguments": tc_data["arguments"],
+                                },
                             }
                         )
 
-                elif chunk.type == "content_block_delta":
-                    if chunk.delta.type == "text_delta":
-                        # Update text content
-                        content_blocks[-1]["text"] += chunk.delta.text
-                        current_content = "".join(
-                            [
-                                block.get("text", "")
-                                for block in content_blocks
-                                if block["type"] == "text"
-                            ]
+                    messages.append(
+                        {
+                            "role": "assistant",
+                            "content": current_content or None,
+                            "tool_calls": tool_calls_for_message,
+                        }
+                    )
+
+                    # Execute tools and add results
+                    for tc_data in collected_tool_calls.values():
+                        tool_name = tc_data["name"]
+                        try:
+                            tool_input = json.loads(tc_data["arguments"])
+                        except json.JSONDecodeError:
+                            tool_input = {}
+
+                        tool_result = self._execute_mcp_tool(tool_name, tool_input)
+
+                        tool_uses.append(
+                            {
+                                "name": tool_name,
+                                "input": tool_input,
+                                "result": tool_result,
+                            }
                         )
 
-                        # Update message with streaming content
-                        assistant_message.content = current_content
-                        assistant_message.save(update_fields=["content"])
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tc_data["id"],
+                                "content": tool_result,
+                            }
+                        )
 
-                        # Call stream callback if provided
-                        if stream_callback:
-                            stream_callback(assistant_message)
+                    # Make final call for response after tool execution
+                    final_response = llm.completion(
+                        messages=messages,
+                        tools=tools,
+                    )
 
-                    elif chunk.delta.type == "input_json_delta":
-                        # Accumulate tool input
-                        if "input" not in content_blocks[-1]:
-                            content_blocks[-1]["input"] = ""
-                        content_blocks[-1]["input"] += chunk.delta.partial_json
+                    final_content = final_response.choices[0].message.content or ""
+                    current_content = final_content
 
-                elif chunk.type == "content_block_stop":
-                    # Process completed tool use
-                    if (
-                        content_blocks
-                        and content_blocks[-1]["type"] == "tool_use"
-                        and "input" in content_blocks[-1]
-                    ):
-                        tool_block = content_blocks[-1]
-                        try:
-                            tool_input = json.loads(tool_block["input"])
-                            tool_result = self._execute_mcp_tool(
-                                tool_block["name"], tool_input
-                            )
+            else:
+                # Non-streaming: use tool calling loop
+                tool_uses = []
+                max_iterations = 10
+                iteration = 0
+
+                while iteration < max_iterations:
+                    iteration += 1
+
+                    response = llm.completion(
+                        messages=messages,
+                        tools=tools,
+                    )
+
+                    assistant_msg = response.choices[0].message
+
+                    # Check for tool calls
+                    if assistant_msg.tool_calls:
+                        messages.append(assistant_msg.model_dump())
+
+                        for tool_call in assistant_msg.tool_calls:
+                            tool_name = tool_call.function.name
+                            try:
+                                tool_input = json.loads(tool_call.function.arguments)
+                            except json.JSONDecodeError:
+                                tool_input = {}
+
+                            tool_result = self._execute_mcp_tool(tool_name, tool_input)
 
                             tool_uses.append(
                                 {
-                                    "name": tool_block["name"],
+                                    "name": tool_name,
                                     "input": tool_input,
                                     "result": tool_result,
                                 }
                             )
 
-                            # Add tool result to conversation for Claude
                             messages.append(
                                 {
-                                    "role": "assistant",
-                                    "content": [
-                                        {
-                                            "type": "tool_use",
-                                            "id": tool_block["id"],
-                                            "name": tool_block["name"],
-                                            "input": tool_input,
-                                        }
-                                    ],
-                                }
-                            )
-                            messages.append(
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        {
-                                            "type": "tool_result",
-                                            "tool_use_id": tool_block["id"],
-                                            "content": tool_result,
-                                        }
-                                    ],
+                                    "role": "tool",
+                                    "tool_call_id": tool_call.id,
+                                    "content": tool_result,
                                 }
                             )
 
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse tool input: {e}")
+                        continue
 
-            # If tools were used, make another call for final response
-            if tool_uses:
-                final_response = client.messages.create(
-                    model=ai_provider.model_name,
-                    max_tokens=4000,
-                    system=self._get_system_prompt(job),
-                    messages=messages,
-                    tools=self._get_mcp_tools(),
-                )
+                    # No more tool calls
+                    break
 
-                if final_response.content:
-                    for block in final_response.content:
-                        if isinstance(block, TextBlock):
-                            current_content += block.text
+                current_content = response.choices[0].message.content or ""
 
             # Update final message
             assistant_message.content = current_content
             assistant_message.metadata = {
                 "streaming": False,
                 "tool_uses": tool_uses,
-                "model": ai_provider.model_name,
+                "model": llm.model_name,
             }
             assistant_message.save()
 
@@ -417,13 +439,10 @@ supplier information."""
             logger.error(f"AI response generation failed: {e}")
             # Create error message
             error_message = JobQuoteChat.objects.create(
-                job=job,
+                job=Job.objects.get(id=job_id),
                 message_id=f"assistant-error-{uuid.uuid4()}",
                 role="assistant",
-                content=(
-                    "I apologize, but I encountered an error processing your request:"
-                    f"{str(e)}"
-                ),
+                content=f"I apologize, but I encountered an error processing your request: {str(e)}",
                 metadata={"error": True, "error_message": str(e)},
             )
             return error_message

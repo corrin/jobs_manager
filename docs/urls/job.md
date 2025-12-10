@@ -12,7 +12,8 @@
 #### Job Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/job/<uuid:job_id>/assignment/` | `assign_job_view.AssignJobView` | `jobs:api_job_assigment` | API Endpoint for activities related to job assignment |
+| `/api/job/<uuid:job_id>/assignment/` | `assign_job_view.JobAssignmentCreateView` | `jobs:api_job_assignment` | API Endpoint to assign staff to a job (POST /api/job/<job_id>/assignment) |
+| `/api/job/<uuid:job_id>/assignment/<uuid:staff_id>/` | `assign_job_view.JobAssignmentDeleteView` | `jobs:api_job_assignment_staff` | API Endpoint to remove staff from a job (DELETE /api/job/<job_id>/assignment/<staff_id>) |
 | `/api/job/completed/` | `archive_completed_jobs_view.ArchiveCompleteJobsListAPIView` | `jobs:api_jobs_completed` | API Endpoint to provide Job data for archiving display |
 | `/api/job/completed/archive/` | `archive_completed_jobs_view.ArchiveCompleteJobsAPIView` | `jobs:api_jobs_archive` | API Endpoint to set 'paid' flag as True in the received jobs |
 
@@ -65,6 +66,8 @@
 | `/rest/jobs/<uuid:job_id>/files/<uuid:file_id>/thumbnail/` | `job_file_thumbnail_view.JobFileThumbnailView` | `jobs:job_file_thumbnail` | Thumbnail serving for job files. |
 | `/rest/jobs/<uuid:job_id>/header/` | `job_rest_views.JobHeaderRestView` | `jobs:job_header_rest` | REST view for Job header information. |
 | `/rest/jobs/<uuid:job_id>/invoices/` | `job_rest_views.JobInvoicesRestView` | `jobs:job_invoices_rest` | REST view for Job invoices. |
+| `/rest/jobs/<uuid:job_id>/jsa/` | `safety_viewsets.JSAListView` | `jobs:jsa_list` | List all JSAs for a job. |
+| `/rest/jobs/<uuid:job_id>/jsa/generate/` | `safety_viewsets.JSAGenerateView` | `jobs:jsa_generate` | Generate a new JSA for a job. |
 | `/rest/jobs/<uuid:job_id>/quote/` | `job_rest_views.JobQuoteRestView` | `jobs:job_quote_rest` | REST view for Job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/accept/` | `job_rest_views.JobQuoteAcceptRestView` | `jobs:job_quote_accept_rest` | REST view for accepting job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/import/` | `<lambda>` | `jobs:quote_import_deprecated` | Lambda function endpoint |
@@ -81,6 +84,15 @@
 | `/rest/jobs/status-choices/` | `job_rest_views.JobStatusChoicesRestView` | `jobs:job_status_choices_rest` | REST view for Job status choices. |
 | `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
+| `/rest/safety-ai/generate-controls/` | `safety_viewsets.AIGenerateControlsView` | `jobs:ai_generate_controls` | Generate controls for hazards using AI. |
+| `/rest/safety-ai/generate-hazards/` | `safety_viewsets.AIGenerateHazardsView` | `jobs:ai_generate_hazards` | Generate hazards for a task description using AI. |
+| `/rest/safety-ai/improve-document/` | `safety_viewsets.AIImproveDocumentView` | `jobs:ai_improve_document` | Improve an entire document using AI. |
+| `/rest/safety-ai/improve-section/` | `safety_viewsets.AIImproveSectionView` | `jobs:ai_improve_section` | Improve a section of text using AI. |
+| `/rest/safety-documents/<uuid:pk>/content/` | `safety_viewsets.SafetyDocumentContentView` | `jobs:safety_document_content` | GET/PUT content for a safety document stored in Google Docs. |
+| `/rest/sop/` | `safety_viewsets.SOPListView` | `jobs:sop_list` | List all Standard Operating Procedures. |
+| `/rest/sop/generate/` | `safety_viewsets.SOPGenerateView` | `jobs:sop_generate` | Generate a new Standard Operating Procedure. |
+| `/rest/swp/` | `safety_viewsets.SWPListView` | `jobs:swp_list` | List all Safe Work Procedures. |
+| `/rest/swp/generate/` | `safety_viewsets.SWPGenerateView` | `jobs:swp_generate` | Generate a new Safe Work Procedure. |
 | `/rest/timesheet/entries/` | `modern_timesheet_views.ModernTimesheetEntryView` | `jobs:modern_timesheet_entry_rest` | Modern timesheet entry management using CostLine architecture |
 | `/rest/timesheet/jobs/<uuid:job_id>/` | `modern_timesheet_views.ModernTimesheetJobView` | `jobs:modern_timesheet_job_rest` | Get timesheet entries for a specific job |
 | `/rest/timesheet/staff/<uuid:staff_id>/date/<str:entry_date>/` | `modern_timesheet_views.ModernTimesheetDayView` | `jobs:modern_timesheet_day_rest` | Get timesheet entries for a specific day and staff |
