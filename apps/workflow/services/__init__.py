@@ -15,6 +15,7 @@ try:
             persist_app_error,
             persist_xero_error,
         )
+        from .llm_service import LLMService, quick_completion, quick_json_completion
         from .validation import validate_required_fields
         from .xero_sync_service import XeroSyncService
 except (ImportError, RuntimeError):
@@ -23,6 +24,7 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "AWSService",
+    "LLMService",
     "XeroSyncService",
     "extract_job_context",
     "extract_request_context",
@@ -31,5 +33,7 @@ __all__ = [
     "persist_and_raise",
     "persist_app_error",
     "persist_xero_error",
+    "quick_completion",
+    "quick_json_completion",
     "validate_required_fields",
 ]
