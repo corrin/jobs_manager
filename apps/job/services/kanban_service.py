@@ -469,13 +469,13 @@ class KanbanService:
 
             # Apply limit and ordering
             jobs = jobs_query.order_by("-priority")[:max_jobs]
-            logger.info(
+            logger.debug(
                 f"Jobs fetched for column {column_id} (ordered by priority): {[job.job_number for job in jobs]}"
             )
 
             # Format jobs using the unified serializer
             formatted_jobs = [KanbanService.serialize_job_for_api(job) for job in jobs]
-            logger.info(
+            logger.debug(
                 f"Formatted jobs for column {column_id}: {[job['job_number'] for job in formatted_jobs]}"
             )
 
