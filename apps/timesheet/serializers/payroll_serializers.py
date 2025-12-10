@@ -7,7 +7,7 @@ DRF serializers for Xero Payroll API endpoints
 from rest_framework import serializers
 
 
-class CreatePayRunRequestSerializer(serializers.Serializer):
+class CreatePayRunSerializer(serializers.Serializer):
     """Request serializer for creating a pay run"""
 
     week_start_date = serializers.DateField(help_text="Monday of the week (YYYY-MM-DD)")
@@ -23,7 +23,7 @@ class CreatePayRunResponseSerializer(serializers.Serializer):
     payment_date = serializers.DateField()
 
 
-class PostWeekToXeroRequestSerializer(serializers.Serializer):
+class PostWeekToXeroSerializer(serializers.Serializer):
     """Request serializer for posting weekly timesheet to Xero"""
 
     staff_id = serializers.UUIDField(help_text="Staff member UUID")

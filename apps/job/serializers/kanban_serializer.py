@@ -5,7 +5,7 @@ Serializers for Kanban views.
 from rest_framework import serializers
 
 
-class JobReorderRequestSerializer(serializers.Serializer):
+class JobReorderSerializer(serializers.Serializer):
     """Serializer for job reorder request data."""
 
     before_id = serializers.UUIDField(
@@ -21,7 +21,7 @@ class JobReorderRequestSerializer(serializers.Serializer):
     )
 
 
-class JobStatusUpdateRequestSerializer(serializers.Serializer):
+class JobStatusUpdateSerializer(serializers.Serializer):
     """Serializer for job status update request data."""
 
     status = serializers.CharField(help_text="New status for the job")

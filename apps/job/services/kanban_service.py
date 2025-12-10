@@ -352,6 +352,15 @@ class KanbanService:
         jobs_query = Job.objects.all()
         logger.info(f"Performing advanced search with filters: {filters}")
 
+        # Universal search - searches across multiple fields with OR logic
+        if q := filters.get("universal_search", "").strip():
+            jobs_query = jobs_query.filter(
+                Q(name__icontains=q)
+                | Q(job_number__icontains=q)
+                | Q(description__icontains=q)
+                | Q(client__name__icontains=q)
+            )
+
         # Apply filters with early returns for invalid data
         if number := filters.get("job_number", "").strip():
             jobs_query = jobs_query.filter(job_number=number)

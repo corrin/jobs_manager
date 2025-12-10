@@ -17,7 +17,7 @@ from rest_framework.views import APIView
 from apps.job.models import Job
 from apps.job.serializers import (
     JobQuoteChatInteractionErrorResponseSerializer,
-    JobQuoteChatInteractionRequestSerializer,
+    JobQuoteChatInteractionSerializer,
     JobQuoteChatInteractionSuccessResponseSerializer,
 )
 from apps.job.services.gemini_chat_service import GeminiChatService
@@ -41,10 +41,10 @@ class JobQuoteChatInteractionView(APIView):
 
     # Only allow POST (and implicit OPTIONS for CORS pre-flight)
     http_method_names = ["post", "options"]
-    serializer_class = JobQuoteChatInteractionRequestSerializer
+    serializer_class = JobQuoteChatInteractionSerializer
 
     @extend_schema(
-        request=JobQuoteChatInteractionRequestSerializer,
+        request=JobQuoteChatInteractionSerializer,
         responses={
             201: OpenApiResponse(
                 response=JobQuoteChatInteractionSuccessResponseSerializer,
@@ -76,7 +76,7 @@ class JobQuoteChatInteractionView(APIView):
         assistant's reply.
         """
         # Validate input data
-        serializer = JobQuoteChatInteractionRequestSerializer(data=request.data)
+        serializer = JobQuoteChatInteractionSerializer(data=request.data)
         if not serializer.is_valid():
             error_response = {
                 "success": False,

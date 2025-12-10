@@ -438,7 +438,7 @@ class CompleteJobSerializer(serializers.ModelSerializer):
         fields = ["id", "job_number", "name", "client_name", "updated_at", "job_status"]
 
 
-class JobCreateRequestSerializer(serializers.Serializer):
+class JobCreateSerializer(serializers.Serializer):
     """Serializer for job creation request data."""
 
     name = serializers.CharField(max_length=255)
@@ -495,11 +495,10 @@ class JobDeleteResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
-class AssignJobRequestSerializer(serializers.Serializer):
-    """Serialiser for job assignment request"""
+class AssignJobSerializer(serializers.Serializer):
+    """Serialiser for job assignment request (job_id comes from URL)"""
 
-    job_id = serializers.CharField(help_text="Job ID")
-    staff_id = serializers.CharField(help_text="Staff ID")
+    staff_id = serializers.UUIDField(help_text="Staff ID to assign to the job")
 
 
 class AssignJobResponseSerializer(serializers.Serializer):
@@ -509,7 +508,7 @@ class AssignJobResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
-class ArchiveJobsRequestSerializer(serializers.Serializer):
+class ArchiveJobsSerializer(serializers.Serializer):
     """Serialiser for job archiving request"""
 
     ids = serializers.ListField(
@@ -589,7 +588,7 @@ class MonthEndGetResponseSerializer(serializers.Serializer):
     stock_job = MonthEndStockJobSerializer()
 
 
-class MonthEndPostRequestSerializer(serializers.Serializer):
+class MonthEndPostSerializer(serializers.Serializer):
     """Serializer for month-end POST request"""
 
     job_ids = serializers.ListField(
@@ -647,7 +646,7 @@ class ModernTimesheetEntryGetResponseSerializer(serializers.Serializer):
     summary = ModernTimesheetSummarySerializer()
 
 
-class ModernTimesheetEntryPostRequestSerializer(serializers.Serializer):
+class ModernTimesheetEntryPostSerializer(serializers.Serializer):
     """Serializer for timesheet entry POST request"""
 
     job_id = serializers.UUIDField()
@@ -688,7 +687,7 @@ class ModernTimesheetErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField(help_text="Error message")
 
 
-class JobEventCreateRequestSerializer(serializers.Serializer):
+class JobEventCreateSerializer(serializers.Serializer):
     """Serializer for job event creation request"""
 
     description = serializers.CharField(max_length=500)
@@ -961,7 +960,7 @@ class JobBasicInformationResponseSerializer(serializers.Serializer):
     notes = serializers.CharField(allow_blank=True, allow_null=True)
 
 
-class JobPatchRequestSerializer(serializers.Serializer):
+class JobPatchSerializer(serializers.Serializer):
     """Serializer for job PATCH request - all updatable fields are optional"""
 
     # Basic job information
@@ -1098,7 +1097,7 @@ class JobDeltaEnvelopeSerializer(serializers.Serializer):
     etag = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
 
-class JobUndoRequestSerializer(serializers.Serializer):
+class JobUndoSerializer(serializers.Serializer):
     """Request serializer for undoing a job delta."""
 
     change_id = serializers.UUIDField()

@@ -6,37 +6,24 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.serializers import AssignJobRequestSerializer, AssignJobResponseSerializer
+from apps.job.serializers import AssignJobResponseSerializer, AssignJobSerializer
 from apps.job.services.job_service import JobStaffService
 
 logger = logging.getLogger(__name__)
 
 
-class AssignJobView(APIView):
-    """API Endpoint for activities related to job assignment"""
+class JobAssignmentCreateView(APIView):
+    """API Endpoint to assign staff to a job (POST /api/job/<job_id>/assignment)"""
 
     permission_classes = [IsAuthenticated]
-    serializer_class = AssignJobResponseSerializer
-
-    def get_serializer_class(self):
-        """Return the serializer class for documentation"""
-        if hasattr(self, "action") and self.action in ["post", "delete"]:
-            return AssignJobRequestSerializer
-        return AssignJobResponseSerializer
-
-    def get_serializer(self, *args, **kwargs):
-        """Return the serializer instance"""
-        serializer_class = self.get_serializer_class()
-        return serializer_class(*args, **kwargs)
 
     @extend_schema(
-        request=AssignJobRequestSerializer,
+        request=AssignJobSerializer,
         responses={status.HTTP_200_OK: AssignJobResponseSerializer},
     )
-    def post(self, request, *args, **kwargs):
+    def post(self, request, job_id):
         try:
-            # Validate request data
-            request_serializer = AssignJobRequestSerializer(data=request.data)
+            request_serializer = AssignJobSerializer(data=request.data)
             if not request_serializer.is_valid():
                 response_serializer = AssignJobResponseSerializer(
                     data={"success": False, "error": "Invalid request data"}
@@ -47,7 +34,6 @@ class AssignJobView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            job_id = request_serializer.validated_data["job_id"]
             staff_id = request_serializer.validated_data["staff_id"]
 
             success, error = JobStaffService.assign_staff_to_job(job_id, staff_id)
@@ -82,27 +68,17 @@ class AssignJobView(APIView):
                 status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+
+class JobAssignmentDeleteView(APIView):
+    """API Endpoint to remove staff from a job (DELETE /api/job/<job_id>/assignment/<staff_id>)"""
+
+    permission_classes = [IsAuthenticated]
+
     @extend_schema(
-        request=AssignJobRequestSerializer,
         responses={status.HTTP_200_OK: AssignJobResponseSerializer},
     )
-    def delete(self, request, job_id):
+    def delete(self, request, job_id, staff_id):
         try:
-            # Validate request data
-            request_serializer = AssignJobRequestSerializer(data=request.data)
-            if not request_serializer.is_valid():
-                logger.error(f"Invalid request data: {request_serializer.errors}")
-                response_serializer = AssignJobResponseSerializer(
-                    data={"success": False, "error": "Invalid request data"}
-                )
-                response_serializer.is_valid(raise_exception=True)
-                return Response(
-                    response_serializer.data,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            staff_id = request_serializer.validated_data["staff_id"]
-
             success, error = JobStaffService.remove_staff_from_job(job_id, staff_id)
 
             if success:

@@ -21,8 +21,8 @@ from apps.job.serializers import (
     FetchJobsByColumnResponseSerializer,
     FetchJobsResponseSerializer,
     FetchStatusValuesResponseSerializer,
-    JobReorderRequestSerializer,
-    JobStatusUpdateRequestSerializer,
+    JobReorderSerializer,
+    JobStatusUpdateSerializer,
     KanbanErrorResponseSerializer,
     KanbanSuccessResponseSerializer,
 )
@@ -94,7 +94,7 @@ class UpdateJobStatusAPIView(APIView):
     def get_serializer_class(self):
         """Return the serializer class for documentation"""
         if self.request.method == "POST":
-            return JobStatusUpdateRequestSerializer
+            return JobStatusUpdateSerializer
         return KanbanSuccessResponseSerializer
 
     def get_serializer(self, *args, **kwargs):
@@ -103,7 +103,7 @@ class UpdateJobStatusAPIView(APIView):
         return serializer_class(*args, **kwargs)
 
     @extend_schema(
-        request=JobStatusUpdateRequestSerializer,
+        request=JobStatusUpdateSerializer,
         responses={
             200: KanbanSuccessResponseSerializer,
             400: KanbanErrorResponseSerializer,
@@ -115,7 +115,7 @@ class UpdateJobStatusAPIView(APIView):
     def post(self, request: Request, job_id: UUID) -> Response:
         try:
             # Validate input data
-            serializer = JobStatusUpdateRequestSerializer(data=request.data)
+            serializer = JobStatusUpdateSerializer(data=request.data)
             if not serializer.is_valid():
                 error_response = {
                     "success": False,
@@ -165,7 +165,7 @@ class ReorderJobAPIView(APIView):
     def get_serializer_class(self):
         """Return the serializer class for documentation"""
         if self.request.method == "POST":
-            return JobReorderRequestSerializer
+            return JobReorderSerializer
         return KanbanSuccessResponseSerializer
 
     def get_serializer(self, *args, **kwargs):
@@ -174,7 +174,7 @@ class ReorderJobAPIView(APIView):
         return serializer_class(*args, **kwargs)
 
     @extend_schema(
-        request=JobReorderRequestSerializer,
+        request=JobReorderSerializer,
         responses={
             200: KanbanSuccessResponseSerializer,
             400: KanbanErrorResponseSerializer,
@@ -186,7 +186,7 @@ class ReorderJobAPIView(APIView):
     def post(self, request: Request, job_id: UUID) -> Response:
         try:
             # Validate input data
-            serializer = JobReorderRequestSerializer(data=request.data)
+            serializer = JobReorderSerializer(data=request.data)
             if not serializer.is_valid():
                 error_response = {
                     "success": False,
@@ -312,6 +312,13 @@ class AdvancedSearchAPIView(APIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(
+                name="q",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Universal search - searches across job number, name, description, and client name with OR logic",
+            ),
+            OpenApiParameter(
                 name="job_number",
                 type=str,
                 location=OpenApiParameter.QUERY,
@@ -402,6 +409,7 @@ class AdvancedSearchAPIView(APIView):
         try:
             # Extract filters from GET parameters
             filters = {
+                "universal_search": request.GET.get("q", ""),
                 "job_number": request.GET.get("job_number", ""),
                 "name": request.GET.get("name", ""),
                 "description": request.GET.get("description", ""),

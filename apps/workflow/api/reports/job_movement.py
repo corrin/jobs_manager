@@ -12,6 +12,8 @@ Provides metrics for management meetings focused on job lifecycle and conversion
 from datetime import datetime
 
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -221,6 +223,7 @@ class JobMovementMetricsView(APIView):
             if event.job  # Safety check
         ]
 
+    @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         """
         Handle GET request for job movement metrics.

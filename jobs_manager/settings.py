@@ -778,6 +778,26 @@ LOGGING = {
             "level": "WARNING",
             "propagate": False,
         },
+        "LiteLLM": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "litellm": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "httpx": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "httpcore": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
         "apps.accounts": {
             "handlers": ["auth_file"],
             "level": "INFO",

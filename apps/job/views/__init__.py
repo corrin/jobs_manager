@@ -4,7 +4,7 @@ from .archive_completed_jobs_view import (
     ArchiveCompleteJobsViews,
     StandardResultsSetPagination,
 )
-from .assign_job_view import AssignJobView
+from .assign_job_view import JobAssignmentCreateView, JobAssignmentDeleteView
 from .data_integrity_views import DataIntegrityReportView
 from .data_quality_report_views import ArchivedJobsComplianceView
 from .delivery_docket_view import DeliveryDocketView
@@ -75,16 +75,44 @@ try:
             ReorderJobAPIView,
             UpdateJobStatusAPIView,
         )
+        from .safety_viewsets import (
+            AIGenerateControlsView,
+            AIGenerateHazardsView,
+            AIImproveDocumentView,
+            AIImproveSectionView,
+            GenerateControlsRequestSerializer,
+            GenerateControlsResponseSerializer,
+            GenerateHazardsRequestSerializer,
+            GenerateHazardsResponseSerializer,
+            ImproveDocumentRequestSerializer,
+            ImproveDocumentResponseSerializer,
+            ImproveSectionRequestSerializer,
+            ImproveSectionResponseSerializer,
+            JSAGenerateView,
+            JSAListView,
+            SOPGenerateRequestSerializer,
+            SOPGenerateView,
+            SOPListView,
+            SWPGenerateView,
+            SWPListView,
+            SafetyDocumentContentResponseSerializer,
+            SafetyDocumentContentUpdateSerializer,
+            SafetyDocumentContentView,
+            SafetyDocumentViewSet,
+        )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
 __all__ = [
+    "AIGenerateControlsView",
+    "AIGenerateHazardsView",
+    "AIImproveDocumentView",
+    "AIImproveSectionView",
     "AdvancedSearchAPIView",
     "ApplyQuoteAPIView",
     "ArchiveCompleteJobsViews",
     "ArchivedJobsComplianceView",
-    "AssignJobView",
     "BaseJobQuoteChatView",
     "BaseJobRestView",
     "BinaryFileRenderer",
@@ -97,6 +125,18 @@ __all__ = [
     "FetchJobsAPIView",
     "FetchJobsByColumnAPIView",
     "FetchStatusValuesAPIView",
+    "GenerateControlsRequestSerializer",
+    "GenerateControlsResponseSerializer",
+    "GenerateHazardsRequestSerializer",
+    "GenerateHazardsResponseSerializer",
+    "ImproveDocumentRequestSerializer",
+    "ImproveDocumentResponseSerializer",
+    "ImproveSectionRequestSerializer",
+    "ImproveSectionResponseSerializer",
+    "JSAGenerateView",
+    "JSAListView",
+    "JobAssignmentCreateView",
+    "JobAssignmentDeleteView",
     "JobBasicInformationRestView",
     "JobCostSetView",
     "JobCostSummaryRestView",
@@ -130,6 +170,15 @@ __all__ = [
     "QuoteImportStatusView",
     "QuoteImportView",
     "ReorderJobAPIView",
+    "SOPGenerateRequestSerializer",
+    "SOPGenerateView",
+    "SOPListView",
+    "SWPGenerateView",
+    "SWPListView",
+    "SafetyDocumentContentResponseSerializer",
+    "SafetyDocumentContentUpdateSerializer",
+    "SafetyDocumentContentView",
+    "SafetyDocumentViewSet",
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
     "WeeklyMetricsRestView",

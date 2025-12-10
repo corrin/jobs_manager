@@ -2,14 +2,17 @@
 Chat File Service
 
 Handles extraction of file attachments from chat messages and conversion
-to formats suitable for AI model consumption (Gemini).
+to formats suitable for AI model consumption.
+
+Note: Multimodal file handling varies by LLM provider. This service provides
+basic file metadata and content extraction. For actual multimodal input,
+use the LLMService.create_image_message() or create_pdf_message() helpers.
 """
 
+import base64
 import logging
 import os
-from typing import Any, List, Set
-
-import google.generativeai as genai
+from typing import Any, Dict, List, Set
 
 from apps.job.models import JobFile, JobQuoteChat
 
@@ -64,91 +67,108 @@ class ChatFileService:
         return list(files)
 
     @staticmethod
-    def build_file_content_for_gemini(job_file: JobFile) -> Any:
+    def get_file_info(job_file: JobFile) -> Dict[str, Any]:
         """
-        Convert a JobFile into content suitable for Gemini API.
-
-        Gemini supports uploading files via genai.upload_file() for:
-        - Images (JPEG, PNG, GIF, WebP)
-        - PDFs
-        - Audio, Video, and other supported formats
+        Get file information for a JobFile.
 
         Args:
-            job_file: JobFile instance to process
+            job_file: JobFile instance
 
         Returns:
-            Gemini File object or dict with text for unsupported files
+            Dict with file metadata
         """
-        mime_type = job_file.mime_type or "application/octet-stream"
         file_full_path = os.path.join(job_file.full_path, job_file.filename)
 
-        # Check if file exists
+        return {
+            "id": str(job_file.id),
+            "filename": job_file.filename,
+            "mime_type": job_file.mime_type or "application/octet-stream",
+            "full_path": file_full_path,
+            "exists": os.path.exists(file_full_path),
+        }
+
+    @staticmethod
+    def get_file_as_base64(job_file: JobFile) -> Dict[str, Any]:
+        """
+        Get file content as base64 for multimodal API calls.
+
+        Args:
+            job_file: JobFile instance
+
+        Returns:
+            Dict with base64 content and metadata, or error info
+        """
+        file_full_path = os.path.join(job_file.full_path, job_file.filename)
+        mime_type = job_file.mime_type or "application/octet-stream"
+
         if not os.path.exists(file_full_path):
             logger.warning(
                 f"File not found: {file_full_path} for JobFile {job_file.id}"
             )
-            return {"text": f"[File not found: {job_file.filename}]"}
+            return {
+                "error": True,
+                "message": f"File not found: {job_file.filename}",
+            }
 
-        # Upload supported file types using Gemini File API
+        # Check if file type is supported for multimodal
         supported_types = [
             "image/",
             "application/pdf",
-            "audio/",
-            "video/",
         ]
 
-        if any(mime_type.startswith(t) for t in supported_types):
-            return ChatFileService._upload_file_to_gemini(
-                file_full_path, mime_type, job_file.filename
-            )
+        if not any(mime_type.startswith(t) for t in supported_types):
+            return {
+                "error": False,
+                "text_only": True,
+                "filename": job_file.filename,
+                "mime_type": mime_type,
+            }
 
-        # Handle other files
-        return {"text": f"\n\n[File attached: {job_file.filename} - {mime_type}]\n"}
+        try:
+            with open(file_full_path, "rb") as f:
+                content = base64.b64encode(f.read()).decode("utf-8")
+
+            return {
+                "error": False,
+                "filename": job_file.filename,
+                "mime_type": mime_type,
+                "base64_content": content,
+                "data_url": f"data:{mime_type};base64,{content}",
+            }
+        except Exception as e:
+            logger.error(f"Error reading file {file_full_path}: {e}")
+            return {
+                "error": True,
+                "message": f"Error reading file: {job_file.filename}",
+            }
 
     @staticmethod
-    def _upload_file_to_gemini(file_path: str, mime_type: str, filename: str) -> Any:
+    def build_file_reference(job_file: JobFile) -> str:
         """
-        Upload a file to Gemini using the File API.
+        Build a text reference for a file (for non-multimodal contexts).
 
         Args:
-            file_path: Full path to the file
-            mime_type: MIME type of the file
-            filename: Display name for the file
+            job_file: JobFile instance
 
         Returns:
-            Gemini File object or error dict
+            Text description of the file attachment
         """
-        try:
-            # Upload file to Gemini
-            uploaded_file = genai.upload_file(
-                path=file_path, mime_type=mime_type, display_name=filename
-            )
-
-            logger.info(
-                f"Uploaded file to Gemini: {filename} (URI: {uploaded_file.uri})"
-            )
-            return uploaded_file
-
-        except Exception as e:
-            logger.error(f"Failed to upload file {file_path} to Gemini: {e}")
-            return {"text": f"[Error uploading file: {filename}]"}
+        mime_type = job_file.mime_type or "unknown type"
+        return f"[Attached file: {job_file.filename} ({mime_type})]"
 
     @staticmethod
-    def build_file_contents_for_gemini(job_files: List[JobFile]) -> List[Any]:
+    def build_file_references(job_files: List[JobFile]) -> str:
         """
-        Build list of file contents for Gemini API from multiple files.
+        Build text references for multiple files.
 
         Args:
             job_files: List of JobFile instances
 
         Returns:
-            List of Gemini File objects or content dictionaries
+            Text description of file attachments
         """
-        file_contents = []
+        if not job_files:
+            return ""
 
-        for job_file in job_files:
-            content = ChatFileService.build_file_content_for_gemini(job_file)
-            file_contents.append(content)
-
-        logger.debug(f"Built content for {len(file_contents)} files")
-        return file_contents
+        refs = [ChatFileService.build_file_reference(f) for f in job_files]
+        return "\n".join(refs)
