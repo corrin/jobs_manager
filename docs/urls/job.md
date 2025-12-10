@@ -12,7 +12,8 @@
 #### Job Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/job/<uuid:job_id>/assignment/` | `assign_job_view.AssignJobView` | `jobs:api_job_assigment` | API Endpoint for activities related to job assignment |
+| `/api/job/<uuid:job_id>/assignment/` | `assign_job_view.JobAssignmentCreateView` | `jobs:api_job_assignment` | API Endpoint to assign staff to a job (POST /api/job/<job_id>/assignment) |
+| `/api/job/<uuid:job_id>/assignment/<uuid:staff_id>/` | `assign_job_view.JobAssignmentDeleteView` | `jobs:api_job_assignment_staff` | API Endpoint to remove staff from a job (DELETE /api/job/<job_id>/assignment/<staff_id>) |
 | `/api/job/completed/` | `archive_completed_jobs_view.ArchiveCompleteJobsListAPIView` | `jobs:api_jobs_completed` | API Endpoint to provide Job data for archiving display |
 | `/api/job/completed/archive/` | `archive_completed_jobs_view.ArchiveCompleteJobsAPIView` | `jobs:api_jobs_archive` | API Endpoint to set 'paid' flag as True in the received jobs |
 

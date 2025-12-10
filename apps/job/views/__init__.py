@@ -4,7 +4,7 @@ from .archive_completed_jobs_view import (
     ArchiveCompleteJobsViews,
     StandardResultsSetPagination,
 )
-from .assign_job_view import AssignJobView
+from .assign_job_view import JobAssignmentCreateView, JobAssignmentDeleteView
 from .data_integrity_views import DataIntegrityReportView
 from .data_quality_report_views import ArchivedJobsComplianceView
 from .delivery_docket_view import DeliveryDocketView
@@ -113,7 +113,6 @@ __all__ = [
     "ApplyQuoteAPIView",
     "ArchiveCompleteJobsViews",
     "ArchivedJobsComplianceView",
-    "AssignJobView",
     "BaseJobQuoteChatView",
     "BaseJobRestView",
     "BinaryFileRenderer",
@@ -136,6 +135,8 @@ __all__ = [
     "ImproveSectionResponseSerializer",
     "JSAGenerateView",
     "JSAListView",
+    "JobAssignmentCreateView",
+    "JobAssignmentDeleteView",
     "JobBasicInformationRestView",
     "JobCostSetView",
     "JobCostSummaryRestView",

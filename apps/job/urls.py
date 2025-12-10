@@ -14,7 +14,8 @@ from django.urls import path
 from apps.job.urls_rest import rest_urlpatterns
 from apps.job.views import (
     ArchiveCompleteJobsViews,
-    AssignJobView,
+    JobAssignmentCreateView,
+    JobAssignmentDeleteView,
     kanban_view_api,
     workshop_view,
 )
@@ -36,8 +37,13 @@ urlpatterns = [
     ),
     path(
         "api/job/<uuid:job_id>/assignment",
-        AssignJobView.as_view(),
-        name="api_job_assigment",
+        JobAssignmentCreateView.as_view(),
+        name="api_job_assignment",
+    ),
+    path(
+        "api/job/<uuid:job_id>/assignment/<uuid:staff_id>",
+        JobAssignmentDeleteView.as_view(),
+        name="api_job_assignment_staff",
     ),
     path(
         "api/company_defaults/",

@@ -496,10 +496,9 @@ class JobDeleteResponseSerializer(serializers.Serializer):
 
 
 class AssignJobSerializer(serializers.Serializer):
-    """Serialiser for job assignment request"""
+    """Serialiser for job assignment request (job_id comes from URL)"""
 
-    job_id = serializers.CharField(help_text="Job ID")
-    staff_id = serializers.CharField(help_text="Staff ID")
+    staff_id = serializers.UUIDField(help_text="Staff ID to assign to the job")
 
 
 class AssignJobResponseSerializer(serializers.Serializer):
