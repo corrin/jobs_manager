@@ -8,7 +8,6 @@ import os
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from django.db.models import Q
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -82,9 +81,8 @@ def build_internal_error_response(
 class StaffListAPIView(APIView):
     """API endpoint to get filtered list of staff members for timesheet operations.
 
-    Returns staff members excluding system users and managers, formatted
-    for timesheet entry forms and interfaces. Filters out staff with
-    is_staff=True and excluded staff IDs from the utility function.
+    Returns staff members excluding those with invalid Xero payroll IDs
+    (admin/system users), formatted for timesheet entry forms and interfaces.
     """
 
     permission_classes = [IsAuthenticated]
@@ -128,7 +126,7 @@ class StaffListAPIView(APIView):
             excluded_staff_ids = get_excluded_staff()
             staff = (
                 Staff.objects.active_on_date(target_date)
-                .exclude(Q(is_staff=True) | Q(id__in=excluded_staff_ids))
+                .exclude(id__in=excluded_staff_ids)
                 .order_by("first_name", "last_name")
             )
 

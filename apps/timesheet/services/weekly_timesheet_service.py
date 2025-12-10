@@ -16,7 +16,6 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from django.db import models
-from django.db.models import Q
 from django.db.models.expressions import RawSQL
 
 from apps.accounts.models import Staff
@@ -83,9 +82,9 @@ class WeeklyTimesheetService:
     def _get_staff_data(cls, week_days: List[date]) -> List[Dict[str, Any]]:
         """Get comprehensive staff data for the week with payroll fields."""
         excluded_staff_ids = get_excluded_staff()
-        staff_members = Staff.objects.exclude(
-            Q(is_staff=True) | Q(id__in=excluded_staff_ids)
-        ).order_by("first_name", "last_name")
+        staff_members = Staff.objects.exclude(id__in=excluded_staff_ids).order_by(
+            "first_name", "last_name"
+        )
 
         staff_data = []
 
