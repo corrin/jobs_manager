@@ -72,11 +72,11 @@ class DailyTimesheetService:
         staff_data = []
         excluded_staff_ids = get_excluded_staff(target_date=target_date)
 
-        # Mirror weekly timesheet inclusion: exclude admin/system users and excluded list,
-        # but do not drop staff based on date_left/date_joined (handled by scheduler checks instead).
-        active_staff = Staff.objects.exclude(
-            models.Q(is_staff=True) | models.Q(id__in=excluded_staff_ids)
-        ).order_by("first_name", "last_name")
+        # Exclude staff with invalid Xero payroll IDs (admin/system users).
+        # Do not drop staff based on date_left/date_joined (handled by scheduler checks instead).
+        active_staff = Staff.objects.exclude(id__in=excluded_staff_ids).order_by(
+            "first_name", "last_name"
+        )
 
         for staff in active_staff:
             # Check if staff member has working hours for this specific date
