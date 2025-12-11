@@ -795,3 +795,132 @@ def create_employee_leave(
                 "leave_type_id": leave_type_id,
             },
         )
+
+
+# =============================================================================
+# Sync-focused API functions
+# These return raw Xero objects for use by the sync system
+# =============================================================================
+
+
+def get_pay_runs_for_sync(**kwargs):
+    """
+    Fetch pay runs from Xero Payroll API for sync purposes.
+
+    Returns raw PayRun objects (not converted to dicts) so they can be
+    serialized to raw_json by the sync system.
+
+    Returns:
+        Object with .pay_runs attribute containing list of PayRun objects
+    """
+    tenant_id = kwargs.get("xero_tenant_id") or get_tenant_id()
+    if not tenant_id:
+        logger.warning("No Xero tenant ID configured for payroll sync")
+        return type("obj", (object,), {"pay_runs": []})()
+
+    payroll_api = PayrollNzApi(api_client)
+
+    try:
+        logger.info("Fetching Xero pay runs for sync")
+        response = payroll_api.get_pay_runs(xero_tenant_id=tenant_id)
+
+        if response and response.pay_runs:
+            logger.info(f"Retrieved {len(response.pay_runs)} pay runs for sync")
+            return response
+        return type("obj", (object,), {"pay_runs": []})()
+    except Exception as exc:
+        logger.error(f"Failed to get pay runs for sync: {exc}", exc_info=True)
+        # Don't raise - let sync continue with empty list
+        return type("obj", (object,), {"pay_runs": []})()
+
+
+def get_pay_slips_for_sync(pay_run_id: str, **kwargs):
+    """
+    Fetch pay slips for a specific pay run from Xero Payroll API.
+
+    Returns raw PaySlip objects (not converted to dicts) so they can be
+    serialized to raw_json by the sync system.
+
+    Args:
+        pay_run_id: The Xero pay run ID to fetch slips for
+
+    Returns:
+        Object with .pay_slips attribute containing list of PaySlip objects
+    """
+    tenant_id = kwargs.get("xero_tenant_id") or get_tenant_id()
+    if not tenant_id:
+        logger.warning("No Xero tenant ID configured for payroll sync")
+        return type("obj", (object,), {"pay_slips": []})()
+
+    payroll_api = PayrollNzApi(api_client)
+
+    try:
+        logger.debug(f"Fetching pay slips for pay run {pay_run_id}")
+        response = payroll_api.get_pay_slips(
+            xero_tenant_id=tenant_id, pay_run_id=pay_run_id
+        )
+
+        if response and response.pay_slips:
+            logger.debug(f"Retrieved {len(response.pay_slips)} pay slips")
+            return response
+        return type("obj", (object,), {"pay_slips": []})()
+    except Exception as exc:
+        logger.error(
+            f"Failed to get pay slips for pay run {pay_run_id}: {exc}", exc_info=True
+        )
+        # Don't raise - let sync continue with empty list
+        return type("obj", (object,), {"pay_slips": []})()
+
+
+def get_all_pay_slips_for_sync(**kwargs):
+    """
+    Fetch ALL pay slips across ALL pay runs from Xero Payroll API.
+
+    This iterates through all pay runs and fetches their pay slips.
+    Note: This makes N+1 API calls (1 for pay runs, N for each pay run's slips).
+
+    Returns:
+        Object with .pay_slips attribute containing list of all PaySlip objects
+    """
+    tenant_id = kwargs.get("xero_tenant_id") or get_tenant_id()
+    if not tenant_id:
+        logger.warning("No Xero tenant ID configured for payroll sync")
+        return type("obj", (object,), {"pay_slips": []})()
+
+    payroll_api = PayrollNzApi(api_client)
+
+    try:
+        # First get all pay runs
+        logger.info("Fetching all pay runs to gather pay slips")
+        pay_runs_response = payroll_api.get_pay_runs(xero_tenant_id=tenant_id)
+
+        if not pay_runs_response or not pay_runs_response.pay_runs:
+            logger.info("No pay runs found")
+            return type("obj", (object,), {"pay_slips": []})()
+
+        all_pay_slips = []
+        for pay_run in pay_runs_response.pay_runs:
+            pay_run_id = str(pay_run.pay_run_id)
+            logger.debug(f"Fetching pay slips for pay run {pay_run_id}")
+
+            try:
+                slips_response = payroll_api.get_pay_slips(
+                    xero_tenant_id=tenant_id, pay_run_id=pay_run_id
+                )
+                if slips_response and slips_response.pay_slips:
+                    # Add pay_run reference to each slip for context
+                    for slip in slips_response.pay_slips:
+                        slip._pay_run = pay_run  # Attach parent for transform
+                    all_pay_slips.extend(slips_response.pay_slips)
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to get pay slips for pay run {pay_run_id}: {exc}"
+                )
+                continue
+
+        logger.info(f"Retrieved {len(all_pay_slips)} total pay slips for sync")
+        return type("obj", (object,), {"pay_slips": all_pay_slips})()
+
+    except Exception as exc:
+        logger.error(f"Failed to get all pay slips for sync: {exc}", exc_info=True)
+        return type("obj", (object,), {"pay_slips": []})()
