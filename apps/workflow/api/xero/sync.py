@@ -391,7 +391,6 @@ def transform_stock(xero_item, xero_id):
     # Get basic required fields - NO FALLBACKS, fail early if missing
     item_code = getattr(xero_item, "code", None)
     description = getattr(xero_item, "name", None)
-    notes = getattr(xero_item, "description", None)
     is_tracked = getattr(xero_item, "is_tracked_as_inventory", None)
     xero_last_modified = getattr(xero_item, "updated_date_utc", None)
     raw_json = process_xero_data(xero_item)
@@ -418,7 +417,6 @@ def transform_stock(xero_item, xero_id):
     defaults = {
         "item_code": item_code,
         "description": description,
-        "notes": notes,
         "quantity": quantity_value,
         "raw_json": raw_json,
         "xero_last_modified": xero_last_modified,
@@ -562,10 +560,22 @@ def transform_purchase_order(xero_po, xero_id):
             description = getattr(line, "description", None)
             quantity = getattr(line, "quantity", None)
             if not description or quantity is None:
+                missing = []
+                if not description:
+                    missing.append("description")
+                if quantity is None:
+                    missing.append("quantity")
                 error_msg = (
-                    f"Missing required field for PurchaseOrderLine in PO {xero_id}"
+                    f"Skipping PO line in {po_number} - missing {', '.join(missing)}"
                 )
                 logger.error(error_msg)
+                XeroError.objects.create(
+                    message=error_msg,
+                    data={"po_number": po_number, "missing_fields": missing},
+                    entity="purchase_order_line",
+                    reference_id=str(xero_id),
+                    kind="missing_field",
+                )
                 continue
             try:
                 PurchaseOrderLine.objects.update_or_create(
