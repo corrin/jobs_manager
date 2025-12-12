@@ -1,5 +1,9 @@
 # Deployment Script Consolidation Plan
 
+> **Completed**: 2025-12-12. The consolidated `scripts/deploy.sh` is now used by
+> GitHub Actions CD and the startup service. The redundant scripts
+> (`deploy_app.sh`, `deploy_release.sh`, `deploy_machine.sh`) have been deleted.
+
 ## Objective
 
 Replace the existing deployment scripts (`deploy_app.sh`, `deploy_release.sh`, and `deploy_machine.sh`) with a single, reliable deployment script that runs as the application user.

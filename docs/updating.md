@@ -46,7 +46,7 @@ For servers running with Gunicorn and requiring Xero integration:
 2. Run the deployment script:
 
    ```bash
-   sudo /path/to/adhoc/deploy_release.sh
+   sudo /path/to/jobs_manager/scripts/deploy.sh
    ```
 
    This script will:
