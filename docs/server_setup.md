@@ -215,4 +215,4 @@ sudo systemctl status scheduler
 ## Notes
 
 - Scheduler runs on dedicated instance using systemd service
-- Use `scripts/deploy_release.sh` for automated deployments
+- Use `scripts/deploy.sh` for automated deployments
