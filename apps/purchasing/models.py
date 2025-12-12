@@ -340,7 +340,8 @@ class Stock(models.Model):
     #   5. _create_stock_from_allocation() in apps/purchasing/services/delivery_receipt_service.py
     #   6. get_allocation_details() in apps/purchasing/services/allocation_service.py (subset)
     #   7. sync_stock_to_xero() in apps/workflow/api/xero/stock_sync.py (Xero API format)
-    #   8. consume_stock() in apps/purchasing/services/stock_service.py
+    #   8. transform_stock() in apps/workflow/api/xero/sync.py (sync from Xero)
+    #   9. consume_stock() in apps/purchasing/services/stock_service.py
     #
     # Fields exposed via API serializers
     STOCK_API_FIELDS = [
