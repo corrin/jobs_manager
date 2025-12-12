@@ -17,6 +17,10 @@ from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models.costing import CostLine
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.workflow.api.xero.payroll import (
+    get_all_pay_slips_for_sync,
+    get_pay_runs_for_sync,
+)
 from apps.workflow.api.xero.reprocess_xero import (
     set_client_fields,
     set_invoice_or_bill_fields,
@@ -32,7 +36,13 @@ from apps.workflow.api.xero.xero import (
     update_project,
 )
 from apps.workflow.exceptions import XeroValidationError
-from apps.workflow.models import CompanyDefaults, XeroAccount, XeroJournal
+from apps.workflow.models import (
+    CompanyDefaults,
+    XeroAccount,
+    XeroJournal,
+    XeroPayRun,
+    XeroPaySlip,
+)
 from apps.workflow.services.error_persistence import persist_xero_error
 from apps.workflow.services.validation import validate_required_fields
 from apps.workflow.utils import get_machine_id
@@ -544,6 +554,153 @@ def transform_purchase_order(xero_po, xero_id):
     return po
 
 
+def transform_pay_run(xero_pay_run, xero_id):
+    """Convert a Xero pay run into a XeroPayRun instance.
+
+    Args:
+        xero_pay_run: PayRun object from Xero PayrollNzApi.
+        xero_id: Identifier of the pay run in Xero (pay_run_id).
+
+    Returns:
+        The saved XeroPayRun model.
+    """
+    payroll_calendar_id = getattr(xero_pay_run, "payroll_calendar_id", None)
+    period_start_date = getattr(xero_pay_run, "period_start_date", None)
+    period_end_date = getattr(xero_pay_run, "period_end_date", None)
+    payment_date = getattr(xero_pay_run, "payment_date", None)
+    pay_run_status = getattr(xero_pay_run, "pay_run_status", None)
+    pay_run_type = getattr(xero_pay_run, "pay_run_type", None)
+    total_cost = getattr(xero_pay_run, "total_cost", None)
+    total_pay = getattr(xero_pay_run, "total_pay", None)
+    xero_last_modified = getattr(xero_pay_run, "updated_date_utc", None)
+    raw_json = process_xero_data(xero_pay_run)
+
+    # Convert dates if they're datetime objects
+    if hasattr(period_start_date, "date"):
+        period_start_date = period_start_date.date()
+    if hasattr(period_end_date, "date"):
+        period_end_date = period_end_date.date()
+    if hasattr(payment_date, "date"):
+        payment_date = payment_date.date()
+
+    validate_required_fields(
+        {
+            "period_start_date": period_start_date,
+            "period_end_date": period_end_date,
+            "payment_date": payment_date,
+        },
+        "pay_run",
+        xero_id,
+    )
+
+    pay_run, created = XeroPayRun.objects.update_or_create(
+        xero_id=xero_id,
+        defaults={
+            "payroll_calendar_id": payroll_calendar_id,
+            "period_start_date": period_start_date,
+            "period_end_date": period_end_date,
+            "payment_date": payment_date,
+            "pay_run_status": pay_run_status,
+            "pay_run_type": pay_run_type,
+            "total_cost": Decimal(str(total_cost)) if total_cost else None,
+            "total_pay": Decimal(str(total_pay)) if total_pay else None,
+            "xero_last_modified": xero_last_modified,
+            "xero_last_synced": timezone.now(),
+            "raw_json": raw_json,
+        },
+    )
+
+    if created:
+        logger.info(f"Created XeroPayRun {xero_id} for {payment_date}")
+    else:
+        logger.debug(f"Updated XeroPayRun {xero_id}")
+
+    return pay_run
+
+
+def transform_pay_slip(xero_pay_slip, xero_id):
+    """Convert a Xero pay slip into a XeroPaySlip instance.
+
+    Args:
+        xero_pay_slip: PaySlip object from Xero PayrollNzApi.
+        xero_id: Identifier of the pay slip in Xero (pay_slip_id).
+
+    Returns:
+        The saved XeroPaySlip model, or None if pay run not found.
+    """
+    pay_run_id = getattr(xero_pay_slip, "pay_run_id", None)
+    employee_id = getattr(xero_pay_slip, "employee_id", None)
+    first_name = getattr(xero_pay_slip, "first_name", "")
+    last_name = getattr(xero_pay_slip, "last_name", "")
+    employee_name = f"{first_name} {last_name}".strip()
+
+    gross_earnings = getattr(xero_pay_slip, "gross_earnings", 0) or 0
+    tax_amount = getattr(xero_pay_slip, "tax", 0) or 0
+    net_pay = getattr(xero_pay_slip, "net_pay", 0) or 0
+    xero_last_modified = getattr(xero_pay_slip, "updated_date_utc", None)
+    raw_json = process_xero_data(xero_pay_slip)
+
+    validate_required_fields(
+        {
+            "pay_run_id": pay_run_id,
+            "employee_id": employee_id,
+        },
+        "pay_slip",
+        xero_id,
+    )
+
+    # Find the parent pay run
+    try:
+        pay_run = XeroPayRun.objects.get(xero_id=pay_run_id)
+    except XeroPayRun.DoesNotExist:
+        logger.warning(
+            f"PayRun {pay_run_id} not found for PaySlip {xero_id} - skipping"
+        )
+        return None
+
+    # Extract hours from earnings lines
+    timesheet_hours = Decimal("0")
+    leave_hours = Decimal("0")
+
+    # Get hours from timesheet_earnings_lines (actual worked hours)
+    timesheet_lines = getattr(xero_pay_slip, "timesheet_earnings_lines", None) or []
+    for line in timesheet_lines:
+        units = getattr(line, "number_of_units", None)
+        if units:
+            timesheet_hours += Decimal(str(units))
+
+    # Get hours from leave_earnings_lines (sick, annual leave, etc)
+    leave_lines = getattr(xero_pay_slip, "leave_earnings_lines", None) or []
+    for line in leave_lines:
+        units = getattr(line, "number_of_units", None)
+        if units:
+            leave_hours += Decimal(str(units))
+
+    pay_slip, created = XeroPaySlip.objects.update_or_create(
+        xero_id=xero_id,
+        defaults={
+            "pay_run": pay_run,
+            "xero_employee_id": employee_id,
+            "employee_name": employee_name,
+            "gross_earnings": Decimal(str(gross_earnings)),
+            "tax_amount": Decimal(str(tax_amount)),
+            "net_pay": Decimal(str(net_pay)),
+            "timesheet_hours": timesheet_hours,
+            "leave_hours": leave_hours,
+            "xero_last_modified": xero_last_modified,
+            "xero_last_synced": timezone.now(),
+            "raw_json": raw_json,
+        },
+    )
+
+    if created:
+        logger.debug(f"Created XeroPaySlip {xero_id} for {employee_name}")
+    else:
+        logger.debug(f"Updated XeroPaySlip {xero_id}")
+
+    return pay_slip
+
+
 def sync_clients(xero_contacts):
     """Sync Xero contacts to Client model"""
     clients = []
@@ -924,6 +1081,27 @@ ENTITY_CONFIGS = {
         None,
         "offset",
     ),
+    # Payroll entities - use PayrollNzApi, not AccountingApi
+    "pay_runs": (
+        "pay_runs",
+        "pay_runs",
+        XeroPayRun,
+        "get_pay_runs_for_sync",  # Custom API function
+        lambda items: sync_entities(items, XeroPayRun, "pay_run_id", transform_pay_run),
+        None,
+        "single",  # No pagination for pay runs
+    ),
+    "pay_slips": (
+        "pay_slips",
+        "pay_slips",
+        XeroPaySlip,
+        "get_all_pay_slips_for_sync",  # Custom API function
+        lambda items: sync_entities(
+            items, XeroPaySlip, "pay_slip_id", transform_pay_slip
+        ),
+        None,
+        "single",  # All slips fetched at once
+    ),
 }
 
 
@@ -966,6 +1144,10 @@ def sync_all_xero_data(use_latest_timestamps=True, days_back=30, entities=None):
         # Get API function
         if api_method == "get_xero_items":
             api_func = get_xero_items
+        elif api_method == "get_pay_runs_for_sync":
+            api_func = get_pay_runs_for_sync
+        elif api_method == "get_all_pay_slips_for_sync":
+            api_func = get_all_pay_slips_for_sync
         else:
             api_func = getattr(AccountingApi(api_client), api_method)
 
