@@ -5,7 +5,7 @@ from uuid import UUID
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -17,18 +17,8 @@ from apps.accounts.utils import get_excluded_staff
 logger = logging.getLogger(__name__)
 
 
-class StaffListAPIView(generics.ListAPIView):
-    """API endpoint for retrieving list of staff members for Kanban board.
-
-    Supports filtering to return only actual users (excluding system/test accounts)
-    based on the 'actual_users' query parameter.
-    """
-
-    queryset = Staff.objects.all()
-    serializer_class = KanbanStaffSerializer
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(
+@extend_schema_view(
+    get=extend_schema(
         parameters=[
             OpenApiParameter(
                 name="date",
@@ -48,6 +38,18 @@ class StaffListAPIView(generics.ListAPIView):
             ),
         ]
     )
+)
+class StaffListAPIView(generics.ListAPIView):
+    """API endpoint for retrieving list of staff members for Kanban board.
+
+    Supports filtering to return only actual users (excluding system/test accounts)
+    based on the 'actual_users' query parameter.
+    """
+
+    queryset = Staff.objects.all()
+    serializer_class = KanbanStaffSerializer
+    permission_classes = [IsAuthenticated]
+
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
         serializer = KanbanStaffSerializer(queryset, many=True)
