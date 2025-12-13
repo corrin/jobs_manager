@@ -2,6 +2,7 @@
 
 from .bearer_token_view import BearerTokenView
 from .password_views import SecurityPasswordChangeView
+from .staff_views import StaffListAPIView, get_staff_rates
 from .token_view import CustomTokenObtainPairView, CustomTokenRefreshView, get_client_ip
 from .user_profile_view import GetCurrentUserAPIView, LogoutUserAPIView
 
@@ -15,15 +16,6 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
-# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
-# Import these directly where needed using:
-# from .staff_views import StaffCreateView
-# from .staff_views import StaffListAPIView
-# from .staff_views import StaffListView
-# from .staff_views import StaffUpdateView
-# from .staff_views import get_staff_rates
-#
-
 __all__ = [
     "BearerTokenView",
     "CustomTokenObtainPairView",
@@ -31,7 +23,9 @@ __all__ = [
     "GetCurrentUserAPIView",
     "LogoutUserAPIView",
     "SecurityPasswordChangeView",
+    "StaffListAPIView",
     "StaffListCreateAPIView",
     "StaffRetrieveUpdateDestroyAPIView",
     "get_client_ip",
+    "get_staff_rates",
 ]

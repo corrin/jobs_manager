@@ -230,16 +230,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         allow_null=True,  # <-- To DRF-Spectacular that null is allowed
         help_text="Preferred name (may be null)",
     )
-    is_active = serializers.SerializerMethodField()
 
     def get_fullName(self, obj: Staff) -> str:
         return f"{obj.first_name} {obj.last_name}".strip()
-
-    def get_is_active(self, obj: Staff) -> bool:
-        logger.warning(
-            "get_is_active method in UserProfileSerializer is deprecated. You must pass a date"
-        )
-        return obj.is_currently_active
 
     class Meta:
         model = Staff
@@ -251,7 +244,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "preferred_name",
             "fullName",
-            "is_active",
             "is_staff",
         ]
         read_only_fields = [
@@ -262,7 +254,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "preferred_name",
             "fullName",
-            "is_active",
             "is_staff",
         ]
 

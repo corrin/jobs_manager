@@ -19,7 +19,7 @@ from django.db import models
 from django.db.models.expressions import RawSQL
 
 from apps.accounts.models import Staff
-from apps.accounts.utils import get_excluded_staff
+from apps.accounts.utils import get_displayable_staff
 from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
 
@@ -81,10 +81,7 @@ class WeeklyTimesheetService:
     @classmethod
     def _get_staff_data(cls, week_days: List[date]) -> List[Dict[str, Any]]:
         """Get comprehensive staff data for the week with payroll fields."""
-        excluded_staff_ids = get_excluded_staff()
-        staff_members = Staff.objects.exclude(id__in=excluded_staff_ids).order_by(
-            "first_name", "last_name"
-        )
+        staff_members = get_displayable_staff(date_range=(week_days[0], week_days[-1]))
 
         staff_data = []
 
