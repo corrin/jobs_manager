@@ -5,6 +5,8 @@ ViewSet for ClientContact CRUD operations using DRF's ModelViewSet.
 Provides list, create, retrieve, update, partial_update, and destroy actions.
 """
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import permissions, viewsets
 
 from apps.client.models import ClientContact
@@ -30,6 +32,21 @@ class ClientContactViewSet(viewsets.ModelViewSet):
     queryset = ClientContact.objects.filter(is_active=True)
     serializer_class = ClientContactSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="client_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Filter contacts by client UUID",
+                required=False,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        """List all contacts, optionally filtered by client_id."""
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         """
