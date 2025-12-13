@@ -35,6 +35,15 @@ logger = logging.getLogger(__name__)
                 enum=["true", "false"],
                 default="false",
             ),
+            OpenApiParameter(
+                name="actual_users",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Exclude system/test accounts. Pass "true" to exclude.',
+                required=False,
+                enum=["true", "false"],
+                default="false",
+            ),
         ]
     )
 )
