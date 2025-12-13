@@ -7,7 +7,6 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import generics
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.models import Staff
@@ -56,36 +55,34 @@ class StaffListAPIView(generics.ListAPIView):
         return JsonResponse(serializer.data, safe=False)
 
     def get_queryset(self):
-        staff_log = (
-            f"Fetching staff list with filters:"
-            f" actual_users={self.request.GET.get('actual_users', 'false')}"
-            f" date={self.request.GET.get('date', 'not specified')}"
-            f" include_inactive={self.request.GET.get('include_inactive', 'false')}"
-        )
-        logger.info(staff_log)
-        actual_users_param = self.request.GET.get("actual_users", "false").lower()
-        actual_users = actual_users_param == "true"
+        # Parse parameters upfront
         date_param = self.request.GET.get("date")
+        target_date = (
+            datetime.strptime(date_param, "%Y-%m-%d").date() if date_param else None
+        )
+        actual_users = self.request.GET.get("actual_users", "false").lower() == "true"
         include_inactive = (
             self.request.GET.get("include_inactive", "false").lower() == "true"
         )
 
-        queryset = Staff.objects.all()
+        logger.info(
+            f"Fetching staff list with filters:"
+            f" actual_users={actual_users}"
+            f" date={target_date or 'not specified'}"
+            f" include_inactive={include_inactive}"
+        )
 
-        if not include_inactive:
+        # Build queryset using manager methods
+        if target_date:
+            queryset = Staff.objects.active_on_date(target_date)
+        elif include_inactive:
+            queryset = Staff.objects.all()
+        else:
             queryset = Staff.objects.currently_active()
 
         if actual_users:
-            excluded_ids_str = get_excluded_staff()
-            excluded_ids = [UUID(id_str) for id_str in excluded_ids_str]
+            excluded_ids = [UUID(id_str) for id_str in get_excluded_staff()]
             queryset = queryset.exclude(id__in=excluded_ids)
-
-        if date_param:
-            try:
-                target_date = datetime.strptime(date_param, "%Y-%m-%d").date()
-                queryset = queryset.active_on_date(target_date)
-            except ValueError:
-                raise ValidationError("Invalid date format. Use YYYY-MM-DD")
 
         return queryset
 
