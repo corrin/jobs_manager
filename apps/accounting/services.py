@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from apps.accounting.utils import get_nz_tz
 from apps.accounts.models import Staff
-from apps.accounts.utils import get_excluded_staff
+from apps.accounts.utils import get_displayable_staff, get_excluded_staff
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.job.models.costing import CostLine
@@ -1228,10 +1228,7 @@ class StaffPerformanceService:
             )
 
             # Get all active staff
-            excluded_staff_ids = get_excluded_staff()
-            all_staff = Staff.objects.active_between_dates(
-                start_date, end_date
-            ).exclude(id__in=excluded_staff_ids)
+            all_staff = get_displayable_staff(date_range=(start_date, end_date))
 
             # Filter to specific staff if requested
             if staff_id:

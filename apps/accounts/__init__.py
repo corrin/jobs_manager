@@ -25,7 +25,7 @@ try:
             TokenRefreshResponseSerializer,
             UserProfileSerializer,
         )
-        from .utils import get_excluded_staff, is_valid_uuid
+        from .utils import get_displayable_staff, get_excluded_staff, is_valid_uuid
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -54,6 +54,7 @@ __all__ = [
     "TokenObtainPairResponseSerializer",
     "TokenRefreshResponseSerializer",
     "UserProfileSerializer",
+    "get_displayable_staff",
     "get_excluded_staff",
     "is_valid_uuid",
 ]
