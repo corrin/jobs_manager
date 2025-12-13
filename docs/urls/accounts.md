@@ -28,12 +28,6 @@
 |-------------|------|------|-------------|
 | `/logout/` | `user_profile_view.LogoutUserAPIView` | `accounts:api_logout` | Custom logout view that clears JWT httpOnly cookies |
 
-### Django Admin
-| URL Pattern | View | Name | Description |
-|-------------|------|------|-------------|
-| `/([/]+)/history/([/]+)/` | `history_form_view` | `admin:accounts_staff_simple_history` | Display the historical form view for a specific object version. |
-| `/<id>/password/` | `user_change_password` | `admin:auth_user_password_change` | Display the password change form for a specific user. |
-
 ### Me Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
@@ -43,10 +37,3 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/password_change/` | `password_views.SecurityPasswordChangeView` | `accounts:password_change` | Custom password change view with enhanced security requirements. |
-
-### Staff Management
-| URL Pattern | View | Name | Description |
-|-------------|------|------|-------------|
-| `/staff/` | `staff_views.StaffListView` | `accounts:list_staff` | Display list of all staff members. |
-| `/staff/<uuid:pk>/` | `staff_views.StaffUpdateView` | `accounts:update_staff` | Update existing staff member details. |
-| `/staff/new/` | `staff_views.StaffCreateView` | `accounts:create_staff` | Create new staff member. |
