@@ -279,9 +279,9 @@ class ClientRestService:
                 {
                     "id": str(contact.id),
                     "name": contact.name,
-                    "email": contact.email or "",
-                    "phone": contact.phone or "",
-                    "position": contact.position or "",
+                    "email": contact.email,
+                    "phone": contact.phone,
+                    "position": contact.position,
                     "is_primary": contact.is_primary,
                 }
                 for contact in contacts
@@ -339,11 +339,11 @@ class ClientRestService:
             return {
                 "id": str(contact.id),
                 "name": contact.name,
-                "email": contact.email or "",
-                "phone": contact.phone or "",
-                "position": contact.position or "",
+                "email": contact.email,
+                "phone": contact.phone,
+                "position": contact.position,
                 "is_primary": contact.is_primary,
-                "notes": contact.notes or "",
+                "notes": contact.notes,
             }
         except AlreadyLoggedException:
             raise
@@ -413,11 +413,11 @@ class ClientRestService:
             return {
                 "id": str(contact.id),
                 "name": contact.name,
-                "email": contact.email or "",
-                "phone": contact.phone or "",
-                "position": contact.position or "",
+                "email": contact.email,
+                "phone": contact.phone,
+                "position": contact.position,
                 "is_primary": contact.is_primary,
-                "notes": contact.notes or "",
+                "notes": contact.notes,
             }
 
         except AlreadyLoggedException:
@@ -441,8 +441,8 @@ class ClientRestService:
 
         return (
             Client.objects.filter(
-                name__istartswith=query
-            )  # Index-friendly, case insensitive
+                name__icontains=query
+            )  # Case insensitive substring search
             .annotate(
                 last_invoice_date=Max("invoice__date"),
                 total_spend=Coalesce(
@@ -472,6 +472,14 @@ class ClientRestService:
         """
         Formats a single client summary for list/search responses.
         """
+        # Use annotated values if available (from search queries), else use model methods
+        last_invoice_date = (
+            getattr(client, "last_invoice_date", None) or client.get_last_invoice_date()
+        )
+        total_spend = getattr(client, "total_spend", None)
+        if total_spend is None:
+            total_spend = client.get_total_spend()
+
         return {
             "id": str(client.id),
             "name": client.name,
@@ -481,8 +489,8 @@ class ClientRestService:
             "is_account_customer": client.is_account_customer,
             "is_supplier": client.is_supplier,
             "xero_contact_id": client.xero_contact_id or "",
-            "last_invoice_date": date_to_datetime(client.last_invoice_date),
-            "total_spend": f"${client.total_spend:,.2f}",
+            "last_invoice_date": date_to_datetime(last_invoice_date),
+            "total_spend": f"${total_spend:,.2f}",
         }
 
     @staticmethod

@@ -9,10 +9,7 @@ from apps.accounts.views.staff_api import (
     StaffRetrieveUpdateDestroyAPIView,
 )
 from apps.accounts.views.staff_views import (
-    StaffCreateView,
     StaffListAPIView,
-    StaffListView,
-    StaffUpdateView,
     get_staff_rates,
 )
 from apps.accounts.views.token_view import (
@@ -27,12 +24,7 @@ from apps.accounts.views.user_profile_view import (
 app_name = "accounts"
 
 urlpatterns = [
-    # Staff management
-    path("staff/", StaffListView.as_view(), name="list_staff"),
-    path("staff/new/", StaffCreateView.as_view(), name="create_staff"),
-    path(
-        "staff/<uuid:pk>/", StaffUpdateView.as_view(), name="update_staff"
-    ),  # Staff API
+    # Staff API
     path("api/staff/all/", StaffListAPIView.as_view(), name="api_staff_all_list"),
     path("api/staff/rates/<uuid:staff_id>/", get_staff_rates, name="get_staff_rates"),
     # JWT endpoints

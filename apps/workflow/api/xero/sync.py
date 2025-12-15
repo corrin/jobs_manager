@@ -17,6 +17,10 @@ from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models.costing import CostLine
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.workflow.api.xero.payroll import (
+    get_all_pay_slips_for_sync,
+    get_pay_runs_for_sync,
+)
 from apps.workflow.api.xero.reprocess_xero import (
     set_client_fields,
     set_invoice_or_bill_fields,
@@ -32,12 +36,40 @@ from apps.workflow.api.xero.xero import (
     update_project,
 )
 from apps.workflow.exceptions import XeroValidationError
-from apps.workflow.models import CompanyDefaults, XeroAccount, XeroJournal
+from apps.workflow.models import (
+    CompanyDefaults,
+    XeroAccount,
+    XeroError,
+    XeroJournal,
+    XeroPayRun,
+    XeroPaySlip,
+)
 from apps.workflow.services.error_persistence import persist_xero_error
 from apps.workflow.services.validation import validate_required_fields
 from apps.workflow.utils import get_machine_id
 
 logger = logging.getLogger("xero")
+
+
+def _build_sync_status(created: bool, changed_fields: list) -> str:
+    """Build a status string describing what changed during sync."""
+    if created:
+        return "created"
+    if changed_fields:
+        return f"{len(changed_fields)} fields incl {changed_fields[0]}"
+    return "unchanged"
+
+
+def _track_and_apply_changes(instance, fields: dict) -> list:
+    """Compare fields against instance, apply changes, return list of changed field names."""
+    changed = []
+    for key, value in fields.items():
+        if getattr(instance, key, None) != value:
+            setattr(instance, key, value)
+            changed.append(key)
+    return changed
+
+
 SLEEP_TIME = 1  # Sleep after every API call to avoid hitting rate limits
 
 
@@ -131,7 +163,7 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
         items: Iterable of objects from Xero.
         model_class: Django model used for storage.
         xero_id_attr: Attribute name of the Xero ID on each item.
-        transform_func: Callable converting an item to a model instance.
+        transform_func: Callable returning (instance, status) tuple or None.
 
     Returns:
         int: Number of items successfully synced.
@@ -145,12 +177,13 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
             logger.info(f"Skipping deleted {model_class.__name__} {xero_id}")
             continue
 
-        instance = transform_func(item, xero_id)
-        if instance:
-            logger.info(
-                f"Synced {model_class.__name__}: {getattr(instance, 'number', getattr(instance, 'name', xero_id))}"
-            )
-            synced += 1
+        result = transform_func(item, xero_id)
+        if not result:
+            continue
+        instance, status = result
+        identifier = getattr(instance, "number", getattr(instance, "name", xero_id))
+        logger.info(f"Synced {model_class.__name__}: {identifier} ({status})")
+        synced += 1
     return synced
 
 
@@ -225,14 +258,9 @@ def transform_invoice(xero_invoice, xero_id):
     if not fields:
         return None
     invoice, created = Invoice.objects.get_or_create(xero_id=xero_id, defaults=fields)
-    if not created:
-        updated = False
-        for key, value in fields.items():
-            if getattr(invoice, key) != value:
-                setattr(invoice, key, value)
-                updated = True
-        if updated:
-            invoice.save()
+    changed_fields = _track_and_apply_changes(invoice, fields) if not created else []
+    if changed_fields:
+        invoice.save()
     set_invoice_or_bill_fields(invoice, "INVOICE")
     if created:
         invoice.save()
@@ -243,7 +271,7 @@ def transform_invoice(xero_invoice, xero_id):
 
         recalculate_job_invoicing_state(invoice.job.id)
 
-    return invoice
+    return invoice, _build_sync_status(created, changed_fields)
 
 
 def transform_bill(xero_bill, xero_id):
@@ -256,22 +284,31 @@ def transform_bill(xero_bill, xero_id):
     Returns:
         The saved Bill model.
     """
+    # Skip bills without invoice numbers - data entry issue in Xero
+    invoice_number = getattr(xero_bill, "invoice_number", None)
+    if not invoice_number:
+        contact_name = getattr(xero_bill.contact, "name", "Unknown")
+        msg = f"Skipping bill {xero_id} - no invoice number (supplier: {contact_name})"
+        logger.error(msg)
+        XeroError.objects.create(
+            message=msg,
+            data={"supplier": contact_name},
+            entity="bill",
+            reference_id=str(xero_id),
+            kind="missing_invoice_number",
+        )
+        return None
     fields = _extract_required_fields_xero("bill", xero_bill, xero_id)
     if not fields:
         return None
     bill, created = Bill.objects.get_or_create(xero_id=xero_id, defaults=fields)
-    if not created:
-        updated = False
-        for key, value in fields.items():
-            if getattr(bill, key) != value:
-                setattr(bill, key, value)
-                updated = True
-        if updated:
-            bill.save()
+    changed_fields = _track_and_apply_changes(bill, fields) if not created else []
+    if changed_fields:
+        bill.save()
     set_invoice_or_bill_fields(bill, "BILL")
     if created:
         bill.save()
-    return bill
+    return bill, _build_sync_status(created, changed_fields)
 
 
 def transform_credit_note(xero_note, xero_id):
@@ -288,18 +325,13 @@ def transform_credit_note(xero_note, xero_id):
     if not fields:
         return None
     note, created = CreditNote.objects.get_or_create(xero_id=xero_id, defaults=fields)
-    if not created:
-        updated = False
-        for key, value in fields.items():
-            if getattr(note, key) != value:
-                setattr(note, key, value)
-                updated = True
-        if updated:
-            note.save()
+    changed_fields = _track_and_apply_changes(note, fields) if not created else []
+    if changed_fields:
+        note.save()
     set_invoice_or_bill_fields(note, "CREDIT_NOTE")
     if created:
         note.save()
-    return note
+    return note, _build_sync_status(created, changed_fields)
 
 
 def transform_journal(xero_journal, xero_id):
@@ -326,21 +358,24 @@ def transform_journal(xero_journal, xero_id):
         xero_id,
     )
 
+    defaults = {
+        "journal_date": journal_date,
+        "created_date_utc": created_date_utc,
+        "journal_number": journal_number,
+        "raw_json": raw_json,
+        # CREATED is correct! Xero journals are non-editable
+        "xero_last_modified": created_date_utc,
+    }
     journal, created = XeroJournal.objects.get_or_create(
         xero_id=xero_id,
-        defaults={
-            "journal_date": journal_date,
-            "created_date_utc": created_date_utc,
-            "journal_number": journal_number,
-            "raw_json": raw_json,
-            # CREATED is correct! Xero journals are non-editable
-            "xero_last_modified": created_date_utc,
-        },
+        defaults=defaults,
     )
+    # Journals are non-editable in Xero, so changed_fields will always be empty
+    changed_fields = _track_and_apply_changes(journal, defaults)
     set_journal_fields(journal)
-    if created:
+    if created or changed_fields:
         journal.save()
-    return journal
+    return journal, _build_sync_status(created, changed_fields)
 
 
 def transform_stock(xero_item, xero_id):
@@ -356,7 +391,6 @@ def transform_stock(xero_item, xero_id):
     # Get basic required fields - NO FALLBACKS, fail early if missing
     item_code = getattr(xero_item, "code", None)
     description = getattr(xero_item, "name", None)
-    notes = getattr(xero_item, "description", None)
     is_tracked = getattr(xero_item, "is_tracked_as_inventory", None)
     xero_last_modified = getattr(xero_item, "updated_date_utc", None)
     raw_json = process_xero_data(xero_item)
@@ -383,7 +417,6 @@ def transform_stock(xero_item, xero_id):
     defaults = {
         "item_code": item_code,
         "description": description,
-        "notes": notes,
         "quantity": quantity_value,
         "raw_json": raw_json,
         "xero_last_modified": xero_last_modified,
@@ -409,14 +442,10 @@ def transform_stock(xero_item, xero_id):
         defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
 
     stock, created = Stock.objects.get_or_create(xero_id=xero_id, defaults=defaults)
-    updated = False
-    for key, value in defaults.items():
-        if getattr(stock, key, None) != value:
-            setattr(stock, key, value)
-            updated = True
-    if updated:
+    changed_fields = _track_and_apply_changes(stock, defaults)
+    if changed_fields:
         stock.save()
-    return stock
+    return stock, _build_sync_status(created, changed_fields)
 
 
 def transform_quote(xero_quote, xero_id):
@@ -436,21 +465,22 @@ def transform_quote(xero_quote, xero_id):
     status = status_data.get("_value_") if isinstance(status_data, dict) else None
     validate_required_fields({"status": status}, "quote", xero_id)
 
-    quote, _ = Quote.objects.update_or_create(
-        xero_id=xero_id,
-        defaults={
-            "client": client,
-            "date": raw_json.get("_date"),
-            "status": status,
-            "total_excl_tax": Decimal(str(raw_json.get("_sub_total", 0))),
-            "total_incl_tax": Decimal(str(raw_json.get("_total", 0))),
-            "xero_last_modified": raw_json.get("_updated_date_utc"),
-            "xero_last_synced": timezone.now(),
-            "online_url": f"https://go.xero.com/app/quotes/edit/{xero_id}",
-            "raw_json": raw_json,
-        },
-    )
-    return quote
+    defaults = {
+        "client": client,
+        "date": raw_json.get("_date"),
+        "status": status,
+        "total_excl_tax": Decimal(str(raw_json.get("_sub_total", 0))),
+        "total_incl_tax": Decimal(str(raw_json.get("_total", 0))),
+        "xero_last_modified": raw_json.get("_updated_date_utc"),
+        "xero_last_synced": timezone.now(),
+        "online_url": f"https://go.xero.com/app/quotes/edit/{xero_id}",
+        "raw_json": raw_json,
+    }
+    quote, created = Quote.objects.get_or_create(xero_id=xero_id, defaults=defaults)
+    changed_fields = _track_and_apply_changes(quote, defaults) if not created else []
+    if changed_fields:
+        quote.save()
+    return quote, _build_sync_status(created, changed_fields)
 
 
 def transform_purchase_order(xero_po, xero_id):
@@ -490,12 +520,15 @@ def transform_purchase_order(xero_po, xero_id):
     )
     # Check for existing PO by xero_id first, then by po_number
     # (po_number has unique constraint but xero_id is the canonical link)
+    created = False
+    linked = False
     po = PurchaseOrder.objects.filter(xero_id=xero_id).first()
     if not po:
         po = PurchaseOrder.objects.filter(po_number=po_number).first()
         if po:
             # Link existing PO to Xero
             po.xero_id = xero_id
+            linked = True
             logger.info(f"Linked existing PO {po_number} to Xero ID {xero_id}")
     if not po:
         po = PurchaseOrder.objects.create(
@@ -507,32 +540,66 @@ def transform_purchase_order(xero_po, xero_id):
             xero_last_modified=xero_last_modified,
             raw_json=raw_json,
         )
-    po.po_number = po_number
-    po.order_date = order_date
-    po.expected_delivery = getattr(xero_po, "delivery_date", None)
-    po.xero_last_modified = xero_last_modified
-    po.xero_last_synced = timezone.now()
-    po.status = status_map.get(status, "draft")
-    po.save()
+        created = True
+
+    # Track field changes for existing POs
+    new_values = {
+        "po_number": po_number,
+        "order_date": order_date,
+        "expected_delivery": getattr(xero_po, "delivery_date", None),
+        "xero_last_modified": xero_last_modified,
+        "xero_last_synced": timezone.now(),
+        "status": status_map.get(status, "draft"),
+        "raw_json": raw_json,
+    }
+    changed_fields = _track_and_apply_changes(po, new_values)
+    if changed_fields or created or linked:
+        po.save()
+
     if xero_po.line_items:
         for line in xero_po.line_items:
             description = getattr(line, "description", None)
             quantity = getattr(line, "quantity", None)
             if not description or quantity is None:
+                missing = []
+                if not description:
+                    missing.append("description")
+                if quantity is None:
+                    missing.append("quantity")
                 error_msg = (
-                    f"Missing required field for PurchaseOrderLine in PO {xero_id}"
+                    f"Skipping PO line in {po_number} - missing {', '.join(missing)}"
                 )
                 logger.error(error_msg)
+                XeroError.objects.create(
+                    message=error_msg,
+                    data={"po_number": po_number, "missing_fields": missing},
+                    entity="purchase_order_line",
+                    reference_id=str(xero_id),
+                    kind="missing_field",
+                )
                 continue
             try:
-                PurchaseOrderLine.objects.update_or_create(
+                line_item_id = getattr(line, "line_item_id", None)
+                raw_line_data = process_xero_data(line)
+
+                # Match on Xero's unique line item ID
+                logger.info(
+                    f"Processing PO line: xero_line_item_id={line_item_id}, "
+                    f"description='{description[:50]}...'"
+                )
+                po_line, created = PurchaseOrderLine.objects.update_or_create(
                     purchase_order=po,
-                    supplier_item_code=line.item_code or "",
-                    description=description,
+                    xero_line_item_id=line_item_id,
                     defaults={
+                        "description": description,
+                        "supplier_item_code": line.item_code or "",
                         "quantity": quantity,
                         "unit_cost": getattr(line, "unit_amount", None),
+                        "raw_line_data": raw_line_data,
                     },
+                )
+                logger.info(
+                    f"PO line {'created' if created else 'updated'}: {po_line.id}"
                 )
             except PurchaseOrderLine.MultipleObjectsReturned:
                 logger.error(
@@ -541,7 +608,156 @@ def transform_purchase_order(xero_po, xero_id):
                     f"supplier_item_code: '{line.item_code or ''}'"
                 )
                 continue
-    return po
+
+    # "linked" is special case for POs - existing PO matched by po_number
+    if linked:
+        return po, "linked"
+    return po, _build_sync_status(created, changed_fields)
+
+
+def transform_pay_run(xero_pay_run, xero_id):
+    """Convert a Xero pay run into a XeroPayRun instance.
+
+    Args:
+        xero_pay_run: PayRun object from Xero PayrollNzApi.
+        xero_id: Identifier of the pay run in Xero (pay_run_id).
+
+    Returns:
+        The saved XeroPayRun model.
+    """
+    payroll_calendar_id = getattr(xero_pay_run, "payroll_calendar_id", None)
+    period_start_date = getattr(xero_pay_run, "period_start_date", None)
+    period_end_date = getattr(xero_pay_run, "period_end_date", None)
+    payment_date = getattr(xero_pay_run, "payment_date", None)
+    pay_run_status = getattr(xero_pay_run, "pay_run_status", None)
+    pay_run_type = getattr(xero_pay_run, "pay_run_type", None)
+    total_cost = getattr(xero_pay_run, "total_cost", None)
+    total_pay = getattr(xero_pay_run, "total_pay", None)
+    xero_last_modified = getattr(xero_pay_run, "updated_date_utc", None)
+    raw_json = process_xero_data(xero_pay_run)
+
+    # Convert dates if they're datetime objects
+    if hasattr(period_start_date, "date"):
+        period_start_date = period_start_date.date()
+    if hasattr(period_end_date, "date"):
+        period_end_date = period_end_date.date()
+    if hasattr(payment_date, "date"):
+        payment_date = payment_date.date()
+
+    validate_required_fields(
+        {
+            "period_start_date": period_start_date,
+            "period_end_date": period_end_date,
+            "payment_date": payment_date,
+        },
+        "pay_run",
+        xero_id,
+    )
+
+    defaults = {
+        "payroll_calendar_id": payroll_calendar_id,
+        "period_start_date": period_start_date,
+        "period_end_date": period_end_date,
+        "payment_date": payment_date,
+        "pay_run_status": pay_run_status,
+        "pay_run_type": pay_run_type,
+        "total_cost": Decimal(str(total_cost)) if total_cost else None,
+        "total_pay": Decimal(str(total_pay)) if total_pay else None,
+        "xero_last_modified": xero_last_modified,
+        "xero_last_synced": timezone.now(),
+        "raw_json": raw_json,
+    }
+    pay_run, created = XeroPayRun.objects.get_or_create(
+        xero_id=xero_id,
+        defaults=defaults,
+    )
+    changed_fields = _track_and_apply_changes(pay_run, defaults) if not created else []
+    if changed_fields:
+        pay_run.save()
+
+    return pay_run, _build_sync_status(created, changed_fields)
+
+
+def transform_pay_slip(xero_pay_slip, xero_id):
+    """Convert a Xero pay slip into a XeroPaySlip instance.
+
+    Args:
+        xero_pay_slip: PaySlip object from Xero PayrollNzApi.
+        xero_id: Identifier of the pay slip in Xero (pay_slip_id).
+
+    Returns:
+        The saved XeroPaySlip model, or None if pay run not found.
+    """
+    pay_run_id = getattr(xero_pay_slip, "pay_run_id", None)
+    employee_id = getattr(xero_pay_slip, "employee_id", None)
+    first_name = getattr(xero_pay_slip, "first_name", "")
+    last_name = getattr(xero_pay_slip, "last_name", "")
+    employee_name = f"{first_name} {last_name}".strip()
+
+    gross_earnings = getattr(xero_pay_slip, "gross_earnings", 0) or 0
+    tax_amount = getattr(xero_pay_slip, "tax", 0) or 0
+    net_pay = getattr(xero_pay_slip, "net_pay", 0) or 0
+    xero_last_modified = getattr(xero_pay_slip, "updated_date_utc", None)
+    raw_json = process_xero_data(xero_pay_slip)
+
+    validate_required_fields(
+        {
+            "pay_run_id": pay_run_id,
+            "employee_id": employee_id,
+        },
+        "pay_slip",
+        xero_id,
+    )
+
+    # Find the parent pay run
+    try:
+        pay_run = XeroPayRun.objects.get(xero_id=pay_run_id)
+    except XeroPayRun.DoesNotExist:
+        logger.warning(
+            f"PayRun {pay_run_id} not found for PaySlip {xero_id} - skipping"
+        )
+        return None
+
+    # Extract hours from earnings lines
+    timesheet_hours = Decimal("0")
+    leave_hours = Decimal("0")
+
+    # Get hours from timesheet_earnings_lines (actual worked hours)
+    timesheet_lines = getattr(xero_pay_slip, "timesheet_earnings_lines", None) or []
+    for line in timesheet_lines:
+        units = getattr(line, "number_of_units", None)
+        if units:
+            timesheet_hours += Decimal(str(units))
+
+    # Get hours from leave_earnings_lines (sick, annual leave, etc)
+    leave_lines = getattr(xero_pay_slip, "leave_earnings_lines", None) or []
+    for line in leave_lines:
+        units = getattr(line, "number_of_units", None)
+        if units:
+            leave_hours += Decimal(str(units))
+
+    defaults = {
+        "pay_run": pay_run,
+        "xero_employee_id": employee_id,
+        "employee_name": employee_name,
+        "gross_earnings": Decimal(str(gross_earnings)),
+        "tax_amount": Decimal(str(tax_amount)),
+        "net_pay": Decimal(str(net_pay)),
+        "timesheet_hours": timesheet_hours,
+        "leave_hours": leave_hours,
+        "xero_last_modified": xero_last_modified,
+        "xero_last_synced": timezone.now(),
+        "raw_json": raw_json,
+    }
+    pay_slip, created = XeroPaySlip.objects.get_or_create(
+        xero_id=xero_id,
+        defaults=defaults,
+    )
+    changed_fields = _track_and_apply_changes(pay_slip, defaults) if not created else []
+    if changed_fields:
+        pay_slip.save()
+
+    return pay_slip, _build_sync_status(created, changed_fields)
 
 
 def sync_clients(xero_contacts):
@@ -924,6 +1140,27 @@ ENTITY_CONFIGS = {
         None,
         "offset",
     ),
+    # Payroll entities - use PayrollNzApi, not AccountingApi
+    "pay_runs": (
+        "pay_runs",
+        "pay_runs",
+        XeroPayRun,
+        "get_pay_runs_for_sync",  # Custom API function
+        lambda items: sync_entities(items, XeroPayRun, "pay_run_id", transform_pay_run),
+        None,
+        "single",  # No pagination for pay runs
+    ),
+    "pay_slips": (
+        "pay_slips",
+        "pay_slips",
+        XeroPaySlip,
+        "get_all_pay_slips_for_sync",  # Custom API function
+        lambda items: sync_entities(
+            items, XeroPaySlip, "pay_slip_id", transform_pay_slip
+        ),
+        None,
+        "single",  # All slips fetched at once
+    ),
 }
 
 
@@ -966,6 +1203,10 @@ def sync_all_xero_data(use_latest_timestamps=True, days_back=30, entities=None):
         # Get API function
         if api_method == "get_xero_items":
             api_func = get_xero_items
+        elif api_method == "get_pay_runs_for_sync":
+            api_func = get_pay_runs_for_sync
+        elif api_method == "get_all_pay_slips_for_sync":
+            api_func = get_all_pay_slips_for_sync
         else:
             api_func = getattr(AccountingApi(api_client), api_method)
 

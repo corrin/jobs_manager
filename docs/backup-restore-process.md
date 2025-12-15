@@ -383,7 +383,7 @@ from django.conf import settings
 total_files = JobFile.objects.filter(file_path__isnull=False).exclude(file_path='').count()
 existing_files = 0
 for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(file_path=''):
-    dummy_path = os.path.join(settings.MEDIA_ROOT, str(job_file.file_path))
+    dummy_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, str(job_file.file_path))
     if os.path.exists(dummy_path):
         existing_files += 1
 
@@ -441,20 +441,39 @@ print(f'Shop client: {shop.name}')
 ```
 Shop client: Demo Company Shop
 ```
+#### Step 15.5: Verify Test Client Exists or CREATE IF NEEDED
 
-#### Step 15.5: Verify Test Client Exists
+**Run as:** Development system user
+
+The test client is used by the test suite. Create it if missing:
 
 ```bash
 python manage.py shell -c "
 from apps.workflow.models import CompanyDefaults
 from apps.client.models import Client
+from django.utils import timezone
+
 cd = CompanyDefaults.get_instance()
-c = Client.objects.filter(name=cd.test_client_name).first()
-print(f'Test client: {c.name if c else \"NOT FOUND - create in Xero Demo Company first\"}')
+client = Client.objects.filter(name=cd.test_client_name).first()
+
+if client:
+    print(f'Test client already exists: {client.name} (ID: {client.id})')
+else:
+    client = Client(
+        name=cd.test_client_name,
+        is_account_customer=False,
+        xero_last_modified=timezone.now(),
+        xero_last_synced=timezone.now(),
+    )
+    client.save()
+    print(f'Created test client: {client.name} (ID: {client.id})')
 "
 ```
 
-If missing, create a contact named "ABC Carpet Cleaning TEST IGNORE" in Xero
+**Expected output:**
+```
+Created test client: ABC Carpet Cleaning TEST IGNORE (ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+```
 
 #### Step 16: Start Development Server
 
@@ -468,13 +487,15 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000
 
 If you get a valid HTTP response (200, 301, 302, etc.), **SKIP this step** - server is already running.
 
+**Note:** For UAT environments with proper domains (not local dev with ngrok), the server may already be running as a service. Check the `BACK_END_URL` in `.env` to determine the environment type.
+
 **If curl fails, ask the user to start the server:**
 
 ```bash
 python manage.py runserver 0.0.0.0:8000
 ```
 
-**Check:** Server should be accessible at http://localhost:8000
+**Check:** Server should be accessible at http://localhost:8000 (local dev) or the configured `BACK_END_URL` (UAT/production)
 
 #### Step 17: Connect to Xero OAuth
 
@@ -516,10 +537,9 @@ print(f'✅ Token expires at: {token.expires_at}')
 
 **Steps:**
 
-
-1. Start the frontend (in separate terminal, in jobs_manager_front directory)
-2. Run ngrok if needed for the backend and frontend
-3. Navigate to FRONT_END_URL from .env (e.g., https://your-company-front.ngrok-free.app)
+1. Start the frontend (in separate terminal, in jobs_manager_front directory) - skip if already running as a service
+2. For local dev: Run ngrok if needed for the backend and frontend. For UAT: Skip - proper domains already configured.
+3. Navigate to `FRONT_END_URL` from .env
 4. Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
 5. Go to **Xero menu > Connect to Xero**
 6. Complete the OAuth flow to authorize the application

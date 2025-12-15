@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Staff
-from apps.accounts.utils import get_excluded_staff
+from apps.accounts.utils import get_displayable_staff
 from apps.client.serializers import ClientErrorResponseSerializer
 from apps.job.models import Job
 from apps.timesheet.serializers import (
@@ -123,12 +123,7 @@ class StaffListAPIView(APIView):
                 )
 
             # Use date-based filtering
-            excluded_staff_ids = get_excluded_staff()
-            staff = (
-                Staff.objects.active_on_date(target_date)
-                .exclude(id__in=excluded_staff_ids)
-                .order_by("first_name", "last_name")
-            )
+            staff = get_displayable_staff(target_date=target_date)
 
             staff_data = []
             for member in staff:

@@ -4,6 +4,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
 from apps.workflow.api.xero.sync import (
+    ENTITY_CONFIGS,
     deep_sync_xero_data,
     one_way_sync_all_xero_data,
     synchronise_xero_data,
@@ -29,17 +30,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--entity",
-            choices=[
-                "contacts",
-                "invoices",
-                "bills",
-                "quotes",
-                "accounts",
-                "journals",
-                "purchase_orders",
-                "credit_notes",
-                "stock",
-            ],
+            choices=list(ENTITY_CONFIGS.keys()),
             help="Sync only the specified entity type (default: sync all)",
         )
 

@@ -294,7 +294,8 @@ def set_client_fields(client, new_from_xero=False):
                     )
                     continue
 
-                email = person.get("_email_address", "")
+                # Use None instead of empty string for nullable fields
+                email = person.get("_email_address") or None
 
                 try:
                     contact, created = ClientContact.objects.get_or_create(

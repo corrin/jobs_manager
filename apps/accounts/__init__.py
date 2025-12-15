@@ -7,7 +7,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .forms import StaffChangeForm, StaffCreationForm
         from .managers import StaffManager
         from .models import Staff
         from .permissions import IsStaff
@@ -25,15 +24,10 @@ try:
             TokenRefreshResponseSerializer,
             UserProfileSerializer,
         )
-        from .utils import get_excluded_staff, is_valid_uuid
+        from .utils import get_displayable_staff, get_excluded_staff, is_valid_uuid
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
-
-# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
-# Import these directly where needed using:
-# from .admin import StaffAdmin
-#
 
 __all__ = [
     "AccountsConfig",
@@ -46,14 +40,13 @@ __all__ = [
     "IsStaff",
     "KanbanStaffSerializer",
     "Staff",
-    "StaffChangeForm",
     "StaffCreateSerializer",
-    "StaffCreationForm",
     "StaffManager",
     "StaffSerializer",
     "TokenObtainPairResponseSerializer",
     "TokenRefreshResponseSerializer",
     "UserProfileSerializer",
+    "get_displayable_staff",
     "get_excluded_staff",
     "is_valid_uuid",
 ]

@@ -161,6 +161,57 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
         return None, None
 
+    def _update_line_item_ids_from_xero(self, xero_po) -> None:
+        """
+        Update local PurchaseOrderLine records with Xero line_item_ids from response.
+
+        Matches lines by description (with job number prefix if applicable).
+        Uses a list-based approach to handle duplicate descriptions correctly.
+        """
+        if not hasattr(xero_po, "line_items") or not xero_po.line_items:
+            logger.info(
+                f"No line items in Xero response for PO {self.purchase_order.id}"
+            )
+            return
+
+        # Build a list of (expected_description, line) tuples
+        # (descriptions as we send them to Xero, with job number prefix)
+        local_lines = []
+        for line in self.purchase_order.po_lines.all():
+            description = line.description
+            if line.job:
+                description = f"{line.job.job_number} - {description}"
+            if line.price_tbc:
+                description = f"Price to be confirmed - {description}"
+            local_lines.append((description, line))
+
+        updated_count = 0
+        for xero_line in xero_po.line_items:
+            xero_line_item_id = getattr(xero_line, "line_item_id", None)
+            xero_description = getattr(xero_line, "description", None)
+
+            if not xero_line_item_id or not xero_description:
+                continue
+
+            # Find first matching local line and remove it from the list
+            for i, (desc, local_line) in enumerate(local_lines):
+                if desc == xero_description:
+                    if local_line.xero_line_item_id != xero_line_item_id:
+                        local_line.xero_line_item_id = xero_line_item_id
+                        local_line.save(update_fields=["xero_line_item_id"])
+                        updated_count += 1
+                        logger.debug(
+                            f"Updated xero_line_item_id for line {local_line.id}: "
+                            f"{xero_line_item_id}"
+                        )
+                    # Pop matched line so duplicates match subsequent lines
+                    local_lines.pop(i)
+                    break
+
+        logger.info(
+            f"Updated {updated_count} line item IDs for PO {self.purchase_order.id}"
+        )
+
     def _save_po_with_xero_data(
         self, xero_id: str | None, online_url: str, updated_date_utc: datetime | None
     ) -> None:
@@ -247,6 +298,7 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
 
             if real_uuid:
                 self._save_po_with_xero_data(real_uuid, xero_po_url, real_updated_date)
+                self._update_line_item_ids_from_xero(xero_po)
 
                 return {
                     "success": True,
@@ -278,6 +330,7 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
         self._save_po_with_xero_data(
             xero_po.purchase_order_id, xero_po_url, xero_po.updated_date_utc
         )
+        self._update_line_item_ids_from_xero(xero_po)
 
         logger.info(
             f"""

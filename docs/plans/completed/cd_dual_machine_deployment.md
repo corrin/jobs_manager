@@ -1,5 +1,9 @@
 # CD Dual Machine Deployment Plan
 
+> **Note**: The `deploy_machine.sh` script created by this plan has since been
+> consolidated into `scripts/deploy.sh` which handles all environments
+> (PROD, UAT, SCHEDULER). See `docs/plans/completed/deployment_consolidation.md`.
+
 ## Current State
 
 - Single machine CD deployment via GitHub Actions

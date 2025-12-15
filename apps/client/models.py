@@ -263,10 +263,11 @@ class ClientContact(models.Model):
     # CHECKLIST - when adding a new field or property to ClientContact, check these locations:
     #   1. CLIENTCONTACT_API_FIELDS or CLIENTCONTACT_INTERNAL_FIELDS below (if it's a model field)
     #   2. ClientContactSerializer in apps/client/serializers.py (uses CLIENTCONTACT_API_FIELDS)
-    #   3. JobContactResponseSerializer in apps/client/serializers.py (subset for job context)
-    #   4. ClientContactViewSet in apps/client/views/client_contact_viewset.py (CRUD operations)
-    #   5. Job.contact FK in apps/job/models/job.py (relationship to ClientContact)
-    #   6. reprocess_xero.py in apps/workflow/api/xero/ (Xero sync creates contacts)
+    #   3. ClientContactSerializer.to_internal_value() nullable_fields list (converts "" → None)
+    #   4. JobContactResponseSerializer in apps/client/serializers.py (subset for job context)
+    #   5. ClientContactViewSet in apps/client/views/client_contact_viewset.py (CRUD operations)
+    #   6. Job.contact FK in apps/job/models/job.py (relationship to ClientContact)
+    #   7. reprocess_xero.py in apps/workflow/api/xero/ (Xero sync creates contacts)
     #
     # Database fields exposed via API serializers
     CLIENTCONTACT_API_FIELDS = [
