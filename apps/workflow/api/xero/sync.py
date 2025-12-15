@@ -578,13 +578,19 @@ def transform_purchase_order(xero_po, xero_id):
                 )
                 continue
             try:
+                line_item_id = getattr(line, "line_item_id", None)
+                raw_line_data = process_xero_data(line)
+
+                # Match on Xero's unique line item ID
                 PurchaseOrderLine.objects.update_or_create(
                     purchase_order=po,
-                    supplier_item_code=line.item_code or "",
-                    description=description,
+                    xero_line_item_id=line_item_id,
                     defaults={
+                        "description": description,
+                        "supplier_item_code": line.item_code or "",
                         "quantity": quantity,
                         "unit_cost": getattr(line, "unit_amount", None),
+                        "raw_line_data": raw_line_data,
                     },
                 )
             except PurchaseOrderLine.MultipleObjectsReturned:

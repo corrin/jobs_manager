@@ -5,6 +5,7 @@ from pprint import pprint
 from typing import Any, Dict, List
 
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models.expressions import RawSQL
 from django.http import Http404
@@ -129,16 +130,20 @@ class PurchasingRestService:
         logger.info(f"Processing line with id: {line_id}")
         logger.info(f"Line data keys: {list(line_data.keys())}")
 
-        existing_line = bool(line_id and str(line_id) in existing_lines)
-        match existing_line:
-            case True:
-                logger.info(f"Updating existing line {line_id}")
-                line = existing_lines[str(line_id)]
-                PurchasingRestService._update_line(line, line_data)
-                updated_line_ids.add(str(line_id))
-                logger.info(f"Successfully updated line {line_id}")
-            case False:
-                PurchasingRestService._create_line(line_data, line_id, po)
+        if line_id:
+            # Line has ID - must exist on this PO
+            if str(line_id) not in existing_lines:
+                raise ValidationError(
+                    f"Line ID {line_id} not found on PO {po.po_number}"
+                )
+            logger.info(f"Updating existing line {line_id}")
+            line = existing_lines[str(line_id)]
+            PurchasingRestService._update_line(line, line_data)
+            updated_line_ids.add(str(line_id))
+            logger.info(f"Successfully updated line {line_id}")
+        else:
+            # No ID = new line
+            PurchasingRestService._create_line(line_data, line_id, po)
 
     @staticmethod
     def _handle_automatic_allocation(line: PurchaseOrderLine, po: PurchaseOrder):
