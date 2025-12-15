@@ -200,3 +200,18 @@ class FetchJobsByColumnResponseSerializer(serializers.Serializer):
     total = serializers.IntegerField(required=False)
     filtered_count = serializers.IntegerField(required=False)
     error = serializers.CharField(required=False)
+
+
+class WorkshopJobSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True, allow_null=True)
+    job_number = serializers.IntegerField()
+    client_name = serializers.SerializerMethodField()
+    contact_person = serializers.SerializerMethodField()
+
+    def get_client_name(self, obj) -> str:
+        return obj.client.name
+
+    def get_contact_person(self, obj) -> str:
+        return obj.contact.name if obj.contact else ""

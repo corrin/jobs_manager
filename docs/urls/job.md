@@ -30,6 +30,7 @@
 | `/api/jobs/fetch-by-column/<str:column_id>/` | `kanban_view_api.FetchJobsByColumnAPIView` | `jobs:api_fetch_jobs_by_column` | Fetch jobs by kanban column using new categorization system. |
 | `/api/jobs/fetch/<str:status>/` | `kanban_view_api.FetchJobsAPIView` | `jobs:api_fetch_jobs` | Fetch jobs by status with optional search - API endpoint. |
 | `/api/jobs/status-values/` | `kanban_view_api.FetchStatusValuesAPIView` | `jobs:api_fetch_status_values` | Return available status values for Kanban - API endpoint. |
+| `/api/jobs/workshop/` | `workshop_view.WorkshopKanbanView` | `jobs:api_workshop_kanban` | No description available |
 
 #### Reports
 | URL Pattern | View | Name | Description |
@@ -40,7 +41,7 @@
 ### Job Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/job/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
+| `/job/<uuid:job_id>/workshop-pdf/` | `workshop_pdf_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
 | `/job/archive-complete/` | `archive_completed_jobs_view.ArchiveCompleteJobsTemplateView` | `jobs:archive_complete_jobs` | View for rendering the related page. |
 
 ### Rest Management
@@ -75,7 +76,7 @@
 | `/rest/jobs/<uuid:job_id>/quote/status/` | `quote_import_views.QuoteImportStatusView` | `jobs:quote_import_status` | Get current quote import status and latest quote information. |
 | `/rest/jobs/<uuid:job_id>/timeline/` | `job_rest_views.JobTimelineRestView` | `jobs:job_timeline_rest` | REST view for unified Job timeline. |
 | `/rest/jobs/<uuid:job_id>/undo-change/` | `job_rest_views.JobUndoChangeRestView` | `jobs:job_undo_change_rest` | Undo a previously applied job delta. |
-| `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
+| `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_pdf_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
 | `/rest/jobs/<uuid:pk>/cost_sets/<str:kind>/` | `job_costing_views.JobCostSetView` | `jobs:job_cost_set_rest` | Retrieve the latest CostSet for a specific job and kind. |
 | `/rest/jobs/<uuid:pk>/quote/apply/` | `quote_sync_views.ApplyQuoteAPIView` | `jobs:quote_apply` | Apply quote import from linked Google Sheet. |
 | `/rest/jobs/<uuid:pk>/quote/link/` | `quote_sync_views.LinkQuoteSheetAPIView` | `jobs:quote_link_sheet` | Link a job to a Google Sheets quote template. |

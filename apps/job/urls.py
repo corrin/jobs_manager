@@ -17,6 +17,7 @@ from apps.job.views import (
     JobAssignmentCreateView,
     JobAssignmentDeleteView,
     kanban_view_api,
+    workshop_pdf_view,
     workshop_view,
 )
 from apps.job.views.job_rest_views import get_company_defaults_api
@@ -53,7 +54,7 @@ urlpatterns = [
     # Old api/job-files/* endpoints removed - use rest/jobs/files/* instead
     path(
         "job/<uuid:job_id>/workshop-pdf/",
-        workshop_view.WorkshopPDFView.as_view(),
+        workshop_pdf_view.WorkshopPDFView.as_view(),
         name="workshop-pdf",
     ),
     path(
@@ -66,6 +67,11 @@ urlpatterns = [
         "api/jobs/fetch-all/",
         kanban_view_api.FetchAllJobsAPIView.as_view(),
         name="api_fetch_all_jobs",
+    ),
+    path(
+        "api/jobs/workshop",
+        workshop_view.WorkshopKanbanView.as_view(),
+        name="api_workshop_kanban",
     ),
     path(
         "api/jobs/<str:job_id>/update-status/",

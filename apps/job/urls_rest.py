@@ -64,7 +64,7 @@ from apps.job.views.safety_viewsets import (
     SWPGenerateView,
     SWPListView,
 )
-from apps.job.views.workshop_view import WorkshopPDFView
+from apps.job.views.workshop_pdf_view import WorkshopPDFView
 
 # Router for ViewSets
 router = DefaultRouter()

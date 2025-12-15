@@ -58,7 +58,8 @@ from .quote_sync_views import (
     LinkQuoteSheetAPIView,
     PreviewQuoteAPIView,
 )
-from .workshop_view import WorkshopPDFView
+from .workshop_pdf_view import WorkshopPDFView
+from .workshop_view import WorkshopKanbanView
 
 # Conditional imports (only when Django is ready)
 try:
@@ -182,6 +183,7 @@ __all__ = [
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
     "WeeklyMetricsRestView",
+    "WorkshopKanbanView",
     "WorkshopPDFView",
     "get_company_defaults_api",
 ]
