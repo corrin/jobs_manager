@@ -550,6 +550,7 @@ def transform_purchase_order(xero_po, xero_id):
         "xero_last_modified": xero_last_modified,
         "xero_last_synced": timezone.now(),
         "status": status_map.get(status, "draft"),
+        "raw_json": raw_json,
     }
     changed_fields = _track_and_apply_changes(po, new_values)
     if changed_fields or created or linked:
@@ -582,7 +583,11 @@ def transform_purchase_order(xero_po, xero_id):
                 raw_line_data = process_xero_data(line)
 
                 # Match on Xero's unique line item ID
-                PurchaseOrderLine.objects.update_or_create(
+                logger.info(
+                    f"Processing PO line: xero_line_item_id={line_item_id}, "
+                    f"description='{description[:50]}...'"
+                )
+                po_line, created = PurchaseOrderLine.objects.update_or_create(
                     purchase_order=po,
                     xero_line_item_id=line_item_id,
                     defaults={
@@ -592,6 +597,9 @@ def transform_purchase_order(xero_po, xero_id):
                         "unit_cost": getattr(line, "unit_amount", None),
                         "raw_line_data": raw_line_data,
                     },
+                )
+                logger.info(
+                    f"PO line {'created' if created else 'updated'}: {po_line.id}"
                 )
             except PurchaseOrderLine.MultipleObjectsReturned:
                 logger.error(
