@@ -426,7 +426,7 @@ def create_workshop_main_document(job):
 
 
 def create_delivery_docket_main_document(job):
-    """Create the delivery docket document with two copies: MSM Copy and Client Copy."""
+    """Create the delivery docket document with two copies: MSM Copy and Customer Copy."""
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
 
@@ -441,14 +441,14 @@ def create_delivery_docket_main_document(job):
         _advance_to_new_page(pdf)
     add_handover_section(pdf, job)
 
-    # Start new page for Client Copy
+    # Start new page for Customer Copy
     pdf.showPage()
 
-    # Second page - Client Copy
+    # Second page - Customer Copy
     y_position = PAGE_HEIGHT - MARGIN
     y_position = add_logo(pdf, y_position)
     y_position = add_title(
-        pdf, y_position, job, title_prefix="DELIVERY DOCKET - Client Copy"
+        pdf, y_position, job, title_prefix="DELIVERY DOCKET - Customer Copy"
     )
     y_position = add_delivery_docket_details_table(pdf, y_position, job)
     if y_position <= MARGIN + 220:
