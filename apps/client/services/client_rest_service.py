@@ -279,9 +279,9 @@ class ClientRestService:
                 {
                     "id": str(contact.id),
                     "name": contact.name,
-                    "email": contact.email or "",
-                    "phone": contact.phone or "",
-                    "position": contact.position or "",
+                    "email": contact.email,
+                    "phone": contact.phone,
+                    "position": contact.position,
                     "is_primary": contact.is_primary,
                 }
                 for contact in contacts
@@ -339,11 +339,11 @@ class ClientRestService:
             return {
                 "id": str(contact.id),
                 "name": contact.name,
-                "email": contact.email or "",
-                "phone": contact.phone or "",
-                "position": contact.position or "",
+                "email": contact.email,
+                "phone": contact.phone,
+                "position": contact.position,
                 "is_primary": contact.is_primary,
-                "notes": contact.notes or "",
+                "notes": contact.notes,
             }
         except AlreadyLoggedException:
             raise
@@ -413,11 +413,11 @@ class ClientRestService:
             return {
                 "id": str(contact.id),
                 "name": contact.name,
-                "email": contact.email or "",
-                "phone": contact.phone or "",
-                "position": contact.position or "",
+                "email": contact.email,
+                "phone": contact.phone,
+                "position": contact.position,
                 "is_primary": contact.is_primary,
-                "notes": contact.notes or "",
+                "notes": contact.notes,
             }
 
         except AlreadyLoggedException:
