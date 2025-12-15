@@ -196,6 +196,7 @@ class PurchaseOrderLine(models.Model):
         "purchase_order",
         "job",
         "raw_line_data",
+        "xero_line_item_id",
     ]
 
     # All PurchaseOrderLine model fields (derived)
@@ -275,6 +276,12 @@ class PurchaseOrderLine(models.Model):
         null=True,
         blank=True,
         help_text="Raw JSON data from the source system or document",
+    )
+    xero_line_item_id = models.UUIDField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Xero's unique identifier for this line item (from line_item_id)",
     )
 
     class Meta:

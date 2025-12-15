@@ -5,6 +5,7 @@ from pprint import pprint
 from typing import Any, Dict, List
 
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models.expressions import RawSQL
 from django.http import Http404
@@ -64,6 +65,7 @@ class PurchasingRestService:
 
     @staticmethod
     def _delete_lines(lines_to_delete: list[str], po: PurchaseOrder) -> None:
+        """Explicitly delete lines requested by the frontend (e.g., delete button)."""
         for line_id in lines_to_delete:
             try:
                 line = PurchaseOrderLine.objects.get(id=line_id, purchase_order=po)
@@ -129,16 +131,20 @@ class PurchasingRestService:
         logger.info(f"Processing line with id: {line_id}")
         logger.info(f"Line data keys: {list(line_data.keys())}")
 
-        existing_line = bool(line_id and str(line_id) in existing_lines)
-        match existing_line:
-            case True:
-                logger.info(f"Updating existing line {line_id}")
-                line = existing_lines[str(line_id)]
-                PurchasingRestService._update_line(line, line_data)
-                updated_line_ids.add(str(line_id))
-                logger.info(f"Successfully updated line {line_id}")
-            case False:
-                PurchasingRestService._create_line(line_data, line_id, po)
+        if line_id:
+            # Line has ID - must exist on this PO
+            if str(line_id) not in existing_lines:
+                raise ValidationError(
+                    f"Line ID {line_id} not found on PO {po.po_number}"
+                )
+            logger.info(f"Updating existing line {line_id}")
+            line = existing_lines[str(line_id)]
+            PurchasingRestService._update_line(line, line_data)
+            updated_line_ids.add(str(line_id))
+            logger.info(f"Successfully updated line {line_id}")
+        else:
+            # No ID = new line
+            PurchasingRestService._create_line(line_data, line_id, po)
 
     @staticmethod
     def _handle_automatic_allocation(line: PurchaseOrderLine, po: PurchaseOrder):
@@ -322,7 +328,7 @@ class PurchasingRestService:
                     "Purchase order modified since it was fetched."
                 )
 
-            # Handle line deletion
+            # Handle explicit line deletion (user clicked delete button)
             lines_to_delete = data.get("lines_to_delete")
             if lines_to_delete:
                 PurchasingRestService._delete_lines(lines_to_delete, po)

@@ -3,6 +3,7 @@
 import logging
 import traceback
 
+from django.core.exceptions import ValidationError
 from django.db.models import OuterRef, Subquery
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -56,6 +57,7 @@ from apps.purchasing.services.purchasing_rest_service import (
     PreconditionFailedError,
     PurchasingRestService,
 )
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -459,6 +461,16 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
             return Response(
                 {"error": "Precondition failed (ETag mismatch). Reload and retry."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
+            )
+
+        except ValidationError as exc:
+            persist_app_error(exc)
+            logger.warning(
+                "Validation error updating purchase order %s: %s", id, str(exc)
+            )
+            return Response(
+                {"error": "Validation error", "details": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         except Exception as e:
