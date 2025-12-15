@@ -11,6 +11,17 @@ class ClientContactSerializer(serializers.ModelSerializer):
         fields = ClientContact.CLIENTCONTACT_API_FIELDS
         read_only_fields = ["id", "is_active", "created_at", "updated_at"]
 
+    def to_internal_value(self, data):
+        """Convert empty strings to None for nullable fields before validation."""
+        # Fields that should be NULL instead of empty string
+        nullable_fields = ["email", "phone", "position", "notes"]
+
+        for field in nullable_fields:
+            if field in data and data[field] == "":
+                data[field] = None
+
+        return super().to_internal_value(data)
+
 
 class ClientSerializer(serializers.ModelSerializer):
     contacts = ClientContactSerializer(many=True, read_only=True)
