@@ -65,6 +65,7 @@ class PurchasingRestService:
 
     @staticmethod
     def _delete_lines(lines_to_delete: list[str], po: PurchaseOrder) -> None:
+        """Explicitly delete lines requested by the frontend (e.g., delete button)."""
         for line_id in lines_to_delete:
             try:
                 line = PurchaseOrderLine.objects.get(id=line_id, purchase_order=po)
@@ -327,7 +328,7 @@ class PurchasingRestService:
                     "Purchase order modified since it was fetched."
                 )
 
-            # Handle line deletion
+            # Handle explicit line deletion (user clicked delete button)
             lines_to_delete = data.get("lines_to_delete")
             if lines_to_delete:
                 PurchasingRestService._delete_lines(lines_to_delete, po)
