@@ -441,8 +441,8 @@ class ClientRestService:
 
         return (
             Client.objects.filter(
-                name__istartswith=query
-            )  # Index-friendly, case insensitive
+                name__icontains=query
+            )  # Case insensitive substring search
             .annotate(
                 last_invoice_date=Max("invoice__date"),
                 total_spend=Coalesce(

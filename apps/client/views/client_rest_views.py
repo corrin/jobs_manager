@@ -112,7 +112,7 @@ class ClientListAllRestView(APIView):
                 name="q",
                 location=OpenApiParameter.QUERY,
                 required=False,
-                description="Search query (min 3 chars, prefix match)",
+                description="Search query (min 3 chars, case-insensitive substring match)",
                 type=OpenApiTypes.STR,
             ),
             OpenApiParameter(
