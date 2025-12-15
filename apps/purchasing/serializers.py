@@ -7,19 +7,6 @@ from apps.job.serializers.costing_serializer import CostLineSerializer
 from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
 
 
-class OptionalDecimalField(serializers.DecimalField):
-    """Decimal field that gracefully treats blank strings as null."""
-
-    def to_internal_value(self, data):
-        if data is None:
-            return None
-
-        if isinstance(data, str) and not data.strip():
-            return None
-
-        return super().to_internal_value(data)
-
-
 class SupplierPriceStatusItemSerializer(serializers.Serializer):
     """Single supplier price status row."""
 
@@ -356,10 +343,10 @@ class StockConsumeSerializer(serializers.Serializer):
     quantity = serializers.DecimalField(
         max_digits=10, decimal_places=2, min_value=Decimal(0)
     )
-    unit_cost = OptionalDecimalField(
+    unit_cost = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, allow_null=True
     )
-    unit_rev = OptionalDecimalField(
+    unit_rev = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, allow_null=True
     )
 
