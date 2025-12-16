@@ -207,11 +207,6 @@ class WorkshopJobSerializer(serializers.Serializer):
     name = serializers.CharField()
     description = serializers.CharField(allow_blank=True, allow_null=True)
     job_number = serializers.IntegerField()
-    client_name = serializers.SerializerMethodField()
-    contact_person = serializers.SerializerMethodField()
-
-    def get_client_name(self, obj) -> str:
-        return obj.client.name
-
-    def get_contact_person(self, obj) -> str:
-        return obj.contact.name if obj.contact else ""
+    client_name = serializers.CharField()
+    contact_person = serializers.CharField(allow_blank=True, allow_null=True)
+    people = KanbanJobPersonSerializer(many=True)
