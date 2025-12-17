@@ -202,12 +202,43 @@ class SalesForecastMonthDetailAPIView(APIView):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "invoice": {"type": "object", "nullable": True},
-                                "job": {"type": "object", "nullable": True},
+                                "invoice": {
+                                    "type": "object",
+                                    "nullable": True,
+                                    "properties": {
+                                        "id": {"type": "string", "format": "uuid"},
+                                        "number": {
+                                            "type": "string",
+                                            "example": "INV-0001",
+                                        },
+                                        "date": {"type": "string", "format": "date"},
+                                        "client_name": {
+                                            "type": "string",
+                                            "nullable": True,
+                                        },
+                                        "total_incl_tax": {"type": "number"},
+                                        "status": {"type": "string"},
+                                    },
+                                },
+                                "job": {
+                                    "type": "object",
+                                    "nullable": True,
+                                    "properties": {
+                                        "id": {"type": "string", "format": "uuid"},
+                                        "job_number": {"type": "integer"},
+                                        "name": {"type": "string"},
+                                        "client_name": {
+                                            "type": "string",
+                                            "nullable": True,
+                                        },
+                                        "revenue": {"type": "number"},
+                                    },
+                                },
                                 "match_type": {
                                     "type": "string",
                                     "enum": ["matched", "xero_only", "jm_only"],
                                 },
+                                "variance": {"type": "number"},
                             },
                         },
                     },
