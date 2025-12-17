@@ -372,24 +372,27 @@ class SalesForecastMonthDetailAPIView(APIView):
 
         # Build rows for jobs with revenue but no invoices (jm_only)
         for job_id, revenue in jobs_with_revenue.items():
-            if job_id not in jobs_with_invoices:
-                job = Job.objects.select_related("client").get(id=job_id)
-                jm_amount = float(revenue)
-                rows.append(
-                    {
-                        "invoices": [],
-                        "total_invoiced": 0.0,
-                        "job": {
-                            "id": str(job.id),
-                            "job_number": job.job_number,
-                            "name": job.name,
-                            "revenue": jm_amount,
-                        },
-                        "client_name": job.client.name if job.client else None,
-                        "match_type": "jm_only",
-                        "variance": round(-jm_amount, 2),
-                    }
-                )
+            if job_id in jobs_with_invoices:
+                continue
+            jm_amount = float(revenue)
+            if jm_amount == 0:
+                continue
+            job = Job.objects.select_related("client").get(id=job_id)
+            rows.append(
+                {
+                    "invoices": [],
+                    "total_invoiced": 0.0,
+                    "job": {
+                        "id": str(job.id),
+                        "job_number": job.job_number,
+                        "name": job.name,
+                        "revenue": jm_amount,
+                    },
+                    "client_name": job.client.name if job.client else None,
+                    "match_type": "jm_only",
+                    "variance": round(-jm_amount, 2),
+                }
+            )
 
         # Sort: matched first, then xero_only, then jm_only
         # Within each group, sort by job number (or invoice number for xero_only)
