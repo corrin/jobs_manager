@@ -240,8 +240,10 @@ class PurchasingRestService:
 
     @staticmethod
     def list_purchase_orders() -> List[Dict[str, Any]]:
-        pos = PurchaseOrder.objects.prefetch_related("po_lines__job__client").order_by(
-            "-created_at"
+        pos = (
+            PurchaseOrder.objects.select_related("supplier")
+            .prefetch_related("po_lines__job__client")
+            .order_by("-created_at")
         )
         result = []
         for po in pos:

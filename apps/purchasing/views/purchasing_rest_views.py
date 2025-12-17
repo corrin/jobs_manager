@@ -1157,7 +1157,7 @@ class PurchaseOrderEventListCreateView(APIView):
     def get(self, request, po_id):
         """Get list of events for a purchase order."""
         po = get_object_or_404(PurchaseOrder, id=po_id)
-        events = po.events.all().order_by("-timestamp")
+        events = po.events.all()  # Model default ordering: -timestamp
 
         serializer = PurchaseOrderEventsResponseSerializer({"events": events})
         return Response(serializer.data)

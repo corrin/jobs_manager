@@ -284,6 +284,7 @@ class PurchaseOrderLine(models.Model):
         help_text="Xero's unique identifier for this line item (from line_item_id)",
     )
 
+    # Note: "Price to be confirmed" prefix was deliberately removed - it cluttered Xero
     @property
     def xero_description(self) -> str:
         """Description with job number prefix for Xero sync."""

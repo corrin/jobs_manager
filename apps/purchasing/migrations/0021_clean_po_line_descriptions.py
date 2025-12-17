@@ -9,10 +9,15 @@ Logs all changes to a JSON file for recovery.
 """
 
 import json
+import logging
 import re
 from datetime import datetime
+from pathlib import Path
 
+from django.conf import settings
 from django.db import migrations
+
+logger = logging.getLogger(__name__)
 
 
 def clean_descriptions(apps, schema_editor):
@@ -77,14 +82,18 @@ def clean_descriptions(apps, schema_editor):
             line.save(update_fields=["description", "job_id"])
             updated_count += 1
 
-    # Write recovery log
-    log_file = f"po_line_cleanup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    # Write recovery log to logs directory
+    log_file = (
+        Path(settings.BASE_DIR)
+        / "logs"
+        / f"po_line_cleanup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    )
     with open(log_file, "w") as f:
         json.dump(changes, f, indent=2)
 
-    print(f"Cleaned {updated_count} PurchaseOrderLine descriptions")
-    print(f"Re-linked {relinked_count} job_ids")
-    print(f"Recovery log: {log_file}")
+    logger.info(f"Cleaned {updated_count} PurchaseOrderLine descriptions")
+    logger.info(f"Re-linked {relinked_count} job_ids")
+    logger.info(f"Recovery log: {log_file}")
 
 
 def reverse_migration(apps, schema_editor):
