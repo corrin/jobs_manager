@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 from logging import getLogger
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from django.db.models import Q, Sum
 from django.views.generic import TemplateView
@@ -210,15 +210,12 @@ class SalesForecastMonthDetailAPIView(APIView):
                                 "total_invoiced": {"type": "number"},
                                 "job_revenue": {"type": "number"},
                                 "variance": {"type": "number"},
-                                "match_type": {
-                                    "type": "string",
-                                    "enum": ["matched", "xero_only", "jm_only"],
-                                },
                                 "job_id": {
                                     "type": "string",
                                     "format": "uuid",
                                     "nullable": True,
                                 },
+                                "note": {"type": "string", "nullable": True},
                             },
                         },
                     },
@@ -301,43 +298,78 @@ class SalesForecastMonthDetailAPIView(APIView):
         # Track all job IDs that have invoices
         jobs_with_invoices = set(invoices_by_job.keys())
 
+        def build_row(
+            row_date: str,
+            client_name: str,
+            job_number: Optional[int],
+            job_name: Optional[str],
+            invoice_numbers: Optional[str],
+            total_invoiced: float,
+            job_revenue: float,
+            job_id: Optional[str],
+            note: Optional[str] = None,
+        ) -> Dict[str, Any]:
+            return {
+                "date": row_date,
+                "client_name": client_name,
+                "job_number": job_number,
+                "job_name": job_name,
+                "invoice_numbers": invoice_numbers,
+                "total_invoiced": round(total_invoiced, 2),
+                "job_revenue": round(job_revenue, 2),
+                "variance": round(total_invoiced - job_revenue, 2),
+                "job_id": job_id,
+                "note": note,
+            }
+
+        def get_job_note(job: Optional[Job], match_type: str) -> Optional[str]:
+            """Generate note for a row. Job characteristics first, then match status."""
+            if job and job.shop_job:
+                return "Shop job"
+            if job:
+                start = job.start_date
+                end = job.completion_date
+                if start and end and (start.year, start.month) != (end.year, end.month):
+                    return "Multi-month"
+            if match_type == "xero_only":
+                return "Xero only"
+            if match_type == "jm_only":
+                return "JM only"
+            return None
+
         # Build rows for jobs with invoices (matched)
         for job_id, job_invoices in invoices_by_job.items():
-            job = job_invoices[0].job  # All invoices in this list have the same job
-            total_invoiced = sum(float(inv.total_incl_tax) for inv in job_invoices)
-            job_revenue = float(job.latest_actual.total_revenue)
-
+            job = job_invoices[0].job
             rows.append(
-                {
-                    "date": job_invoices[0].date.isoformat(),
-                    "client_name": job.client.name,
-                    "job_number": job.job_number,
-                    "job_name": job.name,
-                    "invoice_numbers": ", ".join(inv.number for inv in job_invoices),
-                    "total_invoiced": round(total_invoiced, 2),
-                    "job_revenue": job_revenue,
-                    "variance": round(total_invoiced - job_revenue, 2),
-                    "match_type": "matched",
-                    "job_id": str(job.id),
-                }
+                build_row(
+                    row_date=job_invoices[0].date.isoformat(),
+                    client_name=job.client.name,
+                    job_number=job.job_number,
+                    job_name=job.name,
+                    invoice_numbers=", ".join(inv.number for inv in job_invoices),
+                    total_invoiced=sum(
+                        float(inv.total_incl_tax) for inv in job_invoices
+                    ),
+                    job_revenue=float(job.latest_actual.total_revenue),
+                    job_id=str(job.id),
+                    note=get_job_note(job, "matched"),
+                )
             )
 
         # Build rows for unlinked invoices (xero_only)
         for invoice in unlinked_invoices:
-            xero_amount = float(invoice.total_incl_tax)
             rows.append(
-                {
-                    "date": invoice.date.isoformat(),
-                    "client_name": invoice.client.name,
-                    "job_number": None,
-                    "job_name": None,
-                    "invoice_numbers": invoice.number,
-                    "total_invoiced": round(xero_amount, 2),
-                    "job_revenue": 0.0,
-                    "variance": round(xero_amount, 2),
-                    "match_type": "xero_only",
-                    "job_id": None,
-                }
+                build_row(
+                    row_date=invoice.date.isoformat(),
+                    client_name=invoice.client.name,
+                    job_number=None,
+                    job_name=None,
+                    invoice_numbers=invoice.number,
+                    total_invoiced=float(invoice.total_incl_tax),
+                    job_revenue=0.0,
+                    job_id=None,
+                    note=get_job_note(None, "xero_only"),
+                )
             )
 
         # Build rows for jobs with revenue but no invoices (jm_only)
@@ -349,37 +381,23 @@ class SalesForecastMonthDetailAPIView(APIView):
                 .prefetch_related("latest_actual__cost_lines")
                 .get(id=job_id)
             )
-            jm_amount = float(job.latest_actual.total_revenue)
-            if jm_amount == 0:
-                continue
+            job_revenue = float(job.latest_actual.total_revenue)
+            completion = job.completion_date
             rows.append(
-                {
-                    "date": (
-                        job.completion_date.isoformat() if job.completion_date else None
-                    ),
-                    "client_name": job.client.name,
-                    "job_number": job.job_number,
-                    "job_name": job.name,
-                    "invoice_numbers": None,
-                    "total_invoiced": 0.0,
-                    "job_revenue": jm_amount,
-                    "variance": round(-jm_amount, 2),
-                    "match_type": "jm_only",
-                    "job_id": str(job.id),
-                }
+                build_row(
+                    row_date=completion.isoformat() if completion else None,
+                    client_name=job.client.name,
+                    job_number=job.job_number,
+                    job_name=job.name,
+                    invoice_numbers=None,
+                    total_invoiced=0.0,
+                    job_revenue=job_revenue,
+                    job_id=str(job.id),
+                    note=get_job_note(job, "jm_only"),
+                )
             )
 
-        # Sort: matched first, then xero_only, then jm_only
-        # Within each group, sort by job number (or invoice number for xero_only)
-        sort_order = {"matched": 0, "xero_only": 1, "jm_only": 2}
-
-        def sort_key(row: Dict[str, Any]) -> tuple:
-            match_type = row["match_type"]
-            if row["job_number"]:
-                return (sort_order[match_type], row["job_number"])
-            return (sort_order[match_type], row["invoice_numbers"])
-
-        rows.sort(key=sort_key)
+        rows.sort(key=lambda r: r["date"] or "")
 
         return rows
 
