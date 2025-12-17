@@ -215,6 +215,11 @@ class SalesForecastMonthDetailAPIView(APIView):
                                     "format": "uuid",
                                     "nullable": True,
                                 },
+                                "job_start_date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "nullable": True,
+                                },
                                 "note": {"type": "string", "nullable": True},
                             },
                         },
@@ -307,6 +312,7 @@ class SalesForecastMonthDetailAPIView(APIView):
             total_invoiced: float,
             job_revenue: float,
             job_id: Optional[str],
+            job_start_date: Optional[str] = None,
             note: Optional[str] = None,
         ) -> Dict[str, Any]:
             return {
@@ -319,6 +325,7 @@ class SalesForecastMonthDetailAPIView(APIView):
                 "job_revenue": round(job_revenue, 2),
                 "variance": round(total_invoiced - job_revenue, 2),
                 "job_id": job_id,
+                "job_start_date": job_start_date,
                 "note": note,
             }
 
@@ -340,6 +347,8 @@ class SalesForecastMonthDetailAPIView(APIView):
         # Build rows for jobs with invoices (matched)
         for job_id, job_invoices in invoices_by_job.items():
             job = job_invoices[0].job
+            monthly_revenue = float(jobs_with_revenue.get(job_id, Decimal("0")))
+            start_date = job.start_date
             rows.append(
                 build_row(
                     row_date=job_invoices[0].date.isoformat(),
@@ -350,8 +359,9 @@ class SalesForecastMonthDetailAPIView(APIView):
                     total_invoiced=sum(
                         float(inv.total_incl_tax) for inv in job_invoices
                     ),
-                    job_revenue=float(job.latest_actual.total_revenue),
+                    job_revenue=monthly_revenue,
                     job_id=str(job.id),
+                    job_start_date=start_date.isoformat() if start_date else None,
                     note=get_job_note(job, "matched"),
                 )
             )
@@ -376,12 +386,9 @@ class SalesForecastMonthDetailAPIView(APIView):
         for job_id in jobs_with_revenue.keys():
             if job_id in jobs_with_invoices:
                 continue
-            job = (
-                Job.objects.select_related("client")
-                .prefetch_related("latest_actual__cost_lines")
-                .get(id=job_id)
-            )
-            job_revenue = float(job.latest_actual.total_revenue)
+            job = Job.objects.select_related("client").get(id=job_id)
+            monthly_revenue = float(jobs_with_revenue[job_id])
+            start_date = job.start_date
             completion = job.completion_date
             rows.append(
                 build_row(
@@ -391,8 +398,9 @@ class SalesForecastMonthDetailAPIView(APIView):
                     job_name=job.name,
                     invoice_numbers=None,
                     total_invoiced=0.0,
-                    job_revenue=job_revenue,
+                    job_revenue=monthly_revenue,
                     job_id=str(job.id),
+                    job_start_date=start_date.isoformat() if start_date else None,
                     note=get_job_note(job, "jm_only"),
                 )
             )
