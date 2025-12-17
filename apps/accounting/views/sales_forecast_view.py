@@ -92,9 +92,10 @@ class SalesForecastAPIView(APIView):
             # Get JM sales by month (from CostLine.accounting_date)
             jm_sales_by_month = self._get_jm_sales_by_month()
 
-            # Combine all months that have data from either source
+            # Combine all months that have data from either source (newest first)
             all_months = sorted(
-                set(xero_sales_by_month.keys()) | set(jm_sales_by_month.keys())
+                set(xero_sales_by_month.keys()) | set(jm_sales_by_month.keys()),
+                reverse=True,
             )
 
             # Build response data
@@ -163,8 +164,9 @@ class SalesForecastAPIView(APIView):
         Returns:
             Dict mapping 'YYYY-MM' to total revenue
         """
-        # Query all cost lines with accounting_date
+        # Query actual cost lines only (not estimates or quotes)
         cost_lines = CostLine.objects.filter(
+            cost_set__kind="actual",
             accounting_date__isnull=False,
             unit_rev__isnull=False,
             quantity__isnull=False,
