@@ -422,4 +422,5 @@ class SalesForecastMonthDetailAPIView(APIView):
             job_id = str(line.cost_set.job.id)
             jobs_revenue[job_id] += line.total_rev
 
-        return dict(jobs_revenue)
+        # Only return jobs with non-zero revenue
+        return {k: v for k, v in jobs_revenue.items() if v != 0}
