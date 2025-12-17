@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
-from apps.purchasing.models import PurchaseOrder, Stock
+from apps.purchasing.models import PurchaseOrder, PurchaseOrderEvent, Stock
 from apps.purchasing.serializers import (
     AllJobsResponseSerializer,
     AllocationDeleteResponseSerializer,
@@ -33,6 +33,9 @@ from apps.purchasing.serializers import (
     PurchaseOrderDetailSerializer,
     PurchaseOrderEmailResponseSerializer,
     PurchaseOrderEmailSerializer,
+    PurchaseOrderEventCreateResponseSerializer,
+    PurchaseOrderEventCreateSerializer,
+    PurchaseOrderEventsResponseSerializer,
     PurchaseOrderListSerializer,
     PurchaseOrderPDFResponseSerializer,
     PurchaseOrderUpdateResponseSerializer,
@@ -1124,5 +1127,83 @@ class PurchaseOrderEmailView(APIView):
                     "message": "Failed to generate email",
                     "details": str(e),
                 },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PurchaseOrderEventListCreateView(APIView):
+    """
+    REST API view for listing and creating purchase order events/comments.
+
+    GET: Returns list of events for a purchase order
+    POST: Creates a new event/comment on a purchase order
+    """
+
+    def get_serializer_class(self):
+        """Return appropriate serializer class based on request method."""
+        if self.request.method == "POST":
+            return PurchaseOrderEventCreateSerializer
+        return PurchaseOrderEventsResponseSerializer
+
+    @extend_schema(
+        operation_id="listPurchaseOrderEvents",
+        responses={
+            status.HTTP_200_OK: PurchaseOrderEventsResponseSerializer,
+            status.HTTP_404_NOT_FOUND: PurchasingErrorResponseSerializer,
+        },
+        description="List all events/comments for a purchase order.",
+        tags=["Purchase Orders"],
+    )
+    def get(self, request, po_id):
+        """Get list of events for a purchase order."""
+        po = get_object_or_404(PurchaseOrder, id=po_id)
+        events = po.events.all().order_by("-timestamp")
+
+        serializer = PurchaseOrderEventsResponseSerializer({"events": events})
+        return Response(serializer.data)
+
+    @extend_schema(
+        operation_id="createPurchaseOrderEvent",
+        request=PurchaseOrderEventCreateSerializer,
+        responses={
+            status.HTTP_201_CREATED: PurchaseOrderEventCreateResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: PurchasingErrorResponseSerializer,
+            status.HTTP_404_NOT_FOUND: PurchasingErrorResponseSerializer,
+        },
+        description="Create a new event/comment on a purchase order.",
+        tags=["Purchase Orders"],
+    )
+    def post(self, request, po_id):
+        """Create a new event on a purchase order."""
+        # Validate input
+        serializer = PurchaseOrderEventCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"error": "Invalid input data", "details": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get purchase order
+        po = get_object_or_404(PurchaseOrder, id=po_id)
+
+        try:
+            # Create event
+            event = PurchaseOrderEvent.objects.create(
+                purchase_order=po,
+                staff=request.user,
+                description=serializer.validated_data["description"],
+            )
+
+            response_data = {"success": True, "event": event}
+            response_serializer = PurchaseOrderEventCreateResponseSerializer(
+                response_data
+            )
+            return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            logger.error(f"Error creating event for PO {po_id}: {str(e)}")
+            persist_app_error(e)
+            return Response(
+                {"error": "Failed to create event", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

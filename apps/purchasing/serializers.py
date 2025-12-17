@@ -4,7 +4,12 @@ from rest_framework import serializers
 
 from apps.job.models import Job
 from apps.job.serializers.costing_serializer import CostLineSerializer
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.purchasing.models import (
+    PurchaseOrder,
+    PurchaseOrderEvent,
+    PurchaseOrderLine,
+    Stock,
+)
 
 
 class SupplierPriceStatusItemSerializer(serializers.Serializer):
@@ -140,6 +145,14 @@ class DeliveryReceiptResponseSerializer(serializers.Serializer):
     error = serializers.CharField(required=False)
 
 
+class PurchaseOrderJobSerializer(serializers.Serializer):
+    """Serializer for job info within a purchase order listing."""
+
+    job_number = serializers.CharField()
+    name = serializers.CharField()
+    client = serializers.CharField(allow_blank=True)
+
+
 class PurchaseOrderListSerializer(serializers.Serializer):
     """Serializer for listing purchase orders from service data."""
 
@@ -149,6 +162,7 @@ class PurchaseOrderListSerializer(serializers.Serializer):
     order_date = serializers.DateField()
     supplier = serializers.CharField()
     supplier_id = serializers.UUIDField(allow_null=True)
+    jobs = PurchaseOrderJobSerializer(many=True)
 
 
 class PurchaseOrderLineCreateSerializer(serializers.Serializer):
@@ -502,3 +516,36 @@ class ProductMappingValidateResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
     message = serializers.CharField()
     updated_products_count = serializers.IntegerField(required=False)
+
+
+# Purchase Order Event serializers
+class PurchaseOrderEventSerializer(serializers.ModelSerializer):
+    """Serializer for PurchaseOrderEvent model - read-only for frontend."""
+
+    staff = serializers.CharField(
+        source="staff.get_display_full_name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = PurchaseOrderEvent
+        fields = PurchaseOrderEvent.PURCHASEORDEREVENT_API_FIELDS
+
+
+class PurchaseOrderEventCreateSerializer(serializers.Serializer):
+    """Serializer for purchase order event creation request."""
+
+    description = serializers.CharField(max_length=500)
+
+
+class PurchaseOrderEventCreateResponseSerializer(serializers.Serializer):
+    """Serializer for purchase order event creation response."""
+
+    success = serializers.BooleanField()
+    event = PurchaseOrderEventSerializer()
+
+
+class PurchaseOrderEventsResponseSerializer(serializers.Serializer):
+    """Serializer for purchase order events list response."""
+
+    events = PurchaseOrderEventSerializer(many=True)

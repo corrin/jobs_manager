@@ -240,18 +240,34 @@ class PurchasingRestService:
 
     @staticmethod
     def list_purchase_orders() -> List[Dict[str, Any]]:
-        pos = PurchaseOrder.objects.all().order_by("-created_at")
-        return [
-            {
-                "id": str(po.id),
-                "po_number": po.po_number,
-                "status": po.status,
-                "order_date": po.order_date.isoformat(),
-                "supplier": po.supplier.name if po.supplier else "",
-                "supplier_id": str(po.supplier.id) if po.supplier else None,
-            }
-            for po in pos
-        ]
+        pos = PurchaseOrder.objects.prefetch_related("po_lines__job__client").order_by(
+            "-created_at"
+        )
+        result = []
+        for po in pos:
+            # Collect unique jobs with their details
+            seen_jobs = {}
+            for line in po.po_lines.all():
+                if line.job and line.job.id not in seen_jobs:
+                    seen_jobs[line.job.id] = {
+                        "job_number": str(line.job.job_number),
+                        "name": line.job.name,
+                        "client": line.job.client.name if line.job.client else "",
+                    }
+            jobs = sorted(seen_jobs.values(), key=lambda j: j["job_number"])
+
+            result.append(
+                {
+                    "id": str(po.id),
+                    "po_number": po.po_number,
+                    "status": po.status,
+                    "order_date": po.order_date.isoformat(),
+                    "supplier": po.supplier.name if po.supplier else "",
+                    "supplier_id": str(po.supplier.id) if po.supplier else None,
+                    "jobs": jobs,
+                }
+            )
+        return result
 
     @staticmethod
     def create_purchase_order(data: Dict[str, Any]) -> PurchaseOrder:
