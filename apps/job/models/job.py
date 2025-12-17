@@ -545,7 +545,7 @@ class Job(models.Model):
 
         # Special handling for rejected jobs
         if (
-            new_status == "recently_completed"
+            new_status == "archived"
             and hasattr(self, "rejected_flag")
             and self.rejected_flag
         ):
