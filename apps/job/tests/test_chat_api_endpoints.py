@@ -355,7 +355,7 @@ class ChatAPIPermissionTests(TestCase):
             username="admin",
             password="adminpassword123",
             email="admin@example.com",
-            is_staff=True,
+            is_office_staff=True,
             is_superuser=True,
         )
 

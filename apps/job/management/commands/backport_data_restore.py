@@ -114,7 +114,7 @@ class Command(BaseCommand):
                 "hours_sun": "0.00",
                 "ims_payroll_id": "ADMIN-DEV",
                 "is_active": True,
-                "is_staff": True,
+                "is_office_staff": True,
                 "is_superuser": True,
                 "password": (
                     "pbkdf2_sha256$870000$5Nw3RUuFaZZPCkeyVOm4kx$"

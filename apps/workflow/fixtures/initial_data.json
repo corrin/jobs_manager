@@ -276,7 +276,7 @@
       "hours_sun": "0.00",
       "ims_payroll_id": "ADMIN-001",
       "is_active": true,
-      "is_staff": true,
+      "is_office_staff": true,
       "is_superuser": true,
       "date_joined": "2024-01-01T00:00:00Z",
       "raw_ims_data": {},

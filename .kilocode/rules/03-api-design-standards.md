@@ -211,8 +211,8 @@ class CanDeleteJob(BasePermission):
     def has_object_permission(self, request, view, obj):
         # Only creator or admin can delete
         return (
-            request.user.is_staff or
-            obj.created_by == request.user.staff_profile
+            request.user.is_office_staff or
+            obj.created_by == request.user
         )
 
 class CanModifyJob(BasePermission):
@@ -223,46 +223,6 @@ class CanModifyJob(BasePermission):
             return False
         # Check if user has access to the job
         return obj.people.filter(id=request.user.staff_profile.id).exists()
-```
-
-## API Versioning
-
-### Versioning Strategy
-
-```python
-# URL versioning (preferred)
-# (Verifique apps/job/urls_rest.py e urls.py para detalhes reais de roteamento)
-# Exemplo:
-# path('api/job/', include('apps.job.urls_rest')),
-
-# Header versioning (opcional, não habilitado por padrão)
-# REST_FRAMEWORK = {
-#     'DEFAULT_VERSIONING_CLASS': 'rest_framework.versioning.AcceptHeaderVersioning',
-#     'DEFAULT_VERSION': 'v1',
-#     'ALLOWED_VERSIONS': ['v1', 'v2'],
-# }
-```
-
-### Backward Compatibility
-
-```python
-class JobSerializer(serializers.ModelSerializer):
-    # Deprecated field - keep for v1
-    old_field = serializers.CharField(
-        source='new_field',
-        help_text="DEPRECATED: Use 'new_field' instead"
-    )
-    # New field - available in v2+
-    new_field = serializers.CharField()
-    class Meta:
-        model = Job
-        fields = ['id', 'name', 'old_field', 'new_field']
-    def to_representation(self, instance):
-        data = super().to_representation(instance)
-        # Remove deprecated fields in v2+
-        if self.context.get('request').version == 'v2':
-            data.pop('old_field', None)
-        return data
 ```
 
 ## Pagination
@@ -338,7 +298,6 @@ def custom_exception_handler(exc, context):
     return response
 
 # settings.py
-# Para custom exception handler, defina:
 # REST_FRAMEWORK = {
 #     'EXCEPTION_HANDLER': 'apps.api.exceptions.custom_exception_handler'
 # }

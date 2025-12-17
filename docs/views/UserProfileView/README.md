@@ -35,7 +35,7 @@ Provides user profile management and authentication lifecycle support for jobbin
   - `preferred_name`: User preferred display name
   - `fullName`: Computed full name
   - `is_active`: Account active status
-  - `is_staff`: Staff status for permissions
+  - `is_office_staff`: Staff status for permissions
 - **401 Unauthorized**: Authentication required
 - **500 Internal Server Error**: Profile retrieval failures
 

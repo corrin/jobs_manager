@@ -34,7 +34,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         "ims_payroll_id",
         "xero_user_id",
         "date_left",
-        "is_staff",
+        "is_office_staff",
         "is_superuser",
         "password_needs_reset",
         "hours_mon",
@@ -87,7 +87,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         blank=True,
         help_text="Date staff member left employment (null for current employees)",
     )
-    is_staff: bool = models.BooleanField(default=False)
+    is_office_staff: bool = models.BooleanField(default=False)
     date_joined: datetime = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

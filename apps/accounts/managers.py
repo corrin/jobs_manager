@@ -38,13 +38,12 @@ class StaffManager(BaseManagerClass):
     def create_superuser(
         self, email: str, password: str, **extra_fields: Any
     ) -> "Staff":
-        extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("wage_rate", 0)  # Default wage rate for superusers
 
         # Strict validation for superuser status
-        if extra_fields.get("is_staff") is not True:
-            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_office_staff") is not True:
+            raise ValueError("Superuser must have is_office_staff=True.")
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser must have is_superuser=True.")
 
