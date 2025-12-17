@@ -31,6 +31,7 @@
 | `/purchase-orders/<uuid:po_id>/allocations/` | `purchasing_rest_views.PurchaseOrderAllocationsAPIView` | `purchasing:purchase_order_allocations_rest` | API endpoint to get existing allocations for a purchase order. |
 | `/purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/` | `purchasing_rest_views.AllocationDetailsAPIView` | `purchasing:allocation_details_rest` | API endpoint to get details about a specific allocation before deletion. |
 | `/purchase-orders/<uuid:po_id>/email/` | `purchasing_rest_views.PurchaseOrderEmailView` | `purchasing:purchase_order_email_rest` | REST API view for generating purchase order emails. |
+| `/purchase-orders/<uuid:po_id>/events/` | `purchasing_rest_views.PurchaseOrderEventListCreateView` | `purchasing:purchase_order_events_rest` | REST API view for listing and creating purchase order events/comments. |
 | `/purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/` | `purchasing_rest_views.AllocationDeleteAPIView` | `purchasing:allocation_delete_rest` | API endpoint to delete specific allocations from a purchase order. |
 | `/purchase-orders/<uuid:po_id>/pdf/` | `purchasing_rest_views.PurchaseOrderPDFView` | `purchasing:purchase_order_pdf_rest` | REST API view for generating and downloading purchase order PDFs. |
 

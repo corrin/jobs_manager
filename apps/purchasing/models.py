@@ -284,6 +284,17 @@ class PurchaseOrderLine(models.Model):
         help_text="Xero's unique identifier for this line item (from line_item_id)",
     )
 
+    # Note: "Price to be confirmed" prefix was deliberately removed - it cluttered Xero
+    @property
+    def xero_description(self) -> str:
+        """Description with job number prefix for Xero sync."""
+        if self.job:
+            prefix = f"{self.job.job_number} - "
+            if self.description.startswith(prefix):
+                return self.description
+            return f"{prefix}{self.description}"
+        return self.description
+
     class Meta:
         db_table = "workflow_purchaseorderline"
 
@@ -632,5 +643,49 @@ class Stock(models.Model):
             models.UniqueConstraint(
                 fields=["active_source_purchase_order_line_id"],
                 name="unique_active_stock_per_po_line",
+            ),
+        ]
+
+
+class PurchaseOrderEvent(models.Model):
+    """A manual note/comment on a purchase order.
+
+    Simpler than JobEvent - no delta tracking or undo support needed.
+    """
+
+    # CHECKLIST - when adding a new field to PurchaseOrderEvent:
+    #   1. PURCHASEORDEREVENT_API_FIELDS below
+    #   2. PurchaseOrderEventSerializer in apps/purchasing/serializers.py
+    #
+    PURCHASEORDEREVENT_API_FIELDS = [
+        "id",
+        "description",
+        "timestamp",
+        "staff",
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    purchase_order = models.ForeignKey(
+        PurchaseOrder,
+        on_delete=models.CASCADE,
+        related_name="events",
+    )
+    timestamp = models.DateTimeField(default=timezone.now)
+    staff = models.ForeignKey(
+        "accounts.Staff",
+        on_delete=models.PROTECT,
+    )
+    description = models.TextField()
+
+    def __str__(self) -> str:
+        return f"{self.timestamp}: Event for PO {self.purchase_order.po_number}"
+
+    class Meta:
+        db_table = "workflow_purchaseorderevent"
+        ordering = ["-timestamp"]
+        indexes = [
+            models.Index(
+                fields=["purchase_order", "-timestamp"],
+                name="poevent_po_timestamp_idx",
             ),
         ]
