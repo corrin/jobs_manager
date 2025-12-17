@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.db import models, transaction
@@ -357,6 +357,13 @@ class Job(models.Model):
         """
         client_name = self.client.name[:12] if self.client else "No Client"
         return f"{self.job_number} - {client_name}, {self.name}"
+
+    @property
+    def completion_date(self) -> Optional[date]:
+        """Returns the latest accounting_date from actual CostLines."""
+        return self.latest_actual.cost_lines.aggregate(latest=Max("accounting_date"))[
+            "latest"
+        ]
 
     def generate_job_number(self) -> int:
         from apps.workflow.models import CompanyDefaults

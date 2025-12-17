@@ -202,41 +202,23 @@ class SalesForecastMonthDetailAPIView(APIView):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "invoices": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "id": {"type": "string", "format": "uuid"},
-                                            "number": {
-                                                "type": "string",
-                                                "example": "INV-0001",
-                                            },
-                                            "date": {
-                                                "type": "string",
-                                                "format": "date",
-                                            },
-                                            "total_incl_tax": {"type": "number"},
-                                        },
-                                    },
-                                },
-                                "total_invoiced": {"type": "number"},
-                                "job": {
-                                    "type": "object",
-                                    "nullable": True,
-                                    "properties": {
-                                        "id": {"type": "string", "format": "uuid"},
-                                        "job_number": {"type": "integer"},
-                                        "name": {"type": "string"},
-                                        "revenue": {"type": "number"},
-                                    },
-                                },
+                                "date": {"type": "string", "format": "date"},
                                 "client_name": {"type": "string"},
+                                "job_number": {"type": "integer", "nullable": True},
+                                "job_name": {"type": "string", "nullable": True},
+                                "invoice_numbers": {"type": "string", "nullable": True},
+                                "total_invoiced": {"type": "number"},
+                                "job_revenue": {"type": "number"},
+                                "variance": {"type": "number"},
                                 "match_type": {
                                     "type": "string",
                                     "enum": ["matched", "xero_only", "jm_only"],
                                 },
-                                "variance": {"type": "number"},
+                                "job_id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "nullable": True,
+                                },
                             },
                         },
                     },
@@ -323,29 +305,20 @@ class SalesForecastMonthDetailAPIView(APIView):
         for job_id, job_invoices in invoices_by_job.items():
             job = job_invoices[0].job  # All invoices in this list have the same job
             total_invoiced = sum(float(inv.total_incl_tax) for inv in job_invoices)
-            job_revenue = float(jobs_with_revenue.get(job_id, Decimal("0")))
+            job_revenue = float(job.latest_actual.total_revenue)
 
             rows.append(
                 {
-                    "invoices": [
-                        {
-                            "id": str(inv.id),
-                            "number": inv.number,
-                            "date": inv.date.isoformat(),
-                            "total_incl_tax": float(inv.total_incl_tax),
-                        }
-                        for inv in job_invoices
-                    ],
+                    "date": job_invoices[0].date.isoformat(),
+                    "client_name": job.client.name,
+                    "job_number": job.job_number,
+                    "job_name": job.name,
+                    "invoice_numbers": ", ".join(inv.number for inv in job_invoices),
                     "total_invoiced": round(total_invoiced, 2),
-                    "job": {
-                        "id": str(job.id),
-                        "job_number": job.job_number,
-                        "name": job.name,
-                        "revenue": job_revenue,
-                    },
-                    "client_name": job.client.name if job.client else None,
-                    "match_type": "matched",
+                    "job_revenue": job_revenue,
                     "variance": round(total_invoiced - job_revenue, 2),
+                    "match_type": "matched",
+                    "job_id": str(job.id),
                 }
             )
 
@@ -354,43 +327,45 @@ class SalesForecastMonthDetailAPIView(APIView):
             xero_amount = float(invoice.total_incl_tax)
             rows.append(
                 {
-                    "invoices": [
-                        {
-                            "id": str(invoice.id),
-                            "number": invoice.number,
-                            "date": invoice.date.isoformat(),
-                            "total_incl_tax": xero_amount,
-                        }
-                    ],
+                    "date": invoice.date.isoformat(),
+                    "client_name": invoice.client.name,
+                    "job_number": None,
+                    "job_name": None,
+                    "invoice_numbers": invoice.number,
                     "total_invoiced": round(xero_amount, 2),
-                    "job": None,
-                    "client_name": invoice.client.name if invoice.client else None,
-                    "match_type": "xero_only",
+                    "job_revenue": 0.0,
                     "variance": round(xero_amount, 2),
+                    "match_type": "xero_only",
+                    "job_id": None,
                 }
             )
 
         # Build rows for jobs with revenue but no invoices (jm_only)
-        for job_id, revenue in jobs_with_revenue.items():
+        for job_id in jobs_with_revenue.keys():
             if job_id in jobs_with_invoices:
                 continue
-            jm_amount = float(revenue)
+            job = (
+                Job.objects.select_related("client")
+                .prefetch_related("latest_actual__cost_lines")
+                .get(id=job_id)
+            )
+            jm_amount = float(job.latest_actual.total_revenue)
             if jm_amount == 0:
                 continue
-            job = Job.objects.select_related("client").get(id=job_id)
             rows.append(
                 {
-                    "invoices": [],
+                    "date": (
+                        job.completion_date.isoformat() if job.completion_date else None
+                    ),
+                    "client_name": job.client.name,
+                    "job_number": job.job_number,
+                    "job_name": job.name,
+                    "invoice_numbers": None,
                     "total_invoiced": 0.0,
-                    "job": {
-                        "id": str(job.id),
-                        "job_number": job.job_number,
-                        "name": job.name,
-                        "revenue": jm_amount,
-                    },
-                    "client_name": job.client.name if job.client else None,
-                    "match_type": "jm_only",
+                    "job_revenue": jm_amount,
                     "variance": round(-jm_amount, 2),
+                    "match_type": "jm_only",
+                    "job_id": str(job.id),
                 }
             )
 
@@ -400,9 +375,9 @@ class SalesForecastMonthDetailAPIView(APIView):
 
         def sort_key(row: Dict[str, Any]) -> tuple:
             match_type = row["match_type"]
-            if row["job"]:
-                return (sort_order[match_type], row["job"]["job_number"])
-            return (sort_order[match_type], row["invoices"][0]["number"])
+            if row["job_number"]:
+                return (sort_order[match_type], row["job_number"])
+            return (sort_order[match_type], row["invoice_numbers"])
 
         rows.sort(key=sort_key)
 
