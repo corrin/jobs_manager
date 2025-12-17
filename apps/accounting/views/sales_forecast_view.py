@@ -231,10 +231,7 @@ class SalesForecastMonthDetailAPIView(APIView):
                                         "revenue": {"type": "number"},
                                     },
                                 },
-                                "client_name": {
-                                    "type": "string",
-                                    "nullable": True,
-                                },
+                                "client_name": {"type": "string"},
                                 "match_type": {
                                     "type": "string",
                                     "enum": ["matched", "xero_only", "jm_only"],
