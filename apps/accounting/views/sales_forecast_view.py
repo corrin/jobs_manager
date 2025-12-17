@@ -288,10 +288,12 @@ class SalesForecastMonthDetailAPIView(APIView):
                 "status": invoice.status,
             }
 
+            xero_amount = float(invoice.total_incl_tax)
+
             if invoice.job and str(invoice.job.id) in jobs_with_revenue:
                 # Matched: invoice linked to job with revenue this month
                 job = invoice.job
-                job_revenue = jobs_with_revenue[str(job.id)]
+                job_revenue = float(jobs_with_revenue[str(job.id)])
                 matched_job_ids.add(str(job.id))
 
                 rows.append(
@@ -302,9 +304,10 @@ class SalesForecastMonthDetailAPIView(APIView):
                             "job_number": job.job_number,
                             "name": job.name,
                             "client_name": job.client.name if job.client else None,
-                            "month_revenue": float(job_revenue),
+                            "revenue": job_revenue,
                         },
                         "match_type": "matched",
+                        "variance": round(xero_amount - job_revenue, 2),
                     }
                 )
             elif invoice.job:
@@ -318,9 +321,10 @@ class SalesForecastMonthDetailAPIView(APIView):
                             "job_number": job.job_number,
                             "name": job.name,
                             "client_name": job.client.name if job.client else None,
-                            "month_revenue": 0.0,
+                            "revenue": 0.0,
                         },
                         "match_type": "matched",
+                        "variance": round(xero_amount, 2),
                     }
                 )
                 matched_job_ids.add(str(job.id))
@@ -331,6 +335,7 @@ class SalesForecastMonthDetailAPIView(APIView):
                         "invoice": invoice_data,
                         "job": None,
                         "match_type": "xero_only",
+                        "variance": round(xero_amount, 2),
                     }
                 )
 
@@ -338,6 +343,7 @@ class SalesForecastMonthDetailAPIView(APIView):
         for job_id, revenue in jobs_with_revenue.items():
             if job_id not in matched_job_ids:
                 job = Job.objects.select_related("client").get(id=job_id)
+                jm_amount = float(revenue)
                 rows.append(
                     {
                         "invoice": None,
@@ -346,9 +352,10 @@ class SalesForecastMonthDetailAPIView(APIView):
                             "job_number": job.job_number,
                             "name": job.name,
                             "client_name": job.client.name if job.client else None,
-                            "month_revenue": float(revenue),
+                            "revenue": jm_amount,
                         },
                         "match_type": "jm_only",
+                        "variance": round(-jm_amount, 2),
                     }
                 )
 
