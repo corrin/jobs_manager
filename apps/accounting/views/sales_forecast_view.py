@@ -391,13 +391,16 @@ class SalesForecastMonthDetailAPIView(APIView):
                 )
 
         # Sort: matched first, then xero_only, then jm_only
+        # Within each group, sort by invoice number or job number
         sort_order = {"matched": 0, "xero_only": 1, "jm_only": 2}
-        rows.sort(
-            key=lambda r: (
-                sort_order[r["match_type"]],
-                r.get("invoice", {}).get("number", "") or "",
-            )
-        )
+
+        def sort_key(row: Dict[str, Any]) -> tuple:
+            match_type = row["match_type"]
+            if match_type == "jm_only":
+                return (sort_order[match_type], row["job"]["job_number"])
+            return (sort_order[match_type], row["invoice"]["number"])
+
+        rows.sort(key=sort_key)
 
         return rows
 
