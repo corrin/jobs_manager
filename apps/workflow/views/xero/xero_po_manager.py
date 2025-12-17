@@ -174,16 +174,10 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             )
             return
 
-        # Build a list of (expected_description, line) tuples
-        # (descriptions as we send them to Xero, with job number prefix)
+        # Build a list of (xero_description, line) tuples for matching
         local_lines = []
         for line in self.purchase_order.po_lines.all():
-            description = line.description
-            if line.job:
-                description = f"{line.job.job_number} - {description}"
-            if line.price_tbc:
-                description = f"Price to be confirmed - {description}"
-            local_lines.append((description, line))
+            local_lines.append((line.xero_description, line))
 
         updated_count = 0
         for xero_line in xero_po.line_items:
@@ -369,18 +363,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             logger.error("Purchase order object is missing in get_line_items.")
             return []  # Or raise error
 
-        for line in self.purchase_order.po_lines.all():  # Correct related name
-            description = line.description
-            # Prepend Job Number if available
-            if line.job:
-                description = f"{line.job.job_number} - {description}"
-
+        for line in self.purchase_order.po_lines.all():
             line_item_data = {
-                "description": (
-                    f"Price to be confirmed - {description}"
-                    if line.price_tbc
-                    else description
-                ),
+                "description": line.xero_description,
                 "quantity": float(line.quantity),
                 "unit_amount": float(line.unit_cost) if line.unit_cost else 0.0,
             }

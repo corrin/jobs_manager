@@ -11,6 +11,7 @@ try:
         from .etag import generate_po_etag, normalize_etag
         from .models import (
             PurchaseOrder,
+            PurchaseOrderEvent,
             PurchaseOrderLine,
             PurchaseOrderSupplierQuote,
             Stock,
@@ -90,6 +91,7 @@ __all__ = [
     "PurchaseOrderDetailSerializer",
     "PurchaseOrderEmailResponseSerializer",
     "PurchaseOrderEmailSerializer",
+    "PurchaseOrderEvent",
     "PurchaseOrderLine",
     "PurchaseOrderLineCreateSerializer",
     "PurchaseOrderLineSerializer",
