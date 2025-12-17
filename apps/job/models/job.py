@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from django.db import models, transaction
-from django.db.models import Index, Max
+from django.db.models import Index, Max, Min
 from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
@@ -357,6 +357,13 @@ class Job(models.Model):
         """
         client_name = self.client.name[:12] if self.client else "No Client"
         return f"{self.job_number} - {client_name}, {self.name}"
+
+    @property
+    def start_date(self) -> Optional[date]:
+        """Returns the earliest accounting_date from actual CostLines."""
+        return self.latest_actual.cost_lines.aggregate(earliest=Min("accounting_date"))[
+            "earliest"
+        ]
 
     @property
     def completion_date(self) -> Optional[date]:
