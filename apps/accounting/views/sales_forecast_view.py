@@ -202,24 +202,25 @@ class SalesForecastMonthDetailAPIView(APIView):
                         "items": {
                             "type": "object",
                             "properties": {
-                                "invoice": {
-                                    "type": "object",
-                                    "nullable": True,
-                                    "properties": {
-                                        "id": {"type": "string", "format": "uuid"},
-                                        "number": {
-                                            "type": "string",
-                                            "example": "INV-0001",
+                                "invoices": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string", "format": "uuid"},
+                                            "number": {
+                                                "type": "string",
+                                                "example": "INV-0001",
+                                            },
+                                            "date": {
+                                                "type": "string",
+                                                "format": "date",
+                                            },
+                                            "total_incl_tax": {"type": "number"},
                                         },
-                                        "date": {"type": "string", "format": "date"},
-                                        "client_name": {
-                                            "type": "string",
-                                            "nullable": True,
-                                        },
-                                        "total_incl_tax": {"type": "number"},
-                                        "status": {"type": "string"},
                                     },
                                 },
+                                "total_invoiced": {"type": "number"},
                                 "job": {
                                     "type": "object",
                                     "nullable": True,
@@ -227,12 +228,12 @@ class SalesForecastMonthDetailAPIView(APIView):
                                         "id": {"type": "string", "format": "uuid"},
                                         "job_number": {"type": "integer"},
                                         "name": {"type": "string"},
-                                        "client_name": {
-                                            "type": "string",
-                                            "nullable": True,
-                                        },
                                         "revenue": {"type": "number"},
                                     },
+                                },
+                                "client_name": {
+                                    "type": "string",
+                                    "nullable": True,
                                 },
                                 "match_type": {
                                     "type": "string",
@@ -292,7 +293,10 @@ class SalesForecastMonthDetailAPIView(APIView):
             )
 
     def _build_comparison_rows(self, year: int, month: int) -> List[Dict[str, Any]]:
-        """Build comparison rows for the given month."""
+        """Build comparison rows for the given month.
+
+        One row per job (aggregating all invoices for that job) or per unlinked invoice.
+        """
         rows: List[Dict[str, Any]] = []
 
         # Get invoices for this month
@@ -300,105 +304,105 @@ class SalesForecastMonthDetailAPIView(APIView):
             ~Q(status__in=["DRAFT", "DELETED", "VOIDED"]),
             date__year=year,
             date__month=month,
-        ).select_related("client", "job")
+        ).select_related("client", "job", "job__client")
 
         # Get jobs with actual revenue in this month
         jobs_with_revenue = self._get_jobs_with_revenue(year, month)
 
-        # Track which jobs have been matched to invoices
-        matched_job_ids = set()
+        # Group invoices by job_id (None for unlinked invoices)
+        invoices_by_job: Dict[str, List[Invoice]] = defaultdict(list)
+        unlinked_invoices: List[Invoice] = []
 
-        # Process invoices
         for invoice in invoices:
-            invoice_data = {
-                "id": str(invoice.id),
-                "number": invoice.number,
-                "date": invoice.date.isoformat(),
-                "client_name": invoice.client.name if invoice.client else None,
-                "total_incl_tax": float(invoice.total_incl_tax),
-                "status": invoice.status,
-            }
-
-            xero_amount = float(invoice.total_incl_tax)
-
-            if invoice.job and str(invoice.job.id) in jobs_with_revenue:
-                # Matched: invoice linked to job with revenue this month
-                job = invoice.job
-                job_revenue = float(jobs_with_revenue[str(job.id)])
-                matched_job_ids.add(str(job.id))
-
-                rows.append(
-                    {
-                        "invoice": invoice_data,
-                        "job": {
-                            "id": str(job.id),
-                            "job_number": job.job_number,
-                            "name": job.name,
-                            "client_name": job.client.name if job.client else None,
-                            "revenue": job_revenue,
-                        },
-                        "match_type": "matched",
-                        "variance": round(xero_amount - job_revenue, 2),
-                    }
-                )
-            elif invoice.job:
-                # Invoice linked to job, but job has no revenue this month
-                job = invoice.job
-                rows.append(
-                    {
-                        "invoice": invoice_data,
-                        "job": {
-                            "id": str(job.id),
-                            "job_number": job.job_number,
-                            "name": job.name,
-                            "client_name": job.client.name if job.client else None,
-                            "revenue": 0.0,
-                        },
-                        "match_type": "matched",
-                        "variance": round(xero_amount, 2),
-                    }
-                )
-                matched_job_ids.add(str(job.id))
+            if invoice.job:
+                invoices_by_job[str(invoice.job.id)].append(invoice)
             else:
-                # Xero only: invoice without job link
-                rows.append(
-                    {
-                        "invoice": invoice_data,
-                        "job": None,
-                        "match_type": "xero_only",
-                        "variance": round(xero_amount, 2),
-                    }
-                )
+                unlinked_invoices.append(invoice)
 
-        # Add JM only jobs (jobs with revenue but no invoice this month)
+        # Track all job IDs that have invoices
+        jobs_with_invoices = set(invoices_by_job.keys())
+
+        # Build rows for jobs with invoices (matched)
+        for job_id, job_invoices in invoices_by_job.items():
+            job = job_invoices[0].job  # All invoices in this list have the same job
+            total_invoiced = sum(float(inv.total_incl_tax) for inv in job_invoices)
+            job_revenue = float(jobs_with_revenue.get(job_id, Decimal("0")))
+
+            rows.append(
+                {
+                    "invoices": [
+                        {
+                            "id": str(inv.id),
+                            "number": inv.number,
+                            "date": inv.date.isoformat(),
+                            "total_incl_tax": float(inv.total_incl_tax),
+                        }
+                        for inv in job_invoices
+                    ],
+                    "total_invoiced": round(total_invoiced, 2),
+                    "job": {
+                        "id": str(job.id),
+                        "job_number": job.job_number,
+                        "name": job.name,
+                        "revenue": job_revenue,
+                    },
+                    "client_name": job.client.name if job.client else None,
+                    "match_type": "matched",
+                    "variance": round(total_invoiced - job_revenue, 2),
+                }
+            )
+
+        # Build rows for unlinked invoices (xero_only)
+        for invoice in unlinked_invoices:
+            xero_amount = float(invoice.total_incl_tax)
+            rows.append(
+                {
+                    "invoices": [
+                        {
+                            "id": str(invoice.id),
+                            "number": invoice.number,
+                            "date": invoice.date.isoformat(),
+                            "total_incl_tax": xero_amount,
+                        }
+                    ],
+                    "total_invoiced": round(xero_amount, 2),
+                    "job": None,
+                    "client_name": invoice.client.name if invoice.client else None,
+                    "match_type": "xero_only",
+                    "variance": round(xero_amount, 2),
+                }
+            )
+
+        # Build rows for jobs with revenue but no invoices (jm_only)
         for job_id, revenue in jobs_with_revenue.items():
-            if job_id not in matched_job_ids:
+            if job_id not in jobs_with_invoices:
                 job = Job.objects.select_related("client").get(id=job_id)
                 jm_amount = float(revenue)
                 rows.append(
                     {
-                        "invoice": None,
+                        "invoices": [],
+                        "total_invoiced": 0.0,
                         "job": {
                             "id": str(job.id),
                             "job_number": job.job_number,
                             "name": job.name,
-                            "client_name": job.client.name if job.client else None,
                             "revenue": jm_amount,
                         },
+                        "client_name": job.client.name if job.client else None,
                         "match_type": "jm_only",
                         "variance": round(-jm_amount, 2),
                     }
                 )
 
         # Sort: matched first, then xero_only, then jm_only
-        # Within each group, sort by invoice number or job number
+        # Within each group, sort by job number (or invoice number for xero_only)
         sort_order = {"matched": 0, "xero_only": 1, "jm_only": 2}
 
         def sort_key(row: Dict[str, Any]) -> tuple:
             match_type = row["match_type"]
-            if match_type == "jm_only":
+            if row["job"]:
                 return (sort_order[match_type], row["job"]["job_number"])
-            return (sort_order[match_type], row["invoice"]["number"])
+            return (sort_order[match_type], row["invoices"][0]["number"])
 
         rows.sort(key=sort_key)
 
