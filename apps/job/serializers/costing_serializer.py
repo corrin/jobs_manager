@@ -221,6 +221,17 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     logger.info(
                         "Auto-calculated unit_rev is 0 because entry is not billable"
                     )
+        
+        # Validate staff role to auto-approve/reject line
+        staff: Staff = self.context["staff"]
+
+        if not staff:
+            raise serializers.ValidationError("Missing staff context from request, can't proceed with line approval validation.")
+
+        if staff.is_office_staff:
+            self.validated_data["approved"] = True
+        else:
+            self.validated_data["approved"] = False
 
         return super().save(**kwargs)
 

@@ -20,12 +20,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import CostLine, CostSet, Job
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.costing_serializer import (
     CostLineCreateUpdateSerializer,
     CostLineErrorResponseSerializer,
     CostLineSerializer,
 )
 from apps.purchasing.models import Stock
+from apps.purchasing.serializers import StockConsumeResponseSerializer
+from apps.purchasing.services.stock_service import consume_stock
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +78,10 @@ class CostLineCreateView(APIView):
                 logger.info(f"Creating cost line with data: {request.data}")
 
                 # Validate and create cost line
-                serializer = CostLineCreateUpdateSerializer(data=request.data)
+                serializer = CostLineCreateUpdateSerializer(
+                    data=request.data,
+                    context={"request": request, "staff": request.user}
+                )
                 if not serializer.is_valid():
                     logger.error(f"Cost line validation failed for job {job_id}:")
                     logger.error(f"Received data: {request.data}")
@@ -159,7 +165,10 @@ class CostLineUpdateView(APIView):
                 old_qty = cost_line.quantity or 0
 
                 serializer = CostLineCreateUpdateSerializer(
-                    cost_line, data=request.data, partial=True
+                    cost_line, 
+                    data=request.data, 
+                    partial=True,
+                    context={"request": request, "staff": request.user}
                 )
                 if not serializer.is_valid():
                     return Response(
@@ -244,3 +253,79 @@ class CostLineDeleteView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class CostLineApprovalView(APIView):
+    """
+    Approve an existing CostLine
+
+    POST /job/rest/cost_lines/<cost_line_id>/approve
+    """
+
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cost_line_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="ID of the CostLine to approve"
+            )
+        ],
+        responses={
+            200: StockConsumeResponseSerializer,
+            400: CostLineErrorResponseSerializer,
+            500: CostLineErrorResponseSerializer
+        }
+    )
+    def post(self, request, cost_line_id):
+        line = CostLine.objects.get(id=cost_line_id)
+
+        item_code = line.meta.get("item_code", None)
+    
+        if not item_code:
+            logger.error(f"Error when trying to approve cost line {cost_line_id} - missing item code")
+            error_response = {"error": "Failed to approve cost line - missing item code"}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(
+                error_serializer.data,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        item = get_object_or_404(Stock, item_code=item_code)
+        job = line.cost_set.job
+        qty = line.quantity
+        
+        # First: delete line (will be recreated in next step)
+        line.delete()
+
+        # Second: consume stock for the same quantity and job
+        # The created cost line will be automatically approved
+        try:
+            new_line = consume_stock(
+                item=item,
+                job=job,
+                qty=qty,
+                user=request.user
+            )
+        except ValueError as exc:
+            logger.error(f"Error when trying to approve cost line {cost_line_id}: {str(exc)}")
+            error_response = {"error": str(exc)}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(
+                error_serializer.data,
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        payload = {
+            "success": True,
+            "message": "Line approved successfully",
+            "remaining_quantity": item.quantity - qty,
+            "line": new_line
+        }
+
+        return Response(
+            StockConsumeResponseSerializer(payload).data, 
+            status=status.HTTP_200_OK
+        )
