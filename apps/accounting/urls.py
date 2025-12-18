@@ -4,6 +4,7 @@ from apps.accounting.views import JobAgingAPIView
 from apps.accounting.views.kpi_view import KPICalendarAPIView, KPICalendarTemplateView
 from apps.accounting.views.sales_forecast_view import (
     SalesForecastAPIView,
+    SalesForecastMonthDetailAPIView,
     SalesForecastTemplateView,
 )
 from apps.accounting.views.staff_performance_views import (
@@ -41,6 +42,11 @@ urlpatterns = [
         "api/reports/sales-forecast/",
         SalesForecastAPIView.as_view(),
         name="api_sales_forecast",
+    ),
+    path(
+        "api/reports/sales-forecast/<str:month>/",
+        SalesForecastMonthDetailAPIView.as_view(),
+        name="api_sales_forecast_month_detail",
     ),
     path(
         "api/reports/staff-performance-summary/",

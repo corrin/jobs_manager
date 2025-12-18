@@ -11,6 +11,7 @@ from apps.purchasing.views.purchasing_rest_views import (
     PurchaseOrderAllocationsAPIView,
     PurchaseOrderDetailRestView,
     PurchaseOrderEmailView,
+    PurchaseOrderEventListCreateView,
     PurchaseOrderListCreateRestView,
     PurchaseOrderPDFView,
     PurchasingJobsAPIView,
@@ -66,6 +67,11 @@ urlpatterns = [
         "purchase-orders/<uuid:po_id>/email/",
         PurchaseOrderEmailView.as_view(),
         name="purchase_order_email_rest",
+    ),
+    path(
+        "purchase-orders/<uuid:po_id>/events/",
+        PurchaseOrderEventListCreateView.as_view(),
+        name="purchase_order_events_rest",
     ),
     path(
         "purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/",
