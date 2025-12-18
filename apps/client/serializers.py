@@ -44,6 +44,7 @@ class SupplierPickupAddressSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         """Convert empty strings to None for nullable fields before validation."""
         nullable_fields = [
+            "suburb",
             "state",
             "postal_code",
             "notes",

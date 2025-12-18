@@ -383,6 +383,7 @@ class SupplierPickupAddress(models.Model):
         "client",
         "name",
         "street",
+        "suburb",
         "city",
         "state",
         "postal_code",
@@ -420,7 +421,15 @@ class SupplierPickupAddress(models.Model):
         max_length=255,
         help_text="Street address including unit/suite number",
     )
-    city = models.CharField(max_length=100, help_text="City or suburb")
+    suburb = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Suburb or neighbourhood (e.g., Thorndon, Northcote Point)",
+    )
+    city = models.CharField(
+        max_length=100, help_text="City (e.g., Wellington, Auckland)"
+    )
     state = models.CharField(
         max_length=100,
         null=True,
@@ -492,12 +501,15 @@ class SupplierPickupAddress(models.Model):
     @property
     def formatted_address(self) -> str:
         """Return a formatted single-line address string."""
-        parts = [self.street, self.city]
+        parts = [self.street]
+        if self.suburb:
+            parts.append(self.suburb)
+        parts.append(self.city)
         if self.state:
             parts.append(self.state)
         if self.postal_code:
             parts.append(self.postal_code)
-        if self.country and self.country != "Australia":
+        if self.country and self.country != "New Zealand":
             parts.append(self.country)
         return ", ".join(parts)
 

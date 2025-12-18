@@ -56,6 +56,7 @@ class AddressValidateView(APIView):
                             "properties": {
                                 "formatted_address": {"type": "string"},
                                 "street": {"type": "string"},
+                                "suburb": {"type": "string"},
                                 "city": {"type": "string"},
                                 "state": {"type": "string"},
                                 "postal_code": {"type": "string"},
@@ -156,6 +157,8 @@ class AddressValidateView(APIView):
                 components["street_number"] = text
             elif comp_type == "route":
                 components["route"] = text
+            elif comp_type == "sublocality_level_1":
+                components["suburb"] = text
             elif comp_type == "locality":
                 components["city"] = text
             elif comp_type == "administrative_area_level_1":
@@ -181,6 +184,7 @@ class AddressValidateView(APIView):
                 {
                     "formatted_address": formatted,
                     "street": street,
+                    "suburb": components.get("suburb", ""),
                     "city": components.get("city", ""),
                     "state": components.get("state", ""),
                     "postal_code": components.get("postal_code", ""),
