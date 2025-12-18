@@ -2,6 +2,11 @@
 
 <!-- This file is auto-generated. To regenerate, run: python scripts/generate_url_docs.py -->
 
+### Addresses Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/addresses/validate/` | `address_views.AddressValidateView` | `clients:address_validate` | Validate and clean an address using Google Address Validation API. |
+
 ### All Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|

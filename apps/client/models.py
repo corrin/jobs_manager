@@ -356,3 +356,156 @@ class Supplier(Client):
 
     class Meta:
         proxy = True
+
+
+class SupplierPickupAddress(models.Model):
+    """
+    Represents a pickup/delivery address for a supplier or client.
+
+    Despite the name, this model can be used for any Client - not just those
+    marked as suppliers. Suppliers can have multiple pickup addresses, with
+    one marked as primary. Useful for tracking warehouse locations, branch
+    offices, or delivery points.
+    """
+
+    # CHECKLIST - when adding a new field or property to SupplierPickupAddress, check:
+    #   1. SUPPLIERPICKUPADDRESS_API_FIELDS below (if it's a model field)
+    #   2. SupplierPickupAddressSerializer in apps/client/serializers.py
+    #   3. SupplierPickupAddressSerializer.to_internal_value() nullable_fields list
+    #   4. SupplierPickupAddressViewSet in apps/client/views/supplier_pickup_address_viewset.py
+    #   5. PurchaseOrder.pickup_address FK in apps/purchasing/models.py
+    #   6. PurchaseOrderDetailSerializer in apps/purchasing/serializers.py
+    #   7. PurchaseOrderPDFGenerator in apps/purchasing/services/purchase_order_pdf_service.py
+    #
+    # Database fields exposed via API serializers
+    SUPPLIERPICKUPADDRESS_API_FIELDS = [
+        "id",
+        "client",
+        "name",
+        "street",
+        "city",
+        "state",
+        "postal_code",
+        "country",
+        "google_place_id",
+        "latitude",
+        "longitude",
+        "is_primary",
+        "notes",
+        "is_active",
+        "created_at",
+        "updated_at",
+    ]
+
+    # No internal fields for SupplierPickupAddress - all fields are exposed
+    SUPPLIERPICKUPADDRESS_INTERNAL_FIELDS = []
+
+    # All SupplierPickupAddress model fields (derived)
+    SUPPLIERPICKUPADDRESS_ALL_FIELDS = (
+        SUPPLIERPICKUPADDRESS_API_FIELDS + SUPPLIERPICKUPADDRESS_INTERNAL_FIELDS
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="pickup_addresses",
+        help_text="The supplier this pickup address belongs to",
+    )
+    name = models.CharField(
+        max_length=255,
+        help_text="Friendly name for this address (e.g., 'Main Warehouse', 'City Branch')",
+    )
+    street = models.CharField(
+        max_length=255,
+        help_text="Street address including unit/suite number",
+    )
+    city = models.CharField(max_length=100, help_text="City or suburb")
+    state = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="State or province",
+    )
+    postal_code = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="Postal or ZIP code",
+    )
+    country = models.CharField(
+        max_length=100,
+        default="New Zealand",
+        help_text="Country name",
+    )
+    google_place_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Google Place ID for this address",
+    )
+    latitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="Latitude coordinate",
+    )
+    longitude = models.DecimalField(
+        max_digits=10,
+        decimal_places=7,
+        null=True,
+        blank=True,
+        help_text="Longitude coordinate",
+    )
+    is_primary = models.BooleanField(
+        default=False,
+        help_text="Indicates if this is the primary pickup address for the supplier",
+    )
+    notes = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Additional notes (e.g., opening hours, access instructions)",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Soft delete flag - inactive addresses are hidden from normal queries",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_primary", "name"]
+        db_table = "client_supplier_pickup_address"
+        verbose_name = "Supplier Pickup Address"
+        verbose_name_plural = "Supplier Pickup Addresses"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "name"],
+                name="unique_supplier_pickup_address_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} - {self.city} ({self.client.name})"
+
+    @property
+    def formatted_address(self) -> str:
+        """Return a formatted single-line address string."""
+        parts = [self.street, self.city]
+        if self.state:
+            parts.append(self.state)
+        if self.postal_code:
+            parts.append(self.postal_code)
+        if self.country and self.country != "Australia":
+            parts.append(self.country)
+        return ", ".join(parts)
+
+    def save(self, *args, **kwargs):
+        # If this address is being set as primary, ensure no other addresses
+        # for this client are marked as primary
+        if self.is_primary:
+            SupplierPickupAddress.objects.filter(
+                client=self.client, is_primary=True
+            ).exclude(id=self.id).update(is_primary=False)
+        super().save(*args, **kwargs)

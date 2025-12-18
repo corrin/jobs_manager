@@ -12,7 +12,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from apps.client.models import Supplier
+from apps.client.models import Supplier, SupplierPickupAddress
 from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
@@ -81,6 +81,30 @@ class PurchasingRestService:
             logger.info(f"Updated supplier for PO {po.id} to {supplier.name}")
         except Supplier.DoesNotExist:
             logger.error(f"Invalid supplier_id {supplier_id} for PO {po.id}")
+            raise
+
+    @staticmethod
+    def _update_pickup_address(
+        pickup_address_id: str | None, po: PurchaseOrder
+    ) -> None:
+        """Update pickup address for a PO."""
+        if pickup_address_id is None:
+            po.pickup_address = None
+            logger.info(f"Cleared pickup address for PO {po.id}")
+            return
+
+        try:
+            pickup_address = SupplierPickupAddress.objects.get(
+                id=pickup_address_id, is_active=True
+            )
+            po.pickup_address = pickup_address
+            logger.info(
+                f"Updated pickup address for PO {po.id} to {pickup_address.name}"
+            )
+        except SupplierPickupAddress.DoesNotExist:
+            logger.error(
+                f"Invalid pickup_address_id {pickup_address_id} for PO {po.id}"
+            )
             raise
 
     @staticmethod
@@ -278,6 +302,19 @@ class PurchasingRestService:
             get_object_or_404(Supplier, id=data["supplier_id"]) if supplier_id else None
         )
 
+        # Handle pickup_address_id - auto-select primary if supplier set but no address
+        pickup_address = None
+        pickup_address_id = data.get("pickup_address_id")
+        if pickup_address_id:
+            pickup_address = get_object_or_404(
+                SupplierPickupAddress, id=pickup_address_id, is_active=True
+            )
+        elif supplier:
+            # Auto-select primary address if supplier is set and no address specified
+            pickup_address = SupplierPickupAddress.objects.filter(
+                client=supplier, is_primary=True, is_active=True
+            ).first()
+
         order_date = data.get("order_date")
         if not order_date:
             order_date = timezone.now().date()
@@ -290,6 +327,7 @@ class PurchasingRestService:
 
         po = PurchaseOrder.objects.create(
             supplier=supplier,
+            pickup_address=pickup_address,
             reference=data.get("reference", ""),
             order_date=order_date,
             expected_delivery=expected_delivery,
@@ -355,6 +393,12 @@ class PurchasingRestService:
             supplier_id = data.get("supplier_id")
             if supplier_id:
                 PurchasingRestService._update_supplier(supplier_id, po)
+
+            # Handle pickup address updates
+            if "pickup_address_id" in data:
+                PurchasingRestService._update_pickup_address(
+                    data.get("pickup_address_id"), po
+                )
 
             existing_lines = {str(line.id): line for line in po.po_lines.all()}
             updated_line_ids = set()

@@ -201,6 +201,27 @@ class PurchaseOrderPDFGenerator:
             self.pdf.drawString(MARGIN + 50, y_position, supplier.phone)
             y_position -= 20
 
+        # Pickup/Delivery address
+        pickup_address = self.purchase_order.pickup_address
+        if pickup_address:
+            y_position -= 5  # Extra spacing before pickup address
+            self.pdf.setFont("Helvetica-Bold", 12)
+            self.pdf.drawString(MARGIN, y_position, "Pickup Address:")
+            y_position -= 15
+            self.pdf.setFont("Helvetica", 11)
+            self.pdf.drawString(MARGIN + 10, y_position, pickup_address.name)
+            y_position -= 15
+            self.pdf.drawString(
+                MARGIN + 10, y_position, pickup_address.formatted_address
+            )
+            y_position -= 15
+            if pickup_address.notes:
+                self.pdf.setFont("Helvetica-Oblique", 10)
+                self.pdf.drawString(
+                    MARGIN + 10, y_position, f"Note: {pickup_address.notes}"
+                )
+                y_position -= 15
+
         return y_position - 10
 
     def add_line_items_table(self, y_position):

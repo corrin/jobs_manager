@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.client.models import Client, ClientContact
+from apps.client.models import Client, ClientContact, SupplierPickupAddress
 
 
 class ClientContactSerializer(serializers.ModelSerializer):
@@ -15,6 +15,42 @@ class ClientContactSerializer(serializers.ModelSerializer):
         """Convert empty strings to None for nullable fields before validation."""
         # Fields that should be NULL instead of empty string
         nullable_fields = ["email", "phone", "position", "notes"]
+
+        for field in nullable_fields:
+            if field in data and data[field] == "":
+                data[field] = None
+
+        return super().to_internal_value(data)
+
+
+class SupplierPickupAddressSerializer(serializers.ModelSerializer):
+    """Serializer for SupplierPickupAddress model (delivery/pickup locations)."""
+
+    formatted_address = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = SupplierPickupAddress
+        fields = SupplierPickupAddress.SUPPLIERPICKUPADDRESS_API_FIELDS + [
+            "formatted_address"
+        ]
+        read_only_fields = [
+            "id",
+            "is_active",
+            "created_at",
+            "updated_at",
+            "formatted_address",
+        ]
+
+    def to_internal_value(self, data):
+        """Convert empty strings to None for nullable fields before validation."""
+        nullable_fields = [
+            "state",
+            "postal_code",
+            "notes",
+            "google_place_id",
+            "latitude",
+            "longitude",
+        ]
 
         for field in nullable_fields:
             if field in data and data[field] == "":
