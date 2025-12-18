@@ -9,7 +9,7 @@ Provides metrics for management meetings focused on job lifecycle and conversion
 - Workflow path analysis
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -29,6 +29,8 @@ class JobMovementMetricsView(APIView):
         end_date (required): ISO date string (YYYY-MM-DD)
         compare_start_date (optional): Comparison period start
         compare_end_date (optional): Comparison period end
+        baseline_days (optional): Number of days to calculate baseline averages over
+                                  (e.g., 365 for yearly baseline). Returns weekly averages.
         include_details (optional, default=false): Include job listings with IDs
 
     Returns:
@@ -223,6 +225,81 @@ class JobMovementMetricsView(APIView):
             if event.job  # Safety check
         ]
 
+    def calculate_baseline_metrics(self, baseline_days: int) -> dict:
+        """
+        Calculate baseline metrics over a longer period with weekly averages.
+
+        Args:
+            baseline_days: Number of days to analyze for baseline
+
+        Returns:
+            dict: Baseline metrics with weekly averages and rates
+        """
+        end_date = timezone.now()
+        start_date = end_date - timedelta(days=baseline_days)
+
+        # Calculate total metrics
+        draft_jobs = self.get_draft_jobs_created(start_date, end_date)
+        quotes_submitted = self.get_quotes_submitted(start_date, end_date)
+        quotes_accepted = self.get_quotes_accepted(start_date, end_date)
+        jobs_data = self.get_jobs_won(start_date, end_date)
+        path_data = self.get_jobs_by_status_path(start_date, end_date)
+
+        # Calculate weeks for averaging
+        weeks = baseline_days / 7.0
+
+        # Calculate totals
+        draft_count = draft_jobs.count()
+        quotes_submitted_count = quotes_submitted.count()
+        quotes_accepted_count = quotes_accepted.count()
+        won_count = jobs_data["won_count"]
+        rejected_count = jobs_data["rejected_count"]
+        through_quotes_count = path_data["through_quotes_count"]
+        skip_quotes_count = path_data["skip_quotes_count"]
+
+        # Calculate rates
+        quote_acceptance_rate = self.calculate_quote_acceptance_rate(
+            quotes_submitted_count, quotes_accepted_count
+        )
+        conversion_rate = self.calculate_draft_conversion_rate(draft_count, won_count)
+
+        total_progressed = through_quotes_count + skip_quotes_count
+        quote_usage_rate = (
+            (through_quotes_count / total_progressed * 100)
+            if total_progressed > 0
+            else 0.0
+        )
+
+        return {
+            "period_days": baseline_days,
+            "weeks": round(weeks, 2),
+            "totals": {
+                "draft_jobs_created": draft_count,
+                "quotes_submitted": quotes_submitted_count,
+                "quotes_accepted": quotes_accepted_count,
+                "jobs_won": won_count,
+                "rejected": rejected_count,
+                "through_quotes": through_quotes_count,
+                "skip_quotes": skip_quotes_count,
+            },
+            "weekly_averages": {
+                "draft_jobs_created": round(draft_count / weeks, 2) if weeks > 0 else 0,
+                "quotes_submitted": (
+                    round(quotes_submitted_count / weeks, 2) if weeks > 0 else 0
+                ),
+                "quotes_accepted": (
+                    round(quotes_accepted_count / weeks, 2) if weeks > 0 else 0
+                ),
+                "jobs_won": round(won_count / weeks, 2) if weeks > 0 else 0,
+                "rejected": round(rejected_count / weeks, 2) if weeks > 0 else 0,
+            },
+            "rates": {
+                "quote_acceptance_rate": round(quote_acceptance_rate, 1),
+                "draft_conversion_rate": round(conversion_rate, 1),
+                "quote_usage_rate": round(quote_usage_rate, 1),
+            },
+        }
+
     @extend_schema(responses={200: OpenApiTypes.OBJECT})
     def get(self, request):
         """
@@ -271,6 +348,23 @@ class JobMovementMetricsView(APIView):
             "1",
             "yes",
         ]
+
+        # Parse baseline_days parameter
+        baseline_days_param = request.query_params.get("baseline_days")
+        baseline_days = None
+        if baseline_days_param:
+            try:
+                baseline_days = int(baseline_days_param)
+                if baseline_days <= 0:
+                    return Response(
+                        {"error": "baseline_days must be a positive integer"},
+                        status=400,
+                    )
+            except ValueError:
+                return Response(
+                    {"error": "baseline_days must be an integer"},
+                    status=400,
+                )
 
         # Calculate current period metrics
         draft_jobs = self.get_draft_jobs_created(start_date, end_date)
@@ -454,6 +548,10 @@ class JobMovementMetricsView(APIView):
                 "end_date": compare_end_date.strftime("%Y-%m-%d"),
                 "days": (compare_end_date - compare_start_date).days + 1,
             }
+
+        # Add baseline metrics if requested
+        if baseline_days:
+            response_data["baseline"] = self.calculate_baseline_metrics(baseline_days)
 
         # Add detailed job listings if requested
         if include_details:
