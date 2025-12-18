@@ -19,6 +19,7 @@ def consume_stock(
     user: Any,
     unit_cost: Optional[Decimal] = None,
     unit_rev: Optional[Decimal] = None,
+    line: Optional[CostLine] = None,
 ) -> CostLine:
     if qty <= 0:
         raise ValueError("Quantity must be positive")
@@ -61,23 +62,54 @@ def consume_stock(
             logger.info(f"Created missing actual CostSet for job {job.id}")
 
         cost_set = job.latest_actual
-        cost_line = CostLine.objects.create(
-            cost_set=cost_set,
-            kind="material",
-            desc=item.description,
-            quantity=qty,
-            unit_cost=unit_cost,
-            unit_rev=unit_rev,
-            accounting_date=timezone.now().date(),
-            ext_refs={"stock_id": str(item.id)},
-            meta={
-                "consumed_by": (
-                    str(getattr(user, "id", None))
-                    if getattr(user, "id", None)
-                    else None
-                )
-            },
-        )
 
-    logger.info("Consumed %s of stock %s for job %s", qty, item.id, job.id)
-    return cost_line
+        if not line:
+            cost_line = CostLine.objects.create(
+                cost_set=cost_set,
+                kind="material",
+                desc=item.description,
+                quantity=qty,
+                unit_cost=unit_cost,
+                unit_rev=unit_rev,
+                accounting_date=timezone.now().date(),
+                ext_refs={"stock_id": str(item.id)},
+                meta={
+                    "consumed_by": (
+                        str(getattr(user, "id", None))
+                        if getattr(user, "id", None)
+                        else None
+                    )
+                },
+            )
+            logger.info(
+                "Consumed %s of stock %s for job %s and created new line with id: %s",
+                qty,
+                item.id,
+                job.id,
+                cost_line.id,
+            )
+            return cost_line
+
+        line.quantity = qty
+        line.desc = item.description
+        line.unit_cost = unit_cost
+        line.unit_rev = unit_rev
+        line.accounting_date = timezone.now().date()
+        line.ext_refs = {"stock_id": str(item.id)}
+        line.meta = {
+            "consumed_by": (
+                str(getattr(user, "id", None)) if getattr(user, "id", None) else None
+            )
+        }
+
+        line.save(
+            update_fields=[
+                "desc",
+                "unit_cost",
+                "unit_rev",
+                "accounting_date",
+                "ext_refs",
+                "meta",
+            ]
+        )
+    return line

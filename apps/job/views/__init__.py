@@ -10,6 +10,7 @@ from .data_quality_report_views import ArchivedJobsComplianceView
 from .delivery_docket_view import DeliveryDocketView
 from .job_costing_views import JobCostSetView, JobQuoteRevisionView
 from .job_costline_views import (
+    CostLineApprovalView,
     CostLineCreateView,
     CostLineDeleteView,
     CostLineUpdateView,
@@ -117,6 +118,7 @@ __all__ = [
     "BaseJobQuoteChatView",
     "BaseJobRestView",
     "BinaryFileRenderer",
+    "CostLineApprovalView",
     "CostLineCreateView",
     "CostLineDeleteView",
     "CostLineUpdateView",

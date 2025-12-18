@@ -16,6 +16,7 @@ try:
             get_job_folder_path,
         )
         from .mixins import JobLookupMixin, JobNumberLookupMixin
+        from .permissions import IsOfficeStaff
         from .scheduler_jobs import set_paid_flag_jobs
         from .utils import get_active_jobs, get_jobs_data
 except (ImportError, RuntimeError):
@@ -32,6 +33,7 @@ except (ImportError, RuntimeError):
 __all__ = [
     "DecimalEncoder",
     "DiffResult",
+    "IsOfficeStaff",
     "JobConfig",
     "JobLookupMixin",
     "JobNumberLookupMixin",
