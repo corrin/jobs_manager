@@ -93,8 +93,14 @@ class SalesForecastAPIView(APIView):
             jm_sales_by_month = self._get_jm_sales_by_month()
 
             # Combine all months that have data from either source (newest first)
+            # Filter out months before April 2025 (when we started using the app)
             all_months = sorted(
-                set(xero_sales_by_month.keys()) | set(jm_sales_by_month.keys()),
+                [
+                    m
+                    for m in set(xero_sales_by_month.keys())
+                    | set(jm_sales_by_month.keys())
+                    if m >= "2025-04"
+                ],
                 reverse=True,
             )
 
@@ -220,6 +226,18 @@ class SalesForecastMonthDetailAPIView(APIView):
                                     "format": "date",
                                     "nullable": True,
                                 },
+                                "total_xero_all_time": {
+                                    "type": "number",
+                                    "nullable": True,
+                                },
+                                "total_jm_all_time": {
+                                    "type": "number",
+                                    "nullable": True,
+                                },
+                                "variance_all_time": {
+                                    "type": "number",
+                                    "nullable": True,
+                                },
                                 "note": {"type": "string", "nullable": True},
                             },
                         },
@@ -247,6 +265,12 @@ class SalesForecastMonthDetailAPIView(APIView):
             month_int = int(month_num)
             if month_int < 1 or month_int > 12:
                 raise ValueError("Month must be 1-12")
+            # Reject months before April 2025 (when we started using the app)
+            if month < "2025-04":
+                return Response(
+                    {"error": "Data not available before April 2025"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             month_date = date(year_int, month_int, 1)
             month_label = month_date.strftime("%b %Y")
         except ValueError as e:
@@ -313,8 +337,13 @@ class SalesForecastMonthDetailAPIView(APIView):
             job_revenue: float,
             job_id: Optional[str],
             job_start_date: Optional[str] = None,
+            total_xero_all_time: Optional[float] = None,
+            total_jm_all_time: Optional[float] = None,
             note: Optional[str] = None,
         ) -> Dict[str, Any]:
+            variance_all_time = None
+            if total_xero_all_time is not None and total_jm_all_time is not None:
+                variance_all_time = round(total_xero_all_time - total_jm_all_time, 2)
             return {
                 "date": row_date,
                 "client_name": client_name,
@@ -326,6 +355,9 @@ class SalesForecastMonthDetailAPIView(APIView):
                 "variance": round(total_invoiced - job_revenue, 2),
                 "job_id": job_id,
                 "job_start_date": job_start_date,
+                "total_xero_all_time": total_xero_all_time,
+                "total_jm_all_time": total_jm_all_time,
+                "variance_all_time": variance_all_time,
                 "note": note,
             }
 
@@ -349,6 +381,9 @@ class SalesForecastMonthDetailAPIView(APIView):
             job = job_invoices[0].job
             monthly_revenue = float(jobs_with_revenue.get(job_id, Decimal("0")))
             start_date = job.start_date
+            # All-time totals for job
+            total_xero = self._get_total_invoiced_for_job(job)
+            total_jm = float(job.latest_actual.total_revenue)
             rows.append(
                 build_row(
                     row_date=job_invoices[0].date.isoformat(),
@@ -362,6 +397,8 @@ class SalesForecastMonthDetailAPIView(APIView):
                     job_revenue=monthly_revenue,
                     job_id=str(job.id),
                     job_start_date=start_date.isoformat() if start_date else None,
+                    total_xero_all_time=total_xero,
+                    total_jm_all_time=total_jm,
                     note=get_job_note(job, "matched"),
                 )
             )
@@ -390,6 +427,9 @@ class SalesForecastMonthDetailAPIView(APIView):
             monthly_revenue = float(jobs_with_revenue[job_id])
             start_date = job.start_date
             completion = job.completion_date
+            # All-time totals for job
+            total_xero = self._get_total_invoiced_for_job(job)
+            total_jm = float(job.latest_actual.total_revenue)
             rows.append(
                 build_row(
                     row_date=completion.isoformat() if completion else None,
@@ -401,6 +441,8 @@ class SalesForecastMonthDetailAPIView(APIView):
                     job_revenue=monthly_revenue,
                     job_id=str(job.id),
                     job_start_date=start_date.isoformat() if start_date else None,
+                    total_xero_all_time=total_xero,
+                    total_jm_all_time=total_jm,
                     note=get_job_note(job, "jm_only"),
                 )
             )
@@ -424,3 +466,11 @@ class SalesForecastMonthDetailAPIView(APIView):
 
         # Only return jobs with non-zero revenue
         return {k: v for k, v in jobs_revenue.items() if v != 0}
+
+    def _get_total_invoiced_for_job(self, job: Job) -> float:
+        """Get total of all invoices linked to a job (all time)."""
+        total = Invoice.objects.filter(
+            ~Q(status__in=["DRAFT", "DELETED", "VOIDED"]),
+            job=job,
+        ).aggregate(total=Sum("total_incl_tax"))["total"]
+        return float(total or 0)
