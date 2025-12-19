@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.client.serializers import SupplierPickupAddressSerializer
 from apps.job.models import Job
 from apps.job.serializers.costing_serializer import CostLineSerializer
 from apps.purchasing.models import (
@@ -77,6 +78,7 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
     supplier_id = serializers.SerializerMethodField()
     supplier_has_xero_id = serializers.SerializerMethodField()
     lines = PurchaseOrderLineSerializer(source="po_lines", many=True)
+    pickup_address = SupplierPickupAddressSerializer(read_only=True, allow_null=True)
 
     class Meta:
         model = PurchaseOrder
@@ -212,6 +214,7 @@ class PurchaseOrderCreateSerializer(serializers.Serializer):
     """Serializer for creating purchase orders."""
 
     supplier_id = serializers.UUIDField(required=False, allow_null=True)
+    pickup_address_id = serializers.UUIDField(required=False, allow_null=True)
     reference = serializers.CharField(max_length=255, required=False, allow_blank=True)
     order_date = serializers.DateField(required=False, allow_null=True)
     expected_delivery = serializers.DateField(required=False, allow_null=True)
@@ -229,6 +232,7 @@ class PurchaseOrderUpdateSerializer(serializers.Serializer):
     """Serializer for updating purchase orders."""
 
     supplier_id = serializers.UUIDField(required=False, allow_null=True)
+    pickup_address_id = serializers.UUIDField(required=False, allow_null=True)
     reference = serializers.CharField(max_length=255, required=False, allow_blank=True)
     expected_delivery = serializers.DateField(required=False, allow_null=True)
     status = serializers.CharField(max_length=50, required=False, allow_blank=True)

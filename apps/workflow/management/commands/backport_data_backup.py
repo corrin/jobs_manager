@@ -108,6 +108,7 @@ class Command(BaseCommand):
             "accounts.Staff",
             "client.Client",
             "client.ClientContact",
+            "client.SupplierPickupAddress",
             "purchasing.PurchaseOrder",  # Include production POs for restore to UAT
             "purchasing.PurchaseOrderLine",  # Include PO lines with material details
             "purchasing.Stock",  # Include stock items - will be synced to Xero after restore
