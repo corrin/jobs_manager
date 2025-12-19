@@ -142,6 +142,7 @@ class CostLine(models.Model):
         "xero_expense_id",
         "xero_last_modified",
         "xero_last_synced",
+        "approved"
     ]
 
     # Internal fields not exposed in API

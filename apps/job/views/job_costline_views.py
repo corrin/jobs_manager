@@ -263,6 +263,7 @@ class CostLineApprovalView(APIView):
     """
 
     permission_classes = [IsAuthenticated, IsOfficeStaff]
+    serializer_class = StockConsumeResponseSerializer
 
     @extend_schema(
         parameters=[
@@ -273,11 +274,13 @@ class CostLineApprovalView(APIView):
                 description="ID of the CostLine to approve",
             )
         ],
+        request=None,
         responses={
             200: StockConsumeResponseSerializer,
             400: CostLineErrorResponseSerializer,
             500: CostLineErrorResponseSerializer,
         },
+        operation_id="approveCostLine"
     )
     def post(self, request, cost_line_id):
         line = CostLine.objects.get(id=cost_line_id)
