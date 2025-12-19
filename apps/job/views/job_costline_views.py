@@ -282,17 +282,39 @@ class CostLineApprovalView(APIView):
     def post(self, request, cost_line_id):
         line = CostLine.objects.get(id=cost_line_id)
 
+        if line.kind != "material":
+            logger.error(
+                f"Error when trying to approve cost line {cost_line_id} - line is not of kind 'material'"
+            )
+            return Response(
+                CostLineErrorResponseSerializer(
+                    {"error": "Line is not of kind 'material'"}
+                )
+            )
+
+        if line.approved:
+            logger.error(
+                f"Error when trying to approve cost line {cost_line_id} - line already approved"
+            )
+            return Response(
+                CostLineErrorResponseSerializer(
+                    {"error": "Line is already approved"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         item_code = line.meta.get("item_code", None)
 
         if not item_code:
             logger.error(
                 f"Error when trying to approve cost line {cost_line_id} - missing item code"
             )
-            error_response = {
-                "error": "Failed to approve cost line - missing item code"
-            }
-            error_serializer = CostLineErrorResponseSerializer(error_response)
-            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                CostLineErrorResponseSerializer(
+                    {"error": "Line is missing item code"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         item = get_object_or_404(Stock, item_code=item_code)
 
@@ -309,9 +331,10 @@ class CostLineApprovalView(APIView):
             logger.error(
                 f"Error when trying to approve cost line {cost_line_id}: {str(exc)}"
             )
-            error_response = {"error": str(exc)}
-            error_serializer = CostLineErrorResponseSerializer(error_response)
-            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                CostLineErrorResponseSerializer({"error": str(exc)}).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         payload = {
             "success": True,

@@ -26,6 +26,7 @@ from apps.job.serializers.job_file_serializer import (
     JobFileUploadPartialResponseSerializer,
     JobFileUploadSerializer,
     JobFileUploadSuccessResponseSerializer,
+    UploadedFileSerializer,
 )
 from apps.job.services.file_service import create_thumbnail, get_thumbnail_folder
 from apps.workflow.services.error_persistence import persist_and_raise
@@ -87,7 +88,8 @@ class JobFilesCollectionView(APIView):
                 thumb_path = os.path.join(thumb_folder, f"{file_obj.name}.thumb.jpg")
                 create_thumbnail(file_path, thumb_path)
 
-            return JobFileSerializer(job_file, context={"request": request}).data
+            # Upload response uses UploadedFileSerializer schema (includes file_path)
+            return UploadedFileSerializer(job_file).data
 
         except Exception as e:
             logger.error("Error saving file %s: %s", file_obj.name, str(e))
