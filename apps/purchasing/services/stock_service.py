@@ -90,6 +90,7 @@ def consume_stock(
             )
             return cost_line
 
+        line.approved = True
         line.quantity = qty
         line.desc = item.description
         line.unit_cost = unit_cost
@@ -104,6 +105,7 @@ def consume_stock(
 
         line.save(
             update_fields=[
+                "approved",
                 "desc",
                 "unit_cost",
                 "unit_rev",

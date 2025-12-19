@@ -306,11 +306,11 @@ class CostLineApprovalView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        item_code = line.meta.get("item_code", None)
+        stock_id = line.ext_refs.get("stock_id", None)
 
-        if not item_code:
+        if not stock_id:
             logger.error(
-                f"Error when trying to approve cost line {cost_line_id} - missing item code"
+                f"Error when trying to approve cost line {cost_line_id} - missing stock id"
             )
             return Response(
                 CostLineErrorResponseSerializer(
@@ -319,7 +319,7 @@ class CostLineApprovalView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        item = get_object_or_404(Stock, item_code=item_code)
+        item = get_object_or_404(Stock, id=stock_id)
 
         # Consume stock passing the existing line
         try:
