@@ -14,7 +14,7 @@ from apps.accounting.models import (
     Invoice,
     InvoiceLineItem,
 )
-from apps.client.models import Client, ClientContact
+from apps.client.models import Client, ClientContact, SupplierPickupAddress
 from apps.workflow.models import XeroAccount, XeroJournal, XeroJournalLineItem
 from apps.workflow.services.error_persistence import persist_and_raise
 
@@ -248,6 +248,40 @@ def set_client_fields(client, new_from_xero=False):
     client.address = (
         street_address or client.address
     )  # Use street_address if found, else keep existing or empty
+
+    # Create SupplierPickupAddress from Xero STREET address for any client
+    if isinstance(raw_json.get("_addresses"), list):
+        for address_entry in raw_json.get("_addresses", []):
+            if (
+                isinstance(address_entry, dict)
+                and address_entry.get("_address_type") == "STREET"
+            ):
+                # Extract individual address components
+                line1 = address_entry.get("_address_line1") or ""
+                line2 = address_entry.get("_address_line2") or ""
+                line3 = address_entry.get("_address_line3") or ""
+                line4 = address_entry.get("_address_line4") or ""
+                city = address_entry.get("_city") or ""
+
+                # Combine address lines for street field
+                street_parts = [p for p in [line1, line2, line3, line4] if p]
+                street = ", ".join(street_parts)
+
+                # Only create if we have both street and city (required fields)
+                if street and city:
+                    SupplierPickupAddress.objects.get_or_create(
+                        client=client,
+                        name="Xero Address",
+                        defaults={
+                            "street": street,
+                            "city": city,
+                            "state": address_entry.get("_region") or None,
+                            "postal_code": address_entry.get("_postal_code") or None,
+                            "country": address_entry.get("_country") or "New Zealand",
+                            "is_primary": True,
+                        },
+                    )
+                break  # Only process first STREET address
 
     client.is_account_customer = raw_json.get(
         "_is_customer", client.is_account_customer

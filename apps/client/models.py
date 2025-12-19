@@ -521,3 +521,7 @@ class SupplierPickupAddress(models.Model):
                 client=self.client, is_primary=True
             ).exclude(id=self.id).update(is_primary=False)
         super().save(*args, **kwargs)
+
+
+# Alias for SupplierPickupAddress - can be used for any client, not just suppliers
+ClientDeliveryAddress = SupplierPickupAddress
