@@ -686,7 +686,7 @@ python scripts/test_serializers.py --verbose
 **Command:**
 
 ```bash
-./scripts/test_kanban_api.sh
+python scripts/test_kanban_api.py
 ```
 
 **Expected output (WORKING API):**

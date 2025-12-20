@@ -248,7 +248,6 @@ class PurchaseOrderLine(models.Model):
         max_length=50,
         null=True,
         blank=True,
-        db_index=True,
         help_text="Internal item code for Xero integration",
     )
     received_quantity = models.DecimalField(
@@ -418,7 +417,11 @@ class Stock(models.Model):
     )
 
     item_code = models.CharField(
-        max_length=255, blank=True, null=True, help_text="Xero Item Code"
+        max_length=255,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text="Xero Item Code",
     )
 
     description = models.CharField(
