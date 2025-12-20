@@ -4,6 +4,8 @@ Modern Timesheet Serializers
 DRF serializers for modern timesheet API endpoints using CostSet/CostLine system
 """
 
+from decimal import Decimal, InvalidOperation
+
 from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
@@ -179,3 +181,114 @@ class JobsListResponseSerializer(serializers.Serializer):
 
     jobs = ModernTimesheetJobSerializer(many=True)
     total_count = serializers.IntegerField()
+
+
+class WorkshopTimesheetEntrySerializer(serializers.Serializer):
+    """Serializer used to expose simplified workshop timesheet entries."""
+
+    id = serializers.UUIDField(read_only=True)
+    job_id = serializers.UUIDField(read_only=True)
+    job_number = serializers.IntegerField(read_only=True)
+    job_name = serializers.CharField(read_only=True)
+    client_name = serializers.CharField(read_only=True, allow_blank=True)
+    description = serializers.CharField(read_only=True, allow_blank=True)
+    hours = serializers.DecimalField(
+        max_digits=7, decimal_places=2, read_only=True, source="quantity"
+    )
+    accounting_date = serializers.DateField(read_only=True)
+    is_billable = serializers.BooleanField(read_only=True)
+    rate_multiplier = serializers.DecimalField(
+        max_digits=4, decimal_places=2, read_only=True
+    )
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+
+    def to_representation(self, instance):
+        job = getattr(getattr(instance, "cost_set", None), "job", None)
+        meta = instance.meta or {}
+        raw_multiplier = meta.get("rate_multiplier", 1.0)
+        try:
+            rate_multiplier = Decimal(str(raw_multiplier))
+        except (InvalidOperation, TypeError):
+            rate_multiplier = Decimal("1.0")
+
+        return {
+            "id": str(instance.id),
+            "job_id": str(job.id) if job else None,
+            "job_number": job.job_number if job else None,
+            "job_name": job.name if job else "",
+            "client_name": job.client.name if job and job.client else "",
+            "description": instance.desc or "",
+            "hours": float(instance.quantity),
+            "accounting_date": instance.accounting_date,
+            "is_billable": bool(meta.get("is_billable", True)),
+            "rate_multiplier": float(rate_multiplier),
+            "created_at": instance.created_at,
+            "updated_at": instance.updated_at,
+        }
+
+
+class WorkshopTimesheetEntryRequestSerializer(serializers.Serializer):
+    """Serializer validating workshop timesheet create requests."""
+
+    job_id = serializers.UUIDField()
+    accounting_date = serializers.DateField()
+    hours = serializers.DecimalField(
+        max_digits=7, decimal_places=2, min_value=Decimal("0.01")
+    )
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=255
+    )
+    is_billable = serializers.BooleanField(required=False, default=True)
+    rate_multiplier = serializers.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        required=False,
+        min_value=Decimal("0.1"),
+        default=Decimal("1.0"),
+    )
+
+
+class WorkshopTimesheetEntryUpdateSerializer(serializers.Serializer):
+    """Serializer validating workshop timesheet update (PATCH) requests."""
+
+    entry_id = serializers.UUIDField()
+    accounting_date = serializers.DateField(required=False)
+    hours = serializers.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+    )
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True, max_length=255
+    )
+    is_billable = serializers.BooleanField(required=False)
+    rate_multiplier = serializers.DecimalField(
+        max_digits=4, decimal_places=2, required=False, min_value=Decimal("0.1")
+    )
+
+    def validate(self, attrs):
+        if len(attrs.keys()) <= 1:
+            raise serializers.ValidationError(
+                "At least one field besides entry_id must be provided."
+            )
+        return attrs
+
+
+class WorkshopTimesheetSummarySerializer(serializers.Serializer):
+    """Serializer for the aggregated summary in workshop timesheets."""
+
+    total_hours = serializers.FloatField()
+    billable_hours = serializers.FloatField()
+    non_billable_hours = serializers.FloatField()
+    total_cost = serializers.FloatField()
+    total_revenue = serializers.FloatField()
+
+
+class WorkshopTimesheetListResponseSerializer(serializers.Serializer):
+    """Serializer describing the GET response payload for workshop timesheets."""
+
+    date = serializers.DateField()
+    entries = WorkshopTimesheetEntrySerializer(many=True)
+    summary = WorkshopTimesheetSummarySerializer()

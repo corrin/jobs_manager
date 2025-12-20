@@ -60,7 +60,7 @@ from .quote_sync_views import (
     PreviewQuoteAPIView,
 )
 from .workshop_pdf_view import WorkshopPDFView
-from .workshop_view import WorkshopKanbanView
+from .workshop_view import WorkshopKanbanView, WorkshopTimesheetView
 
 # Conditional imports (only when Django is ready)
 try:
@@ -187,5 +187,6 @@ __all__ = [
     "WeeklyMetricsRestView",
     "WorkshopKanbanView",
     "WorkshopPDFView",
+    "WorkshopTimesheetView",
     "get_company_defaults_api",
 ]

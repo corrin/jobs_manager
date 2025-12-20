@@ -74,6 +74,11 @@ urlpatterns = [
         name="api_workshop_kanban",
     ),
     path(
+        "api/workshop/timesheets/",
+        workshop_view.WorkshopTimesheetView.as_view(),
+        name="api_workshop_timesheets",
+    ),
+    path(
         "api/jobs/<str:job_id>/update-status/",
         kanban_view_api.UpdateJobStatusAPIView.as_view(),
         name="api_update_job_status",
