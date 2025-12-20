@@ -13,7 +13,6 @@ Authoritative guidance for AI coding agents working in the Jobs Manager backend.
 # Environment setup
 poetry shell
 poetry install
-npm install
 
 # Run backend locally
 python manage.py runserver 0.0.0.0:8000
@@ -21,7 +20,6 @@ python manage.py runserver_with_ngrok  # When Xero webhooks/tunnel are needed
 
 # Quality commands
 tox -e format        # Black + isort
-npm run prettier-format
 tox -e lint
 tox -e typecheck
 tox                  # Runs full tox suite

@@ -192,7 +192,7 @@ Provides comprehensive REST API for timesheet management in jobbing shop operati
 
 #### Parameters
 
-- **GET**: `start_date` (optional Monday date), `export_to_ims` (optional boolean)
+- **GET**: `start_date` (optional Monday date)
 - **POST**: JSON body with paid absence data (staff_id, dates, leave_type, hours)
 
 #### Returns
@@ -204,7 +204,6 @@ Provides comprehensive REST API for timesheet management in jobbing shop operati
 #### Integration
 
 - Uses WeeklyTimesheetService for complex business logic
-- Supports IMS export mode for external system integration
 - Comprehensive paid absence workflow with date validation
 - Navigation helper data for week-to-week interface movement
 

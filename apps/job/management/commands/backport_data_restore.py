@@ -112,7 +112,6 @@ class Command(BaseCommand):
                 "hours_fri": "8.0",
                 "hours_sat": "0.00",
                 "hours_sun": "0.00",
-                "ims_payroll_id": "ADMIN-DEV",
                 "is_active": True,
                 "is_staff": True,
                 "is_superuser": True,

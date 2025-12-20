@@ -12,7 +12,6 @@ poetry shell
 
 # Install dependencies
 poetry install
-npm install
 
 # Start development server
 python manage.py runserver 0.0.0.0:8000
@@ -26,7 +25,6 @@ python manage.py runserver_with_ngrok
 ```bash
 # Format code
 tox -e format
-npm run prettier-format
 
 # Lint code
 tox -e lint

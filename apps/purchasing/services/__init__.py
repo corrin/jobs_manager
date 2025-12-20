@@ -36,7 +36,7 @@ try:
             safe_float,
             save_quote_file,
         )
-        from .stock_service import consume_stock
+        from .stock_service import consume_stock, merge_stock_into
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -60,6 +60,7 @@ __all__ = [
     "extract_data_from_supplier_quote_gemini",
     "fuzzy_find_supplier",
     "log_token_usage",
+    "merge_stock_into",
     "normalize",
     "process_delivery_receipt",
     "process_supplier_data",

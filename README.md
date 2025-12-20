@@ -17,7 +17,6 @@ For detailed documentation including business context, technical details, and se
 
 - **Python 3.12+**
 - **[Poetry](https://python-poetry.org/)** (manages Python dependencies)
-- **Node.js + npm** (manages JavaScript dependencies)
 - **MariaDB 11.5.2** (locally)
 
 ### Installation

@@ -22,13 +22,6 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
-# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
-# Import these directly where needed using:
-# from .admin import CostLineAdmin
-# from .admin import CostLineInline
-# from .admin import CostSetAdmin
-#
-
 __all__ = [
     "DecimalEncoder",
     "DiffResult",

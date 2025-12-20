@@ -1,8 +1,9 @@
 import logging
 from decimal import Decimal
 from typing import Any, Optional
+from uuid import UUID
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 
 from apps.job.models import CostLine, CostSet, Job
@@ -10,6 +11,42 @@ from apps.purchasing.models import Stock
 from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
+
+
+@transaction.atomic
+def merge_stock_into(source_stock_id: UUID, target_stock_id: UUID) -> None:
+    """
+    Merge source stock into target, moving all references then deleting source.
+
+    Moves:
+    - child_stock_splits (source_parent_stock FK)
+    - CostLine ext_refs['stock_id'] references (JSON update)
+
+    Then deletes the source stock.
+    """
+    source_str = str(source_stock_id)
+    target_str = str(target_stock_id)
+
+    # 1. Move child stock splits (FK)
+    Stock.objects.filter(source_parent_stock_id=source_stock_id).update(
+        source_parent_stock_id=target_stock_id
+    )
+
+    # 2. Update CostLine ext_refs JSON where stock_id matches source
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE job_costline
+            SET ext_refs = JSON_SET(ext_refs, '$.stock_id', %s)
+            WHERE JSON_EXTRACT(ext_refs, '$.stock_id') = %s
+            """,
+            [target_str, source_str],
+        )
+
+    # 3. Delete the source stock
+    Stock.objects.filter(id=source_stock_id).delete()
+
+    logger.info(f"Merged stock {source_stock_id} into {target_stock_id}")
 
 
 def consume_stock(
