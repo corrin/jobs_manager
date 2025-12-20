@@ -31,7 +31,7 @@
 ### Search Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/search/` | `client_rest_views.ClientSearchRestView` | `clients:client_search_rest` | REST view for client search. |
+| `/search/` | `client_rest_views.ClientSearchRestView` | `clients:client_search_rest` | REST view for client search with pagination and sorting. |
 
 ### Update Management
 | URL Pattern | View | Name | Description |

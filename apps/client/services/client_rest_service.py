@@ -93,6 +93,89 @@ class ClientRestService:
             persist_and_raise(exc, additional_context={"query": query, "limit": limit})
 
     @staticmethod
+    def list_clients(
+        query: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+        sort_by: str = "name",
+        sort_dir: str = "asc",
+    ) -> Dict[str, Any]:
+        """
+        Lists clients with pagination, sorting, and optional search.
+
+        Args:
+            query: Optional search query (min 3 chars for filtering)
+            page: Page number (1-indexed)
+            page_size: Results per page
+            sort_by: Field to sort by
+            sort_dir: Sort direction ('asc' or 'desc')
+
+        Returns:
+            Dict with results, count, page, page_size, total_pages
+        """
+        try:
+            # Validate sort field - whitelist allowed fields
+            allowed_sort_fields = {
+                "name": "name",
+                "email": "email",
+                "phone": "phone",
+                "is_account_customer": "is_account_customer",
+                "last_invoice_date": "last_invoice_date",
+                "total_spend": "total_spend",
+            }
+            sort_field = allowed_sort_fields.get(sort_by, "name")
+
+            # Build ordering
+            if sort_dir.lower() == "desc":
+                sort_field = f"-{sort_field}"
+
+            # Annotate computed fields for sorting capability
+            # Note: mirrors Client.get_last_invoice_date() and get_total_spend()
+            output = DecimalField(max_digits=12, decimal_places=2)
+            queryset = Client.objects.annotate(
+                last_invoice_date=Max("invoice__date"),
+                total_spend=Coalesce(
+                    Sum("invoice__total_excl_tax", output_field=output),
+                    Value(Decimal("0.00")),
+                    output_field=output,
+                ),
+            ).defer("raw_json")
+
+            # Apply search filter if query provided
+            if query:
+                queryset = queryset.filter(name__icontains=query)
+
+            # Get total count before pagination
+            total_count = queryset.count()
+
+            # Apply sorting and pagination
+            offset = (page - 1) * page_size
+            clients = queryset.order_by(sort_field)[offset : offset + page_size]
+
+            # Calculate total pages
+            total_pages = (total_count + page_size - 1) // page_size
+
+            return {
+                "results": ClientRestService._format_client_search_results(clients),
+                "count": total_count,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+            }
+
+        except AlreadyLoggedException:
+            raise
+        except Exception as exc:
+            persist_and_raise(
+                exc,
+                additional_context={
+                    "query": query,
+                    "page": page,
+                    "page_size": page_size,
+                },
+            )
+
+    @staticmethod
     def get_client_by_id(client_id: UUID) -> Dict[str, Any]:
         """
         Retrieves a specific client by ID with full details.
