@@ -75,7 +75,7 @@ class XeroPaySlip(models.Model):
     )
 
     # Employee reference - stored as UUID from Xero
-    # Can be linked to Staff via Staff.ims_payroll_id
+    # Can be linked to Staff via Staff.xero_user_id
     xero_employee_id = models.UUIDField()
     employee_name = models.CharField(
         max_length=255, null=True, blank=True

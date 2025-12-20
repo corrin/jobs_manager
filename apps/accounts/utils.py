@@ -32,10 +32,8 @@ def get_excluded_staff(
             else Staff.objects.currently_active()
         )
 
-        for staff_id, ims_payroll_id in staff_queryset.values_list(
-            "id", "ims_payroll_id"
-        ):
-            if not ims_payroll_id or not is_valid_uuid(ims_payroll_id):
+        for staff_id, xero_user_id in staff_queryset.values_list("id", "xero_user_id"):
+            if not xero_user_id or not is_valid_uuid(xero_user_id):
                 excluded.append(str(staff_id))
 
     except Exception:

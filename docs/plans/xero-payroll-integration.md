@@ -7,7 +7,7 @@
 
 ## Overview
 
-Backend service layer for submitting weekly timesheets to Xero Payroll NZ API. Replaces legacy IMS payroll system. Users enter time/leave as CostLine entries, then post entire week to Xero via service call.
+Backend service layer for submitting weekly timesheets to Xero Payroll NZ API. Users enter time/leave as CostLine entries, then post entire week to Xero via service call.
 
 **Scope of This PR:**
 - Backend service layer and Xero API integration only
@@ -268,12 +268,7 @@ Not implemented. Recommend adding:
 
 ### Post-Launch
 
-7. **IMS Deprecation**
-   - Parallel run period (both systems)
-   - Verify accuracy against IMS exports
-   - Remove IMS export functionality once confident
-
-8. **Enhancements**
+7. **Enhancements**
    - Leave balance queries from Xero
    - Bulk posting for multiple staff
    - Audit trail improvements
@@ -287,9 +282,7 @@ Not implemented. Recommend adding:
 | 3. Implement REST API endpoints | NOT STARTED | Required for frontend |
 | 4. Implement frontend UI | NOT STARTED | Blocked on REST API |
 | 5. Populate Staff.xero_user_id | NOT STARTED | Production deployment task |
-| 6. Parallel run with IMS | NOT STARTED | Verification phase |
-| 7. Full cutover to Xero Payroll | NOT STARTED | After verification |
-| 8. Deprecate IMS integration | NOT STARTED | Final cleanup |
+| 6. Full cutover to Xero Payroll | NOT STARTED | After verification |
 
 ## Security Considerations
 

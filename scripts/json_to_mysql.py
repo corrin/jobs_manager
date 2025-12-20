@@ -52,7 +52,6 @@ class JSONToMySQLConverter:
         # JSON fields that need proper JSON formatting
         self.json_fields = {
             "raw_json",
-            "raw_ims_data",
             "additional_contact_persons",
             "all_phones",
             "ext_refs",

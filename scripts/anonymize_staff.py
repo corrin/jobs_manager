@@ -21,23 +21,6 @@ def create_staff_mapping():
         "last_name": last_name,
         "preferred_name": preferred_name,
         "email": email,
-        # IMS data fields
-        "FirstNames": first_name,
-        "Surname": last_name,
-        "PreferredName": preferred_name,
-        "EmailAddress": email,
-        "BirthDate": f"1990-{random.randint(1, 12):02d}-{random.randint(1, 28):02d}",
-        "IRDNumber": str(random.randint(10000000, 99999999)),  # 8 digits
-        "BankAccount": str(random.randint(100000000000000, 999999999999999)),
-        "PostalAddress1": f"{random.randint(1, 999)} Main Street",
-        "PostalAddress2": random.choice(
-            ["Auckland", "Wellington", "Christchurch", "Hamilton", "Tauranga"]
-        ),
-        "HomePhone": f"{random.randint(1000000, 9999999)}.0",  # Format: 1234567.0
-        # Format: 02123456789
-        "HomePhone2": f"02{random.randint(100000000, 999999999)}",
-        "KSOptOutBankAccount": str(random.randint(100000000000000, 999999999999999)),
-        "KSOptOutBankAccName": f"{first_name} {last_name}",
     }
 
 
@@ -63,17 +46,6 @@ def anonymize_staff_data():
         for field, value in mapping.items():
             if field in fields and fields[field] is not None and fields[field] != "":
                 fields[field] = value
-
-        # Apply mapping to IMS data fields
-        if "raw_ims_data" in fields:
-            ims_data = fields["raw_ims_data"]
-            for field, value in mapping.items():
-                if (
-                    field in ims_data
-                    and ims_data[field] is not None
-                    and ims_data[field] != ""
-                ):
-                    ims_data[field] = value
 
     # Write the anonymized data to a new file
     with open("workflow/fixtures/staff_anonymized.json", "w", encoding="utf-8") as f:

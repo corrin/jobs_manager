@@ -67,12 +67,6 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
-# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
-# Import these directly where needed using:
-# from .admin import PurchaseOrderAdmin
-# from .admin import PurchaseOrderLineAdmin
-#
-
 __all__ = [
     "AllJobsResponseSerializer",
     "AllocationDeleteResponseSerializer",

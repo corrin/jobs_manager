@@ -153,10 +153,6 @@ Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
 - `GET /job/rest/timesheet/staff/<uuid:staff_id>/date/<str:entry_date>/` - Get daily timesheet for staff
 - `GET /job/rest/timesheet/jobs/<uuid:job_id>/` - Get timesheet data for specific job
 
-### IMS Export
-
-- `POST /timesheets/api/ims-export/` - Export timesheet data to IMS format
-
 ## Staff Management APIs
 
 ### Staff APIs (`/accounts/api/staff/`)

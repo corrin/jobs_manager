@@ -15,7 +15,6 @@ If you're running the application locally for development:
 2. Update dependencies:
 
    ```bash
-   npm install
    poetry install
    ```
 
@@ -25,13 +24,7 @@ If you're running the application locally for development:
    python manage.py migrate
    ```
 
-4. Update static files:
-
-   ```bash
-   python manage.py collectstatic --noinput
-   ```
-
-5. Restart the development server if running
+4. Restart the development server if running
 
 ## Production-like Environment
 
@@ -56,7 +49,6 @@ For servers running with Gunicorn and requiring Xero integration:
    - Pull latest code
    - Update dependencies
    - Apply migrations
-   - Collect static files
    - Restart Gunicorn
 
 ### Manual Update (if needed)
@@ -86,10 +78,8 @@ If you need to update manually on a production-like system:
    cd /home/django_user/jobs_manager
    source .venv/bin/activate
    git pull
-   npm install
    poetry install
    python manage.py migrate
-   python manage.py collectstatic --noinput
    exit  # back to root
    systemctl restart gunicorn
    ```
@@ -113,9 +103,4 @@ If you encounter issues after updating:
 
    ```bash
    sudo /path/to/adhoc/rollback_release.sh
-   ```
-
-4. If static files aren't loading, try:
-   ```bash
-   python manage.py collectstatic --clear --noinput
    ```

@@ -71,12 +71,6 @@ except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
-# EXCLUDED IMPORTS - These contain problematic dependencies that cause circular imports
-# Import these directly where needed using:
-# from .admin import AIProviderAdmin
-# from .admin import CompanyDefaultsAdmin
-#
-
 __all__ = [
     "AIProviderCreateUpdateSerializer",
     "AIProviderSerializer",

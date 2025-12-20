@@ -120,17 +120,7 @@ source .venv/bin/activate
 
 ---
 
-## 6. Static & Media Files
-
-```bash
-python manage.py collectstatic --noinput
-```
-
-**Required for UAT and PROD** - collects static files for nginx to serve.
-
----
-
-## 7. Running the Application
+## 6. Running the Application
 
 **TO BE REVIEWED**
 

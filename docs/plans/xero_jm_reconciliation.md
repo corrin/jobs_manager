@@ -79,7 +79,7 @@ class WagesReconciliationService:
     _get_matched_comparison(year, month) -> dict     # Per-staff matching
     _get_xero_wages_data(year, month) -> dict        # Queries synced XeroPayroll* tables (TBD)
     _get_jm_wages_data(year, month) -> dict          # Queries CostLine kind='time'
-    _match_staff_to_employees(jm, xero) -> dict      # Match via Staff.ims_payroll_id
+    _match_staff_to_employees(jm, xero) -> dict      # Match via Staff.xero_user_id
 
 class MaterialsReconciliationService:
     # Extract from materials_reconciliation.py + fuzzy_match.py
@@ -149,7 +149,7 @@ Once sync exists:
 1. Work period = full month (1st to last day)
 2. Pay runs = from 1st of month to 10th of next month (boundary weeks)
 3. Prorate partial weeks: count work days in target month / 5
-4. Match staff via `Staff.ims_payroll_id` → Xero employee_id
+4. Match staff via `Staff.xero_user_id` → Xero employee_id
 5. Xero data: Query synced `XeroPaySlip` tables (local DB, no API calls)
 6. JM data: `CostLine.objects.filter(kind='time', cost_set__kind='actual')`
 

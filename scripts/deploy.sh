@@ -44,10 +44,8 @@ deploy_application() {
         exit 1
     fi
     git pull
-    npm install
     poetry install
     python manage.py migrate
-    python manage.py collectstatic --clear --noinput
 }
 
 build_frontend() {
