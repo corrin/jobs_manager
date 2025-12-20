@@ -116,9 +116,13 @@ class ClientSearchResultSerializer(serializers.Serializer):
 
 
 class ClientSearchResponseSerializer(serializers.Serializer):
-    """Serializer for client search response"""
+    """Serializer for paginated client search response"""
 
     results = ClientSearchResultSerializer(many=True)
+    count = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    total_pages = serializers.IntegerField()
 
 
 class ClientCreateSerializer(serializers.Serializer):
