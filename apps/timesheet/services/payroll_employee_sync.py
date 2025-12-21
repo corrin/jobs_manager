@@ -16,6 +16,7 @@ from apps.workflow.api.xero.payroll import (
     get_employees,
     get_payroll_calendars,
 )
+from apps.workflow.models import CompanyDefaults
 
 # Pattern to extract Staff UUID from job_title like "Workshop Worker [uuid-here]"
 STAFF_UUID_PATTERN = re.compile(r"\[([0-9a-f-]{36})\]$", re.IGNORECASE)
@@ -27,15 +28,9 @@ class PayrollEmployeeSyncService:
     """Service class used by management commands to sync staff with Xero Payroll."""
 
     # Employee defaults
-    DEFAULT_COUNTRY: str = "New Zealand"
     DEFAULT_DATE_OF_BIRTH: date = date(1990, 1, 1)
     DEFAULT_START_DATE: date = date(2025, 4, 1)  # April 1, 2025
     DEFAULT_JOB_TITLE: str = "Workshop Worker"
-    DEFAULT_ADDRESS_LINE1: str = "151 Captain Springs Road"
-    DEFAULT_ADDRESS_LINE2: str = ""
-    DEFAULT_CITY: str = "Auckland"
-    DEFAULT_SUBURB: str = "Onehunga"
-    DEFAULT_POST_CODE: str = "1061"
 
     @classmethod
     def sync_staff(
@@ -248,6 +243,14 @@ class PayrollEmployeeSyncService:
                 f"Staff {staff.id} is missing first name, last name, or email"
             )
 
+        # Get company defaults for address
+        company = CompanyDefaults.get_instance()
+        if not company.address_line1 or not company.city or not company.post_code:
+            raise ValueError(
+                "CompanyDefaults is missing required address fields "
+                "(address_line1, city, post_code)"
+            )
+
         # Look up Xero IDs dynamically
         weekly_calendar_id = cls._get_weekly_calendar_id()
         ordinary_earnings_rate_id = cls._get_ordinary_earnings_rate_id()
@@ -269,12 +272,12 @@ class PayrollEmployeeSyncService:
             "phone_number": None,
             "job_title": job_title_with_id,
             "address": {
-                "address_line1": cls.DEFAULT_ADDRESS_LINE1,
-                "address_line2": cls.DEFAULT_ADDRESS_LINE2,
-                "city": cls.DEFAULT_CITY,
-                "post_code": cls.DEFAULT_POST_CODE,
-                "suburb": cls.DEFAULT_SUBURB,
-                "country_name": cls.DEFAULT_COUNTRY,
+                "address_line1": company.address_line1,
+                "address_line2": company.address_line2 or "",
+                "city": company.city,
+                "post_code": company.post_code,
+                "suburb": company.suburb or "",
+                "country_name": company.country,
             },
             # Payroll setup
             "payroll_calendar_id": weekly_calendar_id,

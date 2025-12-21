@@ -130,6 +130,53 @@ class CompanyDefaults(models.Model):
         help_text="The last time a deep Xero sync was performed (looking back 90 days)",
     )
 
+    # Company address (used for employee records, documents, etc.)
+    address_line1 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Street address line 1",
+    )
+    address_line2 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Street address line 2 (optional)",
+    )
+    suburb = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Suburb (for NZ addresses)",
+    )
+    city = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="City",
+    )
+    post_code = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="Postal/ZIP code",
+    )
+    country = models.CharField(
+        max_length=100,
+        default="New Zealand",
+        help_text="Country name",
+    )
+    company_email = models.EmailField(
+        null=True,
+        blank=True,
+        help_text="Company contact email address",
+    )
+    company_url = models.URLField(
+        null=True,
+        blank=True,
+        help_text="Company website URL",
+    )
+
     # Shop client configuration
     shop_client_name = models.CharField(
         max_length=255,

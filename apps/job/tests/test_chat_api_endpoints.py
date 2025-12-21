@@ -24,23 +24,20 @@ from apps.workflow.models import AIProvider, CompanyDefaults
 class ChatAPIEndpointTests(TestCase):
     """Test chat API endpoints"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
         self.client_api = APIClient()
 
-        # Create test data
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        # Get test data from fixture
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client_obj = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(
@@ -317,23 +314,20 @@ class ChatAPIEndpointTests(TestCase):
 class ChatAPIPermissionTests(TestCase):
     """Test API permissions and authentication"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
         self.client_api = APIClient()
 
-        # Create test data
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        # Get test data from fixture
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client_obj = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(
@@ -401,22 +395,19 @@ class ChatAPIPermissionTests(TestCase):
 class ChatAPIValidationTests(TestCase):
     """Test API data validation"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
         self.client_api = APIClient()
 
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client_obj = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(

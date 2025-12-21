@@ -3,14 +3,20 @@ from django.test import TestCase
 from apps.client.models import Client
 from apps.quoting.models import SupplierPriceList, SupplierProduct
 from apps.quoting.services.pdf_data_validation import PDFDataValidationService
+from apps.workflow.models import CompanyDefaults
 
 
 class PDFDataValidationServiceTest(TestCase):
     """Test cases for PDFDataValidationService."""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data."""
         self.service = PDFDataValidationService()
+
+        # Get company defaults (singleton, loaded from fixture)
+        self.company = CompanyDefaults.get_instance()
 
         # Create test supplier
         self.supplier = Client.objects.create(
@@ -27,7 +33,7 @@ class PDFDataValidationServiceTest(TestCase):
     def test_validate_extracted_data_valid(self):
         """Test validation of valid extracted data."""
         data = {
-            "supplier": {"name": "Morris SM"},
+            "supplier": {"name": self.company.company_name},
             "items": [
                 {
                     "product_name": "Aluminum Angle",
@@ -61,7 +67,7 @@ class PDFDataValidationServiceTest(TestCase):
 
     def test_validate_extracted_data_no_items(self):
         """Test validation with no items."""
-        data = {"supplier": {"name": "Morris SM"}, "items": []}
+        data = {"supplier": {"name": self.company.company_name}, "items": []}
 
         is_valid, errors, warnings = self.service.validate_extracted_data(data)
 
@@ -71,7 +77,7 @@ class PDFDataValidationServiceTest(TestCase):
     def test_validate_extracted_data_invalid_items(self):
         """Test validation with invalid items."""
         data = {
-            "supplier": {"name": "Morris SM"},
+            "supplier": {"name": self.company.company_name},
             "items": [
                 {
                     # Missing both product_name and description
