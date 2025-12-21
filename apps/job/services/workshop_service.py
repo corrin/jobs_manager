@@ -108,6 +108,9 @@ class WorkshopTimesheetService:
 
         with transaction.atomic():
             has_updates = False
+            target_job = cost_line.cost_set.job
+            target_cost_set = cost_line.cost_set
+            job_changed = False
 
             if "description" in data:
                 cost_line.desc = data["description"] or ""
@@ -126,6 +129,17 @@ class WorkshopTimesheetService:
 
             meta = cost_line.meta or {}
             recalc_rates = False
+
+            if "job_id" in data:
+                new_job_id = str(data["job_id"])
+                current_job_id = str(getattr(target_job, "id", ""))
+                if new_job_id != current_job_id:
+                    target_job = Job.objects.get(id=data["job_id"])
+                    target_cost_set = self._get_or_create_actual_cost_set(target_job)
+                    cost_line.cost_set = target_cost_set
+                    job_changed = True
+                    has_updates = True
+                    recalc_rates = True
 
             if "is_billable" in data:
                 meta["is_billable"] = data["is_billable"]
@@ -159,7 +173,21 @@ class WorkshopTimesheetService:
                 raise ValueError("No changes supplied.")
 
             cost_line.save()
+            if job_changed:
+                self._update_latest_actual(target_job, target_cost_set)
 
+        return cost_line
+
+    def delete_entry(self, entry_id: str) -> CostLine:
+        """Delete a CostLine belonging to the staff member."""
+        cost_line = CostLine.objects.select_related("cost_set__job").get(
+            id=entry_id, kind="time"
+        )
+
+        if (cost_line.meta or {}).get("staff_id") != str(self.staff.id):
+            raise PermissionError("You can only delete your own timesheet entries.")
+
+        cost_line.delete()
         return cost_line
 
     @staticmethod

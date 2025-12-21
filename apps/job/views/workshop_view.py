@@ -11,6 +11,7 @@ from apps.job.models import CostLine, Job
 from apps.job.serializers.kanban_serializer import WorkshopJobSerializer
 from apps.job.services.workshop_service import WorkshopTimesheetService
 from apps.timesheet.serializers.modern_timesheet_serializers import (
+    WorkshopTimesheetDeleteRequestSerializer,
     WorkshopTimesheetEntryRequestSerializer,
     WorkshopTimesheetEntrySerializer,
     WorkshopTimesheetEntryUpdateSerializer,
@@ -212,5 +213,49 @@ class WorkshopTimesheetView(APIView):
             logger.exception("Failed to update workshop timesheet entry")
             return Response(
                 {"error": "Failed to update timesheet entry."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    @extend_schema(
+        request=WorkshopTimesheetDeleteRequestSerializer,
+        responses={
+            status.HTTP_204_NO_CONTENT: None,
+            status.HTTP_400_BAD_REQUEST: OpenApiTypes.OBJECT,
+            status.HTTP_403_FORBIDDEN: OpenApiTypes.OBJECT,
+            status.HTTP_404_NOT_FOUND: OpenApiTypes.OBJECT,
+            status.HTTP_500_INTERNAL_SERVER_ERROR: OpenApiTypes.OBJECT,
+        },
+    )
+    def delete(self, request):
+        """Delete a timesheet entry belonging to the staff member."""
+        staff = request.user
+        serializer = WorkshopTimesheetDeleteRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            logger.info(
+                "Invalid workshop timesheet delete payload: %s", serializer.errors
+            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        service = WorkshopTimesheetService(staff=staff)
+
+        try:
+            service.delete_entry(entry_id=str(data["entry_id"]))
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except CostLine.DoesNotExist:
+            return Response(
+                {"error": "Timesheet entry not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except PermissionError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as exc:
+            persist_app_error(
+                exc,
+                user_id=str(staff.id),
+            )
+            logger.exception("Failed to delete workshop timesheet entry")
+            return Response(
+                {"error": "Failed to delete timesheet entry."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

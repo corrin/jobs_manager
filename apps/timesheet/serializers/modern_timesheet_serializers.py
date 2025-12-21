@@ -253,6 +253,7 @@ class WorkshopTimesheetEntryUpdateSerializer(serializers.Serializer):
     """Serializer validating workshop timesheet update (PATCH) requests."""
 
     entry_id = serializers.UUIDField()
+    job_id = serializers.UUIDField(required=False)
     accounting_date = serializers.DateField(required=False)
     hours = serializers.DecimalField(
         max_digits=7,
@@ -292,3 +293,9 @@ class WorkshopTimesheetListResponseSerializer(serializers.Serializer):
     date = serializers.DateField()
     entries = WorkshopTimesheetEntrySerializer(many=True)
     summary = WorkshopTimesheetSummarySerializer()
+
+
+class WorkshopTimesheetDeleteRequestSerializer(serializers.Serializer):
+    """Serializer validating delete requests for workshop timesheets."""
+
+    entry_id = serializers.UUIDField()
