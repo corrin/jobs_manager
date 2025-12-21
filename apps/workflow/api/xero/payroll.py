@@ -8,7 +8,16 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from xero_python.payrollnz import PayrollNzApi
-from xero_python.payrollnz.models import Address, Employee, Timesheet, TimesheetLine
+from xero_python.payrollnz.models import (
+    Address,
+    Employee,
+    EmployeeWorkingPatternWithWorkingWeeksRequest,
+    Employment,
+    SalaryAndWage,
+    Timesheet,
+    TimesheetLine,
+    WorkingWeek,
+)
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.exceptions import AlreadyLoggedException
@@ -31,6 +40,27 @@ def _safe_date_of_birth(self, value):
 
 
 Employee.date_of_birth = Employee.date_of_birth.setter(_safe_date_of_birth)
+
+
+# Monkeypatch SalaryAndWage to accept null annual_salary (SDK bug for hourly employees)
+def _safe_annual_salary(self, value):
+    self._annual_salary = value
+
+
+def _safe_status(self, value):
+    self._status = value
+
+
+SalaryAndWage.annual_salary = SalaryAndWage.annual_salary.setter(_safe_annual_salary)
+SalaryAndWage.status = SalaryAndWage.status.setter(_safe_status)
+
+
+# Same issue for Employment.engagement_type - SDK requires it but Demo Company rejects it
+def _safe_engagement_type(self, value):
+    self._engagement_type = value
+
+
+Employment.engagement_type = Employment.engagement_type.setter(_safe_engagement_type)
 
 
 def get_employees() -> List[Employee]:
@@ -62,10 +92,22 @@ def get_employees() -> List[Employee]:
 
 def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
     """
-    Create a payroll employee in Xero.
+    Create a payroll employee in Xero with full employment setup.
+
+    Creates the employee record, then sets up:
+    - Employment (links to payroll calendar)
+    - Working pattern (weekly hours)
+    - Salary and wage (hourly rate)
 
     Args:
-        employee_data: Dict containing first_name, last_name, date_of_birth, and address data.
+        employee_data: Dict containing:
+            - first_name, last_name, email (required)
+            - date_of_birth, start_date, job_title
+            - address (dict with address_line1, city, post_code)
+            - payroll_calendar_id (required for employment)
+            - ordinary_earnings_rate_id (required for salary)
+            - hours_per_week (dict with monday-sunday hours)
+            - wage_rate (hourly rate)
 
     Returns:
         Newly created Employee object.
@@ -127,12 +169,50 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
             raise Exception("Failed to create payroll employee in Xero")
 
         created_employee = response.employee
+        employee_id = str(created_employee.employee_id)
         logger.info(
             "Created Xero Payroll employee %s (%s %s)",
-            created_employee.employee_id,
+            employee_id,
             created_employee.first_name,
             created_employee.last_name,
         )
+
+        # Set up employment (links employee to payroll calendar)
+        payroll_calendar_id = employee_data.get("payroll_calendar_id")
+        if payroll_calendar_id:
+            _create_employment(
+                payroll_api,
+                tenant_id,
+                employee_id,
+                payroll_calendar_id,
+                employee_data.get("start_date"),
+            )
+
+        # Set up salary and wage (hourly rate) - MUST be before working pattern
+        hours_per_week = employee_data.get("hours_per_week")
+        wage_rate = employee_data.get("wage_rate")
+        earnings_rate_id = employee_data.get("ordinary_earnings_rate_id")
+        if wage_rate and earnings_rate_id:
+            _create_salary_and_wage(
+                payroll_api,
+                tenant_id,
+                employee_id,
+                earnings_rate_id,
+                wage_rate,
+                hours_per_week,
+                employee_data.get("start_date"),
+            )
+
+        # Set up working pattern (weekly hours) - requires salary to exist first
+        if hours_per_week:
+            _create_working_pattern(
+                payroll_api,
+                tenant_id,
+                employee_id,
+                hours_per_week,
+                employee_data.get("start_date"),
+            )
+
         return created_employee
     except Exception as exc:
         logger.error(
@@ -149,6 +229,105 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
                 "email": employee_data.get("email"),
             },
         )
+
+
+def _create_employment(
+    payroll_api: PayrollNzApi,
+    tenant_id: str,
+    employee_id: str,
+    payroll_calendar_id: str,
+    start_date: Optional[date],
+) -> None:
+    """Create employment record linking employee to payroll calendar."""
+    # engagement_type omitted - Demo Company rejects it, prod may need it later
+    employment = Employment(
+        payroll_calendar_id=payroll_calendar_id,
+        start_date=start_date,
+    )
+    payroll_api.create_employment(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        employment=employment,
+    )
+    logger.info("Created employment for employee %s", employee_id)
+
+
+def _create_working_pattern(
+    payroll_api: PayrollNzApi,
+    tenant_id: str,
+    employee_id: str,
+    hours_per_week: Dict[str, float],
+    effective_from: Optional[date],
+) -> None:
+    """Create working pattern with weekly hours."""
+    working_week = WorkingWeek(
+        monday=hours_per_week.get("monday", 0),
+        tuesday=hours_per_week.get("tuesday", 0),
+        wednesday=hours_per_week.get("wednesday", 0),
+        thursday=hours_per_week.get("thursday", 0),
+        friday=hours_per_week.get("friday", 0),
+        saturday=hours_per_week.get("saturday", 0),
+        sunday=hours_per_week.get("sunday", 0),
+    )
+    pattern_request = EmployeeWorkingPatternWithWorkingWeeksRequest(
+        effective_from=effective_from,
+        working_weeks=[working_week],
+    )
+    payroll_api.create_employee_working_pattern(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        employee_working_pattern_with_working_weeks_request=pattern_request,
+    )
+    total_hours = sum(hours_per_week.values())
+    logger.info(
+        "Created working pattern for employee %s (%.1f hrs/week)",
+        employee_id,
+        total_hours,
+    )
+
+
+def _create_salary_and_wage(
+    payroll_api: PayrollNzApi,
+    tenant_id: str,
+    employee_id: str,
+    earnings_rate_id: str,
+    hourly_rate: float,
+    hours_per_week: Optional[Dict[str, float]],
+    effective_from: Optional[date],
+) -> None:
+    """Create salary and wage record with hourly rate."""
+    total_hours = sum(hours_per_week.values()) if hours_per_week else 40.0
+    # Calculate working days (days with non-zero hours)
+    if hours_per_week:
+        working_days = sum(1 for h in hours_per_week.values() if h > 0)
+    else:
+        working_days = 5  # Default Mon-Fri
+    hours_per_day = total_hours / working_days if working_days > 0 else 8.0
+
+    # SDK requires annual_salary and status even for hourly employees (client-side validation bugs)
+    # These are not meaningful for hourly but SDK enforces them
+    salary_and_wage = SalaryAndWage(
+        earnings_rate_id=earnings_rate_id,
+        number_of_units_per_week=total_hours,
+        number_of_units_per_day=hours_per_day,
+        days_per_week=working_days,  # Required by API
+        rate_per_unit=hourly_rate,
+        annual_salary=0,  # Required by SDK, not meaningful for hourly
+        status="Active",  # Required by SDK
+        effective_from=effective_from,
+        payment_type="Hourly",
+    )
+    payroll_api.create_employee_salary_and_wage(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        salary_and_wage=salary_and_wage,
+    )
+    logger.info(
+        "Created salary for employee %s ($%.2f/hr, %.1f hrs/week)",
+        employee_id,
+        hourly_rate,
+        total_hours,
+    )
 
 
 def get_payroll_calendars() -> List[Dict[str, Any]]:

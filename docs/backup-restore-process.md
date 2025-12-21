@@ -616,10 +616,11 @@ echo "Background process started, PID: $!"
 ```
 
 **What this does:**
-1. Clears production Xero IDs (clients, jobs, stock, purchase orders)
+1. Clears production Xero IDs (clients, jobs, stock, purchase orders, staff)
 2. Links/creates contacts in Xero for all clients
 3. Creates projects in Xero for all jobs
 4. Syncs stock items to Xero inventory (using account codes from Step 18.5)
+5. Links/creates payroll employees for all active staff (uses Staff UUID in job_title for reliable re-linking)
 
 **Monitor progress:**
 
@@ -635,18 +636,21 @@ python manage.py shell -c "
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.purchasing.models import Stock
+from apps.accounts.models import Staff
 
 clients_with_xero = Client.objects.filter(xero_contact_id__isnull=False).count()
 jobs_with_xero = Job.objects.filter(xero_project_id__isnull=False).count()
 stock_with_xero = Stock.objects.filter(xero_id__isnull=False, is_active=True).count()
+staff_with_xero = Staff.objects.filter(xero_user_id__isnull=False, date_left__isnull=True).count()
 
 print(f'Clients linked to Xero: {clients_with_xero}')
 print(f'Jobs linked to Xero: {jobs_with_xero}')
 print(f'Stock items synced to Xero: {stock_with_xero}')
+print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 "
 ```
 
-**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands).
+**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
 #### Step 20: Sync Xero
 

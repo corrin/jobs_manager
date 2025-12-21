@@ -119,14 +119,23 @@ class Command(BaseCommand):
             help="Comma separated list of staff emails to limit linking operations",
         )
         parser.add_argument(
-            "--link-staff-create-missing",
-            action="store_true",
-            help="When linking staff, create missing Xero Payroll employees automatically",
-        )
-        parser.add_argument(
             "--link-staff-dry-run",
             action="store_true",
-            help="Preview staff linking/creation without modifying Xero or the database",
+            help="Preview staff linking without modifying the database",
+        )
+        parser.add_argument(
+            "--create-staff",
+            action="store_true",
+            help="Create Xero Payroll employees for unlinked staff (use with --create-staff-emails)",
+        )
+        parser.add_argument(
+            "--create-staff-emails",
+            help="Comma separated list of staff emails to create in Xero Payroll",
+        )
+        parser.add_argument(
+            "--create-staff-dry-run",
+            action="store_true",
+            help="Preview staff creation without modifying Xero or the database",
         )
         parser.add_argument(
             "--raw-api",
@@ -176,13 +185,22 @@ class Command(BaseCommand):
 
         link_staff_requested = (
             options["link_staff"]
-            or bool(options.get("link_staff_create_missing"))
             or bool(options.get("link_staff_dry_run"))
             or bool(options.get("link_staff_emails"))
         )
 
         if link_staff_requested:
             self.link_staff(options)
+            return
+
+        create_staff_requested = (
+            options["create_staff"]
+            or bool(options.get("create_staff_dry_run"))
+            or bool(options.get("create_staff_emails"))
+        )
+
+        if create_staff_requested:
+            self.create_staff(options)
             return
 
         if options["tenant"]:
@@ -536,9 +554,8 @@ class Command(BaseCommand):
         return item_id
 
     def link_staff(self, options):
-        """Link Staff rows to Xero Payroll employees and optionally create missing ones."""
+        """Link Staff rows to existing Xero Payroll employees by email/name match."""
         emails_option = options.get("link_staff_emails")
-        create_missing = options.get("link_staff_create_missing", False)
         dry_run = options.get("link_staff_dry_run", False)
 
         queryset = Staff.objects.filter(date_left__isnull=True)
@@ -569,8 +586,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Processing {queryset.count()} staff member(s) "
-                f"(dry run={dry_run}, create_missing={create_missing})"
+                f"Linking {queryset.count()} staff member(s) (dry run={dry_run})"
             )
         )
 
@@ -578,12 +594,102 @@ class Command(BaseCommand):
             summary = PayrollEmployeeSyncService.sync_staff(
                 staff_queryset=queryset,
                 dry_run=dry_run,
-                allow_create=create_missing,
+                allow_create=False,  # Link only, no creation
             )
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
 
         self._print_link_staff_summary(summary)
+
+    def create_staff(self, options):
+        """Create Xero Payroll employees for specified staff members."""
+        emails_option = options.get("create_staff_emails")
+        dry_run = options.get("create_staff_dry_run", False)
+
+        if not emails_option:
+            self.stdout.write(
+                self.style.ERROR(
+                    "--create-staff-emails is required. Specify which staff to create."
+                )
+            )
+            return
+
+        emails = [email.strip() for email in emails_option.split(",") if email.strip()]
+        if not emails:
+            self.stdout.write(
+                self.style.WARNING("No valid emails provided; nothing to do.")
+            )
+            return
+
+        email_filter = Q()
+        for email in emails:
+            email_filter |= Q(email__iexact=email)
+        queryset = Staff.objects.filter(date_left__isnull=True).filter(email_filter)
+
+        if not queryset.exists():
+            self.stdout.write(
+                self.style.WARNING("No staff records matched the provided emails.")
+            )
+            return
+
+        # Check for already-linked staff
+        already_linked = queryset.exclude(xero_user_id__isnull=True).exclude(
+            xero_user_id=""
+        )
+        if already_linked.exists():
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Skipping {already_linked.count()} already-linked staff:"
+                )
+            )
+            for s in already_linked:
+                self.stdout.write(f"  {s.email} -> {s.xero_user_id}")
+
+        # Only process unlinked staff
+        unlinked = queryset.filter(Q(xero_user_id__isnull=True) | Q(xero_user_id=""))
+
+        if not unlinked.exists():
+            self.stdout.write(self.style.WARNING("No unlinked staff to create."))
+            return
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Creating {unlinked.count()} Xero Payroll employee(s) (dry run={dry_run})"
+            )
+        )
+
+        try:
+            summary = PayrollEmployeeSyncService.sync_staff(
+                staff_queryset=unlinked,
+                dry_run=dry_run,
+                allow_create=True,  # Create in Xero
+            )
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
+
+        self._print_create_staff_summary(summary)
+
+    def _print_create_staff_summary(self, summary):
+        """Print summary of staff creation."""
+        dry_run = summary.get("dry_run", False)
+        created = summary.get("created", [])
+        missing = summary.get("missing", [])
+
+        if created:
+            verb = "Would create" if dry_run else "Created"
+            self.stdout.write(
+                self.style.SUCCESS(f"{verb} {len(created)} Xero Payroll employee(s):")
+            )
+            for entry in created:
+                emp_id = entry.get("xero_employee_id") or "NEW"
+                self.stdout.write(f"  {entry['email']} -> {emp_id}")
+
+        if missing:
+            self.stdout.write(
+                self.style.ERROR(f"{len(missing)} staff could not be created:")
+            )
+            for entry in missing:
+                self.stdout.write(f"  {entry['email']}")
 
     def _print_link_staff_summary(self, summary):
         total = summary.get("total", 0)

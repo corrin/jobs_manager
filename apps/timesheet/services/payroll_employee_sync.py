@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.db import transaction
 
 from apps.accounts.models import Staff
-from apps.workflow.api.xero.payroll import create_payroll_employee, get_employees
+from apps.workflow.api.xero.payroll import (
+    create_payroll_employee,
+    get_earnings_rates,
+    get_employees,
+    get_payroll_calendars,
+)
+
+# Pattern to extract Staff UUID from job_title like "Workshop Worker [uuid-here]"
+STAFF_UUID_PATTERN = re.compile(r"\[([0-9a-f-]{36})\]$", re.IGNORECASE)
 
 logger = logging.getLogger("timesheet.payroll")
 
@@ -17,9 +26,10 @@ logger = logging.getLogger("timesheet.payroll")
 class PayrollEmployeeSyncService:
     """Service class used by management commands to sync staff with Xero Payroll."""
 
+    # Employee defaults
     DEFAULT_COUNTRY: str = "New Zealand"
     DEFAULT_DATE_OF_BIRTH: date = date(1990, 1, 1)
-    DEFAULT_START_DATE: date = date(2020, 1, 1)
+    DEFAULT_START_DATE: date = date(2025, 4, 1)  # April 1, 2025
     DEFAULT_JOB_TITLE: str = "Workshop Worker"
     DEFAULT_ADDRESS_LINE1: str = "151 Captain Springs Road"
     DEFAULT_ADDRESS_LINE2: str = ""
@@ -141,7 +151,8 @@ class PayrollEmployeeSyncService:
     @classmethod
     def _index_xero_employees(
         cls, employees: Iterable[Any]
-    ) -> Dict[str, Dict[str, Dict[str, Optional[str]]]]:
+    ) -> Dict[str, Dict[Any, Dict[str, Optional[str]]]]:
+        by_staff_id: Dict[str, Dict[str, Optional[str]]] = {}
         by_email: Dict[str, Dict[str, Optional[str]]] = {}
         by_name: Dict[Tuple[str, str], Dict[str, Optional[str]]] = {}
 
@@ -151,22 +162,33 @@ class PayrollEmployeeSyncService:
             last_name = serialized["last_name"] or ""
             name_key = (first_name.lower(), last_name.lower())
 
+            # Index by Staff UUID from job_title (most reliable for re-linking)
+            if serialized["staff_id"]:
+                by_staff_id.setdefault(serialized["staff_id"], serialized)
+
             if serialized["email"]:
                 by_email.setdefault(serialized["email"], serialized)
 
             if name_key not in by_name:
                 by_name[name_key] = serialized
 
-        return {"by_email": by_email, "by_name": by_name}
+        return {"by_staff_id": by_staff_id, "by_email": by_email, "by_name": by_name}
 
     @classmethod
     def _match_staff_to_employee(
         cls, staff: Staff, index: Dict[str, Dict[Any, Dict[str, Optional[str]]]]
     ) -> Optional[Dict[str, Optional[str]]]:
+        # Priority 1: Match by Staff UUID in job_title (most reliable after DB restore)
+        staff_id = str(staff.id).lower()
+        if staff_id in index["by_staff_id"]:
+            return index["by_staff_id"][staff_id]
+
+        # Priority 2: Match by email
         email = (staff.email or "").strip().lower()
         if email and email in index["by_email"]:
             return index["by_email"][email]
 
+        # Priority 3: Match by name
         name_key = (
             (staff.first_name or "").strip().lower(),
             (staff.last_name or "").strip().lower(),
@@ -179,13 +201,42 @@ class PayrollEmployeeSyncService:
         first_name = getattr(employee, "first_name", "") or ""
         last_name = getattr(employee, "last_name", "") or ""
         email = getattr(employee, "email", "") or ""
+        job_title = getattr(employee, "job_title", "") or ""
+
+        # Extract Staff UUID from job_title if present
+        staff_id = None
+        match = STAFF_UUID_PATTERN.search(job_title)
+        if match:
+            staff_id = match.group(1).lower()
 
         return {
             "employee_id": str(employee_id) if employee_id else None,
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
             "email": email.strip().lower() if email else None,
+            "staff_id": staff_id,
         }
+
+    @classmethod
+    def _get_weekly_calendar_id(cls) -> Optional[str]:
+        """Find the Weekly payroll calendar ID from Xero."""
+        calendars = get_payroll_calendars()
+        for cal in calendars:
+            if (
+                cal.get("calendar_type")
+                and "WEEKLY" in str(cal["calendar_type"]).upper()
+            ):
+                return cal["id"]
+        return None
+
+    @classmethod
+    def _get_ordinary_earnings_rate_id(cls) -> Optional[str]:
+        """Find the Ordinary Time earnings rate ID from Xero."""
+        rates = get_earnings_rates()
+        for rate in rates:
+            if rate.get("name", "").lower() == "ordinary time":
+                return rate["id"]
+        return None
 
     @classmethod
     def _build_employee_payload(cls, staff: Staff) -> Dict[str, Any]:
@@ -197,16 +248,26 @@ class PayrollEmployeeSyncService:
                 f"Staff {staff.id} is missing first name, last name, or email"
             )
 
-        start_date = staff.date_joined.date() if staff.date_joined else None
+        # Look up Xero IDs dynamically
+        weekly_calendar_id = cls._get_weekly_calendar_id()
+        ordinary_earnings_rate_id = cls._get_ordinary_earnings_rate_id()
+
+        if not weekly_calendar_id:
+            raise ValueError("Could not find Weekly payroll calendar in Xero")
+        if not ordinary_earnings_rate_id:
+            raise ValueError("Could not find Ordinary Time earnings rate in Xero")
+
+        # Store Staff UUID in job_title for reliable re-linking after DB restore
+        job_title_with_id = f"{cls.DEFAULT_JOB_TITLE} [{staff.id}]"
 
         payload: Dict[str, Any] = {
             "first_name": first_name,
             "last_name": last_name,
             "email": email,
             "date_of_birth": cls.DEFAULT_DATE_OF_BIRTH,
-            "start_date": start_date or cls.DEFAULT_START_DATE,
+            "start_date": cls.DEFAULT_START_DATE,
             "phone_number": None,
-            "job_title": cls.DEFAULT_JOB_TITLE,
+            "job_title": job_title_with_id,
             "address": {
                 "address_line1": cls.DEFAULT_ADDRESS_LINE1,
                 "address_line2": cls.DEFAULT_ADDRESS_LINE2,
@@ -215,6 +276,21 @@ class PayrollEmployeeSyncService:
                 "suburb": cls.DEFAULT_SUBURB,
                 "country_name": cls.DEFAULT_COUNTRY,
             },
+            # Payroll setup
+            "payroll_calendar_id": weekly_calendar_id,
+            "ordinary_earnings_rate_id": ordinary_earnings_rate_id,
+            # Working hours from Staff model (or defaults)
+            "hours_per_week": {
+                "monday": float(staff.hours_mon) if staff.hours_mon else 8.0,
+                "tuesday": float(staff.hours_tue) if staff.hours_tue else 8.0,
+                "wednesday": float(staff.hours_wed) if staff.hours_wed else 8.0,
+                "thursday": float(staff.hours_thu) if staff.hours_thu else 8.0,
+                "friday": float(staff.hours_fri) if staff.hours_fri else 8.0,
+                "saturday": float(staff.hours_sat) if staff.hours_sat else 0.0,
+                "sunday": float(staff.hours_sun) if staff.hours_sun else 0.0,
+            },
+            # Hourly wage rate from Staff model
+            "wage_rate": float(staff.wage_rate) if staff.wage_rate else None,
         }
 
         return payload
