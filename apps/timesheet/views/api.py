@@ -34,9 +34,11 @@ from apps.timesheet.serializers.payroll_serializers import (
     PostWeekToXeroSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
-from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
+from apps.workflow.api.xero.payroll import post_staff_week_to_xero
+from apps.workflow.api.xero.sync import sync_all_xero_data
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models import CompanyDefaults, XeroPayRun
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -541,47 +543,61 @@ class CreatePayRunAPIView(APIView):
     )
     def post(self, request):
         """Create a new pay run for the specified week."""
+        from django.utils import timezone
+
+        from apps.workflow.api.xero.payroll import create_pay_run
+
+        data = request.data
+        week_start_date_str = data.get("week_start_date")
+
+        if not week_start_date_str:
+            return Response(
+                {"error": "week_start_date is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse date
         try:
-            from apps.workflow.api.xero.payroll import create_pay_run
+            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            data = request.data
-            week_start_date_str = data.get("week_start_date")
+        try:
+            # Create pay run in Xero (validates Monday)
+            xero_pay_run_id = create_pay_run(week_start_date)
 
-            if not week_start_date_str:
-                return Response(
-                    {"error": "week_start_date is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Parse date
-            try:
-                week_start_date = datetime.strptime(
-                    week_start_date_str, "%Y-%m-%d"
-                ).date()
-            except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Create pay run (validates Monday, creates in Xero)
-            pay_run_id = create_pay_run(week_start_date)
-
-            # Calculate dates for response
+            # Calculate dates
             week_end_date = week_start_date + timedelta(days=6)
             payment_date = week_end_date + timedelta(days=3)
 
-            try:
-                PayrollSyncService.sync_pay_runs()
-            except Exception as sync_exc:
-                logger.warning(
-                    "Pay run created but cache refresh failed: %s",
-                    sync_exc,
-                )
+            # Get tenant ID from company defaults
+            company_defaults = CompanyDefaults.get_instance()
+            tenant_id = company_defaults.xero_tenant_id
+            if not tenant_id:
+                raise ValueError("Xero tenant ID not configured in CompanyDefaults")
+
+            # Create local record immediately
+            now = timezone.now()
+            pay_run = XeroPayRun.objects.create(
+                xero_id=xero_pay_run_id,
+                xero_tenant_id=tenant_id,
+                period_start_date=week_start_date,
+                period_end_date=week_end_date,
+                payment_date=payment_date,
+                pay_run_status="Draft",
+                pay_run_type="Scheduled",
+                raw_json={"created_locally": True, "xero_id": str(xero_pay_run_id)},
+                xero_last_modified=now,
+                xero_last_synced=now,
+            )
 
             return Response(
                 {
-                    "pay_run_id": pay_run_id,
+                    "id": str(pay_run.id),
+                    "xero_id": str(xero_pay_run_id),
                     "status": "Draft",
                     "period_start_date": week_start_date.isoformat(),
                     "period_end_date": week_end_date.isoformat(),
@@ -658,7 +674,59 @@ class PayRunForWeekAPIView(APIView):
             )
 
         try:
-            payload = PayrollSyncService.get_pay_run_for_week(week_start_date)
+            # Query local DB first
+            records = list(
+                XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
+                    "-django_updated_at"
+                )
+            )
+
+            # If no local record, sync from Xero
+            if not records:
+                logger.info(
+                    "No cached pay run for week %s. Refreshing from Xero.",
+                    week_start_date,
+                )
+                sync_all_xero_data(entities=["pay_runs"])
+                records = list(
+                    XeroPayRun.objects.filter(
+                        period_start_date=week_start_date
+                    ).order_by("-django_updated_at")
+                )
+
+            # Build warning if multiple pay runs exist
+            warning = None
+            if len(records) > 1:
+                ids = [str(pr.xero_id) for pr in records]
+                statuses = [pr.pay_run_status or "" for pr in records]
+                warning = (
+                    "Multiple pay runs exist for this week. "
+                    f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
+                )
+
+            if records:
+                pay_run = records[0]
+                payload = {
+                    "exists": True,
+                    "pay_run": {
+                        "id": str(pay_run.id),
+                        "xero_id": str(pay_run.xero_id),
+                        "payroll_calendar_id": (
+                            str(pay_run.payroll_calendar_id)
+                            if pay_run.payroll_calendar_id
+                            else None
+                        ),
+                        "period_start_date": pay_run.period_start_date,
+                        "period_end_date": pay_run.period_end_date,
+                        "payment_date": pay_run.payment_date,
+                        "pay_run_status": pay_run.pay_run_status,
+                        "pay_run_type": pay_run.pay_run_type,
+                    },
+                    "warning": warning,
+                }
+            else:
+                payload = {"exists": False, "pay_run": None, "warning": warning}
+
             return Response(payload, status=status.HTTP_200_OK)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -687,8 +755,8 @@ class RefreshPayRunsAPIView(APIView):
     def post(self, request):
         """Synchronize local pay run cache with Xero."""
         try:
-            result = PayrollSyncService.sync_pay_runs()
-            return Response(result, status=status.HTTP_200_OK)
+            sync_all_xero_data(entities=["pay_runs"])
+            return Response({"synced": True}, status=status.HTTP_200_OK)
         except Exception as exc:
             return build_internal_error_response(
                 request=request,
@@ -740,8 +808,8 @@ class PostWeekToXeroPayrollAPIView(APIView):
             )
 
         try:
-            # Post to Xero (service validates Monday, checks pay run status, posts data)
-            result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
+            # Post to Xero (validates Monday, checks pay run status, posts data)
+            result = post_staff_week_to_xero(staff_id, week_start_date)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as exc:

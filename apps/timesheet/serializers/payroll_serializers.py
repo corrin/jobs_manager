@@ -16,7 +16,8 @@ class CreatePayRunSerializer(serializers.Serializer):
 class CreatePayRunResponseSerializer(serializers.Serializer):
     """Response serializer for created pay run"""
 
-    pay_run_id = serializers.CharField()
+    id = serializers.UUIDField(help_text="Django primary key")
+    xero_id = serializers.UUIDField(help_text="Xero pay run ID")
     status = serializers.CharField()
     period_start_date = serializers.DateField()
     period_end_date = serializers.DateField()
@@ -49,7 +50,8 @@ class PostWeekToXeroResponseSerializer(serializers.Serializer):
 class PayRunDetailsSerializer(serializers.Serializer):
     """Serializer representing details from a Xero pay run."""
 
-    pay_run_id = serializers.CharField()
+    id = serializers.UUIDField(help_text="Django primary key")
+    xero_id = serializers.UUIDField(help_text="Xero pay run ID")
     payroll_calendar_id = serializers.CharField(allow_null=True)
     period_start_date = serializers.DateField()
     period_end_date = serializers.DateField()
@@ -69,6 +71,4 @@ class PayRunForWeekResponseSerializer(serializers.Serializer):
 class PayRunSyncResponseSerializer(serializers.Serializer):
     """Response payload after refreshing cached pay runs."""
 
-    fetched = serializers.IntegerField()
-    created = serializers.IntegerField()
-    updated = serializers.IntegerField()
+    synced = serializers.BooleanField()
