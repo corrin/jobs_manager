@@ -72,3 +72,8 @@ class PayRunSyncResponseSerializer(serializers.Serializer):
     """Response payload after refreshing cached pay runs."""
 
     synced = serializers.BooleanField()
+    fetched = serializers.IntegerField(help_text="Number of pay runs fetched from Xero")
+    created = serializers.IntegerField(
+        help_text="Number of new pay runs created locally"
+    )
+    updated = serializers.IntegerField(help_text="Number of existing pay runs updated")

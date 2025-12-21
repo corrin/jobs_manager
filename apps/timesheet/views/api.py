@@ -755,8 +755,17 @@ class RefreshPayRunsAPIView(APIView):
     def post(self, request):
         """Synchronize local pay run cache with Xero."""
         try:
-            sync_all_xero_data(entities=["pay_runs"])
-            return Response({"synced": True}, status=status.HTTP_200_OK)
+            # sync_all_xero_data is a generator - must consume it to run the sync
+            fetched = 0
+            for event in sync_all_xero_data(entities=["pay_runs"]):
+                # Count records from sync events
+                if "recordsUpdated" in event:
+                    fetched += event["recordsUpdated"]
+
+            return Response(
+                {"synced": True, "fetched": fetched, "created": 0, "updated": fetched},
+                status=status.HTTP_200_OK,
+            )
         except Exception as exc:
             return build_internal_error_response(
                 request=request,

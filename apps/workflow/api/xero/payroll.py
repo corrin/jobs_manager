@@ -681,7 +681,7 @@ def create_pay_run(
 
 def find_payroll_calendar_for_week(week_start_date: date) -> str:
     """
-    Find the payroll calendar ID by searching pay runs for the given week.
+    Find the payroll calendar ID by searching local pay runs for the given week.
 
     Verifies the pay run is in Draft status (not Posted/locked).
 
@@ -694,46 +694,36 @@ def find_payroll_calendar_for_week(week_start_date: date) -> str:
     Raises:
         Exception: If no matching pay run found or pay run is already Posted
     """
-    pay_runs = get_pay_runs()
+    from apps.workflow.models import XeroPayRun
 
     week_end_date = week_start_date + timedelta(days=6)
 
     logger.info(
-        f"Searching {len(pay_runs)} pay runs for week {week_start_date} to {week_end_date}"
+        f"Searching local pay runs for week {week_start_date} to {week_end_date}"
     )
 
-    for pr in pay_runs:
-        pr_start = (
-            pr["period_start_date"].date()
-            if hasattr(pr["period_start_date"], "date")
-            else pr["period_start_date"]
+    try:
+        pay_run = XeroPayRun.objects.get(
+            period_start_date=week_start_date,
+            period_end_date=week_end_date,
         )
-        pr_end = (
-            pr["period_end_date"].date()
-            if hasattr(pr["period_end_date"], "date")
-            else pr["period_end_date"]
+    except XeroPayRun.DoesNotExist:
+        raise Exception(
+            f"No pay run found for week {week_start_date} to {week_end_date}. "
+            "Create a pay run in Xero Payroll for this period first."
         )
 
-        # Check if this pay run period exactly matches our week
-        if pr_start == week_start_date and pr_end == week_end_date:
-            # Check if pay run is locked (already posted/finalized)
-            if pr["pay_run_status"] == "Posted":
-                raise Exception(
-                    f"Pay run for week {week_start_date} to {week_end_date} is already Posted "
-                    f"and cannot be modified. Pay run ID: {pr['pay_run_id']}"
-                )
+    if pay_run.pay_run_status == "Posted":
+        raise Exception(
+            f"Pay run for week {week_start_date} to {week_end_date} is already Posted "
+            f"and cannot be modified. Pay run ID: {pay_run.xero_id}"
+        )
 
-            calendar_id = pr["payroll_calendar_id"]
-            logger.info(
-                f"Found matching pay run: {pr['pay_run_id']} "
-                f"(status: {pr['pay_run_status']}) with calendar {calendar_id}"
-            )
-            return calendar_id
-
-    raise Exception(
-        f"No pay run found for week {week_start_date} to {week_end_date}. "
-        "Create a pay run in Xero Payroll for this period first."
+    logger.info(
+        f"Found matching pay run: {pay_run.xero_id} "
+        f"(status: {pay_run.pay_run_status}) with calendar {pay_run.payroll_calendar_id}"
     )
+    return str(pay_run.payroll_calendar_id)
 
 
 def post_timesheet(
