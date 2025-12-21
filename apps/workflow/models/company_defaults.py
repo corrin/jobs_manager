@@ -4,6 +4,12 @@ from django.db import models, transaction
 
 class CompanyDefaults(models.Model):
     company_name = models.CharField(max_length=255, primary_key=True)
+    company_acronym = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Short acronym for the company (e.g., 'MSM' for Morris Sheetmetal)",
+    )
     is_primary = models.BooleanField(default=True, unique=True)
     time_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0.3)
     materials_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0.2)

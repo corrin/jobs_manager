@@ -3,6 +3,7 @@
     "model": "workflow.companydefaults",
     "pk": "Demo Company",
     "fields": {
+      "company_acronym": "DC",
       "is_primary": true,
       "time_markup": "0.30",
       "materials_markup": "0.20",
