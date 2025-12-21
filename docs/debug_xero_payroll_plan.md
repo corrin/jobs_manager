@@ -56,6 +56,18 @@ Staff: `sara12@example.org` (Xero ID `51ea92e3...`)
 ### 6. Test with Multiple Staff
 Once single staff works, test with all mapped staff.
 
+### 7. Fix Stale Pay Run Data Issue (Copilot suggestion - may be junk)
+**File**: `apps/timesheet/views/api.py` (PayRunForWeekAPIView)
+
+*Note: This came from Copilot review. May not be a real problem in practice.*
+
+`PayRunForWeekAPIView.get()` only syncs from Xero if NO local record exists. If local record is stale (e.g., status changed in Xero), returns outdated data.
+
+Options:
+- Add timestamp check (e.g., if `xero_last_synced` > 5 min ago, refresh)
+- Add `force_refresh` query param for clients to request fresh data
+- Always sync before returning (performance cost)
+
 ## Test Data Available
 - Week: 2025-12-15 to 2025-12-21
 - 241 time entries total
