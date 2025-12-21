@@ -4,80 +4,129 @@
 - **NO `python -c` or `python manage.py shell -c`** - All scripts must be files
 - **All debug scripts go in `scripts/payrun-debug/`** for full audit trail
 - Test with ONE staff member first, then expand
+- **Xero is master** for pay runs - never create local record without Xero confirmation
 
-## Problem Summary
-Posting timesheets to Xero Payroll fails with 500 error. Root causes identified:
+## Current State (2025-12-22)
 
-1. **Corrupted local data**: Local `XeroPayRun` record had wrong dates (2025-12-15) mapped to a 2023-07-10 Xero pay run ID
-2. **Xero constraint**: Only one draft pay run allowed per calendar; existing draft blocks new ones
-3. **No validation**: Code doesn't verify the returned Xero ID matches requested dates
+### Calendars
+- Old calendar: "Weekly" (`05cc53fb-3684-4d00-9c4e-9cb3a2b52919`) - stuck at 2023
+- New calendar: "Weekly 2025" (`a283d904-0f00-4bba-9abe-cf8d97ac08ca`) - starts Aug 2025
 
-## Findings
+### Employees
+- 11 employees linked to Xero, all on OLD "Weekly" calendar
+- Cannot change calendar via API - must delete and recreate
 
-### What We Discovered
-- Local `XeroPayRun` for 2025-12-15 had `xero_id: 141ebf83...` but that ID actually belongs to a 2023-07-10 pay run in Xero
-- `payroll_calendar_id` was `None` in the local record (should have been `05cc53fb-3684-4d00-9c4e-9cb3a2b52919`)
-- The record was marked `created_locally: True` at `api.py:592`
-- Creating a new pay run fails with 409: "There can only be one draft pay run per a calendar"
+### Code Changes Made
+- `apps/workflow/api/xero/payroll.py` - Now prefers "Weekly 2025" calendar (for pay run creation)
 
-### Key Files
-- `apps/timesheet/views/api.py:568-622` - Creates pay run and local record
-- `apps/workflow/api/xero/payroll.py:594-679` - `create_pay_run()` function
-- `apps/workflow/api/xero/payroll.py:727-900` - `post_timesheet()` function
+### Known Issue
+- `apps/timesheet/services/payroll_employee_sync.py` - Still uses first WEEKLY calendar found
+- This is production code - cannot hardcode "Weekly 2025"
+- **For demo:** Must ensure Weekly 2025 is the only/first WEEKLY calendar, OR delete old Weekly calendar in Xero
+
+### Future Enhancement
+- Add `preferred_payroll_calendar_name` to CompanyDefaults
+- Use this to select the correct calendar in both payroll.py and payroll_employee_sync.py
+
+---
+
+## Next Steps
+
+### Step 1: Delete Employees in Xero UI (MANUAL)
+Go to: https://go.xero.com/payroll/employees
+
+Delete these 11 employees:
+- Scott Brown, Andrew Dickerson, Maria Duke, Derrick Johnson
+- Thomas Lyons, Christopher Mejia, Kimberly Sellers, Justin Simpson
+- Daniel Sims, Paul Stevens, Randy Trujillo
+
+### Step 2: Clear Local Links
+```bash
+python scripts/payrun-debug/10_reset_employees_for_new_calendar.py --clear-links
+```
+
+### Step 3: Recreate Employees on Weekly 2025
+```bash
+python manage.py sync_payroll_employees --create
+```
+
+### Step 4: Advance Calendar to Dec 2025
+Create ~18 pay runs to advance from Aug 2025 to Dec 2025.
+Each pay run must be POSTED in Xero UI to advance the calendar.
+
+### Step 5: Test Timesheet Posting
+1. Create pay run for target week (Dec 15-21, 2025)
+2. Test posting timesheet for ONE staff member: `sara12@example.org`
+3. Test posting timesheet for multiple staff
+
+---
 
 ## Completed
-- [x] Deleted corrupted local XeroPayRun record for 2025-12-15
 
-## TODO
+- [x] Identified corrupted local XeroPayRun record (wrong xero_id)
+- [x] Deleted corrupted local record
+- [x] Tested 409 error handling - working correctly
+- [x] Deleted old 2023-07-10 draft pay run (manual in Xero UI)
+- [x] Created "Weekly 2025" calendar in Xero
+- [x] Updated code to prefer "Weekly 2025" calendar
+- [x] Tested update_employee for calendar change - **DOES NOT WORK** (silently ignores)
+- [x] Confirmed delete_employee not available in SDK
 
-### 1. Test Pay Run Creation Error Handling
-- Try to create pay run for Dec 15-21, 2025
-- Expected: 409 error "only one draft pay run per calendar" (existing 2023-07-10 draft blocks it)
-- **Validate**: Good error message reaches frontend (currently broken - creates bad local data instead)
+---
 
-### 2. Fix Error Reporting to Frontend
-**File**: `apps/timesheet/views/api.py`
-- Frontend should clearly show 409 error, not silently create corrupted local record
-- Investigate how local record got wrong xero_id
+## Xero Payroll NZ API Limitations
 
-### 3. Clear Existing Draft Pay Run
-- Post/finalize the 2023-07-10 draft in Xero, OR
-- Delete it (if Xero allows)
-- This unblocks creating new drafts
+| Operation | API Support | Alternative |
+|-----------|-------------|-------------|
+| Delete pay run | NO | Manual in Xero UI |
+| Delete employee | NO | Manual in Xero UI |
+| Update employee calendar | NO (silently ignores) | Delete & recreate |
+| Update pay run status | NO | Manual in Xero UI |
+| Get employment records | NO (method missing) | Use get_employee |
 
-### 4. Create Pay Run for Dec 15-21, 2025
-- After clearing old draft, create new one
-- Validate local record matches Xero data
+---
 
-### 5. Test Posting Timesheet for ONE Staff Member
-Staff: `sara12@example.org` (Xero ID `51ea92e3...`)
-- 12 time entries, 40 hours
+## Key Files
 
-### 6. Test with Multiple Staff
-Once single staff works, test with all mapped staff.
+| File | Lines | Description |
+|------|-------|-------------|
+| `apps/timesheet/views/api.py` | 568-622 | CreatePayRunAPIView |
+| `apps/timesheet/views/api.py` | 625-705 | PayRunForWeekAPIView |
+| `apps/workflow/api/xero/payroll.py` | 594-679 | `create_pay_run()` |
+| `apps/workflow/api/xero/payroll.py` | 727-900 | `post_timesheet()` |
+| `apps/workflow/api/xero/payroll.py` | 1135-1293 | `post_staff_week_to_xero()` |
+| `apps/timesheet/services/payroll_employee_sync.py` | 216-241 | `_get_weekly_calendar_id()` |
 
-### 7. Fix Stale Pay Run Data Issue (Copilot suggestion - may be junk)
-**File**: `apps/timesheet/views/api.py` (PayRunForWeekAPIView)
-
-*Note: This came from Copilot review. May not be a real problem in practice.*
-
-`PayRunForWeekAPIView.get()` only syncs from Xero if NO local record exists. If local record is stale (e.g., status changed in Xero), returns outdated data.
-
-Options:
-- Add timestamp check (e.g., if `xero_last_synced` > 5 min ago, refresh)
-- Add `force_refresh` query param for clients to request fresh data
-- Always sync before returning (performance cost)
-
-## Test Data Available
-- Week: 2025-12-15 to 2025-12-21
-- 241 time entries total
-- 11 staff with Xero mappings
-- Staff `sara12@example.org`: 12 entries, 40 hours
+---
 
 ## Debug Scripts
-All debug scripts in `scripts/payrun-debug/` for audit trail.
 
-Run with:
-```bash
-python scripts/payrun-debug/debug_xero_payroll.py --week 2025-12-15 --staff-email sara12@example.org
-```
+All in `scripts/payrun-debug/`:
+
+| Script | Purpose |
+|--------|---------|
+| `01_test_create_payrun.py` | Test low-level pay run creation |
+| `02_test_api_create_payrun.py` | Test API endpoint |
+| `05_raw_api_delete_draft.py` | Attempted raw API delete (failed) |
+| `07_create_payruns_to_current.py` | Script to advance calendar |
+| `08_setup_weekly_2025.py` | Check new calendar setup |
+| `09_check_sdk_methods.py` | List SDK methods |
+| `10_reset_employees_for_new_calendar.py` | Clear local links for migration |
+| `11_check_employment_update.py` | Check employment API capabilities |
+| `12_inspect_employee_details.py` | Get full employee details |
+| `13_move_employee_to_new_calendar.py` | Attempted bulk move (failed) |
+| `14_test_move_one_employee.py` | Test single employee update (failed) |
+| `debug_xero_payroll.py` | Full diagnostic script |
+
+---
+
+## Original Bug Investigation
+
+### Finding: NOT REPRODUCIBLE
+The corrupted local record issue could not be reproduced. Current code correctly:
+- Returns 409 on conflict when Xero already has a pay run
+- Does NOT create local record when Xero API fails
+- Keeps Xero and local in sync
+
+### Root Cause (Suspected)
+The corrupted record likely came from an earlier version of the code or manual intervention.

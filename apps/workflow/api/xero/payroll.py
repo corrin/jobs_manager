@@ -619,14 +619,16 @@ def create_pay_run(
     payroll_api = PayrollNzApi(api_client)
 
     try:
-        # Find weekly payroll calendar
+        # Find weekly payroll calendar (prefer "Weekly 2025" if available)
         calendars = get_payroll_calendars()
-        weekly_calendar = next(
-            (c for c in calendars if "weekly" in c["name"].lower()), None
-        )
-        if not weekly_calendar:
+        weekly_calendars = [c for c in calendars if "weekly" in c["name"].lower()]
+        if not weekly_calendars:
             raise Exception("No weekly payroll calendar found in Xero")
 
+        # Prefer "Weekly 2025" calendar if available
+        weekly_calendar = next(
+            (c for c in weekly_calendars if "2025" in c["name"]), weekly_calendars[0]
+        )
         payroll_calendar_id = weekly_calendar["id"]
         logger.info(f"Using weekly calendar: {payroll_calendar_id}")
 
