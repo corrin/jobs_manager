@@ -119,7 +119,7 @@ class Job(models.Model):
     # Flag to track jobs that were rejected
     rejected_flag: bool = models.BooleanField(
         default=False,
-        help_text="Indicates if this job was rejected (shown in Recently Completed with rejected styling)",
+        help_text="Indicates if this job was rejected (shown in Archived with rejected styling)",
     )
 
     PRICING_METHODOLOGY_CHOICES = [
@@ -559,7 +559,7 @@ class Job(models.Model):
 
         # Special handling for rejected jobs
         if (
-            new_status == "recently_completed"
+            new_status == "archived"
             and hasattr(self, "rejected_flag")
             and self.rejected_flag
         ):

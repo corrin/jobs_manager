@@ -6,10 +6,22 @@ try:
 
     if apps.ready:
         from .client_rest_service import ClientRestService
+        from .geocoding_service import (
+            GeocodingError,
+            GeocodingNotConfiguredError,
+            GeocodingResult,
+            geocode_address,
+            get_api_key,
+        )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
 __all__ = [
     "ClientRestService",
+    "GeocodingError",
+    "GeocodingNotConfiguredError",
+    "GeocodingResult",
+    "geocode_address",
+    "get_api_key",
 ]

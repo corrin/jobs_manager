@@ -112,15 +112,36 @@ class ClientListAllRestView(APIView):
                 name="q",
                 location=OpenApiParameter.QUERY,
                 required=False,
-                description="Search query (min 3 chars, case-insensitive substring match)",
+                description="Search query (case-insensitive substring match). If empty, returns all clients.",
                 type=OpenApiTypes.STR,
             ),
             OpenApiParameter(
-                name="limit",
+                name="page",
                 location=OpenApiParameter.QUERY,
                 required=False,
-                description="Max results (default 10, max 50)",
+                description="Page number (default 1)",
                 type=OpenApiTypes.INT,
+            ),
+            OpenApiParameter(
+                name="page_size",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Results per page (default 50)",
+                type=OpenApiTypes.INT,
+            ),
+            OpenApiParameter(
+                name="sort_by",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Field to sort by (default 'name')",
+                type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="sort_dir",
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description="Sort direction: 'asc' or 'desc' (default 'asc')",
+                type=OpenApiTypes.STR,
             ),
         ],
         responses={
@@ -132,8 +153,8 @@ class ClientListAllRestView(APIView):
 )
 class ClientSearchRestView(APIView):
     """
-    REST view for client search.
-    Implements name-based search functionality with pagination.
+    REST view for client search with pagination and sorting.
+    Returns all clients when no search query provided.
     """
 
     permission_classes = [IsAuthenticated]
@@ -141,27 +162,36 @@ class ClientSearchRestView(APIView):
 
     def get(self, request: Request) -> Response:
         """
-        Searches clients by name following early return pattern.
+        Lists/searches clients with pagination and sorting.
         """
         try:
             query = (request.GET.get("q") or "").strip()
 
-            if not query or len(query) < 3:
-                empty = {"results": []}
-                serializer = ClientSearchResponseSerializer(data=empty)
-                serializer.is_valid(raise_exception=True)
-                return Response(serializer.data)
-
-            # limit from query, with a sensible cap
+            # Parse pagination params
             try:
-                limit = int(request.GET.get("limit", 10))
+                page = max(1, int(request.GET.get("page", 1)))
             except ValueError:
-                limit = 10
-            limit = max(1, min(limit, 50))
+                page = 1
+            try:
+                page_size = int(request.GET.get("page_size", 50))
+            except ValueError:
+                page_size = 50
+            page_size = max(1, page_size)
 
-            results = ClientRestService.search_clients(query, limit)
-            payload = {"results": results}
-            serializer = ClientSearchResponseSerializer(data=payload)
+            # Parse sorting params
+            sort_by = request.GET.get("sort_by", "name")
+            sort_dir = request.GET.get("sort_dir", "asc")
+
+            # Get paginated results
+            result = ClientRestService.list_clients(
+                query=query if len(query) >= 3 else None,
+                page=page,
+                page_size=page_size,
+                sort_by=sort_by,
+                sort_dir=sort_dir,
+            )
+
+            serializer = ClientSearchResponseSerializer(data=result)
             serializer.is_valid(raise_exception=True)
             return Response(serializer.data)
 

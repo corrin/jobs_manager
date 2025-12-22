@@ -21,7 +21,6 @@
     "fields": {
       "email": "charles.baker@example.com",
       "first_name": "Charles",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe38",
       "last_name": "Baker",
       "preferred_name": "Charlie",
       "wage_rate": "35.80",
@@ -32,9 +31,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe38"
     }
   },
   {
@@ -43,7 +42,6 @@
     "fields": {
       "email": "alex.cooper@example.com",
       "first_name": "Alex",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe39",
       "last_name": "Cooper",
       "preferred_name": null,
       "wage_rate": "33.50",
@@ -54,9 +52,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe39"
     }
   },
   {
@@ -65,7 +63,6 @@
     "fields": {
       "email": "nathan.chen@example.com",
       "first_name": "Nathan",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe40",
       "last_name": "Chen",
       "preferred_name": "Nate",
       "wage_rate": "36.25",
@@ -76,9 +73,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe40"
     }
   },
   {
@@ -87,7 +84,6 @@
     "fields": {
       "email": "robert.irwin@example.com",
       "first_name": "Robert",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe41",
       "last_name": "Irwin",
       "preferred_name": "Rob",
       "wage_rate": "37.50",
@@ -98,9 +94,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe41"
     }
   },
   {
@@ -109,7 +105,6 @@
     "fields": {
       "email": "peter.johnson@example.com",
       "first_name": "Peter",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe42",
       "last_name": "Johnson",
       "preferred_name": "Pete",
       "wage_rate": "34.75",
@@ -120,9 +115,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe42"
     }
   },
   {
@@ -131,7 +126,6 @@
     "fields": {
       "email": "james.kennedy@example.com",
       "first_name": "James",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe43",
       "last_name": "Kennedy",
       "preferred_name": "Jim",
       "wage_rate": "36.00",
@@ -142,9 +136,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe43"
     }
   },
   {
@@ -153,7 +147,6 @@
     "fields": {
       "email": "andrew.mitchell@example.com",
       "first_name": "Andrew",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe44",
       "last_name": "Mitchell",
       "preferred_name": "Andy",
       "wage_rate": "35.25",
@@ -164,9 +157,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe44"
     }
   },
   {
@@ -175,7 +168,6 @@
     "fields": {
       "email": "anthony.parker@example.com",
       "first_name": "Anthony",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe45",
       "last_name": "Parker",
       "preferred_name": "Tony",
       "wage_rate": "33.75",
@@ -186,9 +178,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe45"
     }
   },
   {
@@ -197,7 +189,6 @@
     "fields": {
       "email": "thomas.richards@example.com",
       "first_name": "Thomas",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe46",
       "last_name": "Richards",
       "preferred_name": "Tom",
       "wage_rate": "34.50",
@@ -208,9 +199,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe46"
     }
   },
   {
@@ -219,7 +210,6 @@
     "fields": {
       "email": "matthew.robinson@example.com",
       "first_name": "Matthew",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe47",
       "last_name": "Robinson",
       "preferred_name": "Matt",
       "wage_rate": "36.50",
@@ -230,9 +220,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe47"
     }
   },
   {
@@ -241,7 +231,6 @@
     "fields": {
       "email": "patrick.xu@example.com",
       "first_name": "Patrick",
-      "ims_payroll_id": "4ac80a91-1aee-434b-88a9-c509b48bfe48",
       "last_name": "Xu",
       "preferred_name": null,
       "wage_rate": "35.00",
@@ -252,9 +241,9 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2024-01-01T00:00:00Z"
+      "updated_at": "2024-01-01T00:00:00Z",
+      "xero_user_id": "4ac80a91-1aee-434b-88a9-c509b48bfe48"
     }
   },
   {
@@ -274,12 +263,10 @@
       "hours_fri": "8.0",
       "hours_sat": "0.00",
       "hours_sun": "0.00",
-      "ims_payroll_id": "ADMIN-001",
       "is_active": true,
       "is_office_staff": true,
       "is_superuser": true,
       "date_joined": "2024-01-01T00:00:00Z",
-      "raw_ims_data": {},
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-01-01T00:00:00Z"
     }

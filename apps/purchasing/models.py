@@ -40,6 +40,7 @@ class PurchaseOrder(models.Model):
         "expected_delivery",
         "online_url",
         "xero_id",
+        "pickup_address_id",
     ]
 
     # Computed properties exposed via API serializers
@@ -48,6 +49,7 @@ class PurchaseOrder(models.Model):
         "supplier_id",
         "supplier_has_xero_id",
         "lines",
+        "pickup_address",
     ]
 
     # Internal fields not exposed in API
@@ -71,6 +73,14 @@ class PurchaseOrder(models.Model):
         related_name="purchase_orders",
         null=True,
         blank=True,
+    )
+    pickup_address = models.ForeignKey(
+        "client.SupplierPickupAddress",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_orders",
+        help_text="Delivery/pickup address for this purchase order",
     )
     job = models.ForeignKey(
         "job.Job",
@@ -238,7 +248,6 @@ class PurchaseOrderLine(models.Model):
         max_length=50,
         null=True,
         blank=True,
-        db_index=True,
         help_text="Internal item code for Xero integration",
     )
     received_quantity = models.DecimalField(
@@ -408,7 +417,11 @@ class Stock(models.Model):
     )
 
     item_code = models.CharField(
-        max_length=255, blank=True, null=True, help_text="Xero Item Code"
+        max_length=255,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text="Xero Item Code",
     )
 
     description = models.CharField(

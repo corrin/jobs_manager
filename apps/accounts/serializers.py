@@ -150,8 +150,6 @@ class StaffSerializer(BaseStaffSerializer):
             "groups": {"required": False},
             "user_permissions": {"required": False},
             "preferred_name": {"required": False},
-            "ims_payroll_id": {"required": False},
-            "raw_ims_data": {"required": False},
             "xero_user_id": {"required": False},
             "date_left": {"required": False},
             "icon": {"required": False, "write_only": True},

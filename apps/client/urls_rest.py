@@ -10,6 +10,7 @@ REST URLs for Client module following RESTful patterns:
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from apps.client.views.address_views import AddressValidateView
 from apps.client.views.client_contact_viewset import ClientContactViewSet
 from apps.client.views.client_rest_views import (
     ClientCreateRestView,
@@ -20,12 +21,18 @@ from apps.client.views.client_rest_views import (
     ClientUpdateRestView,
     JobContactRestView,
 )
+from apps.client.views.supplier_pickup_address_viewset import (
+    SupplierPickupAddressViewSet,
+)
 
 app_name = "clients_rest"
 
 # Router for ViewSet-based endpoints
 router = DefaultRouter()
 router.register("contacts", ClientContactViewSet, basename="client-contact")
+router.register(
+    "pickup-addresses", SupplierPickupAddressViewSet, basename="supplier-pickup-address"
+)
 
 urlpatterns = [
     # Client list all REST endpoint
@@ -69,6 +76,12 @@ urlpatterns = [
         "jobs/<uuid:job_id>/contact/",
         JobContactRestView.as_view(),
         name="job_contact_rest",
+    ),
+    # Address validation endpoint
+    path(
+        "addresses/validate/",
+        AddressValidateView.as_view(),
+        name="address_validate",
     ),
     # ViewSet routes (contacts CRUD)
     path("", include(router.urls)),

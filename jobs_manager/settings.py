@@ -182,13 +182,11 @@ INSTALLED_APPS = [
     "crispy_bootstrap5",
     "django_apscheduler",
     "django_node_assets",
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.sites",
-    "django.contrib.staticfiles",
     "django.contrib.humanize",
     "django_tables2",
     "rest_framework",
@@ -566,46 +564,9 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-STATIC_URL = "/static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+# Media files (user uploads)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "mediafiles"
-
-STATICFILES_DIRS = [
-    # Bootstrap CSS and JS
-    ("bootstrap", "node_modules/bootstrap/dist"),
-    # Bootstrap Icons CSS
-    ("bootstrap-icons", "node_modules/bootstrap-icons/font"),
-    # ag-Grid Community (CSS/JS)
-    ("ag-grid-community", "node_modules/ag-grid-community/dist"),
-    ("ag-grid-styles", "node_modules/@ag-grid-community/styles"),
-    # Highcharts (JS)
-    ("highcharts", "node_modules/highcharts"),
-    # jQuery (JS)
-    ("jquery", "node_modules/jquery/dist"),
-    # JSONEditor (CSS/JS)
-    ("jsoneditor", "node_modules/jsoneditor/dist"),
-    # jsPDF (JS)
-    ("jspdf", "node_modules/jspdf/dist"),
-    # jsPDF-AutoTable (JS)
-    ("jspdf-autotable", "node_modules/jspdf-autotable/dist"),
-    # PDFMake (JS)
-    ("pdfmake", "node_modules/pdfmake/build/"),
-    # Moment.js (JS)
-    ("moment", "node_modules/moment"),
-    # SortableJS (JS)
-    ("sortablejs", "node_modules/sortablejs"),
-    # Quill (CSS/JS)
-    ("quill", "node_modules/quill/dist"),
-    # FullCalendar (JS)
-    ("fullcalendar", "node_modules/@fullcalendar/core"),
-    ("fullcalendar-daygrid", "node_modules/@fullcalendar/daygrid"),
-    ("fullcalendar-interaction", "node_modules/@fullcalendar/interaction"),
-    ("fullcalendar-timegrid", "node_modules/@fullcalendar/timegrid"),
-    # Chart.js (JS)
-    ("chart.js", "node_modules/chart.js/dist"),
-]
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -893,13 +854,7 @@ if PRODUCTION_LIKE:
         if mw != "debug_toolbar.middleware.DebugToolbarMiddleware"
     ]
 
-    # Use ManifestStaticFilesStorage to add hashes to static files
-    STATICFILES_STORAGE = (
-        "django.contrib.staticfiles.storage.ManifestStaticFilesStorage"
-    )
-
-    # Override static/media paths from environment if provided
-    STATIC_ROOT = os.getenv("STATIC_ROOT", STATIC_ROOT)
+    # Override media path from environment if provided
     MEDIA_ROOT = os.getenv("MEDIA_ROOT", MEDIA_ROOT)
 
     # SECURITY CONFIGURATIONS

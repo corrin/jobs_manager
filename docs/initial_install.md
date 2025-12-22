@@ -6,7 +6,6 @@ This guide details the steps required to set up the Jobs Manager application for
 
 - Python 3.12+
 - [Poetry](https://python-poetry.org/)
-- Node.js + npm
 - MariaDB Server & Client (Version 11.5.2+ recommended)
 - [ngrok](https://ngrok.com/) Client
 
@@ -29,7 +28,7 @@ Complete these steps first to gather all necessary credentials and configuration
 
 ### Step 1: Install Core Software
 
-Ensure you have installed Python, Poetry, Node.js/npm, the MariaDB server/client, and the ngrok client on your development machine. Follow the official installation instructions for each tool specific to your operating system.
+Ensure you have installed Python, Poetry, the MariaDB server/client, and the ngrok client on your development machine. Follow the official installation instructions for each tool specific to your operating system.
 
 ### Step 2: Set Up MariaDB Database
 
@@ -101,7 +100,6 @@ Now that the external services are prepared, set up the application code.
 git clone https://github.com/corrin/jobs_manager.git
 cd jobs_manager
 poetry install
-npm install
 ```
 
 ### Step 6: Configure Environment (`.env`) File
@@ -251,12 +249,11 @@ For running in a mode closer to production:
 1.  Set the environment variable `DJANGO_ENV=production_like` in your `.env` file.
 2.  Ensure **Redis** is installed and running (used for caching/Celery). Configure connection details in `.env`.
 3.  Start **Celery** worker(s) for handling background tasks (check project specifics).
-4.  **Collect Static Files:** Before deploying, run `python manage.py collectstatic --noinput` to gather static assets into the `STATIC_ROOT` directory.
-5.  Run using **Gunicorn** (or another WSGI server):
+4.  Run using **Gunicorn** (or another WSGI server):
     ```bash
     gunicorn --bind 0.0.0.0:8000 jobs_manager.wsgi
     ```
-    _(In actual production, this would run behind a reverse proxy like Nginx, which would serve the collected static files)._
+    _(In actual production, this would run behind a reverse proxy like Nginx)._
 
 ## Resetting the Database (Wipe and Reload)
 
@@ -308,7 +305,7 @@ To wipe the local database and start fresh:
 
 If you encounter issues:
 
-1.  **Dependencies:** Rerun `poetry install`, `npm install`. Check for errors.
+1.  **Dependencies:** Rerun `poetry install`. Check for errors.
 2.  **.env File:** Verify `DATABASE_URL`, Xero keys, `NGROK_DOMAIN`.
 3.  **Database:** Is MariaDB running? Do credentials in `.env` match the `CREATE USER` command?
 4.  **Migrations:** Run `python manage.py migrate`. Any errors?

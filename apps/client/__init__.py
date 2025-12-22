@@ -9,7 +9,7 @@ try:
 
     if apps.ready:
         from .forms import ClientForm
-        from .models import Client, ClientContact, Supplier
+        from .models import Client, ClientContact, Supplier, SupplierPickupAddress
         from .serializers import (
             ClientContactSerializer,
             ClientCreateResponseSerializer,
@@ -29,6 +29,7 @@ try:
             JobContactResponseSerializer,
             JobContactUpdateSerializer,
             StandardErrorSerializer,
+            SupplierPickupAddressSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -58,5 +59,7 @@ __all__ = [
     "JobContactUpdateSerializer",
     "StandardErrorSerializer",
     "Supplier",
+    "SupplierPickupAddress",
+    "SupplierPickupAddressSerializer",
     "date_to_datetime",
 ]

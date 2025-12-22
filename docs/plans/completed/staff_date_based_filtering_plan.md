@@ -221,7 +221,7 @@ def get_excluded_staff(apps_registry: Optional[Any] = None) -> List[str]:
     # Update to use currently_active() instead of is_active=True
     staff_with_ids = Staff.objects.currently_active().values_list(
         "id",
-        "ims_payroll_id",
+        "xero_user_id",
         # ... rest of fields
     )
     # ... rest of function logic

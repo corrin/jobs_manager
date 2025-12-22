@@ -31,7 +31,6 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         "last_name",
         "preferred_name",
         "wage_rate",
-        "ims_payroll_id",
         "xero_user_id",
         "date_left",
         "is_office_staff",
@@ -56,7 +55,6 @@ class Staff(AbstractBaseUser, PermissionsMixin):
     STAFF_INTERNAL_FIELDS = [
         "password",
         "icon",  # Raw ImageField - use icon_url property for API
-        "raw_ims_data",
     ]
 
     # Computed properties exposed via API (read-only).
@@ -77,10 +75,6 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         max_length=30, blank=True, null=True
     )
     wage_rate: float = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    ims_payroll_id: str = models.CharField(
-        max_length=100, unique=True, null=True, blank=True
-    )
-    raw_ims_data = models.JSONField(null=True, blank=True, default=dict)
     xero_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     date_left = models.DateField(
         null=True,
