@@ -74,8 +74,7 @@ class WorkshopTimesheetService:
             cost_line = CostLine.objects.create(
                 cost_set=cost_set,
                 kind="time",
-                desc=data.get("description")
-                or f"Timesheet entry for {self.staff.get_display_name()}",
+                desc=data.get("description", None),
                 quantity=data["hours"],
                 unit_cost=unit_cost,
                 unit_rev=unit_rev,

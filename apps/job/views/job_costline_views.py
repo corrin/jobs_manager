@@ -13,7 +13,7 @@ import logging
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, PolymorphicProxySerializer, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from apps.job.models import CostLine, CostSet, Job
 from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.costing_serializer import (
+    CostLineApprovalResponseSerializer,
     CostLineCreateUpdateSerializer,
     CostLineErrorResponseSerializer,
     CostLineSerializer,
@@ -276,28 +277,27 @@ class CostLineApprovalView(APIView):
         ],
         request=None,
         responses={
-            200: StockConsumeResponseSerializer,
+            200: PolymorphicProxySerializer(
+                component_name="CostLineApprovalResult",
+                serializers=[
+                    StockConsumeResponseSerializer,
+                    CostLineApprovalResponseSerializer,
+                ],
+                resource_type_field_name=None,
+                many=False,
+            ),
             400: CostLineErrorResponseSerializer,
             500: CostLineErrorResponseSerializer,
         },
-        operation_id="approveCostLine"
+        operation_id="approveCostLine",
     )
     def post(self, request, cost_line_id):
-        line = CostLine.objects.get(id=cost_line_id)
-
-        if line.kind != "material":
-            logger.error(
-                f"Error when trying to approve cost line {cost_line_id} - line is not of kind 'material'"
-            )
-            return Response(
-                CostLineErrorResponseSerializer(
-                    {"error": "Line is not of kind 'material'"}
-                )
-            )
+        line = get_object_or_404(CostLine, id=cost_line_id)
 
         if line.approved:
             logger.error(
-                f"Error when trying to approve cost line {cost_line_id} - line already approved"
+                "Error when trying to approve cost line %s - line already approved",
+                cost_line_id,
             )
             return Response(
                 CostLineErrorResponseSerializer(
@@ -306,11 +306,18 @@ class CostLineApprovalView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        stock_id = line.ext_refs.get("stock_id", None)
+        if line.kind == "material":
+            return self._approve_material_line(line=line, request=request)
+
+        return self._approve_non_material_line(line=line)
+
+    def _approve_material_line(self, line: CostLine, request):
+        stock_id = (line.ext_refs or {}).get("stock_id")
 
         if not stock_id:
             logger.error(
-                f"Error when trying to approve cost line {cost_line_id} - missing stock id"
+                "Error when trying to approve cost line %s - missing stock id",
+                line.id,
             )
             return Response(
                 CostLineErrorResponseSerializer(
@@ -321,7 +328,6 @@ class CostLineApprovalView(APIView):
 
         item = get_object_or_404(Stock, id=stock_id)
 
-        # Consume stock passing the existing line
         try:
             line = consume_stock(
                 item=item,
@@ -332,7 +338,9 @@ class CostLineApprovalView(APIView):
             )
         except ValueError as exc:
             logger.error(
-                f"Error when trying to approve cost line {cost_line_id}: {str(exc)}"
+                "Error when trying to approve cost line %s: %s",
+                line.id,
+                str(exc),
             )
             return Response(
                 CostLineErrorResponseSerializer({"error": str(exc)}).data,
@@ -348,4 +356,19 @@ class CostLineApprovalView(APIView):
 
         return Response(
             StockConsumeResponseSerializer(payload).data, status=status.HTTP_200_OK
+        )
+
+    def _approve_non_material_line(self, line: CostLine):
+        line.approved = True
+        line.save(update_fields=["approved", "updated_at"])
+
+        payload = {
+            "success": True,
+            "message": "Line approved successfully",
+            "line": line,
+        }
+
+        return Response(
+            CostLineApprovalResponseSerializer(payload).data,
+            status=status.HTTP_200_OK,
         )

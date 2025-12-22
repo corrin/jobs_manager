@@ -304,6 +304,14 @@ class CostLineErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
 
 
+class CostLineApprovalResponseSerializer(serializers.Serializer):
+    """Serializer for non-material cost line approval responses."""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField(required=False, allow_blank=True)
+    line = CostLineSerializer()
+
+
 class QuoteImportStatusResponseSerializer(serializers.Serializer):
     """Serializer for quote import status response"""
 
