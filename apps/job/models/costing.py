@@ -142,7 +142,7 @@ class CostLine(models.Model):
         "xero_expense_id",
         "xero_last_modified",
         "xero_last_synced",
-        "approved"
+        "approved",
     ]
 
     # Internal fields not exposed in API
@@ -201,7 +201,7 @@ class CostLine(models.Model):
 
     approved = models.BooleanField(
         default=True,
-        help_text="Indicates whether this line is approved or not by an office staff (when the line is created by a workshop worker)"
+        help_text="Indicates whether this line is approved or not by an office staff (when the line is created by a workshop worker)",
     )
 
     class Meta:
@@ -231,7 +231,7 @@ class CostLine(models.Model):
             logger.warning(
                 f"CostLine has negative quantity: {self.quantity} for {self.desc}"
             )
-        
+
         if self.kind != "material" and not self.approved:
             raise ValidationError("Non-material cost line cannot be unapproved.")
 

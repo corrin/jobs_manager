@@ -83,6 +83,7 @@ try:
             process_attachments,
             wait_until_file_ready,
         )
+        from .workshop_service import WorkshopTimesheetService
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -113,6 +114,7 @@ __all__ = [
     "SafetyAIService",
     "SafetyDocumentContent",
     "SafetyDocumentService",
+    "WorkshopTimesheetService",
     "add_delivery_docket_details_table",
     "add_handover_section",
     "add_logo",

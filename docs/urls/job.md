@@ -38,6 +38,11 @@
 | `/api/reports/job-aging/` | `job_aging_view.JobAgingAPIView` | `accounting:api_job_aging` | API Endpoint to provide job aging data with financial and timing information |
 | `/api/reports/job-movement/` | `JobMovementMetricsView` | `accounting:api_job_movement` | API endpoint for job movement and conversion metrics. |
 
+#### Workshop Management
+| URL Pattern | View | Name | Description |
+|-------------|------|------|-------------|
+| `/api/workshop/timesheets/` | `workshop_view.WorkshopTimesheetView` | `jobs:api_workshop_timesheets` | API for workshop staff to manage their own timesheet entries (CostLines). |
+
 ### Job Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
@@ -48,6 +53,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/rest/cost_lines/<str:cost_line_id>/` | `job_costline_views.CostLineUpdateView` | `jobs:costline_update_rest` | Update an existing CostLine |
+| `/rest/cost_lines/<str:cost_line_id>/approve/` | `job_costline_views.CostLineApprovalView` | `jobs:costline_approve_rest` | Approve an existing CostLine |
 | `/rest/cost_lines/<str:cost_line_id>/delete/` | `job_costline_views.CostLineDeleteView` | `jobs:costline_delete_rest` | Delete an existing CostLine |
 | `/rest/data-integrity/scan/` | `data_integrity_views.DataIntegrityReportView` | `jobs:data_integrity_scan` | API view for comprehensive database integrity checking |
 | `/rest/data-quality/archived-jobs-compliance/` | `data_quality_report_views.ArchivedJobsComplianceView` | `jobs:data_quality_archived_jobs_compliance` | API view for checking archived jobs compliance. |

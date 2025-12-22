@@ -24,6 +24,12 @@ try:
             WeeklyStaffDataWeeklyHoursSerializer,
             WeeklySummarySerializer,
             WeeklyTimesheetDataSerializer,
+            WorkshopTimesheetDeleteRequestSerializer,
+            WorkshopTimesheetEntryRequestSerializer,
+            WorkshopTimesheetEntrySerializer,
+            WorkshopTimesheetEntryUpdateSerializer,
+            WorkshopTimesheetListResponseSerializer,
+            WorkshopTimesheetSummarySerializer,
         )
         from .payroll_serializers import (
             CreatePayRunResponseSerializer,
@@ -62,4 +68,10 @@ __all__ = [
     "WeeklyStaffDataWeeklyHoursSerializer",
     "WeeklySummarySerializer",
     "WeeklyTimesheetDataSerializer",
+    "WorkshopTimesheetDeleteRequestSerializer",
+    "WorkshopTimesheetEntryRequestSerializer",
+    "WorkshopTimesheetEntrySerializer",
+    "WorkshopTimesheetEntryUpdateSerializer",
+    "WorkshopTimesheetListResponseSerializer",
+    "WorkshopTimesheetSummarySerializer",
 ]
