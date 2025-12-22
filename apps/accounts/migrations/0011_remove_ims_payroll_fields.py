@@ -6,7 +6,10 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("accounts", "0009_historicalstaff_xero_user_id_staff_xero_user_id"),
+        (
+            "accounts",
+            "0010_rename_is_staff_historicalstaff_is_office_staff_and_more",
+        ),
     ]
 
     operations = [
