@@ -178,7 +178,7 @@ class StaffListAPIView(APIView):
         # Use date-based filtering
         excluded_staff_ids = get_excluded_staff()
         staff = Staff.objects.active_on_date(target_date).exclude(
-            Q(is_staff=True) | Q(id__in=excluded_staff_ids)
+            Q(is_office_staff=True) | Q(id__in=excluded_staff_ids)
         ).order_by("last_name", "first_name")
 
         # ... rest of method

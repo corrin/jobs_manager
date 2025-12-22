@@ -242,7 +242,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "preferred_name",
             "fullName",
-            "is_staff",
+            "is_office_staff",
+            "is_superuser",
         ]
         read_only_fields = [
             "id",
@@ -252,7 +253,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "preferred_name",
             "fullName",
-            "is_staff",
+            "is_office_staff",
+            "is_superuser",
         ]
 
 

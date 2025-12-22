@@ -142,6 +142,7 @@ class CostLine(models.Model):
         "xero_expense_id",
         "xero_last_modified",
         "xero_last_synced",
+        "approved",
     ]
 
     # Internal fields not exposed in API
@@ -193,12 +194,15 @@ class CostLine(models.Model):
     )
 
     # Xero sync fields for bidirectional time/expense tracking
-    # This really shouldn't be here. It should be on ext_refs. That's the whole point of ext_refs and the whole costline model.
-    # This violates the hexagonal architecture principles.
     xero_time_id = models.CharField(max_length=255, null=True, blank=True)
     xero_expense_id = models.CharField(max_length=255, null=True, blank=True)
     xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
+
+    approved = models.BooleanField(
+        default=True,
+        help_text="Indicates whether this line is approved or not by an office staff (when the line is created by a workshop worker)",
+    )
 
     class Meta:
         indexes = [
@@ -228,7 +232,8 @@ class CostLine(models.Model):
                 f"CostLine has negative quantity: {self.quantity} for {self.desc}"
             )
 
-        # Allow negative values for adjustments, discounts, credits, etc.
+        if self.kind != "material" and not self.approved:
+            raise ValidationError("Non-material cost line cannot be unapproved.")
 
     def _update_cost_set_summary(self) -> None:
         """Update cost set summary with aggregated data - PRESERVE existing data"""

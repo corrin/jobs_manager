@@ -67,7 +67,7 @@ def build_internal_error_response(
     details_text = str(root_exception)
     if staff_only_details and request is not None:
         payload["details"] = (
-            details_text if request.user.is_staff else "Internal server error"
+            details_text if request.user.is_office_staff else "Internal server error"
         )
     else:
         payload["details"] = details_text

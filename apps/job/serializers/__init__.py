@@ -123,6 +123,7 @@ try:
             KanbanJobPersonSerializer,
             KanbanJobSerializer,
             KanbanSuccessResponseSerializer,
+            WorkshopJobSerializer,
         )
         from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
         from .quote_sync_serializer import (
@@ -265,6 +266,7 @@ __all__ = [
     "UploadedFileSerializer",
     "ValidationReportSerializer",
     "WeeklyMetricsSerializer",
+    "WorkshopJobSerializer",
     "WorkshopPDFResponseSerializer",
     "XeroInvoiceSerializer",
     "XeroQuoteSerializer",

@@ -223,6 +223,16 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     )
 
         return super().save(**kwargs)
+    
+    def create(self, validated_data):
+        """Override create to define line approval automatically"""
+        staff: Staff = self.context["staff"]
+
+        if not staff:
+            raise serializers.ValidationError("Missing staff context from request, can't proceed with line approval validation.")
+
+        validated_data["approved"] = staff.is_office_staff
+        return super().create(validated_data)
 
 
 class CostSetSummarySerializer(serializers.Serializer):
@@ -292,6 +302,14 @@ class CostLineErrorResponseSerializer(serializers.Serializer):
     """Serializer for cost line error responses."""
 
     error = serializers.CharField()
+
+
+class CostLineApprovalResponseSerializer(serializers.Serializer):
+    """Serializer for non-material cost line approval responses."""
+
+    success = serializers.BooleanField()
+    message = serializers.CharField(required=False, allow_blank=True)
+    line = CostLineSerializer()
 
 
 class QuoteImportStatusResponseSerializer(serializers.Serializer):

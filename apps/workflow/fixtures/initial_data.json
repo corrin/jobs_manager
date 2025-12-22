@@ -264,7 +264,7 @@
       "hours_sat": "0.00",
       "hours_sun": "0.00",
       "is_active": true,
-      "is_staff": true,
+      "is_office_staff": true,
       "is_superuser": true,
       "date_joined": "2024-01-01T00:00:00Z",
       "created_at": "2024-01-01T00:00:00Z",

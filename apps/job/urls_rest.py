@@ -8,6 +8,7 @@ from apps.job.views.data_quality_report_views import ArchivedJobsComplianceView
 from apps.job.views.delivery_docket_view import DeliveryDocketView
 from apps.job.views.job_costing_views import JobCostSetView, JobQuoteRevisionView
 from apps.job.views.job_costline_views import (
+    CostLineApprovalView,
     CostLineCreateView,
     CostLineDeleteView,
     CostLineUpdateView,
@@ -64,7 +65,7 @@ from apps.job.views.safety_viewsets import (
     SWPGenerateView,
     SWPListView,
 )
-from apps.job.views.workshop_view import WorkshopPDFView
+from apps.job.views.workshop_pdf_view import WorkshopPDFView
 
 # Router for ViewSets
 router = DefaultRouter()
@@ -189,6 +190,11 @@ rest_urlpatterns = [
         "rest/cost_lines/<str:cost_line_id>/delete/",
         CostLineDeleteView.as_view(),
         name="costline_delete_rest",
+    ),
+    path(
+        "rest/cost_lines/<str:cost_line_id>/approve/",
+        CostLineApprovalView.as_view(),
+        name="costline_approve_rest"
     ),
     # Modern Timesheet API endpoints
     path(

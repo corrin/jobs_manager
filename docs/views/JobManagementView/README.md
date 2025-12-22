@@ -46,7 +46,7 @@ Handles month-end processing for special long-running jobs in jobbing shop opera
 
 #### Authentication
 
-- Requires staff-level authentication (`@user_passes_test(is_staff)`)
+- Requires staff-level authentication (`@user_passes_test(lambda user: user.is_office_staff)`)
 - Restricts access to authorized personnel only
 
 ## Error Handling

@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
                 "preferred_name": "Johnny",
                 "password": "securepassword123",
                 "wage_rate": "25.50",
-                "is_staff": True,
+                "is_office_staff": True,
                 "hours_mon": "8.00",
                 "hours_tue": "8.00",
                 "hours_wed": "8.00",

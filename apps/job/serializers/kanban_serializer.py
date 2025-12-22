@@ -200,3 +200,13 @@ class FetchJobsByColumnResponseSerializer(serializers.Serializer):
     total = serializers.IntegerField(required=False)
     filtered_count = serializers.IntegerField(required=False)
     error = serializers.CharField(required=False)
+
+
+class WorkshopJobSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True, allow_null=True)
+    job_number = serializers.IntegerField()
+    client_name = serializers.CharField()
+    contact_person = serializers.CharField(allow_blank=True, allow_null=True)
+    people = KanbanJobPersonSerializer(many=True)

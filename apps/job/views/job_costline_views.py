@@ -13,19 +13,23 @@ import logging
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, PolymorphicProxySerializer, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import CostLine, CostSet, Job
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.costing_serializer import (
+    CostLineApprovalResponseSerializer,
     CostLineCreateUpdateSerializer,
     CostLineErrorResponseSerializer,
     CostLineSerializer,
 )
 from apps.purchasing.models import Stock
+from apps.purchasing.serializers import StockConsumeResponseSerializer
+from apps.purchasing.services.stock_service import consume_stock
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +79,10 @@ class CostLineCreateView(APIView):
                 logger.info(f"Creating cost line with data: {request.data}")
 
                 # Validate and create cost line
-                serializer = CostLineCreateUpdateSerializer(data=request.data)
+                serializer = CostLineCreateUpdateSerializer(
+                    data=request.data,
+                    context={"request": request, "staff": request.user},
+                )
                 if not serializer.is_valid():
                     logger.error(f"Cost line validation failed for job {job_id}:")
                     logger.error(f"Received data: {request.data}")
@@ -159,7 +166,10 @@ class CostLineUpdateView(APIView):
                 old_qty = cost_line.quantity or 0
 
                 serializer = CostLineCreateUpdateSerializer(
-                    cost_line, data=request.data, partial=True
+                    cost_line,
+                    data=request.data,
+                    partial=True,
+                    context={"request": request, "staff": request.user},
                 )
                 if not serializer.is_valid():
                     return Response(
@@ -244,3 +254,121 @@ class CostLineDeleteView(APIView):
             return Response(
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class CostLineApprovalView(APIView):
+    """
+    Approve an existing CostLine
+
+    POST /job/rest/cost_lines/<cost_line_id>/approve
+    """
+
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    serializer_class = StockConsumeResponseSerializer
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="cost_line_id",
+                type=str,
+                location=OpenApiParameter.PATH,
+                description="ID of the CostLine to approve",
+            )
+        ],
+        request=None,
+        responses={
+            200: PolymorphicProxySerializer(
+                component_name="CostLineApprovalResult",
+                serializers=[
+                    StockConsumeResponseSerializer,
+                    CostLineApprovalResponseSerializer,
+                ],
+                resource_type_field_name=None,
+                many=False,
+            ),
+            400: CostLineErrorResponseSerializer,
+            500: CostLineErrorResponseSerializer,
+        },
+        operation_id="approveCostLine",
+    )
+    def post(self, request, cost_line_id):
+        line = get_object_or_404(CostLine, id=cost_line_id)
+
+        if line.approved:
+            logger.error(
+                "Error when trying to approve cost line %s - line already approved",
+                cost_line_id,
+            )
+            return Response(
+                CostLineErrorResponseSerializer(
+                    {"error": "Line is already approved"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if line.kind == "material":
+            return self._approve_material_line(line=line, request=request)
+
+        return self._approve_non_material_line(line=line)
+
+    def _approve_material_line(self, line: CostLine, request):
+        stock_id = (line.ext_refs or {}).get("stock_id")
+
+        if not stock_id:
+            logger.error(
+                "Error when trying to approve cost line %s - missing stock id",
+                line.id,
+            )
+            return Response(
+                CostLineErrorResponseSerializer(
+                    {"error": "Line is missing item code"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        item = get_object_or_404(Stock, id=stock_id)
+
+        try:
+            line = consume_stock(
+                item=item,
+                job=line.cost_set.job,
+                qty=line.quantity,
+                user=request.user,
+                line=line,
+            )
+        except ValueError as exc:
+            logger.error(
+                "Error when trying to approve cost line %s: %s",
+                line.id,
+                str(exc),
+            )
+            return Response(
+                CostLineErrorResponseSerializer({"error": str(exc)}).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payload = {
+            "success": True,
+            "message": "Line approved successfully",
+            "remaining_quantity": item.quantity - line.quantity,
+            "line": line,
+        }
+
+        return Response(
+            StockConsumeResponseSerializer(payload).data, status=status.HTTP_200_OK
+        )
+
+    def _approve_non_material_line(self, line: CostLine):
+        line.approved = True
+        line.save(update_fields=["approved", "updated_at"])
+
+        payload = {
+            "success": True,
+            "message": "Line approved successfully",
+            "line": line,
+        }
+
+        return Response(
+            CostLineApprovalResponseSerializer(payload).data,
+            status=status.HTTP_200_OK,
+        )

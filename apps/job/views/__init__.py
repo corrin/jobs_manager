@@ -10,6 +10,7 @@ from .data_quality_report_views import ArchivedJobsComplianceView
 from .delivery_docket_view import DeliveryDocketView
 from .job_costing_views import JobCostSetView, JobQuoteRevisionView
 from .job_costline_views import (
+    CostLineApprovalView,
     CostLineCreateView,
     CostLineDeleteView,
     CostLineUpdateView,
@@ -58,7 +59,8 @@ from .quote_sync_views import (
     LinkQuoteSheetAPIView,
     PreviewQuoteAPIView,
 )
-from .workshop_view import WorkshopPDFView
+from .workshop_pdf_view import WorkshopPDFView
+from .workshop_view import WorkshopKanbanView, WorkshopTimesheetView
 
 # Conditional imports (only when Django is ready)
 try:
@@ -116,6 +118,7 @@ __all__ = [
     "BaseJobQuoteChatView",
     "BaseJobRestView",
     "BinaryFileRenderer",
+    "CostLineApprovalView",
     "CostLineCreateView",
     "CostLineDeleteView",
     "CostLineUpdateView",
@@ -182,6 +185,8 @@ __all__ = [
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
     "WeeklyMetricsRestView",
+    "WorkshopKanbanView",
     "WorkshopPDFView",
+    "WorkshopTimesheetView",
     "get_company_defaults_api",
 ]

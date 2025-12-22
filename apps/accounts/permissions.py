@@ -10,5 +10,7 @@ if TYPE_CHECKING:
 class IsStaff(BasePermission):
     def has_permission(self, request: HttpRequest, view: "APIView") -> bool:
         return bool(
-            request.user and request.user.is_authenticated and request.user.is_staff
+            request.user
+            and request.user.is_authenticated
+            and request.user.is_office_staff
         )
