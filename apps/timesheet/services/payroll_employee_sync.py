@@ -12,9 +12,7 @@ from django.db import transaction
 from apps.accounts.models import Staff
 from apps.workflow.api.xero.payroll import (
     create_payroll_employee,
-    get_earnings_rates,
     get_employees,
-    get_payroll_calendars,
 )
 from apps.workflow.models import CompanyDefaults
 
@@ -32,6 +30,16 @@ class PayrollEmployeeSyncService:
     DEFAULT_START_DATE: date = date(2025, 4, 1)  # April 1, 2025
     DEFAULT_JOB_TITLE: str = "Workshop Worker"
 
+    # Cached Xero lookups (populated once per sync run)
+    _cached_weekly_calendar_id: Optional[str] = None
+    _cached_ordinary_earnings_rate_id: Optional[str] = None
+
+    @classmethod
+    def _clear_cache(cls) -> None:
+        """Clear cached Xero lookups."""
+        cls._cached_weekly_calendar_id = None
+        cls._cached_ordinary_earnings_rate_id = None
+
     @classmethod
     def sync_staff(
         cls,
@@ -43,6 +51,9 @@ class PayrollEmployeeSyncService:
         """
         Link Staff rows with Xero Payroll employees and optionally create missing employees.
         """
+        # Clear cache at start of each sync run
+        cls._clear_cache()
+
         if staff_queryset is None:
             staff_queryset = Staff.objects.filter(date_left__isnull=True)
 
@@ -214,24 +225,33 @@ class PayrollEmployeeSyncService:
 
     @classmethod
     def _get_weekly_calendar_id(cls) -> Optional[str]:
-        """Find the Weekly payroll calendar ID from Xero."""
-        calendars = get_payroll_calendars()
-        for cal in calendars:
-            if (
-                cal.get("calendar_type")
-                and "WEEKLY" in str(cal["calendar_type"]).upper()
-            ):
-                return cal["id"]
-        return None
+        """Get the payroll calendar ID from CompanyDefaults (cached)."""
+        if cls._cached_weekly_calendar_id is not None:
+            return cls._cached_weekly_calendar_id
+
+        company = CompanyDefaults.get_instance()
+        if not company.xero_payroll_calendar_id:
+            raise ValueError(
+                "CompanyDefaults.xero_payroll_calendar_id is not configured. "
+                "Set this to the Xero payroll calendar ID for employee pay runs."
+            )
+        cls._cached_weekly_calendar_id = company.xero_payroll_calendar_id
+        return cls._cached_weekly_calendar_id
 
     @classmethod
     def _get_ordinary_earnings_rate_id(cls) -> Optional[str]:
-        """Find the Ordinary Time earnings rate ID from Xero."""
-        rates = get_earnings_rates()
-        for rate in rates:
-            if rate.get("name", "").lower() == "ordinary time":
-                return rate["id"]
-        return None
+        """Get the ordinary earnings rate ID from CompanyDefaults (cached)."""
+        if cls._cached_ordinary_earnings_rate_id is not None:
+            return cls._cached_ordinary_earnings_rate_id
+
+        company = CompanyDefaults.get_instance()
+        if not company.xero_ordinary_earnings_rate_id:
+            raise ValueError(
+                "CompanyDefaults.xero_ordinary_earnings_rate_id is not configured. "
+                "Set this to the Xero earnings rate ID for Ordinary Time."
+            )
+        cls._cached_ordinary_earnings_rate_id = company.xero_ordinary_earnings_rate_id
+        return cls._cached_ordinary_earnings_rate_id
 
     @classmethod
     def _build_employee_payload(cls, staff: Staff) -> Dict[str, Any]:
