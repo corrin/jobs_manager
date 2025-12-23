@@ -1366,7 +1366,7 @@ class JobBasicInformationRestView(BaseJobRestView):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsOfficeStaff])
+@permission_classes([IsAuthenticated])
 def get_company_defaults_api(request):
     """
     API endpoint to fetch company default settings.

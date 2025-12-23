@@ -42,7 +42,7 @@ class ArchiveCompleteJobsViews:
         """API Endpoint to provide Job data for archiving display"""
 
         serializer_class = CompleteJobSerializer
-        permission_classes = [IsAuthenticated, IsOfficeStaff]
+        permission_classes = [IsAuthenticated]
         pagination_class = StandardResultsSetPagination
 
         def get_queryset(self):

@@ -3,6 +3,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.job.permissions import IsOfficeStaff
 from apps.workflow.models import AIProvider
 from apps.workflow.serializers import (
     AIProviderCreateUpdateSerializer,
@@ -18,7 +19,7 @@ class AIProviderViewSet(viewsets.ModelViewSet):
     provider as the default for the company.
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     def get_queryset(self):
         """

@@ -15,6 +15,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.job.permissions import IsOfficeStaff
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.serializers import AWSInstanceStatusResponseSerializer
 from apps.workflow.services.aws_service import AWSService
@@ -48,7 +49,7 @@ def _json_error_response(message: str, exc: Exception) -> JsonResponse:
 
 @extend_schema(responses=AWSInstanceStatusResponseSerializer)
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def get_instance_status(request):
     """Get current status of the UAT instance"""
     try:
@@ -78,7 +79,7 @@ def get_instance_status(request):
 
 @extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def start_instance(request):
     """Start the UAT instance"""
     try:
@@ -109,7 +110,7 @@ def start_instance(request):
 
 @extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def stop_instance(request):
     """Stop the UAT instance"""
     try:
@@ -140,7 +141,7 @@ def stop_instance(request):
 
 @extend_schema(request=None, responses=AWSInstanceStatusResponseSerializer)
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def reboot_instance(request):
     """Reboot the UAT instance"""
     try:
@@ -181,6 +182,10 @@ class AWSInstanceManagementView(View):
         if not request.user.is_authenticated:
             return JsonResponse(
                 {"success": False, "error": "Authentication required"}, status=401
+            )
+        if not getattr(request.user, "is_office_staff", False):
+            return JsonResponse(
+                {"success": False, "error": "Office staff only"}, status=403
             )
         return super().dispatch(request, *args, **kwargs)
 
