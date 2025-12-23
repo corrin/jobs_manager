@@ -12,12 +12,11 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="companydefaults",
-            name="xero_payroll_calendar_id",
+            name="xero_payroll_calendar_name",
             field=models.CharField(
-                blank=True,
-                help_text="Xero Payroll calendar ID for employee pay runs",
+                default="Weekly",
+                help_text="Name of Xero Payroll calendar to use (e.g., 'Weekly 2025')",
                 max_length=100,
-                null=True,
             ),
         ),
     ]

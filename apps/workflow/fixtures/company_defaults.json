@@ -40,8 +40,7 @@
       "billable_threshold_green": "45.00",
       "billable_threshold_amber": "30.00",
       "daily_gp_target": "1250.00",
-      "shop_hours_target_percentage": "20.00",
-      "xero_payroll_calendar_id": "6f47b805-083c-4873-8ece-1af573053f5c"
+      "shop_hours_target_percentage": "20.00"
     }
   }
 ]

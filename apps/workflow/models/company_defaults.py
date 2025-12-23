@@ -113,11 +113,10 @@ class CompanyDefaults(models.Model):
         blank=True,
         help_text="Xero Payroll earnings rate ID for Double Time (2.0x)",
     )
-    xero_payroll_calendar_id = models.CharField(
+    xero_payroll_calendar_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll calendar ID for employee pay runs",
+        default="Weekly",
+        help_text="Name of Xero Payroll calendar to use (e.g., 'Weekly 2025')",
     )
 
     # Default working hours (Mon-Fri, 7am - 3pm)
