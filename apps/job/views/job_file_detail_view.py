@@ -19,6 +19,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import BaseRenderer, JSONRenderer
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -53,6 +54,7 @@ class JobFileDetailView(APIView):
     Methods: GET (download), PUT (update), DELETE (delete)
     """
 
+    permission_classes = [IsAuthenticated]
     renderer_classes = [JSONRenderer, BinaryFileRenderer]
     serializer_class = JobFileSerializer
 
@@ -123,6 +125,11 @@ class JobFileDetailView(APIView):
     )
     def put(self, request, job_id, file_id):
         """Update file metadata."""
+        if not getattr(request.user, "is_office_staff", False):
+            return Response(
+                {"status": "error", "message": "Only office staff can update files."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         job = get_object_or_404(Job, id=job_id)
 
         # Get file
@@ -225,6 +232,11 @@ class JobFileDetailView(APIView):
     )
     def delete(self, request, job_id, file_id):
         """Delete a job file."""
+        if not getattr(request.user, "is_office_staff", False):
+            return Response(
+                {"status": "error", "message": "Only office staff can delete files."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         job = get_object_or_404(Job, id=job_id)
 
         try:

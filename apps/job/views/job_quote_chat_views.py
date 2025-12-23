@@ -12,11 +12,13 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin
 from apps.job.models import Job, JobQuoteChat
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers import (
     JobQuoteChatDeleteResponseSerializer,
     JobQuoteChatHistoryResponseSerializer,
@@ -34,6 +36,8 @@ class BaseJobQuoteChatView(APIView):
     """
     Base view for Job Quote Chat REST operations.
     """
+
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):

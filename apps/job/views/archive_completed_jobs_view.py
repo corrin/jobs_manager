@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.job_serializer import (
     ArchiveJobsResponseSerializer,
     ArchiveJobsSerializer,
@@ -41,7 +42,7 @@ class ArchiveCompleteJobsViews:
         """API Endpoint to provide Job data for archiving display"""
 
         serializer_class = CompleteJobSerializer
-        permission_classes = [IsAuthenticated]
+        permission_classes = [IsAuthenticated, IsOfficeStaff]
         pagination_class = StandardResultsSetPagination
 
         def get_queryset(self):
@@ -51,7 +52,7 @@ class ArchiveCompleteJobsViews:
     class ArchiveCompleteJobsAPIView(APIView):
         """API Endpoint to set 'paid' flag as True in the received jobs"""
 
-        permission_classes = [IsAuthenticated]
+        permission_classes = [IsAuthenticated, IsOfficeStaff]
         serializer_class = ArchiveJobsResponseSerializer
 
         def get_serializer_class(self):

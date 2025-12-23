@@ -6,10 +6,12 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.job_serializer import WorkshopPDFResponseSerializer
 from apps.job.services.delivery_docket_service import generate_delivery_docket
 
@@ -29,6 +31,7 @@ class DeliveryDocketView(APIView):
          to the job folder, and returns it as a file response.
     """
 
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = WorkshopPDFResponseSerializer
 
     @extend_schema(

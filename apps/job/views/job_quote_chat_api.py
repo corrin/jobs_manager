@@ -11,10 +11,12 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers import (
     JobQuoteChatInteractionErrorResponseSerializer,
     JobQuoteChatInteractionSerializer,
@@ -40,6 +42,7 @@ class JobQuoteChatInteractionView(APIView):
     # ---------------------------------------------------------------------
 
     # Only allow POST (and implicit OPTIONS for CORS pre-flight)
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     http_method_names = ["post", "options"]
     serializer_class = JobQuoteChatInteractionSerializer
 

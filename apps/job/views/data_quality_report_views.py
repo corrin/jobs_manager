@@ -9,9 +9,11 @@ import logging
 
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.data_quality_report_serializers import (
     ArchivedJobsComplianceResponseSerializer,
 )
@@ -24,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 class ArchivedJobsComplianceView(APIView):
     """API view for checking archived jobs compliance."""
+
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
         operation_id="check_archived_jobs_compliance",

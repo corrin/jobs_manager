@@ -14,18 +14,20 @@ from typing import Any, Dict
 from uuid import UUID
 
 from django.core.cache import cache
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Staff
 from apps.job.helpers import get_company_defaults
 from apps.job.models import Job, JobDeltaRejection
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.job_serializer import (
     JobBasicInformationResponseSerializer,
     JobCostSummaryResponseSerializer,
@@ -62,6 +64,8 @@ class BaseJobRestView(APIView):
     Implements common functionality like JSON parsing and error handling.
     Inherits from APIView for JWT authentication support.
     """
+
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
@@ -301,6 +305,7 @@ class JobDetailRestView(BaseJobRestView):
     REST view for CRUD operations on a specific Job.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = JobDetailResponseSerializer
 
     def get_serializer_class(self):
@@ -1360,6 +1365,8 @@ class JobBasicInformationRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def get_company_defaults_api(request):
     """
     API endpoint to fetch company default settings.
@@ -1367,11 +1374,10 @@ def get_company_defaults_api(request):
     a single instance is retrieved or created if it doesn't exist.
     """
     defaults = get_company_defaults()
-    return JsonResponse(
-        {
-            "materials_markup": float(defaults.materials_markup),
-            "time_markup": float(defaults.time_markup),
-            "charge_out_rate": float(defaults.charge_out_rate),
-            "wage_rate": float(defaults.wage_rate),
-        }
-    )
+    payload = {
+        "materials_markup": float(defaults.materials_markup),
+        "time_markup": float(defaults.time_markup),
+        "charge_out_rate": float(defaults.charge_out_rate),
+        "wage_rate": float(defaults.wage_rate),
+    }
+    return Response(payload, status=status.HTTP_200_OK)

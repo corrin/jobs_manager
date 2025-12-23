@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -42,6 +43,7 @@ class JobFilesCollectionView(APIView):
     Methods: POST (upload), GET (list)
     """
 
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def save_file(self, job, file_obj, print_on_jobsheet, request):
@@ -117,6 +119,14 @@ class JobFilesCollectionView(APIView):
     )
     def post(self, request, job_id):
         """Upload files to a job."""
+        if not getattr(request.user, "is_office_staff", False):
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Only office staff can upload job files.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         job = get_object_or_404(Job, id=job_id)
 
         files_payload = request.FILES.getlist("files")

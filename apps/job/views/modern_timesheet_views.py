@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from apps.accounts.models import Staff
 from apps.job.models.costing import CostLine, CostSet
 from apps.job.models.job import Job
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.costing_serializer import TimesheetCostLineSerializer
 from apps.job.serializers.job_serializer import (
     ModernTimesheetDayGetResponseSerializer,
@@ -43,7 +44,7 @@ class ModernTimesheetEntryView(APIView):
     POST /job/rest/timesheet/entries/
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = ModernTimesheetEntryGetResponseSerializer
 
     def get_serializer_class(self):
@@ -420,7 +421,7 @@ class ModernTimesheetDayView(APIView):
     GET /job/rest/timesheet/staff/<staff_id>/date/<date>/
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = ModernTimesheetDayGetResponseSerializer
 
     def get(self, request, staff_id, entry_date):
@@ -505,7 +506,7 @@ class ModernTimesheetJobView(APIView):
     GET /job/rest/timesheet/jobs/<job_id>/
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = ModernTimesheetJobGetResponseSerializer
 
     def get(self, request, job_id):

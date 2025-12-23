@@ -12,11 +12,13 @@ from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers import CostSetSerializer
 from apps.job.serializers.costing_serializer import (
     QuoteRevisionResponseSerializer,
@@ -46,6 +48,7 @@ class JobCostSetView(APIView):
     for the given job, or 404 if not found.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = CostSetSerializer
 
     def get(self, request, pk, kind):
@@ -65,6 +68,12 @@ class JobCostSetView(APIView):
             return Response(
                 {"error": f"Invalid kind. Must be one of: {', '.join(valid_kinds)}"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if kind != "actual" and not getattr(request.user, "is_office_staff", False):
+            return Response(
+                {"error": "Only office staff can access this cost set."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Get the job
@@ -114,6 +123,7 @@ class JobQuoteRevisionView(APIView):
     Only works with kind='quote' CostSets.
     """
 
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = QuoteRevisionSerializer
 
     @extend_schema(
