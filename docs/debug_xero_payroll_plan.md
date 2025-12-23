@@ -6,27 +6,28 @@
 - Test with ONE staff member first, then expand
 - **Xero is master** for pay runs - never create local record without Xero confirmation
 
-## Current State (2025-12-22)
+## Current State (2025-12-23)
 
 ### Calendars
 - Old calendar: "Weekly" (`05cc53fb-3684-4d00-9c4e-9cb3a2b52919`) - stuck at 2023
-- New calendar: "Weekly 2025" (`a283d904-0f00-4bba-9abe-cf8d97ac08ca`) - starts Aug 2025
+- New calendar: "Weekly TESTING" (`6f47b805-083c-4873-8ece-1af573053f5c`) - starts Aug 2025
 
 ### Employees
-- 11 employees linked to Xero, all on OLD "Weekly" calendar
-- Cannot change calendar via API - must delete and recreate
+- All 11 employees DELETED from Xero (manual step done)
+- Local Staff records need xero_user_id cleared and employees recreated
 
 ### Code Changes Made
-- `apps/workflow/api/xero/payroll.py` - Now prefers "Weekly 2025" calendar (for pay run creation)
+- `apps/workflow/api/xero/payroll.py` - Prefers "2025" or "TESTING" calendar
+- `apps/workflow/models/company_defaults.py` - Added `xero_payroll_calendar_id` field
+- `apps/timesheet/services/payroll_employee_sync.py`:
+  - Now reads calendar ID from CompanyDefaults.xero_payroll_calendar_id (configurable)
+  - Now reads earnings rate from CompanyDefaults.xero_ordinary_earnings_rate_id (configurable)
+  - **Fixed rate limit issue**: No longer calls Xero APIs per-employee for lookup data
 
-### Known Issue
-- `apps/timesheet/services/payroll_employee_sync.py` - Still uses first WEEKLY calendar found
-- This is production code - cannot hardcode "Weekly 2025"
-- **For demo:** Must ensure Weekly 2025 is the only/first WEEKLY calendar, OR delete old Weekly calendar in Xero
-
-### Future Enhancement
-- Add `preferred_payroll_calendar_name` to CompanyDefaults
-- Use this to select the correct calendar in both payroll.py and payroll_employee_sync.py
+### Configuration Required
+Before running sync, CompanyDefaults must have:
+- `xero_payroll_calendar_id` = "6f47b805-083c-4873-8ece-1af573053f5c" (Weekly TESTING)
+- `xero_ordinary_earnings_rate_id` = (need to look up from Xero)
 
 ---
 
