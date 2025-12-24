@@ -18,16 +18,19 @@
 
 ### Code Changes Made
 - `apps/workflow/api/xero/payroll.py` - Prefers "2025" or "TESTING" calendar
-- `apps/workflow/models/company_defaults.py` - Added `xero_payroll_calendar_id` field
+- `apps/workflow/models/company_defaults.py` - Added `xero_payroll_calendar_name` field
 - `apps/timesheet/services/payroll_employee_sync.py`:
-  - Now reads calendar ID from CompanyDefaults.xero_payroll_calendar_id (configurable)
-  - Now reads earnings rate from CompanyDefaults.xero_ordinary_earnings_rate_id (configurable)
-  - **Fixed rate limit issue**: No longer calls Xero APIs per-employee for lookup data
+  - Now reads calendar by NAME from `CompanyDefaults.xero_payroll_calendar_name` (looks up ID from Xero)
+  - Earnings rate "Ordinary Time" looked up by name from Xero automatically
+  - **Fixed rate limit issue**: Caches Xero lookups per sync run (not per-employee)
+- `apps/workflow/fixtures/company_defaults.json` - Added `xero_payroll_calendar_name` field (dev: "Weekly TESTING")
 
 ### Configuration Required
-Before running sync, CompanyDefaults must have:
-- `xero_payroll_calendar_id` = "6f47b805-083c-4873-8ece-1af573053f5c" (Weekly TESTING)
-- `xero_ordinary_earnings_rate_id` = (need to look up from Xero)
+The fixture (`company_defaults.json`) sets:
+- `xero_payroll_calendar_name` = "Weekly TESTING" (dev calendar - code looks up ID by name)
+- Earnings rate "Ordinary Time" is looked up automatically from Xero
+
+No manual configuration needed for dev after running `loaddata company_defaults.json`.
 
 ---
 

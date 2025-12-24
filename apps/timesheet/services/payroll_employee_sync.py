@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -26,6 +27,9 @@ logger = logging.getLogger("timesheet.payroll")
 
 class PayrollEmployeeSyncService:
     """Service class used by management commands to sync staff with Xero Payroll."""
+
+    # Pause between creating employees to avoid overwhelming Xero API
+    PAUSE_BETWEEN_EMPLOYEES = 10  # seconds
 
     # Employee defaults
     DEFAULT_DATE_OF_BIRTH: date = date(1990, 1, 1)
@@ -57,7 +61,11 @@ class PayrollEmployeeSyncService:
         cls._clear_cache()
 
         if staff_queryset is None:
-            staff_queryset = Staff.objects.filter(date_left__isnull=True)
+            # Only sync active staff with a wage rate (excludes admin-only users)
+            staff_queryset = Staff.objects.filter(
+                date_left__isnull=True,
+                wage_rate__gt=0,
+            )
 
         staff_members = list(staff_queryset)
 
@@ -122,7 +130,7 @@ class PayrollEmployeeSyncService:
             summary["linked"].append(cls._summarize_link(staff, employee_id, match))
 
         if allow_create:
-            for staff, payload in creation_payloads:
+            for i, (staff, payload) in enumerate(creation_payloads):
                 employee = create_payroll_employee(payload)
                 employee_id = str(employee.employee_id)
                 cls._link_staff(staff, employee_id)
@@ -138,6 +146,13 @@ class PayrollEmployeeSyncService:
                         },
                     )
                 )
+                # Pause between employees (not after the last one)
+                if i < len(creation_payloads) - 1:
+                    logger.info(
+                        "Pausing %ds before next employee...",
+                        cls.PAUSE_BETWEEN_EMPLOYEES,
+                    )
+                    time.sleep(cls.PAUSE_BETWEEN_EMPLOYEES)
             summary["missing"] = []
         else:
             summary["missing"] = [cls._format_staff(staff) for staff in missing_staff]
@@ -311,16 +326,8 @@ class PayrollEmployeeSyncService:
             # Payroll setup
             "payroll_calendar_id": weekly_calendar_id,
             "ordinary_earnings_rate_id": ordinary_earnings_rate_id,
-            # Working hours from Staff model (or defaults)
-            "hours_per_week": {
-                "monday": float(staff.hours_mon) if staff.hours_mon else 8.0,
-                "tuesday": float(staff.hours_tue) if staff.hours_tue else 8.0,
-                "wednesday": float(staff.hours_wed) if staff.hours_wed else 8.0,
-                "thursday": float(staff.hours_thu) if staff.hours_thu else 8.0,
-                "friday": float(staff.hours_fri) if staff.hours_fri else 8.0,
-                "saturday": float(staff.hours_sat) if staff.hours_sat else 0.0,
-                "sunday": float(staff.hours_sun) if staff.hours_sun else 0.0,
-            },
+            # Working hours from Staff model - all days must be defined
+            "hours_per_week": cls._get_hours_per_week(staff),
             # Hourly wage rate from Staff model
             "wage_rate": float(staff.wage_rate) if staff.wage_rate else None,
         }
@@ -355,6 +362,25 @@ class PayrollEmployeeSyncService:
             }
         )
         return summary
+
+    @staticmethod
+    def _get_hours_per_week(staff: Staff) -> Dict[str, float]:
+        """Get working hours per day - fails if any day is None."""
+        days = [
+            ("monday", staff.hours_mon),
+            ("tuesday", staff.hours_tue),
+            ("wednesday", staff.hours_wed),
+            ("thursday", staff.hours_thu),
+            ("friday", staff.hours_fri),
+            ("saturday", staff.hours_sat),
+            ("sunday", staff.hours_sun),
+        ]
+        missing = [name for name, value in days if value is None]
+        if missing:
+            raise ValueError(
+                f"Staff {staff.id} ({staff.email}) missing hours for: {', '.join(missing)}"
+            )
+        return {name: float(value) for name, value in days}
 
     @staticmethod
     def _clean_string(

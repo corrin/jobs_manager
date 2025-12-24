@@ -1,6 +1,7 @@
 """Xero Payroll NZ API Integration."""
 
 import logging
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -27,6 +28,10 @@ from apps.workflow.services.error_persistence import (
 )
 
 logger = logging.getLogger("xero.payroll")
+
+# Sleep after every API call to avoid hitting rate limits
+# Xero has per-minute, per-hour, and per-day limits - be patient
+SLEEP_TIME = 3
 
 # Monkeypatch for Xero Python NZ Payroll API (dev-only, does not affect PROD)
 # Problem: when fetching employees, we get an error because the SDK expects all employees to have date of birth,
@@ -164,6 +169,7 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
             xero_tenant_id=tenant_id,
             employee=employee,
         )
+        time.sleep(SLEEP_TIME)
 
         if not response or not response.employee:
             raise Exception("Failed to create payroll employee in Xero")
@@ -249,6 +255,7 @@ def _create_employment(
         employee_id=employee_id,
         employment=employment,
     )
+    time.sleep(SLEEP_TIME)
     logger.info("Created employment for employee %s", employee_id)
 
 
@@ -260,14 +267,15 @@ def _create_working_pattern(
     effective_from: Optional[date],
 ) -> None:
     """Create working pattern with weekly hours."""
+    # All days must be present - validated by PayrollEmployeeSyncService
     working_week = WorkingWeek(
-        monday=hours_per_week.get("monday", 0),
-        tuesday=hours_per_week.get("tuesday", 0),
-        wednesday=hours_per_week.get("wednesday", 0),
-        thursday=hours_per_week.get("thursday", 0),
-        friday=hours_per_week.get("friday", 0),
-        saturday=hours_per_week.get("saturday", 0),
-        sunday=hours_per_week.get("sunday", 0),
+        monday=hours_per_week["monday"],
+        tuesday=hours_per_week["tuesday"],
+        wednesday=hours_per_week["wednesday"],
+        thursday=hours_per_week["thursday"],
+        friday=hours_per_week["friday"],
+        saturday=hours_per_week["saturday"],
+        sunday=hours_per_week["sunday"],
     )
     pattern_request = EmployeeWorkingPatternWithWorkingWeeksRequest(
         effective_from=effective_from,
@@ -278,6 +286,7 @@ def _create_working_pattern(
         employee_id=employee_id,
         employee_working_pattern_with_working_weeks_request=pattern_request,
     )
+    time.sleep(SLEEP_TIME)
     total_hours = sum(hours_per_week.values())
     logger.info(
         "Created working pattern for employee %s (%.1f hrs/week)",
@@ -322,6 +331,7 @@ def _create_salary_and_wage(
         employee_id=employee_id,
         salary_and_wage=salary_and_wage,
     )
+    time.sleep(SLEEP_TIME)
     logger.info(
         "Created salary for employee %s ($%.2f/hr, %.1f hrs/week)",
         employee_id,

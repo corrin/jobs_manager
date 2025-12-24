@@ -40,7 +40,8 @@
       "billable_threshold_green": "45.00",
       "billable_threshold_amber": "30.00",
       "daily_gp_target": "1250.00",
-      "shop_hours_target_percentage": "20.00"
+      "shop_hours_target_percentage": "20.00",
+      "xero_payroll_calendar_name": "Weekly TESTING"
     }
   }
 ]
