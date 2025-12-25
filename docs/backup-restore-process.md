@@ -652,7 +652,7 @@ print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 
 **Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
-#### Step 19.5: Set Up Demo Payroll Data
+#### Step 20: Set Up Demo Payroll Data
 
 **Run as:** Development system user
 
@@ -681,9 +681,7 @@ INFO Tax: 15 success, 0 fail
 INFO Bank: 15 success, 0 fail
 ```
 
-**Note:** This step is only needed for development/demo environments. Production employees have real IRD and bank details set up in Xero directly.
-
-#### Step 20: Sync Xero
+#### Step 21: Sync Xero
 
 **Run as:** Development system user
 **Command:**
@@ -696,7 +694,7 @@ python manage.py start_xero_sync
 
 Error and warning free sync between local and xero data.
 
-#### Step 21: Test Serializers (Before API Testing)
+#### Step 22: Test Serializers (Before API Testing)
 
 **Run as:** Development system user
 **Command:**
@@ -713,7 +711,7 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 22: Test Kanban HTTP API
+#### Step 23: Test Kanban HTTP API
 
 **Run as:** Development system user
 **Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
@@ -743,7 +741,7 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 23: Final Application Test
+#### Step 24: Final Application Test
 
 **Run as:** Development system user
 **Command:**
