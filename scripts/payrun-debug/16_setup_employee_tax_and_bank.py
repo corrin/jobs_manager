@@ -89,13 +89,24 @@ def setup_employee_tax(
     employee_id: str,
     ird_number: str,
 ) -> bool:
-    """Set up employee tax details."""
+    """Set up employee tax details including ESCT rate.
+
+    ESCT (Employer Superannuation Contribution Tax) rates for NZ 2025:
+    - 10.5% for income up to $16,800
+    - 17.5% for income $16,801 - $57,600
+    - 30% for income $57,601 - $84,000
+    - 33% for income $84,001 - $180,000
+    - 39% for income over $180,000
+
+    Using 17.5% as a reasonable default for demo employees.
+    """
     try:
         # Xero wants IRD as 9 digits without dashes
         ird_clean = ird_number.replace("-", "").zfill(9)
         tax = EmployeeTax(
             ird_number=ird_clean,
             tax_code=TaxCode.M,
+            esct_rate_percentage=17.5,  # Required for pay runs
         )
         payroll_api.update_employee_tax(
             xero_tenant_id=tenant_id,

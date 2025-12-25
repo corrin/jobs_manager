@@ -652,6 +652,37 @@ print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 
 **Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
+#### Step 19.5: Set Up Demo Payroll Data
+
+**Run as:** Development system user
+
+**Purpose:** Employees created in step 19 need IRD numbers, tax codes, ESCT rates, and bank accounts to be included in pay runs. This step generates valid demo data for these Xero-only fields.
+
+**Command:**
+
+```bash
+python scripts/payrun-debug/16_setup_employee_tax_and_bank.py --execute
+```
+
+**What this does:**
+1. Generates valid NZ IRD numbers (with proper checksums) for each employee
+2. Sets tax code to M (main employment) with 17.5% ESCT rate
+3. Sets up bank accounts (pre-validated NZ format)
+
+**Expected output:**
+```
+INFO Mode: EXECUTE
+INFO Found 15 staff with Xero IDs
+INFO Omar Adams: IRD=10-001-005 Bank=01-0242-1596000-000 Xero=e75f973c...
+INFO   Tax set: IRD=10-001-005 code=M
+INFO   Bank set: 01-0242-1596000-000
+...
+INFO Tax: 15 success, 0 fail
+INFO Bank: 15 success, 0 fail
+```
+
+**Note:** This step is only needed for development/demo environments. Production employees have real IRD and bank details set up in Xero directly.
+
 #### Step 20: Sync Xero
 
 **Run as:** Development system user
