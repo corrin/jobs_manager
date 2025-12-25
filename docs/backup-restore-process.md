@@ -616,10 +616,11 @@ echo "Background process started, PID: $!"
 ```
 
 **What this does:**
-1. Clears production Xero IDs (clients, jobs, stock, purchase orders)
+1. Clears production Xero IDs (clients, jobs, stock, purchase orders, staff)
 2. Links/creates contacts in Xero for all clients
 3. Creates projects in Xero for all jobs
 4. Syncs stock items to Xero inventory (using account codes from Step 18.5)
+5. Links/creates payroll employees for all active staff (uses Staff UUID in job_title for reliable re-linking)
 
 **Monitor progress:**
 
@@ -635,20 +636,54 @@ python manage.py shell -c "
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.purchasing.models import Stock
+from apps.accounts.models import Staff
 
 clients_with_xero = Client.objects.filter(xero_contact_id__isnull=False).count()
 jobs_with_xero = Job.objects.filter(xero_project_id__isnull=False).count()
 stock_with_xero = Stock.objects.filter(xero_id__isnull=False, is_active=True).count()
+staff_with_xero = Staff.objects.filter(xero_user_id__isnull=False, date_left__isnull=True).count()
 
 print(f'Clients linked to Xero: {clients_with_xero}')
 print(f'Jobs linked to Xero: {jobs_with_xero}')
 print(f'Stock items synced to Xero: {stock_with_xero}')
+print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 "
 ```
 
-**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands).
+**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
-#### Step 20: Sync Xero
+#### Step 20: Set Up Demo Payroll Data
+
+**Run as:** Development system user
+
+**Purpose:** Employees created in step 19 need IRD numbers, tax codes, ESCT rates, and bank accounts to be included in pay runs. This step generates valid demo data for these Xero-only fields.
+
+**Command:**
+
+```bash
+python scripts/setup_demo_payroll.py --execute
+```
+
+**What this does:**
+1. Generates valid NZ IRD numbers (with proper checksums) for each employee
+2. Sets tax code to M (main employment) with 17.5% ESCT rate
+3. Sets up KiwiSaver (3% employee, 3% employer contributions)
+4. Sets up leave entitlements (160h annual, 80h sick)
+5. Sets up bank accounts (pre-validated NZ format)
+
+**Expected output:**
+```
+Mode: EXECUTE
+Found 15 staff with Xero IDs
+Omar Adams: IRD=10-001-005 Bank=01-0242-1596000-000
+  Tax OK: IRD=10-001-005 KiwiSaver=3%/3%
+  Leave OK: Annual=160h Sick=80h
+  Bank OK: 01-0242-1596000-000
+...
+Results: Tax 15/15, Leave 15/15, Bank 15/15
+```
+
+#### Step 21: Sync Xero
 
 **Run as:** Development system user
 **Command:**
@@ -661,7 +696,7 @@ python manage.py start_xero_sync
 
 Error and warning free sync between local and xero data.
 
-#### Step 21: Test Serializers (Before API Testing)
+#### Step 22: Test Serializers (Before API Testing)
 
 **Run as:** Development system user
 **Command:**
@@ -678,7 +713,7 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 22: Test Kanban HTTP API
+#### Step 23: Test Kanban HTTP API
 
 **Run as:** Development system user
 **Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
@@ -708,7 +743,7 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 23: Final Application Test
+#### Step 24: Final Application Test
 
 **Run as:** Development system user
 **Command:**

@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 # Color constants (RGB values 0.0-1.0) - matching SafetyPDFService
-PRIMARY_BLUE = (0.0, 0.29, 0.68)  # #004AAD - Morris blue
+PRIMARY_BLUE = (0.0, 0.29, 0.68)  # #004AAD - company default colour
 TEXT_DARK = (0.06, 0.09, 0.16)  # #0F172A
 RISK_LOW = (0.13, 0.77, 0.37)  # #22C55E - Green
 RISK_MODERATE = (0.96, 0.62, 0.04)  # #F59E0B - Orange
@@ -63,8 +63,8 @@ class GoogleDocsService:
 
     def __init__(self):
         """Initialize the service."""
-        company = CompanyDefaults.objects.first()
-        self.company_name = company.company_name if company else "Morris Sheetmetal"
+        company = CompanyDefaults.get_instance()
+        self.company_name = company.company_name
 
     def create_safety_document(
         self,

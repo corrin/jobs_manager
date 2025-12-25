@@ -51,8 +51,8 @@ class SafetyDocumentService:
             jsa_content = self.ai_service.generate_full_jsa(job=job)
 
             # Get company name
-            company = CompanyDefaults.objects.first()
-            company_name = company.company_name if company else "Morris Sheetmetal"
+            company = CompanyDefaults.get_instance()
+            company_name = company.company_name
 
             # Create Google Doc with formatted content
             doc_result = self.docs_service.create_safety_document(
@@ -127,8 +127,8 @@ class SafetyDocumentService:
             )
 
             # Get company name
-            company = CompanyDefaults.objects.first()
-            company_name = company.company_name if company else "Morris Sheetmetal"
+            company = CompanyDefaults.get_instance()
+            company_name = company.company_name
 
             # Create Google Doc with formatted content
             doc_result = self.docs_service.create_safety_document(
@@ -190,8 +190,8 @@ class SafetyDocumentService:
             )
 
             # Get company name
-            company = CompanyDefaults.objects.first()
-            company_name = company.company_name if company else "Morris Sheetmetal"
+            company = CompanyDefaults.get_instance()
+            company_name = company.company_name
 
             # Create Google Doc with formatted content
             doc_result = self.docs_service.create_safety_document(

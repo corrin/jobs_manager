@@ -6,12 +6,13 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 from dotenv import load_dotenv
 
+from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.purchasing.models import Stock
+from apps.timesheet.services.payroll_employee_sync import PayrollEmployeeSyncService
 from apps.workflow.api.xero.stock_sync import sync_all_local_stock_to_xero
 from apps.workflow.api.xero.sync import seed_clients_to_xero, seed_jobs_to_xero
-from apps.workflow.services.error_persistence import persist_and_raise
 
 load_dotenv()
 
@@ -27,53 +28,88 @@ class Command(BaseCommand):
             action="store_true",
             help="Show what would be synced without making changes",
         )
+        parser.add_argument(
+            "--only",
+            type=str,
+            help="Sync specific entities only. Comma-separated: contacts,projects,stock,employees",
+        )
+        parser.add_argument(
+            "--skip-clear",
+            action="store_true",
+            help="Skip clearing production Xero IDs (useful for re-running after partial failure)",
+        )
+
+    VALID_ENTITIES = {"contacts", "projects", "stock", "employees"}
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
+        only_arg = options.get("only")
+        skip_clear = options.get("skip_clear", False)
+
+        # Parse entities to sync
+        if only_arg is None:
+            entities_to_sync = self.VALID_ENTITIES.copy()
+        else:
+            entities_to_sync = {e.strip().lower() for e in only_arg.split(",")}
+            invalid = entities_to_sync - self.VALID_ENTITIES
+            if invalid:
+                raise ValueError(
+                    f"Invalid entities: {invalid}. Valid: {self.VALID_ENTITIES}"
+                )
 
         mode_text = "DRY RUN - " if dry_run else ""
-        self.stdout.write(f"{mode_text}Seeding Xero from Database")
+        only_text = f" (only: {sorted(entities_to_sync)})" if only_arg else ""
+        self.stdout.write(f"{mode_text}Seeding Xero from Database{only_text}")
         self.stdout.write("=" * 50)
 
-        try:
-            # Phase 0: Clear production Xero IDs (always - this is for restore scenarios)
-            self.stdout.write("Phase 0: Clearing Production Xero IDs")
+        contacts_processed = 0
+        projects_processed = 0
+        stock_processed = 0
+        employees_result = {"linked": 0, "created": 0, "already_linked": 0}
+
+        # Clear production Xero IDs (unless skipped)
+        if not skip_clear:
+            self.stdout.write("Clearing Production Xero IDs...")
             self.clear_production_xero_ids(dry_run)
 
-            # Phase 1: Link/Create contacts
-            self.stdout.write("Phase 1: Processing Contacts")
+        # Sync contacts
+        if "contacts" in entities_to_sync:
+            self.stdout.write("Syncing Contacts...")
             contacts_processed = self.process_contacts(dry_run)
 
-            # Phase 2: Create projects (only if enabled)
+        # Sync projects (only if enabled in settings)
+        if "projects" in entities_to_sync:
             if settings.XERO_SYNC_PROJECTS:
-                self.stdout.write("Phase 2: Processing Projects")
+                self.stdout.write("Syncing Projects...")
                 projects_processed = self.process_projects(dry_run)
             else:
-                self.stdout.write(
-                    "Phase 2: Skipping Projects (XERO_SYNC_PROJECTS is disabled)"
-                )
-                projects_processed = 0
+                self.stdout.write("Skipping Projects (XERO_SYNC_PROJECTS is disabled)")
 
-            # Phase 3: Sync stock items to Xero
-            self.stdout.write("Phase 3: Processing Stock Items")
+        # Sync stock items
+        if "stock" in entities_to_sync:
+            self.stdout.write("Syncing Stock Items...")
             stock_processed = self.process_stock_items(dry_run)
 
-            # Summary
-            self.stdout.write("COMPLETED")
-            self.stdout.write(f"Contacts processed: {contacts_processed}")
-            self.stdout.write(f"Projects processed: {projects_processed}")
-            self.stdout.write(f"Stock items processed: {stock_processed}")
+        # Sync payroll employees
+        if "employees" in entities_to_sync:
+            self.stdout.write("Syncing Payroll Employees...")
+            employees_result = self.process_employees(dry_run)
 
-            if dry_run:
-                self.stdout.write("Dry run complete - no changes made")
-            else:
-                self.stdout.write("Xero seeding complete!")
+        # Summary
+        self.stdout.write("COMPLETED")
+        self.stdout.write(f"Contacts processed: {contacts_processed}")
+        self.stdout.write(f"Projects processed: {projects_processed}")
+        self.stdout.write(f"Stock items processed: {stock_processed}")
+        self.stdout.write(
+            f"Employees linked: {employees_result['linked']}, "
+            f"created: {employees_result['created']}, "
+            f"already linked: {employees_result['already_linked']}"
+        )
 
-        except Exception as e:
-            logger.error(f"Error during Xero seeding: {e}", exc_info=True)
-            persist_and_raise(
-                e, additional_context={"operation": "seed_xero_from_database"}
-            )
+        if dry_run:
+            self.stdout.write("Dry run complete - no changes made")
+        else:
+            self.stdout.write("Xero seeding complete!")
 
     def process_contacts(self, dry_run):
         """Phase 1: Link/Create contacts for all clients with jobs"""
@@ -204,6 +240,114 @@ class Command(BaseCommand):
 
         return results["synced_count"]
 
+    def process_employees(self, dry_run):
+        """Phase 4: Link/create payroll employees for active staff.
+
+        Only processes staff who HAD xero_user_id in the backup (were linked in prod).
+        The backup's xero_user_id values are for PROD's Xero tenant, so we:
+        1. Identify staff who had xero_user_id (were linked in prod)
+        2. Clear those IDs (wrong tenant)
+        3. Re-link to DEV's Xero using job_title UUID, email, or name matching
+        4. Create in DEV's Xero if no match found
+
+        Staff without xero_user_id in backup are left alone (weren't linked in prod).
+        """
+        # Find active staff WITH xero_user_id set (from backup = were linked in prod)
+        # These need to be re-linked to dev's Xero employees (or created if not found)
+        staff_to_sync = list(
+            Staff.objects.filter(date_left__isnull=True, xero_user_id__isnull=False)
+        )
+
+        # Staff without xero_user_id were not linked in prod - leave them alone
+        unlinked_count = Staff.objects.filter(
+            date_left__isnull=True, xero_user_id__isnull=True
+        ).count()
+
+        self.stdout.write(
+            f"Found {len(staff_to_sync)} staff to sync (had xero_user_id in backup)"
+        )
+        self.stdout.write(
+            f"Skipping {unlinked_count} staff (no xero_user_id in backup)"
+        )
+
+        if not staff_to_sync:
+            self.stdout.write("No staff need Xero employee sync")
+            return {"linked": 0, "created": 0, "already_linked": 0}
+
+        if dry_run:
+            for staff in staff_to_sync[:10]:  # Show first 10
+                self.stdout.write(
+                    f"  • Would process: {staff.first_name} {staff.last_name} ({staff.email})"
+                )
+            if len(staff_to_sync) > 10:
+                self.stdout.write(f"  ... and {len(staff_to_sync) - 10} more")
+            return {
+                "linked": 0,
+                "created": 0,
+                "already_linked": 0,
+                "would_process": len(staff_to_sync),
+            }
+
+        # Clear the prod xero_user_id values - they're for the wrong Xero tenant
+        # We need to clear them so PayrollEmployeeSyncService will process these staff
+        staff_ids = [s.id for s in staff_to_sync]
+        self.stdout.write(
+            f"Clearing {len(staff_ids)} prod xero_user_id values before re-linking..."
+        )
+        Staff.objects.filter(id__in=staff_ids).update(xero_user_id=None)
+
+        # Refetch the staff (now without xero_user_id)
+        staff_queryset = Staff.objects.filter(id__in=staff_ids)
+
+        # Use PayrollEmployeeSyncService to link (by job_title UUID, email, or name)
+        # and create missing employees in dev's Xero
+        self.stdout.write("Syncing staff with Xero Payroll...")
+        summary = PayrollEmployeeSyncService.sync_staff(
+            staff_queryset=staff_queryset,
+            dry_run=False,
+            allow_create=True,  # Create if not found in dev's Xero
+        )
+
+        # Report results
+        linked_count = len(summary.get("linked", []))
+        created_count = len(summary.get("created", []))
+        missing_count = len(summary.get("missing", []))
+
+        self.stdout.write(
+            f"Employee Summary: {linked_count} linked, {created_count} created"
+        )
+
+        if summary.get("linked"):
+            self.stdout.write("Linked by matching:")
+            for link in summary["linked"][:5]:
+                self.stdout.write(
+                    f"  • {link['first_name']} {link['last_name']} → {link['xero_employee_id']}"
+                )
+            if len(summary["linked"]) > 5:
+                self.stdout.write(f"  ... and {len(summary['linked']) - 5} more")
+
+        if summary.get("created"):
+            self.stdout.write("Created in Xero:")
+            for created in summary["created"][:5]:
+                self.stdout.write(
+                    f"  • {created['first_name']} {created['last_name']} → {created['xero_employee_id']}"
+                )
+            if len(summary["created"]) > 5:
+                self.stdout.write(f"  ... and {len(summary['created']) - 5} more")
+
+        if missing_count > 0:
+            self.stdout.write(f"Failed to process {missing_count} staff members")
+            for missing in summary["missing"][:5]:
+                self.stdout.write(
+                    f"  • {missing['first_name']} {missing['last_name']} ({missing['email']})"
+                )
+
+        return {
+            "linked": linked_count,
+            "created": created_count,
+            "already_linked": 0,  # We cleared and re-linked, so none are "already linked"
+        }
+
     def clear_production_xero_ids(self, dry_run):
         """Clear production Xero IDs from all relevant tables."""
         # Safety check - never run on production server
@@ -305,6 +449,11 @@ class Command(BaseCommand):
                 stock_count = cursor.rowcount
                 if stock_count > 0:
                     tables_cleared.append(f"workflow_stock: {stock_count} records")
+
+            # NOTE: Do NOT clear staff xero_user_id here.
+            # We preserve it from the backup to know which staff were linked in prod.
+            # Phase 4 uses this to decide which staff to create/link in Xero.
+            self.stdout.write("Preserving staff xero_user_id values (used by Phase 4)")
 
         # Summary
         if tables_cleared:

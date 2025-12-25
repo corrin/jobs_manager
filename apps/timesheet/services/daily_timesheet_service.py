@@ -123,11 +123,6 @@ class DailyTimesheetService:
                 accounting_date=target_date,
             ).select_related("cost_set__job")
 
-            logger.info(f"meta__date filter: {target_date.isoformat()}")
-            logger.info(
-                f"meta__date values for staff {staff.id}: {[cl.meta.get('date') for cl in CostLine.objects.filter(meta__staff_id=str(staff.id), kind='time')]}"  # noqa
-            )
-
             logger.info(f"Found {len(cost_lines)} cost lines for staff {staff.id}")
 
             # Calculate totals

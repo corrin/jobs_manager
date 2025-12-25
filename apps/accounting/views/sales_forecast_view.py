@@ -46,6 +46,7 @@ class SalesForecastAPIView(APIView):
     """
 
     @extend_schema(
+        operation_id="sales_forecast_list",
         summary="Get monthly sales forecast data",
         description=(
             "Returns monthly sales comparison between Xero invoices and "
@@ -192,6 +193,7 @@ class SalesForecastMonthDetailAPIView(APIView):
     """
 
     @extend_schema(
+        operation_id="sales_forecast_month_detail",
         summary="Get month detail for sales forecast",
         description=(
             "Returns detailed invoice and job data for a specific month, "
