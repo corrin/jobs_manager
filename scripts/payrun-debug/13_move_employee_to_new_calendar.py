@@ -17,30 +17,36 @@ from xero_python.payrollnz.models import Employee
 from apps.accounts.models import Staff
 from apps.workflow.api.xero.payroll import get_payroll_calendars
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
+from apps.workflow.models import CompanyDefaults
 
 
 def main():
     dry_run = "--execute" not in sys.argv
 
-    print("=== Move Employees to Weekly 2025 Calendar ===")
+    company = CompanyDefaults.get_instance()
+    target_calendar_name = company.xero_payroll_calendar_name
+
+    print(f"=== Move Employees to '{target_calendar_name}' Calendar ===")
     print(f"Mode: {'DRY RUN' if dry_run else 'EXECUTE'}\n")
 
     tenant_id = get_tenant_id()
     payroll_api = PayrollNzApi(api_client)
 
-    # Get calendars
+    # Get calendars - use exact match since there may be similar names
     calendars = get_payroll_calendars()
-    old_weekly = next((c for c in calendars if c["name"] == "Weekly"), None)
-    weekly_2025 = next((c for c in calendars if "2025" in c["name"]), None)
+    target_calendar = next(
+        (c for c in calendars if c["name"] == target_calendar_name),
+        None,
+    )
 
-    if not weekly_2025:
-        print("ERROR: No Weekly 2025 calendar found!")
+    if not target_calendar:
+        print(f"ERROR: Calendar '{target_calendar_name}' not found in Xero!")
+        print("Available calendars:", [c["name"] for c in calendars])
         return
 
     print(
-        f"Old calendar: {old_weekly['name'] if old_weekly else 'N/A'} ({old_weekly['id'][:8] if old_weekly else 'N/A'}...)"
+        f"Target calendar: {target_calendar['name']} ({target_calendar['id'][:8]}...)"
     )
-    print(f"New calendar: {weekly_2025['name']} ({weekly_2025['id'][:8]}...)")
 
     # Get staff with xero_user_id
     linked_staff = Staff.objects.filter(
@@ -71,51 +77,51 @@ def main():
             emp = response.employee
             current_cal = str(emp.payroll_calendar_id)
 
-            if current_cal == weekly_2025["id"]:
-                print("   Already on Weekly 2025")
+            if current_cal == target_calendar["id"]:
+                print(f"   Already on {target_calendar['name']}")
                 skipped += 1
                 continue
 
             print(f"   Current calendar: {current_cal[:8]}...")
-            print(f"   Will move to: {weekly_2025['id'][:8]}...")
+            print(f"   Will move to: {target_calendar['id'][:8]}...")
 
             if dry_run:
                 print("   [DRY RUN] Would update")
                 moved += 1
                 continue
 
-            # Try to update
-            updated_emp = Employee(payroll_calendar_id=weekly_2025["id"])
+            # Try to update - must include all required fields
+            updated_emp = Employee(
+                first_name=emp.first_name,
+                last_name=emp.last_name,
+                date_of_birth=emp.date_of_birth,
+                address=emp.address,
+                payroll_calendar_id=target_calendar["id"],
+            )
 
-            try:
-                update_response = payroll_api.update_employee(
-                    xero_tenant_id=tenant_id,
-                    employee_id=staff.xero_user_id,
-                    employee=updated_emp,
-                )
-                if update_response and update_response.employee:
-                    new_cal = str(update_response.employee.payroll_calendar_id)
-                    if new_cal == weekly_2025["id"]:
-                        print("   SUCCESS - moved to Weekly 2025")
-                        moved += 1
-                    else:
-                        print(f"   PARTIAL - calendar is now {new_cal[:8]}...")
-                        errors += 1
-                else:
-                    print("   ERROR: Update returned empty response")
-                    errors += 1
-            except Exception as e:
-                print(f"   ERROR updating: {e}")
-                errors += 1
+            update_response = payroll_api.update_employee(
+                xero_tenant_id=tenant_id,
+                employee_id=staff.xero_user_id,
+                employee=updated_emp,
+            )
+            if not update_response or not update_response.employee:
+                raise ValueError("Update returned empty response")
+
+            new_cal = str(update_response.employee.payroll_calendar_id)
+            if new_cal != target_calendar["id"]:
+                raise ValueError(f"Calendar update failed - got {new_cal[:8]}...")
+
+            print(f"   SUCCESS - moved to {target_calendar['name']}")
+            moved += 1
 
         except Exception as e:
             print(f"   ERROR: {e}")
-            errors += 1
+            raise
 
     print("\n" + "=" * 50)
     print("SUMMARY:")
     print(f"  Moved: {moved}")
-    print(f"  Skipped (already on Weekly 2025): {skipped}")
+    print(f"  Skipped (already on {target_calendar['name']}): {skipped}")
     print(f"  Errors: {errors}")
 
     if dry_run and moved > 0:
