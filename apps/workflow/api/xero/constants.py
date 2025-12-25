@@ -14,6 +14,7 @@ XERO_SCOPES = [
     "projects",
     "payroll.timesheets",
     "payroll.payruns",
+    "payroll.payslips",
     "payroll.employees",
     "payroll.settings",
 ]

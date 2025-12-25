@@ -48,7 +48,10 @@ from apps.workflow.serializers import (
     XeroSyncStartResponseSerializer,
     XeroTriggerSyncResponseSerializer,
 )
-from apps.workflow.services.error_persistence import persist_and_raise
+from apps.workflow.services.error_persistence import (
+    persist_and_raise,
+    persist_app_error,
+)
 from apps.workflow.services.xero_sync_service import XeroSyncService
 
 from .xero_invoice_manager import XeroInvoiceManager
@@ -901,9 +904,8 @@ def get_xero_sync_info(request):
         return JsonResponse(response_serializer.data)
     except Exception as e:
         logger.error(f"Error getting sync info: {str(e)}")
-        error_response = {"error": str(e)}
-        error_serializer = XeroSyncInfoResponseSerializer(error_response)
-        return JsonResponse(error_serializer.data, status=500)
+        persist_app_error(e)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt

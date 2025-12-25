@@ -421,6 +421,7 @@ def transform_stock(xero_item, xero_id):
         "quantity": quantity_value,
         "raw_json": raw_json,
         "xero_last_modified": xero_last_modified,
+        "xero_last_synced": timezone.now(),
         "xero_inventory_tracked": is_tracked,
         "source": "product_catalog",
     }
@@ -1065,7 +1066,7 @@ def sync_xero_data(
     }
 
 
-# Entity configurations
+# Entity configurations - ordered by business importance (accounts first, journals last)
 ENTITY_CONFIGS = {
     "accounts": (
         "accounts",
@@ -1094,6 +1095,26 @@ ENTITY_CONFIGS = {
         {"where": 'Type=="ACCREC"'},
         "page",
     ),
+    "quotes": (
+        "quotes",
+        "quotes",
+        Quote,
+        "get_quotes",
+        lambda items: sync_entities(items, Quote, "quote_id", transform_quote),
+        None,
+        "single",
+    ),
+    "purchase_orders": (
+        "purchase_orders",
+        "purchase_orders",
+        PurchaseOrder,
+        "get_purchase_orders",
+        lambda items: sync_entities(
+            items, PurchaseOrder, "purchase_order_id", transform_purchase_order
+        ),
+        None,
+        "page",
+    ),
     "bills": (
         "invoices",
         "bills",
@@ -1103,12 +1124,12 @@ ENTITY_CONFIGS = {
         {"where": 'Type=="ACCPAY"'},
         "page",
     ),
-    "quotes": (
-        "quotes",
-        "quotes",
-        Quote,
-        "get_quotes",
-        lambda items: sync_entities(items, Quote, "quote_id", transform_quote),
+    "stock": (
+        "items",
+        "stock",
+        Stock,
+        "get_xero_items",
+        lambda items: sync_entities(items, Stock, "item_id", transform_stock),
         None,
         "single",
     ),
@@ -1122,37 +1143,6 @@ ENTITY_CONFIGS = {
         ),
         None,
         "page",
-    ),
-    "purchase_orders": (
-        "purchase_orders",
-        "purchase_orders",
-        PurchaseOrder,
-        "get_purchase_orders",
-        lambda items: sync_entities(
-            items, PurchaseOrder, "purchase_order_id", transform_purchase_order
-        ),
-        None,
-        "page",
-    ),
-    "stock": (
-        "items",
-        "stock",
-        Stock,
-        "get_xero_items",
-        lambda items: sync_entities(items, Stock, "item_id", transform_stock),
-        None,
-        "single",
-    ),
-    "journals": (
-        "journals",
-        "journals",
-        XeroJournal,
-        "get_journals",
-        lambda items: sync_entities(
-            items, XeroJournal, "journal_id", transform_journal
-        ),
-        None,
-        "offset",
     ),
     # Payroll entities - use PayrollNzApi, not AccountingApi
     "pay_runs": (
@@ -1174,6 +1164,17 @@ ENTITY_CONFIGS = {
         ),
         None,
         "single",  # All slips fetched at once
+    ),
+    "journals": (
+        "journals",
+        "journals",
+        XeroJournal,
+        "get_journals",
+        lambda items: sync_entities(
+            items, XeroJournal, "journal_id", transform_journal
+        ),
+        None,
+        "offset",
     ),
 }
 
