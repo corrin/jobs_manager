@@ -11,11 +11,15 @@ from uuid import UUID
 from xero_python.payrollnz import PayrollNzApi
 from xero_python.payrollnz.models import (
     Address,
+    BankAccount,
     Employee,
+    EmployeeTax,
     EmployeeWorkingPatternWithWorkingWeeksRequest,
     Employment,
+    PaymentMethod,
     PayRun,
     SalaryAndWage,
+    TaxCode,
     Timesheet,
     TimesheetLine,
     WorkingWeek,
@@ -221,6 +225,27 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
                 employee_data.get("start_date"),
             )
 
+        # Set up tax (IRD number and tax code) - required for pay runs
+        ird_number = employee_data.get("ird_number")
+        if ird_number:
+            _create_employee_tax(
+                payroll_api,
+                tenant_id,
+                employee_id,
+                ird_number,
+                TaxCode.M,  # Main employment
+            )
+
+        # Set up bank account - required for pay runs
+        bank_account_number = employee_data.get("bank_account_number")
+        if bank_account_number:
+            _create_employee_payment_method(
+                payroll_api,
+                tenant_id,
+                employee_id,
+                bank_account_number,
+            )
+
         return created_employee
     except Exception as exc:
         logger.error(
@@ -339,6 +364,81 @@ def _create_salary_and_wage(
         employee_id,
         hourly_rate,
         total_hours,
+    )
+
+
+def _create_employee_tax(
+    payroll_api: PayrollNzApi,
+    tenant_id: str,
+    employee_id: str,
+    ird_number: str,
+    tax_code: TaxCode = TaxCode.M,
+) -> None:
+    """Set up employee tax details (IRD number and tax code)."""
+    employee_tax = EmployeeTax(
+        ird_number=ird_number,
+        tax_code=tax_code,
+    )
+    payroll_api.update_employee_tax(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        employee_tax=employee_tax,
+    )
+    time.sleep(SLEEP_TIME)
+    logger.info(
+        "Set tax for employee %s (IRD=%s, code=%s)",
+        employee_id,
+        ird_number,
+        tax_code.value if hasattr(tax_code, "value") else tax_code,
+    )
+
+
+def _create_employee_payment_method(
+    payroll_api: PayrollNzApi,
+    tenant_id: str,
+    employee_id: str,
+    bank_account_number: str,
+) -> None:
+    """Set up employee bank account for payment.
+
+    NZ bank account format: BB-bbbb-AAAAAAA-SS
+    - BB: bank code (2 digits)
+    - bbbb: branch code (4 digits)
+    - AAAAAAA: account number (7 digits)
+    - SS: suffix (2-3 digits)
+
+    sort_code is the bank-branch portion: "BB-bbbb"
+    account_number is the full account: "AAAAAAA-SS"
+    """
+    parts = bank_account_number.split("-")
+    if len(parts) != 4:
+        raise ValueError(
+            f"Invalid NZ bank account format: {bank_account_number}. "
+            "Expected BB-bbbb-AAAAAAA-SS"
+        )
+    sort_code = f"{parts[0]}-{parts[1]}"
+    account_number = f"{parts[2]}-{parts[3]}"
+
+    bank_account = BankAccount(
+        account_name="Wages",
+        account_number=account_number,
+        sort_code=sort_code,
+        calculation_type="Balance",
+    )
+    payment_method = PaymentMethod(
+        payment_method="ElectronicTransfer",
+        bank_accounts=[bank_account],
+    )
+    payroll_api.create_employee_payment_method(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        payment_method=payment_method,
+    )
+    time.sleep(SLEEP_TIME)
+    logger.info(
+        "Set payment method for employee %s (bank=%s)",
+        employee_id,
+        bank_account_number,
     )
 
 

@@ -25,13 +25,13 @@ def main():
     pay_runs = get_pay_runs()
 
     # Find draft pay runs
-    drafts = [pr for pr in pay_runs if pr.get("pay_run_status") == "Draft"]
+    drafts = [pr for pr in pay_runs if pr.get("status") == "Draft"]
 
     print(f"Found {len(drafts)} draft pay run(s):")
     for pr in drafts:
-        print(f"  ID: {pr['pay_run_id']}")
-        print(f"  Period: {pr['period_start_date']} to {pr['period_end_date']}")
-        print(f"  Status: {pr['pay_run_status']}")
+        print(f"  ID: {pr['id']}")
+        print(f"  Period: {pr['period_start']} to {pr['period_end']}")
+        print(f"  Status: {pr['status']}")
         print()
 
     if not drafts:
@@ -43,7 +43,7 @@ def main():
     payroll_api = PayrollNzApi(api_client)
 
     for pr in drafts:
-        pay_run_id = pr["pay_run_id"]
+        pay_run_id = pr["id"]
         print(f"Attempting to delete pay run {pay_run_id}...")
 
         try:
