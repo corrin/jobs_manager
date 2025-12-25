@@ -661,24 +661,26 @@ print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 **Command:**
 
 ```bash
-python scripts/payrun-debug/16_setup_employee_tax_and_bank.py --execute
+python scripts/setup_demo_payroll.py --execute
 ```
 
 **What this does:**
 1. Generates valid NZ IRD numbers (with proper checksums) for each employee
 2. Sets tax code to M (main employment) with 17.5% ESCT rate
-3. Sets up bank accounts (pre-validated NZ format)
+3. Sets up KiwiSaver (3% employee, 3% employer contributions)
+4. Sets up leave entitlements (160h annual, 80h sick)
+5. Sets up bank accounts (pre-validated NZ format)
 
 **Expected output:**
 ```
-INFO Mode: EXECUTE
-INFO Found 15 staff with Xero IDs
-INFO Omar Adams: IRD=10-001-005 Bank=01-0242-1596000-000 Xero=e75f973c...
-INFO   Tax set: IRD=10-001-005 code=M
-INFO   Bank set: 01-0242-1596000-000
+Mode: EXECUTE
+Found 15 staff with Xero IDs
+Omar Adams: IRD=10-001-005 Bank=01-0242-1596000-000
+  Tax OK: IRD=10-001-005 KiwiSaver=3%/3%
+  Leave OK: Annual=160h Sick=80h
+  Bank OK: 01-0242-1596000-000
 ...
-INFO Tax: 15 success, 0 fail
-INFO Bank: 15 success, 0 fail
+Results: Tax 15/15, Leave 15/15, Bank 15/15
 ```
 
 #### Step 21: Sync Xero
