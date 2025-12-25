@@ -14,6 +14,7 @@ from xero_python.payrollnz.models import (
     Employee,
     EmployeeWorkingPatternWithWorkingWeeksRequest,
     Employment,
+    PayRun,
     SalaryAndWage,
     Timesheet,
     TimesheetLine,
@@ -22,6 +23,7 @@ from xero_python.payrollnz.models import (
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import (
     persist_and_raise,
     persist_app_error,
@@ -604,7 +606,7 @@ def _coerce_xero_date(value: Any) -> Optional[date]:
 def create_pay_run(
     week_start_date: date,
     payment_date: date = None,
-) -> str:
+) -> Dict[str, str]:
     """
     Create a new pay run in Xero Payroll for the specified week.
 
@@ -613,49 +615,55 @@ def create_pay_run(
         payment_date: Optional payment date (defaults to Wednesday after period end)
 
     Returns:
-        Pay run ID (UUID string)
+        Dict with 'pay_run_id' and 'payroll_calendar_id'
 
     Raises:
-        ValueError: If week_start_date is not a Monday
-        Exception: If API call fails or no weekly calendar found
+        ValueError: If week_start_date is not a Monday, or configuration is missing
+        Exception: If Xero API call fails
     """
     if week_start_date.weekday() != 0:
         raise ValueError("week_start_date must be a Monday")
 
-    if not get_tenant_id():
-        raise Exception("No Xero tenant ID configured")
-
     tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise ValueError("No Xero tenant ID configured")
+
+    # Get calendar from CompanyDefaults
+    company = CompanyDefaults.get_instance()
+    target_calendar_name = company.xero_payroll_calendar_name
+    if not target_calendar_name:
+        raise ValueError("xero_payroll_calendar_name not configured in CompanyDefaults")
+
+    # Find matching calendar in Xero
+    calendars = get_payroll_calendars()
+    matching_calendar = next(
+        (c for c in calendars if c["name"] == target_calendar_name), None
+    )
+    if not matching_calendar:
+        available = [c["name"] for c in calendars]
+        raise ValueError(
+            f"Calendar '{target_calendar_name}' not found in Xero. "
+            f"Available: {available}"
+        )
+
+    payroll_calendar_id = matching_calendar["id"]
+    logger.info(f"Using calendar '{target_calendar_name}': {payroll_calendar_id}")
+
+    # Calculate period end (Sunday)
+    week_end_date = week_start_date + timedelta(days=6)
+
+    # Default payment date: Wednesday after period end (3 days)
+    if not payment_date:
+        payment_date = week_end_date + timedelta(days=3)
+
+    logger.info(
+        f"Creating pay run for period {week_start_date} to {week_end_date}, "
+        f"payment date {payment_date}"
+    )
+
     payroll_api = PayrollNzApi(api_client)
 
     try:
-        # Find weekly payroll calendar (prefer "Weekly 2025" if available)
-        calendars = get_payroll_calendars()
-        weekly_calendars = [c for c in calendars if "weekly" in c["name"].lower()]
-        if not weekly_calendars:
-            raise Exception("No weekly payroll calendar found in Xero")
-
-        # Prefer "Weekly 2025" calendar if available
-        weekly_calendar = next(
-            (c for c in weekly_calendars if "2025" in c["name"]), weekly_calendars[0]
-        )
-        payroll_calendar_id = weekly_calendar["id"]
-        logger.info(f"Using weekly calendar: {payroll_calendar_id}")
-
-        # Calculate period end (Sunday)
-        week_end_date = week_start_date + timedelta(days=6)
-
-        # Default payment date: Wednesday after period end (3 days)
-        if not payment_date:
-            payment_date = week_end_date + timedelta(days=3)
-
-        logger.info(
-            f"Creating pay run for period {week_start_date} to {week_end_date}, "
-            f"payment date {payment_date}"
-        )
-
-        from xero_python.payrollnz.models import PayRun
-
         pay_run = PayRun(
             payroll_calendar_id=payroll_calendar_id,
             period_start_date=week_start_date,
@@ -676,7 +684,10 @@ def create_pay_run(
         pay_run_id = str(response.pay_run.pay_run_id)
         logger.info(f"Successfully created pay run: {pay_run_id}")
 
-        return pay_run_id
+        return {
+            "pay_run_id": pay_run_id,
+            "payroll_calendar_id": payroll_calendar_id,
+        }
 
     except Exception as exc:
         logger.error(

@@ -567,7 +567,9 @@ class CreatePayRunAPIView(APIView):
 
         try:
             # Create pay run in Xero (validates Monday)
-            xero_pay_run_id = create_pay_run(week_start_date)
+            result = create_pay_run(week_start_date)
+            xero_pay_run_id = result["pay_run_id"]
+            payroll_calendar_id = result["payroll_calendar_id"]
 
             # Calculate dates
             week_end_date = week_start_date + timedelta(days=6)
@@ -584,6 +586,7 @@ class CreatePayRunAPIView(APIView):
             pay_run = XeroPayRun.objects.create(
                 xero_id=xero_pay_run_id,
                 xero_tenant_id=tenant_id,
+                payroll_calendar_id=payroll_calendar_id,
                 period_start_date=week_start_date,
                 period_end_date=week_end_date,
                 payment_date=payment_date,
