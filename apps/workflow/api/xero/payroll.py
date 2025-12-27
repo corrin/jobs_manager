@@ -13,6 +13,7 @@ from xero_python.payrollnz.models import (
     Address,
     BankAccount,
     Employee,
+    EmployeeLeaveSetup,
     EmployeeTax,
     EmployeeWorkingPatternWithWorkingWeeksRequest,
     Employment,
@@ -246,6 +247,14 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
                 bank_account_number,
             )
 
+        # Set up leave entitlements - required for pay runs
+        if ird_number:  # Only if tax was set up (employee is ready for payroll)
+            _create_employee_leave_setup(
+                payroll_api,
+                tenant_id,
+                employee_id,
+            )
+
         return created_employee
     except Exception as exc:
         logger.error(
@@ -374,10 +383,20 @@ def _create_employee_tax(
     ird_number: str,
     tax_code: TaxCode = TaxCode.M,
 ) -> None:
-    """Set up employee tax details (IRD number and tax code)."""
+    """Set up employee tax details including KiwiSaver and ESCT rate.
+
+    ESCT rate 17.5% is for income $16,801-$57,600 (reasonable default).
+    KiwiSaver: 3% employee, 3% employer (standard rates).
+    """
     employee_tax = EmployeeTax(
         ird_number=ird_number,
         tax_code=tax_code,
+        esct_rate_percentage=17.5,
+        is_eligible_for_kiwi_saver=True,
+        kiwi_saver_contributions="MakeContributions",
+        kiwi_saver_employee_contribution_rate_percentage=3.0,
+        kiwi_saver_employer_contribution_rate_percentage=3.0,
+        kiwi_saver_employer_salary_sacrifice_contribution_rate_percentage=0.0,
     )
     payroll_api.update_employee_tax(
         xero_tenant_id=tenant_id,
@@ -386,7 +405,7 @@ def _create_employee_tax(
     )
     time.sleep(SLEEP_TIME)
     logger.info(
-        "Set tax for employee %s (IRD=%s, code=%s)",
+        "Set tax for employee %s (IRD=%s, code=%s, KiwiSaver=3%%/3%%)",
         employee_id,
         ird_number,
         tax_code.value if hasattr(tax_code, "value") else tax_code,
@@ -401,23 +420,25 @@ def _create_employee_payment_method(
 ) -> None:
     """Set up employee bank account for payment.
 
-    NZ bank account format: BB-bbbb-AAAAAAA-SS
+    NZ bank account format: BB-bbbb-AAAAAAA-SSS
     - BB: bank code (2 digits)
     - bbbb: branch code (4 digits)
     - AAAAAAA: account number (7 digits)
-    - SS: suffix (2-3 digits)
+    - SSS: suffix (2-3 digits)
 
-    sort_code is the bank-branch portion: "BB-bbbb"
-    account_number is the full account: "AAAAAAA-SS"
+    Xero API requires:
+    - sort_code: 6 digits (bank + branch, no dashes)
+    - account_number: 15-16 digits (full account, no dashes)
     """
     parts = bank_account_number.split("-")
     if len(parts) != 4:
         raise ValueError(
             f"Invalid NZ bank account format: {bank_account_number}. "
-            "Expected BB-bbbb-AAAAAAA-SS"
+            "Expected BB-bbbb-AAAAAAA-SSS"
         )
-    sort_code = f"{parts[0]}-{parts[1]}"
-    account_number = f"{parts[2]}-{parts[3]}"
+    # Xero wants: sort_code = 6 digits, account_number = full 16 digits (no dashes)
+    sort_code = f"{parts[0]}{parts[1]}"
+    account_number = f"{parts[0]}{parts[1]}{parts[2]}{parts[3]}"
 
     bank_account = BankAccount(
         account_name="Wages",
@@ -426,7 +447,7 @@ def _create_employee_payment_method(
         calculation_type="Balance",
     )
     payment_method = PaymentMethod(
-        payment_method="ElectronicTransfer",
+        payment_method="Electronically",
         bank_accounts=[bank_account],
     )
     payroll_api.create_employee_payment_method(
@@ -439,6 +460,37 @@ def _create_employee_payment_method(
         "Set payment method for employee %s (bank=%s)",
         employee_id,
         bank_account_number,
+    )
+
+
+def _create_employee_leave_setup(
+    payroll_api: PayrollNzApi,
+    tenant_id: str,
+    employee_id: str,
+) -> None:
+    """Set up employee leave entitlements (annual and sick leave).
+
+    NZ standard entitlements:
+    - Annual leave: 160 hours per year (4 weeks)
+    - Sick leave: 80 hours per year (10 days)
+    """
+    leave_setup = EmployeeLeaveSetup(
+        include_holiday_pay=False,
+        holiday_pay_opening_balance=0.0,
+        annual_leave_opening_balance=160.0,
+        sick_leave_to_accrue_annually=80.0,
+        sick_leave_maximum_to_accrue=80.0,
+        sick_leave_opening_balance=80.0,
+    )
+    payroll_api.create_employee_leave_setup(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        employee_leave_setup=leave_setup,
+    )
+    time.sleep(SLEEP_TIME)
+    logger.info(
+        "Set leave for employee %s (Annual=160h, Sick=80h)",
+        employee_id,
     )
 
 
