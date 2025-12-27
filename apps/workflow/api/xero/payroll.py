@@ -127,7 +127,17 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
     if not get_tenant_id():
         raise Exception("No Xero tenant ID configured")
 
-    required_fields = ("first_name", "last_name", "date_of_birth", "address")
+    required_fields = (
+        "first_name",
+        "last_name",
+        "date_of_birth",
+        "address",
+        "payroll_calendar_id",
+        "ordinary_earnings_rate_id",
+        "wage_rate",
+        "ird_number",
+        "bank_account_number",
+    )
     for field in required_fields:
         if not employee_data.get(field):
             raise ValueError(f"{field} is required to create a Xero payroll employee")
@@ -191,30 +201,25 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
         )
 
         # Set up employment (links employee to payroll calendar)
-        payroll_calendar_id = employee_data.get("payroll_calendar_id")
-        if payroll_calendar_id:
-            _create_employment(
-                payroll_api,
-                tenant_id,
-                employee_id,
-                payroll_calendar_id,
-                employee_data.get("start_date"),
-            )
+        _create_employment(
+            payroll_api,
+            tenant_id,
+            employee_id,
+            employee_data["payroll_calendar_id"],
+            employee_data.get("start_date"),
+        )
 
         # Set up salary and wage (hourly rate) - MUST be before working pattern
         hours_per_week = employee_data.get("hours_per_week")
-        wage_rate = employee_data.get("wage_rate")
-        earnings_rate_id = employee_data.get("ordinary_earnings_rate_id")
-        if wage_rate and earnings_rate_id:
-            _create_salary_and_wage(
-                payroll_api,
-                tenant_id,
-                employee_id,
-                earnings_rate_id,
-                wage_rate,
-                hours_per_week,
-                employee_data.get("start_date"),
-            )
+        _create_salary_and_wage(
+            payroll_api,
+            tenant_id,
+            employee_id,
+            employee_data["ordinary_earnings_rate_id"],
+            employee_data["wage_rate"],
+            hours_per_week,
+            employee_data.get("start_date"),
+        )
 
         # Set up working pattern (weekly hours) - requires salary to exist first
         if hours_per_week:
@@ -226,34 +231,29 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
                 employee_data.get("start_date"),
             )
 
-        # Set up tax (IRD number and tax code) - required for pay runs
-        ird_number = employee_data.get("ird_number")
-        if ird_number:
-            _create_employee_tax(
-                payroll_api,
-                tenant_id,
-                employee_id,
-                ird_number,
-                TaxCode.M,  # Main employment
-            )
+        # Set up tax (IRD number, tax code, KiwiSaver) - required for pay runs
+        _create_employee_tax(
+            payroll_api,
+            tenant_id,
+            employee_id,
+            employee_data["ird_number"],
+            TaxCode.M,  # Main employment
+        )
 
         # Set up bank account - required for pay runs
-        bank_account_number = employee_data.get("bank_account_number")
-        if bank_account_number:
-            _create_employee_payment_method(
-                payroll_api,
-                tenant_id,
-                employee_id,
-                bank_account_number,
-            )
+        _create_employee_payment_method(
+            payroll_api,
+            tenant_id,
+            employee_id,
+            employee_data["bank_account_number"],
+        )
 
         # Set up leave entitlements - required for pay runs
-        if ird_number:  # Only if tax was set up (employee is ready for payroll)
-            _create_employee_leave_setup(
-                payroll_api,
-                tenant_id,
-                employee_id,
-            )
+        _create_employee_leave_setup(
+            payroll_api,
+            tenant_id,
+            employee_id,
+        )
 
         return created_employee
     except Exception as exc:
