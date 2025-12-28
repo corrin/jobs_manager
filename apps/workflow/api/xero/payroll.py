@@ -75,6 +75,31 @@ def _safe_engagement_type(self, value):
 Employment.engagement_type = Employment.engagement_type.setter(_safe_engagement_type)
 
 
+# Monkeypatch TimesheetLine - Xero API returns nulls for date/earnings_rate_id/number_of_units
+# after delete_timesheet. SDK requires these to be non-null but Xero returns null in response.
+# Verified: Bug occurs with valid timesheets too (tested 2025-12-28).
+# SDK version: xero-python 9.3.0 (latest as of 2025-12-28)
+def _safe_timesheet_line_date(self, value):
+    self._date = value
+
+
+def _safe_timesheet_line_earnings_rate_id(self, value):
+    self._earnings_rate_id = value
+
+
+def _safe_timesheet_line_number_of_units(self, value):
+    self._number_of_units = value
+
+
+TimesheetLine.date = TimesheetLine.date.setter(_safe_timesheet_line_date)
+TimesheetLine.earnings_rate_id = TimesheetLine.earnings_rate_id.setter(
+    _safe_timesheet_line_earnings_rate_id
+)
+TimesheetLine.number_of_units = TimesheetLine.number_of_units.setter(
+    _safe_timesheet_line_number_of_units
+)
+
+
 def get_employees() -> List[Employee]:
     """
     Get list of Xero Payroll employees.
@@ -739,11 +764,27 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
 _earnings_rate_cache: Dict[str, str] = {}
 
 
+def ensure_earnings_rate_cache() -> None:
+    """
+    Pre-populate the earnings rate cache from Xero API.
+
+    Call this at the start of operations to ensure all rate lookups
+    are validated upfront before any modifying API calls.
+    """
+    if not _earnings_rate_cache:
+        logger.info("Pre-fetching earnings rates from Xero")
+        rates = get_earnings_rates()
+        for rate in rates:
+            _earnings_rate_cache[rate["name"]] = rate["id"]
+        logger.info(f"Cached {len(_earnings_rate_cache)} earnings rates")
+
+
 def get_earnings_rate_id_by_name(name: str) -> str:
     """
     Look up a Xero earnings rate ID by its name.
 
-    Caches results to avoid repeated API calls.
+    Uses cached results. Call ensure_earnings_rate_cache() first
+    for fail-early validation.
 
     Args:
         name: The earnings rate name (e.g., "Ordinary Time")
@@ -754,11 +795,8 @@ def get_earnings_rate_id_by_name(name: str) -> str:
     Raises:
         ValueError: If the named earnings rate is not found in Xero
     """
-    if not _earnings_rate_cache:
-        # Populate cache from Xero API
-        rates = get_earnings_rates()
-        for rate in rates:
-            _earnings_rate_cache[rate["name"]] = rate["id"]
+    # Populate cache if not already done (lazy fallback)
+    ensure_earnings_rate_cache()
 
     if name not in _earnings_rate_cache:
         available = ", ".join(sorted(_earnings_rate_cache.keys()))
@@ -1013,89 +1051,53 @@ def post_timesheet(
                     logger.info(f"Found existing timesheet: {ts.timesheet_id}")
                     break
 
-        # Step 2: If timesheet exists, delete all existing lines (to avoid duplicates)
+        # Step 2: If timesheet exists, delete it entirely (faster than deleting lines one-by-one)
         if existing_timesheet:
             timesheet_id = existing_timesheet.timesheet_id
-
-            # Fetch full timesheet details to get the lines
-            full_timesheet_response = payroll_api.get_timesheet(
+            logger.info(f"Deleting existing timesheet {timesheet_id}")
+            payroll_api.delete_timesheet(
                 xero_tenant_id=tenant_id,
-                timesheet_id=timesheet_id,
+                timesheet_id=str(timesheet_id),
             )
+            logger.info(f"Successfully deleted timesheet {timesheet_id}")
+            time.sleep(SLEEP_TIME)
 
-            if full_timesheet_response and full_timesheet_response.timesheet:
-                full_timesheet = full_timesheet_response.timesheet
-                if full_timesheet.timesheet_lines:
-                    logger.info(
-                        f"Deleting {len(full_timesheet.timesheet_lines)} existing lines "
-                        f"from timesheet {timesheet_id}"
-                    )
-                    for line in full_timesheet.timesheet_lines:
-                        try:
-                            payroll_api.delete_timesheet_line(
-                                xero_tenant_id=tenant_id,
-                                timesheet_id=timesheet_id,
-                                timesheet_line_id=line.timesheet_line_id,
-                            )
-                        except ValueError as exc:
-                            # Xero API bug: may return malformed data, but delete likely succeeded
-                            if "Invalid value for `date`" not in str(exc):
-                                raise
-                    logger.info(
-                        f"Deleted all existing lines from timesheet {timesheet_id}"
-                    )
-        else:
-            # Step 3: Create fresh timesheet if none exists
-            logger.info("Creating new timesheet")
-            new_timesheet = Timesheet(
-                employee_id=str(employee_id),
-                payroll_calendar_id=payroll_calendar_id,
-                start_date=week_start_date,
-                end_date=week_end_date,
-            )
-
-            create_response = payroll_api.create_timesheet(
-                xero_tenant_id=tenant_id,
-                timesheet=new_timesheet,
-            )
-
-            if not create_response or not create_response.timesheet:
-                raise Exception("Failed to create timesheet")
-
-            existing_timesheet = create_response.timesheet
-            timesheet_id = existing_timesheet.timesheet_id
-            logger.info(f"Created new timesheet: {timesheet_id}")
-
-        # Step 4: Add lines individually to the timesheet
-        logger.info(f"Adding {len(timesheet_lines)} lines to timesheet {timesheet_id}")
-
-        for line_data in timesheet_lines:
-            line = TimesheetLine(
+        # Step 3: Create timesheet with all lines in a single API call
+        lines = [
+            TimesheetLine(
                 date=line_data["date"],
                 earnings_rate_id=line_data["earnings_rate_id"],
                 number_of_units=line_data["number_of_units"],
             )
+            for line_data in timesheet_lines
+        ]
 
-            payroll_api.create_timesheet_line(
-                xero_tenant_id=tenant_id,
-                timesheet_id=timesheet_id,
-                timesheet_line=line,
-            )
-
-        # Fetch final timesheet to return
-        final_response = payroll_api.get_timesheet(
-            xero_tenant_id=tenant_id,
-            timesheet_id=timesheet_id,
+        logger.info(f"Creating timesheet with {len(lines)} lines")
+        new_timesheet = Timesheet(
+            employee_id=str(employee_id),
+            payroll_calendar_id=payroll_calendar_id,
+            start_date=week_start_date,
+            end_date=week_end_date,
+            timesheet_lines=lines,
         )
 
-        if not final_response or not final_response.timesheet:
-            raise Exception("Failed to retrieve final timesheet")
+        create_response = payroll_api.create_timesheet(
+            xero_tenant_id=tenant_id,
+            timesheet=new_timesheet,
+        )
+        time.sleep(SLEEP_TIME)
+
+        if not create_response or not create_response.timesheet:
+            raise Exception("Failed to create timesheet")
+
+        created_timesheet = create_response.timesheet
+        timesheet_id = created_timesheet.timesheet_id
 
         logger.info(
-            f"Successfully posted {len(timesheet_lines)} lines to timesheet {timesheet_id}"
+            f"Successfully created timesheet {timesheet_id} with {len(lines)} lines"
         )
 
-        return final_response.timesheet
+        return created_timesheet
 
     except Exception as exc:
         logger.error(
@@ -1359,6 +1361,25 @@ def post_staff_week_to_xero(staff_id: UUID, week_start_date: date) -> Dict[str, 
             f"Staff member {staff.email} does not have a xero_user_id configured"
         )
 
+    # PHASE 1: Pre-fetch and validate all Xero lookups before any modifying API calls
+    company_defaults = CompanyDefaults.get_instance()
+    ensure_earnings_rate_cache()
+
+    # Validate all required earnings rate names exist in Xero
+    required_rates = [
+        company_defaults.xero_ordinary_earnings_rate_name,
+        company_defaults.xero_time_half_earnings_rate_name,
+        company_defaults.xero_double_time_earnings_rate_name,
+    ]
+    for rate_name in required_rates:
+        if rate_name not in _earnings_rate_cache:
+            available = ", ".join(sorted(_earnings_rate_cache.keys()))
+            raise ValueError(
+                f"Earnings rate '{rate_name}' not found in Xero. "
+                f"Available: {available}"
+            )
+    logger.info("All required earnings rates validated")
+
     try:
         # Calculate week end date (Sunday)
         week_end_date = week_start_date + timedelta(days=6)
@@ -1397,9 +1418,6 @@ def post_staff_week_to_xero(staff_id: UUID, week_start_date: date) -> Dict[str, 
                 "unpaid_hours": Decimal("0"),
                 "errors": [],
             }
-
-        # Get company defaults for mappings
-        company_defaults = CompanyDefaults.get_instance()
 
         # Categorize entries into three buckets
         leave_api_entries, timesheet_entries, discarded_entries = _categorize_entries(
