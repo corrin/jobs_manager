@@ -17,7 +17,7 @@ from apps.workflow.api.xero.payroll import (
     get_employees,
     get_payroll_calendars,
 )
-from apps.workflow.models import CompanyDefaults
+from apps.workflow.models import CompanyDefaults, PayrollCategory
 
 # Pattern to extract Staff UUID from job_title like "Workshop Worker [uuid-here]"
 STAFF_UUID_PATTERN = re.compile(r"\[([0-9a-f-]{36})\]$", re.IGNORECASE)
@@ -268,11 +268,11 @@ class PayrollEmployeeSyncService:
         if cls._cached_ordinary_earnings_rate_id is not None:
             return cls._cached_ordinary_earnings_rate_id
 
-        company = CompanyDefaults.get_instance()
-        rate_name = company.xero_ordinary_earnings_rate_name
+        category = PayrollCategory.objects.get(name="work_ordinary")
+        rate_name = category.xero_earnings_rate_name
         if not rate_name:
             raise ValueError(
-                "CompanyDefaults.xero_ordinary_earnings_rate_name is not configured."
+                "PayrollCategory 'work_ordinary' does not have an earnings rate name configured."
             )
 
         cls._cached_ordinary_earnings_rate_id = get_earnings_rate_id_by_name(rate_name)

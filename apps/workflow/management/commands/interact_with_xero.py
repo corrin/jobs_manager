@@ -14,7 +14,7 @@ from apps.workflow.api.xero.payroll import (
     get_payroll_calendars,
 )
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
-from apps.workflow.models import XeroToken
+from apps.workflow.models import PayrollCategory, XeroToken
 from apps.workflow.models.company_defaults import CompanyDefaults
 
 
@@ -448,7 +448,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"Failed to fetch pay runs: {e}"))
 
     def configure_payroll(self):
-        """Interactively configure Xero Payroll mappings"""
+        """Interactively configure Xero Payroll mappings via PayrollCategory"""
         self.stdout.write(
             self.style.SUCCESS("\n=== Configure Xero Payroll Mappings ===\n")
         )
@@ -486,50 +486,33 @@ class Command(BaseCommand):
                     f"{i}. {rate['name']} ({rate['earnings_type']}) - ID: {rate['id']}"
                 )
 
-            # Get company defaults
-            company_defaults = CompanyDefaults.get_instance()
+            # Configure leave type categories (those with job_name_pattern set)
+            leave_categories = PayrollCategory.objects.filter(
+                job_name_pattern__isnull=False, uses_leave_api=True
+            )
+            if leave_categories.exists():
+                self.stdout.write(self.style.SUCCESS("\n--- Leave Types ---"))
+                for category in leave_categories:
+                    category.xero_leave_type_name = self._prompt_for_leave_type_name(
+                        category.display_name,
+                        leave_types,
+                        category.xero_leave_type_name,
+                    )
+                    category.save()
 
-            # Configure leave types
-            self.stdout.write(self.style.SUCCESS("\n--- Leave Types ---"))
-            company_defaults.xero_annual_leave_type_id = self._prompt_for_id(
-                "Annual Leave", leave_types, company_defaults.xero_annual_leave_type_id
+            # Configure work rate categories (those with rate_multiplier set)
+            work_categories = PayrollCategory.objects.filter(
+                rate_multiplier__isnull=False, posts_to_xero=True
             )
-            company_defaults.xero_sick_leave_type_id = self._prompt_for_id(
-                "Sick Leave", leave_types, company_defaults.xero_sick_leave_type_id
-            )
-            company_defaults.xero_other_leave_type_id = self._prompt_for_id(
-                "Other Leave", leave_types, company_defaults.xero_other_leave_type_id
-            )
-            company_defaults.xero_unpaid_leave_type_id = self._prompt_for_id(
-                "Unpaid Leave", leave_types, company_defaults.xero_unpaid_leave_type_id
-            )
-
-            # Configure work rates (by name - IDs are looked up at runtime)
-            self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))
-            company_defaults.xero_ordinary_earnings_rate_name = (
-                self._prompt_for_rate_name(
-                    "Ordinary Time (1.0x)",
-                    rates,
-                    company_defaults.xero_ordinary_earnings_rate_name,
-                )
-            )
-            company_defaults.xero_time_half_earnings_rate_name = (
-                self._prompt_for_rate_name(
-                    "Time and a Half (1.5x)",
-                    rates,
-                    company_defaults.xero_time_half_earnings_rate_name,
-                )
-            )
-            company_defaults.xero_double_time_earnings_rate_name = (
-                self._prompt_for_rate_name(
-                    "Double Time (2.0x)",
-                    rates,
-                    company_defaults.xero_double_time_earnings_rate_name,
-                )
-            )
-
-            # Save
-            company_defaults.save()
+            if work_categories.exists():
+                self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))
+                for category in work_categories:
+                    category.xero_earnings_rate_name = self._prompt_for_rate_name(
+                        f"{category.display_name} ({category.rate_multiplier}x)",
+                        rates,
+                        category.xero_earnings_rate_name,
+                    )
+                    category.save()
 
             self.stdout.write(
                 self.style.SUCCESS("\n✓ Payroll mappings saved successfully!")
@@ -764,3 +747,26 @@ class Command(BaseCommand):
                 return current_value
 
         return rate_name
+
+    def _prompt_for_leave_type_name(self, label, leave_types, current_value):
+        """Prompt user to select a leave type by name (IDs looked up at runtime)."""
+        current_display = current_value if current_value else "Not set"
+        prompt = f"\n{label} (current: {current_display})\nEnter leave type name (or press Enter to keep): "
+
+        type_name = input(prompt).strip()
+
+        if not type_name:
+            return current_value  # Keep existing value
+
+        # Validate that the leave type name exists
+        if not any(lt["name"] == type_name for lt in leave_types):
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Warning: '{type_name}' not found in available leave types"
+                )
+            )
+            confirm = input("Use this name anyway? (y/N): ").strip().lower()
+            if confirm != "y":
+                return current_value
+
+        return type_name

@@ -22,6 +22,7 @@ from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff
 from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
+from apps.workflow.models import PayrollCategory
 
 logger = logging.getLogger(__name__)
 
@@ -298,14 +299,16 @@ class WeeklyTimesheetService:
             other_leave_hours = 0
 
             for line in leave_lines:
-                leave_type = line.cost_set.job.get_leave_type()
+                category = PayrollCategory.get_for_job(line.cost_set.job)
                 hours = line.quantity
 
-                if leave_type == "sick":
+                if category is None:
+                    continue  # Not a leave job
+                elif category.name == "sick_leave":
                     sick_leave_hours += hours
-                elif leave_type == "annual":
+                elif category.name == "annual_leave":
                     annual_leave_hours += hours
-                elif leave_type == "other":
+                elif category.name == "other_leave":
                     other_leave_hours += hours
                 # Skip unpaid leave
 

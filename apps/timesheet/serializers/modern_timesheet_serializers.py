@@ -13,6 +13,7 @@ from apps.job.models import Job
 from apps.timesheet.serializers.daily_timesheet_serializers import (
     SummaryStatsSerializer,
 )
+from apps.workflow.models import PayrollCategory
 
 
 class ModernTimesheetJobSerializer(serializers.ModelSerializer):
@@ -41,9 +42,10 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
         """Check if job has an actual cost set"""
         return obj.get_latest("actual") is not None
 
-    def get_leave_type(self, obj) -> str:
-        """Get leave type if this is a payroll job"""
-        return obj.get_leave_type()
+    def get_leave_type(self, obj) -> str | None:
+        """Get leave type if this is a payroll leave job"""
+        category = PayrollCategory.get_for_job(obj)
+        return category.name if category else None
 
 
 class ModernStaffSerializer(serializers.Serializer):

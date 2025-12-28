@@ -28,7 +28,7 @@ from xero_python.payrollnz.models import (
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.models import CompanyDefaults
+from apps.workflow.models import CompanyDefaults, PayrollCategory
 from apps.workflow.services.error_persistence import (
     persist_and_raise,
     persist_app_error,
@@ -808,6 +808,52 @@ def get_earnings_rate_id_by_name(name: str) -> str:
     return _earnings_rate_cache[name]
 
 
+# Cache for leave type lookups (populated once per session)
+_leave_type_cache: Dict[str, str] = {}
+
+
+def ensure_leave_type_cache() -> None:
+    """
+    Pre-populate the leave type cache from Xero API.
+
+    Call this at the start of operations to ensure all leave type lookups
+    are validated upfront before any modifying API calls.
+    """
+    if not _leave_type_cache:
+        logger.info("Pre-fetching leave types from Xero")
+        leave_types = get_leave_types()
+        for lt in leave_types:
+            _leave_type_cache[lt["name"]] = lt["id"]
+        logger.info(f"Cached {len(_leave_type_cache)} leave types")
+
+
+def get_leave_type_id_by_name(name: str) -> str:
+    """
+    Look up a Xero leave type ID by its name.
+
+    Uses cached results. Call ensure_leave_type_cache() first
+    for fail-early validation.
+
+    Args:
+        name: The leave type name (e.g., "Annual Leave")
+
+    Returns:
+        The leave type ID (UUID string)
+
+    Raises:
+        ValueError: If the named leave type is not found in Xero
+    """
+    ensure_leave_type_cache()
+
+    if name not in _leave_type_cache:
+        available = ", ".join(sorted(_leave_type_cache.keys()))
+        raise ValueError(
+            f"Leave type '{name}' not found in Xero. " f"Available types: {available}"
+        )
+
+    return _leave_type_cache[name]
+
+
 def _coerce_xero_date(value: Any) -> Optional[date]:
     """Normalize Xero date or datetime payloads (strings, datetimes, dates) into date objects."""
     if value is None:
@@ -1397,7 +1443,6 @@ def post_staff_week_to_xero(
     """
     from apps.accounts.models import Staff
     from apps.job.models.costing import CostLine
-    from apps.workflow.models import CompanyDefaults
 
     # Validate inputs
     if week_start_date.weekday() != 0:
@@ -1414,20 +1459,23 @@ def post_staff_week_to_xero(
         )
 
     # PHASE 1: Pre-fetch and validate all Xero lookups before any modifying API calls
-    company_defaults = CompanyDefaults.get_instance()
     ensure_earnings_rate_cache()
 
-    # Validate all required earnings rate names exist in Xero
-    required_rates = [
-        company_defaults.xero_ordinary_earnings_rate_name,
-        company_defaults.xero_time_half_earnings_rate_name,
-        company_defaults.xero_double_time_earnings_rate_name,
-    ]
-    for rate_name in required_rates:
+    # Validate all configured earnings rate names exist in Xero
+    work_categories = PayrollCategory.objects.filter(
+        rate_multiplier__isnull=False,
+        posts_to_xero=True,
+    )
+    for category in work_categories:
+        rate_name = category.xero_earnings_rate_name
+        if not rate_name:
+            raise ValueError(
+                f"PayrollCategory '{category.name}' does not have an earnings rate name configured"
+            )
         if rate_name not in _earnings_rate_cache:
             available = ", ".join(sorted(_earnings_rate_cache.keys()))
             raise ValueError(
-                f"Earnings rate '{rate_name}' not found in Xero. "
+                f"Earnings rate '{rate_name}' for category '{category.name}' not found in Xero. "
                 f"Available: {available}"
             )
     logger.info("All required earnings rates validated")
@@ -1481,8 +1529,9 @@ def post_staff_week_to_xero(
         other_leave_entries = []
         for entry in timesheet_entries:
             job = entry.cost_set.job
-            leave_type = job.get_leave_type()
-            if leave_type == "other":
+            category = PayrollCategory.get_for_job(job)
+            if category is not None:
+                # It's a leave job (e.g., other leave)
                 other_leave_entries.append(entry)
             else:
                 work_entries.append(entry)
@@ -1493,7 +1542,7 @@ def post_staff_week_to_xero(
 
         # Post timesheet entries (work + other leave)
         if timesheet_entries:
-            timesheet_lines = _map_work_entries(timesheet_entries, company_defaults)
+            timesheet_lines = _map_work_entries(timesheet_entries)
             logger.info(f"Posting {len(timesheet_lines)} timesheet entries to Xero")
 
             timesheet = post_timesheet(
@@ -1507,9 +1556,7 @@ def post_staff_week_to_xero(
 
         # Post leave entries using Leave API (annual/sick only)
         if leave_api_entries:
-            leave_ids = _post_leave_entries(
-                xero_employee_id, leave_api_entries, company_defaults
-            )
+            leave_ids = _post_leave_entries(xero_employee_id, leave_api_entries)
             logger.info(f"Successfully posted {len(leave_ids)} leave records")
 
         # Calculate hours by all four categories
@@ -1554,52 +1601,49 @@ def _categorize_entries(entries: List) -> tuple:
     """
     Categorize cost line entries for Xero posting.
 
+    Uses PayrollCategory to determine how each entry should be posted.
+
     Args:
         entries: List of CostLine entries to categorize
 
     Returns:
         Tuple of (leave_api_entries, timesheet_entries, discarded_entries)
-        - leave_api_entries: Annual/Sick leave (has balances, use Leave API)
-        - timesheet_entries: Work + Other leave (paid hours, use Timesheets API)
-        - discarded_entries: Unpaid leave (not posted to Xero)
+        - leave_api_entries: Entries using Leave API (has balances)
+        - timesheet_entries: Entries using Timesheets API (work + other leave)
+        - discarded_entries: Entries not posted to Xero (unpaid leave)
     """
-    leave_api_entries = []  # Annual, Sick (Leave API)
-    timesheet_entries = []  # Work, Other Leave (Timesheets API)
-    discarded_entries = []  # Unpaid (not posted)
+    leave_api_entries = []  # Leave API entries
+    timesheet_entries = []  # Timesheets API entries
+    discarded_entries = []  # Not posted
 
     for entry in entries:
         job = entry.cost_set.job
-        leave_type = job.get_leave_type()
+        category = PayrollCategory.get_for_job(job)
 
-        if leave_type == "annual":
-            leave_api_entries.append(entry)
-        elif leave_type == "sick":
-            leave_api_entries.append(entry)
-        elif leave_type == "other":
-            # Other leave is paid but has no balance - post as timesheet
+        if category is None:
+            # Regular work - post as timesheet
             timesheet_entries.append(entry)
-        elif leave_type == "unpaid":
-            # Unpaid leave - don't post to Xero
+        elif not category.posts_to_xero:
+            # Doesn't post to Xero (e.g., unpaid leave)
             discarded_entries.append(entry)
-        elif leave_type == "N/A":
-            # Regular work hours
-            timesheet_entries.append(entry)
+        elif category.uses_leave_api:
+            # Uses Leave API (e.g., annual, sick)
+            leave_api_entries.append(entry)
         else:
-            raise ValueError(
-                f"Unknown leave type '{leave_type}' for job {job.job_number}. "
-                "Expected: annual, sick, other, unpaid, or N/A"
-            )
+            # Uses Timesheets API (e.g., other leave)
+            timesheet_entries.append(entry)
 
     return leave_api_entries, timesheet_entries, discarded_entries
 
 
-def _map_work_entries(entries: List, company_defaults) -> List[Dict[str, Any]]:
+def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     """
     Map work CostLine entries to Xero Payroll timesheet lines format.
 
+    Uses PayrollCategory to look up earnings rate names by rate multiplier.
+
     Args:
         entries: List of work CostLine entries
-        company_defaults: CompanyDefaults instance with earnings rate name mappings
 
     Returns:
         List of timesheet line dictionaries for Xero API
@@ -1607,19 +1651,22 @@ def _map_work_entries(entries: List, company_defaults) -> List[Dict[str, Any]]:
     timesheet_lines = []
 
     for entry in entries:
-        rate_multiplier = entry.meta.get("wage_rate_multiplier", 1.0)
+        rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
 
-        # Map rate_multiplier to earnings rate name field
-        rate_mapping = {
-            2.0: "xero_double_time_earnings_rate_name",
-            1.5: "xero_time_half_earnings_rate_name",
-            1.0: "xero_ordinary_earnings_rate_name",
-        }
+        # Look up PayrollCategory by rate multiplier
+        category = PayrollCategory.objects.filter(
+            rate_multiplier=rate_multiplier,
+            job_name_pattern__isnull=True,
+        ).first()
+        if category is None:
+            # Fall back to ordinary time
+            category = PayrollCategory.objects.get(name="work_ordinary")
 
-        field_name = rate_mapping.get(
-            rate_multiplier, "xero_ordinary_earnings_rate_name"
-        )
-        rate_name = getattr(company_defaults, field_name)
+        rate_name = category.xero_earnings_rate_name
+        if not rate_name:
+            raise ValueError(
+                f"PayrollCategory '{category.name}' does not have an earnings rate name configured"
+            )
 
         # Look up the ID by name from Xero at runtime
         earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
@@ -1638,56 +1685,51 @@ def _map_work_entries(entries: List, company_defaults) -> List[Dict[str, Any]]:
 def _post_leave_entries(
     employee_id: UUID,
     entries: List,
-    company_defaults,
 ) -> List[str]:
     """
     Post leave CostLine entries to Xero using the Leave API.
 
     Groups consecutive days of the same leave type together.
+    Uses PayrollCategory to look up Xero leave type IDs.
 
     Args:
         employee_id: Xero employee ID
         entries: List of leave CostLine entries
-        company_defaults: CompanyDefaults instance with leave type ID mappings
 
     Returns:
         List of leave IDs created in Xero
     """
-    # Map leave type to leave_type_id field
-    leave_mapping = {
-        "annual": ("xero_annual_leave_type_id", "Annual leave"),
-        "sick": ("xero_sick_leave_type_id", "Sick leave"),
-        "other": ("xero_other_leave_type_id", "Other leave"),
-        "unpaid": ("xero_unpaid_leave_type_id", "Unpaid leave"),
-    }
-
-    # Group entries by leave type and sort by date
+    # Group entries by PayrollCategory and sort by date
     grouped = defaultdict(list)
     for entry in entries:
         job = entry.cost_set.job
-        leave_type = job.get_leave_type()
+        category = PayrollCategory.get_for_job(job)
 
-        if leave_type not in leave_mapping:
-            raise ValueError(f"Unknown leave type: {leave_type}")
+        if category is None:
+            raise ValueError(
+                f"Job '{job.name}' is not a leave job but was passed to _post_leave_entries"
+            )
 
-        grouped[leave_type].append(entry)
+        grouped[category].append(entry)
 
     # Sort each group by date
-    for leave_type in grouped:
-        grouped[leave_type].sort(key=lambda e: e.accounting_date)
+    for category in grouped:
+        grouped[category].sort(key=lambda e: e.accounting_date)
 
     leave_ids = []
 
-    # Process each leave type
-    for leave_type, type_entries in grouped.items():
-        field_name, leave_name = leave_mapping[leave_type]
-        leave_type_id = getattr(company_defaults, field_name)
+    # Process each leave category
+    for category, type_entries in grouped.items():
+        leave_type_name = category.xero_leave_type_name
 
-        if not leave_type_id:
+        if not leave_type_name:
             raise ValueError(
-                f"{leave_name} type ID not configured. "
+                f"PayrollCategory '{category.display_name}' does not have a Xero leave type name configured. "
                 "Run: python manage.py interact_with_xero --configure-payroll"
             )
+
+        # Look up the ID by name from Xero at runtime
+        leave_type_id = get_leave_type_id_by_name(leave_type_name)
 
         # Group consecutive days together
         if not type_entries:
@@ -1716,7 +1758,7 @@ def _post_leave_entries(
                     start_date=current_start,
                     end_date=current_end,
                     hours_per_day=current_hours,
-                    description=f"{leave_name}",
+                    description=category.display_name,
                 )
                 leave_ids.append(leave_id)
 
@@ -1732,7 +1774,7 @@ def _post_leave_entries(
             start_date=current_start,
             end_date=current_end,
             hours_per_day=current_hours,
-            description=f"{leave_name}",
+            description=category.display_name,
         )
         leave_ids.append(leave_id)
 

@@ -57,6 +57,7 @@ from apps.workflow.views.aws_instance_view import (
     stop_instance,
 )
 from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
+from apps.workflow.views.payroll_category_viewset import PayrollCategoryViewSet
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
 
@@ -66,6 +67,9 @@ from apps.workflow.xero_webhooks import XeroWebhookView
 router = DefaultRouter()
 router.register("ai-providers", AIProviderViewSet, basename="ai-provider")
 router.register("app-errors", AppErrorViewSet, basename="app-error")
+router.register(
+    "payroll-categories", PayrollCategoryViewSet, basename="payroll-category"
+)
 
 # Create home redirect pattern with metadata
 home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")

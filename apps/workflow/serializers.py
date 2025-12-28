@@ -5,6 +5,7 @@ from .models import (
     AIProvider,
     AppError,
     CompanyDefaults,
+    PayrollCategory,
     XeroAccount,
     XeroError,
     XeroToken,
@@ -81,6 +82,61 @@ class AIProviderCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"api_key": "API key is required for a new provider."}
             )
+        return data
+
+
+class PayrollCategorySerializer(serializers.ModelSerializer):
+    """Serializer for reading PayrollCategory instances."""
+
+    class Meta:
+        model = PayrollCategory
+        fields = (
+            "id",
+            "name",
+            "display_name",
+            "job_name_pattern",
+            "rate_multiplier",
+            "posts_to_xero",
+            "uses_leave_api",
+            "xero_leave_type_name",
+            "xero_earnings_rate_name",
+        )
+
+
+class PayrollCategoryCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for creating and updating PayrollCategory instances."""
+
+    class Meta:
+        model = PayrollCategory
+        fields = (
+            "name",
+            "display_name",
+            "job_name_pattern",
+            "rate_multiplier",
+            "posts_to_xero",
+            "uses_leave_api",
+            "xero_leave_type_name",
+            "xero_earnings_rate_name",
+        )
+
+    def validate(self, data):
+        """Validate that categories have appropriate Xero names configured."""
+        posts_to_xero = data.get("posts_to_xero", True)
+        uses_leave_api = data.get("uses_leave_api", False)
+
+        if posts_to_xero:
+            if uses_leave_api and not data.get("xero_leave_type_name"):
+                raise serializers.ValidationError(
+                    {
+                        "xero_leave_type_name": "Required when posts_to_xero=True and uses_leave_api=True."
+                    }
+                )
+            if not uses_leave_api and not data.get("xero_earnings_rate_name"):
+                raise serializers.ValidationError(
+                    {
+                        "xero_earnings_rate_name": "Required when posts_to_xero=True and uses_leave_api=False."
+                    }
+                )
         return data
 
 
