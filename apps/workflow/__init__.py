@@ -3,7 +3,6 @@
 from .apps import WorkflowConfig
 from .enums import AIProviderTypes
 from .exceptions import AlreadyLoggedException, XeroValidationError
-from .helpers import DecimalEncoder, decimal_to_float
 from .utils import (
     extract_messages,
     get_machine_id,
@@ -85,7 +84,6 @@ __all__ = [
     "AppErrorSerializer",
     "BearerIdentityMiddleware",
     "CompanyDefaultsSerializer",
-    "DecimalEncoder",
     "DisallowedHostMiddleware",
     "F",
     "FrontendRedirectMiddleware",
@@ -113,7 +111,6 @@ __all__ = [
     "XeroValidationError",
     "XeroWebhookView",
     "debug_mode",
-    "decimal_to_float",
     "extract_messages",
     "get_machine_id",
     "get_scheduler",

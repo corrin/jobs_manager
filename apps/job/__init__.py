@@ -2,7 +2,7 @@
 
 from .apps import JobConfig
 from .enums import MetalType, SpeedQualityTradeoff
-from .helpers import DecimalEncoder, decimal_to_float, get_job_folder_path
+from .helpers import get_job_folder_path
 
 # Conditional imports (only when Django is ready)
 try:
@@ -19,7 +19,6 @@ except (ImportError, RuntimeError):
     pass
 
 __all__ = [
-    "DecimalEncoder",
     "DiffResult",
     "IsOfficeStaff",
     "JobConfig",
@@ -28,7 +27,6 @@ __all__ = [
     "MetalType",
     "SpeedQualityTradeoff",
     "apply_diff",
-    "decimal_to_float",
     "diff_costset",
     "get_active_jobs",
     "get_job_folder_path",
