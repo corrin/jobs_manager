@@ -13,7 +13,7 @@ from django.db import transaction
 from apps.accounts.models import Staff
 from apps.workflow.api.xero.payroll import (
     create_payroll_employee,
-    get_earnings_rates,
+    get_earnings_rate_id_by_name,
     get_employees,
     get_payroll_calendars,
 )
@@ -263,19 +263,25 @@ class PayrollEmployeeSyncService:
         raise ValueError(f"Calendar '{company.xero_payroll_calendar_name}' not found")
 
     @classmethod
-    def _get_ordinary_earnings_rate_id(cls) -> Optional[str]:
-        """Get 'Ordinary Time' earnings rate ID from Xero (cached per sync run)."""
+    def _get_ordinary_earnings_rate_id(cls) -> str:
+        """Get earnings rate ID for 'Ordinary Time' from Xero (cached per sync run)."""
         if cls._cached_ordinary_earnings_rate_id is not None:
             return cls._cached_ordinary_earnings_rate_id
 
-        rates = get_earnings_rates()
-        for rate in rates:
-            if rate.get("name", "").lower() == "ordinary time":
-                cls._cached_ordinary_earnings_rate_id = rate["id"]
-                logger.info("Found earnings rate '%s': %s", rate["name"], rate["id"])
-                return cls._cached_ordinary_earnings_rate_id
+        company = CompanyDefaults.get_instance()
+        rate_name = company.xero_ordinary_earnings_rate_name
+        if not rate_name:
+            raise ValueError(
+                "CompanyDefaults.xero_ordinary_earnings_rate_name is not configured."
+            )
 
-        raise ValueError("Earnings rate 'Ordinary Time' not found in Xero")
+        cls._cached_ordinary_earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
+        logger.info(
+            "Found earnings rate '%s': %s",
+            rate_name,
+            cls._cached_ordinary_earnings_rate_id,
+        )
+        return cls._cached_ordinary_earnings_rate_id
 
     @classmethod
     def _build_employee_payload(cls, staff: Staff) -> Dict[str, Any]:

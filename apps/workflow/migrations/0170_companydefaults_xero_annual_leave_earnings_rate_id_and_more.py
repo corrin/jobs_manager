@@ -63,35 +63,32 @@ class Migration(migrations.Migration):
                 null=True,
             ),
         ),
-        # Work Time Earnings Rate IDs (use Xero Timesheets API)
+        # Work Time Earnings Rate Names (IDs looked up at runtime - vary per install)
         migrations.AddField(
             model_name="companydefaults",
-            name="xero_ordinary_earnings_rate_id",
+            name="xero_ordinary_earnings_rate_name",
             field=models.CharField(
-                blank=True,
-                help_text="Xero Payroll earnings rate ID for Ordinary Time (1.0x)",
+                default="Ordinary Time",
+                help_text="Xero Payroll earnings rate name for Ordinary Time (1.0x)",
                 max_length=100,
-                null=True,
             ),
         ),
         migrations.AddField(
             model_name="companydefaults",
-            name="xero_time_half_earnings_rate_id",
+            name="xero_time_half_earnings_rate_name",
             field=models.CharField(
-                blank=True,
-                help_text="Xero Payroll earnings rate ID for Time and a Half (1.5x)",
+                default="Time and one half",
+                help_text="Xero Payroll earnings rate name for Time and a Half (1.5x)",
                 max_length=100,
-                null=True,
             ),
         ),
         migrations.AddField(
             model_name="companydefaults",
-            name="xero_double_time_earnings_rate_id",
+            name="xero_double_time_earnings_rate_name",
             field=models.CharField(
-                blank=True,
-                help_text="Xero Payroll earnings rate ID for Double Time (2.0x)",
+                default="Double Time",
+                help_text="Xero Payroll earnings rate name for Double Time (2.0x)",
                 max_length=100,
-                null=True,
             ),
         ),
         migrations.AlterField(

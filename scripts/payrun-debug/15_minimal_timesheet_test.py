@@ -21,6 +21,7 @@ from xero_python.payrollnz import PayrollNzApi
 from xero_python.payrollnz.models import Timesheet, TimesheetLine
 
 from apps.accounts.models import Staff
+from apps.workflow.api.xero.payroll import get_earnings_rate_id_by_name
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.models import CompanyDefaults, XeroPayRun
 
@@ -40,11 +41,9 @@ def main():
         return
     logger.info(f"tenant_id: {tenant_id[:8]}...")
     defaults = CompanyDefaults.get_instance()
-    earnings_rate_id = defaults.xero_ordinary_earnings_rate_id
-    if not earnings_rate_id:
-        logger.error("No earnings_rate_id configured")
-        return
-    logger.info(f"earnings_rate_id: {earnings_rate_id[:8]}...")
+    rate_name = defaults.xero_ordinary_earnings_rate_name
+    earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
+    logger.info(f"earnings_rate '{rate_name}': {earnings_rate_id[:8]}...")
     try:
         pay_run = XeroPayRun.objects.get(
             period_start_date=week_start,

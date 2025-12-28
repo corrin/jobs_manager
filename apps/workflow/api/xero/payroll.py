@@ -735,6 +735,41 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
         persist_and_raise(exc)
 
 
+# Cache for earnings rate lookups (populated once per session)
+_earnings_rate_cache: Dict[str, str] = {}
+
+
+def get_earnings_rate_id_by_name(name: str) -> str:
+    """
+    Look up a Xero earnings rate ID by its name.
+
+    Caches results to avoid repeated API calls.
+
+    Args:
+        name: The earnings rate name (e.g., "Ordinary Time")
+
+    Returns:
+        The earnings rate ID (UUID string)
+
+    Raises:
+        ValueError: If the named earnings rate is not found in Xero
+    """
+    if not _earnings_rate_cache:
+        # Populate cache from Xero API
+        rates = get_earnings_rates()
+        for rate in rates:
+            _earnings_rate_cache[rate["name"]] = rate["id"]
+
+    if name not in _earnings_rate_cache:
+        available = ", ".join(sorted(_earnings_rate_cache.keys()))
+        raise ValueError(
+            f"Earnings rate '{name}' not found in Xero. "
+            f"Available rates: {available}"
+        )
+
+    return _earnings_rate_cache[name]
+
+
 def _coerce_xero_date(value: Any) -> Optional[date]:
     """Normalize Xero date or datetime payloads (strings, datetimes, dates) into date objects."""
     if value is None:
@@ -1493,7 +1528,7 @@ def _map_work_entries(entries: List, company_defaults) -> List[Dict[str, Any]]:
 
     Args:
         entries: List of work CostLine entries
-        company_defaults: CompanyDefaults instance with earnings rate mappings
+        company_defaults: CompanyDefaults instance with earnings rate name mappings
 
     Returns:
         List of timesheet line dictionaries for Xero API
@@ -1503,23 +1538,20 @@ def _map_work_entries(entries: List, company_defaults) -> List[Dict[str, Any]]:
     for entry in entries:
         rate_multiplier = entry.meta.get("wage_rate_multiplier", 1.0)
 
-        # Map rate_multiplier to earnings rate field
+        # Map rate_multiplier to earnings rate name field
         rate_mapping = {
-            2.0: ("xero_double_time_earnings_rate_id", "Double time"),
-            1.5: ("xero_time_half_earnings_rate_id", "Time and a half"),
-            1.0: ("xero_ordinary_earnings_rate_id", "Ordinary time"),
+            2.0: "xero_double_time_earnings_rate_name",
+            1.5: "xero_time_half_earnings_rate_name",
+            1.0: "xero_ordinary_earnings_rate_name",
         }
 
-        field_name, rate_name = rate_mapping.get(
-            rate_multiplier, ("xero_ordinary_earnings_rate_id", "Ordinary time")
+        field_name = rate_mapping.get(
+            rate_multiplier, "xero_ordinary_earnings_rate_name"
         )
-        earnings_rate_id = getattr(company_defaults, field_name)
+        rate_name = getattr(company_defaults, field_name)
 
-        if not earnings_rate_id:
-            raise ValueError(
-                f"{rate_name} earnings rate not configured. "
-                "Run: python manage.py interact_with_xero --configure-payroll"
-            )
+        # Look up the ID by name from Xero at runtime
+        earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
 
         timesheet_lines.append(
             {

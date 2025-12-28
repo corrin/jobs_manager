@@ -35,6 +35,7 @@ from apps.job.models.costing import CostLine
 from apps.workflow.api.xero.payroll import (
     _categorize_entries,
     _map_work_entries,
+    get_earnings_rate_id_by_name,
     get_earnings_rates,
     get_employees,
     get_pay_runs,
@@ -93,25 +94,18 @@ def check_company_defaults() -> CompanyDefaults | None:
 
     print_success(f"Company: {defaults.company_name}")
 
-    # Check earnings rate IDs
+    # Check earnings rate names (IDs looked up at runtime)
     rates = [
-        ("Ordinary Time (1.0x)", defaults.xero_ordinary_earnings_rate_id),
-        ("Time and a Half (1.5x)", defaults.xero_time_half_earnings_rate_id),
-        ("Double Time (2.0x)", defaults.xero_double_time_earnings_rate_id),
+        ("Ordinary Time (1.0x)", defaults.xero_ordinary_earnings_rate_name),
+        ("Time and a Half (1.5x)", defaults.xero_time_half_earnings_rate_name),
+        ("Double Time (2.0x)", defaults.xero_double_time_earnings_rate_name),
     ]
 
-    all_ok = True
-    for name, rate_id in rates:
-        if rate_id:
-            print_success(f"{name}: {rate_id}")
+    for label, rate_name in rates:
+        if rate_name:
+            print_success(f"{label}: '{rate_name}'")
         else:
-            print_warning(f"{name}: NOT CONFIGURED")
-            all_ok = False
-
-    if not all_ok:
-        print_info(
-            "Configure with: python manage.py interact_with_xero --configure-payroll"
-        )
+            print_warning(f"{label}: NOT CONFIGURED")
 
     return defaults
 
@@ -619,10 +613,11 @@ def run_debug(week_start: date, staff_email: str | None = None) -> None:
             print_error("Could not determine payroll calendar ID for employee")
             return
 
-        earnings_rate_id = defaults.xero_ordinary_earnings_rate_id
-        if not earnings_rate_id:
-            print_error("Ordinary earnings rate not configured")
+        rate_name = defaults.xero_ordinary_earnings_rate_name
+        if not rate_name:
+            print_error("Ordinary earnings rate name not configured")
             return
+        earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
 
         success = try_create_minimal_timesheet(
             employee_id=employee_id,

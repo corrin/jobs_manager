@@ -95,23 +95,21 @@ class CompanyDefaults(models.Model):
     )
 
     # Xero Payroll NZ earnings rate mappings for work time
-    xero_ordinary_earnings_rate_id = models.CharField(
+    # Names are used to look up IDs at runtime (IDs vary per Xero install)
+    xero_ordinary_earnings_rate_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll earnings rate ID for Ordinary Time (1.0x)",
+        default="Ordinary Time",
+        help_text="Xero Payroll earnings rate name for Ordinary Time (1.0x)",
     )
-    xero_time_half_earnings_rate_id = models.CharField(
+    xero_time_half_earnings_rate_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll earnings rate ID for Time and a Half (1.5x)",
+        default="Time and one half",
+        help_text="Xero Payroll earnings rate name for Time and a Half (1.5x)",
     )
-    xero_double_time_earnings_rate_id = models.CharField(
+    xero_double_time_earnings_rate_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll earnings rate ID for Double Time (2.0x)",
+        default="Double Time",
+        help_text="Xero Payroll earnings rate name for Double Time (2.0x)",
     )
     xero_payroll_calendar_name = models.CharField(
         max_length=100,

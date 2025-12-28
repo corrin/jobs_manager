@@ -504,22 +504,28 @@ class Command(BaseCommand):
                 "Unpaid Leave", leave_types, company_defaults.xero_unpaid_leave_type_id
             )
 
-            # Configure work rates
+            # Configure work rates (by name - IDs are looked up at runtime)
             self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))
-            company_defaults.xero_ordinary_earnings_rate_id = self._prompt_for_rate(
-                "Ordinary Time (1.0x)",
-                rates,
-                company_defaults.xero_ordinary_earnings_rate_id,
+            company_defaults.xero_ordinary_earnings_rate_name = (
+                self._prompt_for_rate_name(
+                    "Ordinary Time (1.0x)",
+                    rates,
+                    company_defaults.xero_ordinary_earnings_rate_name,
+                )
             )
-            company_defaults.xero_time_half_earnings_rate_id = self._prompt_for_rate(
-                "Time and a Half (1.5x)",
-                rates,
-                company_defaults.xero_time_half_earnings_rate_id,
+            company_defaults.xero_time_half_earnings_rate_name = (
+                self._prompt_for_rate_name(
+                    "Time and a Half (1.5x)",
+                    rates,
+                    company_defaults.xero_time_half_earnings_rate_name,
+                )
             )
-            company_defaults.xero_double_time_earnings_rate_id = self._prompt_for_rate(
-                "Double Time (2.0x)",
-                rates,
-                company_defaults.xero_double_time_earnings_rate_id,
+            company_defaults.xero_double_time_earnings_rate_name = (
+                self._prompt_for_rate_name(
+                    "Double Time (2.0x)",
+                    rates,
+                    company_defaults.xero_double_time_earnings_rate_name,
+                )
             )
 
             # Save
@@ -736,23 +742,25 @@ class Command(BaseCommand):
             for entry in missing:
                 self.stdout.write(f"  {entry['email']}")
 
-    def _prompt_for_rate(self, label, rates, current_value):
-        """Prompt user to select an earnings rate"""
+    def _prompt_for_rate_name(self, label, rates, current_value):
+        """Prompt user to select an earnings rate by name (IDs looked up at runtime)."""
         current_display = current_value if current_value else "Not set"
-        prompt = f"\n{label} (current: {current_display})\nEnter earnings rate ID (or press Enter to skip): "
+        prompt = f"\n{label} (current: {current_display})\nEnter earnings rate name (or press Enter to keep): "
 
-        rate_id = input(prompt).strip()
+        rate_name = input(prompt).strip()
 
-        if not rate_id:
+        if not rate_name:
             return current_value  # Keep existing value
 
-        # Validate that the rate ID exists
-        if not any(r["id"] == rate_id for r in rates):
+        # Validate that the rate name exists
+        if not any(r["name"] == rate_name for r in rates):
             self.stdout.write(
-                self.style.WARNING(f"Warning: {rate_id} not found in available rates")
+                self.style.WARNING(
+                    f"Warning: '{rate_name}' not found in available rates"
+                )
             )
-            confirm = input("Use this ID anyway? (y/N): ").strip().lower()
+            confirm = input("Use this name anyway? (y/N): ").strip().lower()
             if confirm != "y":
                 return current_value
 
-        return rate_id
+        return rate_name
