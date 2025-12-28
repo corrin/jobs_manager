@@ -974,10 +974,48 @@ def find_payroll_calendar_for_week(week_start_date: date) -> str:
     return str(pay_run.payroll_calendar_id)
 
 
+def get_all_timesheets_for_week(week_start_date: date) -> Dict[str, Any]:
+    """
+    Fetch all existing timesheets for a week from Xero, keyed by employee_id.
+
+    This allows batch operations to check for existing timesheets with a single
+    API call instead of one per employee.
+
+    Args:
+        week_start_date: Monday of the week
+
+    Returns:
+        Dict mapping employee_id (str) to existing Timesheet object
+    """
+    week_end_date = week_start_date + timedelta(days=6)
+    payroll_api = PayrollNzApi(api_client)
+    tenant_id = get_tenant_id()
+
+    logger.info(
+        f"Fetching all timesheets for week {week_start_date} to {week_end_date}"
+    )
+
+    response = payroll_api.get_timesheets(
+        xero_tenant_id=tenant_id,
+        start_date=week_start_date,
+        end_date=week_end_date,
+    )
+
+    result: Dict[str, Any] = {}
+    if response and response.timesheets:
+        for ts in response.timesheets:
+            if ts.start_date.date() == week_start_date:
+                result[str(ts.employee_id)] = ts
+
+    logger.info(f"Found {len(result)} existing timesheets for week")
+    return result
+
+
 def post_timesheet(
     employee_id: UUID,
     week_start_date: date,
     timesheet_lines: List[Dict[str, Any]],
+    existing_timesheet: Optional[Any] = None,
 ) -> Timesheet:
     """
     Post a weekly timesheet to Xero Payroll following Xero's workflow:
@@ -995,6 +1033,8 @@ def post_timesheet(
             - date (date): Date for this entry
             - earnings_rate_id (str): Xero earnings rate ID
             - number_of_units (float): Hours
+        existing_timesheet: Pre-fetched existing timesheet for this employee/week
+            (optional - if provided, skips the per-employee API call)
 
     Returns:
         Timesheet object (existing or newly created)
@@ -1030,26 +1070,32 @@ def post_timesheet(
         week_end_date = week_start_date + timedelta(days=6)
 
         # Step 1: Check if timesheet already exists
-        logger.info(f"Checking for existing timesheet for week {week_start_date}")
-        filter_str = f"employeeId=={employee_id}"
-        timesheets_response = payroll_api.get_timesheets(
-            xero_tenant_id=tenant_id,
-            filter=filter_str,
-            start_date=week_start_date,
-            end_date=week_end_date,
-        )
+        # Use pre-fetched existing_timesheet if provided (batch mode)
+        # Otherwise fetch per-employee (single mode - for backwards compatibility)
+        if existing_timesheet is None:
+            logger.info(f"Checking for existing timesheet for week {week_start_date}")
+            filter_str = f"employeeId=={employee_id}"
+            timesheets_response = payroll_api.get_timesheets(
+                xero_tenant_id=tenant_id,
+                filter=filter_str,
+                start_date=week_start_date,
+                end_date=week_end_date,
+            )
 
-        existing_timesheet = None
-        if timesheets_response and timesheets_response.timesheets:
-            # Find timesheet matching our week
-            for ts in timesheets_response.timesheets:
-                if (
-                    ts.start_date.date() == week_start_date
-                    and ts.end_date.date() == week_end_date
-                ):
-                    existing_timesheet = ts
-                    logger.info(f"Found existing timesheet: {ts.timesheet_id}")
-                    break
+            if timesheets_response and timesheets_response.timesheets:
+                # Find timesheet matching our week
+                for ts in timesheets_response.timesheets:
+                    if (
+                        ts.start_date.date() == week_start_date
+                        and ts.end_date.date() == week_end_date
+                    ):
+                        existing_timesheet = ts
+                        logger.info(f"Found existing timesheet: {ts.timesheet_id}")
+                        break
+        elif existing_timesheet:
+            logger.info(
+                f"Using pre-fetched existing timesheet: {existing_timesheet.timesheet_id}"
+            )
 
         # Step 2: If timesheet exists, delete it entirely (faster than deleting lines one-by-one)
         if existing_timesheet:
@@ -1320,13 +1366,19 @@ def get_all_pay_slips_for_sync(**kwargs):
     return type("obj", (object,), {"pay_slips": all_pay_slips})()
 
 
-def post_staff_week_to_xero(staff_id: UUID, week_start_date: date) -> Dict[str, Any]:
+def post_staff_week_to_xero(
+    staff_id: UUID,
+    week_start_date: date,
+    existing_timesheet: Optional[Any] = None,
+) -> Dict[str, Any]:
     """
     Post a week's timesheet to Xero Payroll for a specific staff member.
 
     Args:
         staff_id: UUID of the staff member
         week_start_date: Monday of the week to post (must be a Monday)
+        existing_timesheet: Pre-fetched existing timesheet from Xero (optional)
+            If provided, skips the per-employee API call to check for existing
 
     Returns:
         Dict containing:
@@ -1448,6 +1500,7 @@ def post_staff_week_to_xero(staff_id: UUID, week_start_date: date) -> Dict[str, 
                 employee_id=xero_employee_id,
                 week_start_date=week_start_date,
                 timesheet_lines=timesheet_lines,
+                existing_timesheet=existing_timesheet,
             )
             xero_timesheet_id = str(timesheet.timesheet_id)
             logger.info(f"Successfully posted timesheet {xero_timesheet_id}")

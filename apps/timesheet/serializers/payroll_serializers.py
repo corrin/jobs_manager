@@ -25,9 +25,12 @@ class CreatePayRunResponseSerializer(serializers.Serializer):
 
 
 class PostWeekToXeroSerializer(serializers.Serializer):
-    """Request serializer for posting weekly timesheet to Xero"""
+    """Request serializer for posting weekly timesheets to Xero"""
 
-    staff_id = serializers.UUIDField(help_text="Staff member UUID")
+    staff_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        help_text="List of staff member UUIDs",
+    )
     week_start_date = serializers.DateField(help_text="Monday of the week (YYYY-MM-DD)")
 
 

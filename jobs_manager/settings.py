@@ -414,6 +414,26 @@ LOGIN_EXEMPT_URLS = [
     "accounts:token_verify",
 ]
 
+# API path prefixes - single source of truth for middlewares
+# These paths bypass browser redirect and use DRF/JWT authentication
+API_PATH_PREFIXES = [
+    "/api/",
+    "/clients/",
+    "/job/api/",
+    "/job/rest/",
+    "/purchasing/api/",
+    "/accounts/api/",
+    "/accounts/me/",
+    "/accounts/logout/",
+    "/timesheets/api/",
+    "/quoting/api/",
+    "/accounting/api/",
+    "/api/schema/",
+    "/api/docs",
+    "/api/xero/",
+    "/login",
+]
+
 # For OpenAPI schema generator
 SPECTACULAR_SETTINGS = {
     "TITLE": "Jobs Manager API",

@@ -120,24 +120,10 @@ class FrontendRedirectMiddleware:
     def _is_allowed_backend_endpoint(self, request: HttpRequest) -> bool:
         """
         Endpoints that should continue working on the backend.
-        Only APIs and specific necessary endpoints.
+        Uses API_PATH_PREFIXES from settings as single source of truth.
         """
-        allowed_patterns = [
-            "/api/*",  # All APIs
-            "/clients/",  # Client REST API
-            "/job/api/",  # Job REST API
-            "/job/rest/",  # Job REST API (including file operations)
-            "/purchasing/api/",  # Purchasing REST API
-            "/accounts/api/",  # Accounts REST API
-            "/accounts/logout/",  # Logout endpoint - CRITICAL for clearing JWT cookies
-            "/timesheet/api/",  # Timesheet REST API
-            "/quoting/api/",  # Quoting REST API
-            "/accounting/api/",  # Accounting REST API
-            "/login",  # Login redirect already configured
-            "/api/schema/",  # OpenAPI schema
-            "/api/docs",  # API documentation
-            "/api/xero/",  # Xero endpoints
-        ]
+        # Use API_PATH_PREFIXES from settings (single source of truth)
+        allowed_patterns = getattr(settings, "API_PATH_PREFIXES", [])
 
         # Specific endpoints that need to work
         specific_endpoints = [
@@ -271,18 +257,8 @@ class LoginRequiredMiddleware:
 
         if not request.user.is_authenticated:
             # Skip authentication check for DRF endpoints - let DRF handle authentication
-            drf_endpoints = [
-                "/clients/",
-                "/api/",
-                "/job/api/",
-                "/purchasing/api/",
-                "/accounts/api/",
-                "/accounts/me/",  # User profile endpoint
-                "/accounts/logout/",  # Logout endpoint
-                "/timesheet/api/",
-                "/quoting/api/",
-                "/accounting/api/",
-            ]
+            # Uses API_PATH_PREFIXES from settings (single source of truth)
+            drf_endpoints = getattr(settings, "API_PATH_PREFIXES", [])
 
             # Check if this is a DRF endpoint
             if any(
