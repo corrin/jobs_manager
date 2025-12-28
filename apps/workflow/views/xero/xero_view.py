@@ -21,11 +21,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from xero_python.identity import IdentityApi
 
-from apps.accounting.models import Bill, CreditNote, Invoice, Quote
-from apps.client.models import Client
+from apps.accounting.models import Invoice
 from apps.job.models import Job
-from apps.purchasing.models import PurchaseOrder, Stock
+from apps.purchasing.models import PurchaseOrder
 from apps.workflow.api.pagination import FiftyPerPagePagination
+from apps.workflow.api.xero.sync import ENTITY_CONFIGS
 from apps.workflow.api.xero.xero import (
     api_client,
     exchange_code_for_token,
@@ -35,7 +35,7 @@ from apps.workflow.api.xero.xero import (
     refresh_token,
 )
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.models import XeroAccount, XeroError, XeroJournal, XeroToken
+from apps.workflow.models import XeroError, XeroToken
 from apps.workflow.serializers import (
     XeroAuthenticationErrorResponseSerializer,
     XeroDocumentErrorResponseSerializer,
@@ -48,7 +48,10 @@ from apps.workflow.serializers import (
     XeroSyncStartResponseSerializer,
     XeroTriggerSyncResponseSerializer,
 )
-from apps.workflow.services.error_persistence import persist_and_raise
+from apps.workflow.services.error_persistence import (
+    persist_and_raise,
+    persist_app_error,
+)
 from apps.workflow.services.xero_sync_service import XeroSyncService
 
 from .xero_invoice_manager import XeroInvoiceManager
@@ -846,11 +849,12 @@ def xero_sync_progress_page(request):
         if not token:
             logger.info("No valid token found, redirecting to Xero authentication")
             return redirect("api_xero_authenticate")
-        # Ensure this import works correctly after refactor
-        from apps.workflow.templatetags.xero_tags import XERO_ENTITIES
+
+        # Build entity list from ENTITY_CONFIGS (the single source of truth)
+        xero_entities = list(ENTITY_CONFIGS.keys())
 
         return render(
-            request, "xero/xero_sync_progress.html", {"XERO_ENTITIES": XERO_ENTITIES}
+            request, "xero/xero_sync_progress.html", {"XERO_ENTITIES": xero_entities}
         )
     except Exception as e:
         logger.error(f"Error accessing sync progress page: {str(e)}")
@@ -859,9 +863,17 @@ def xero_sync_progress_page(request):
         return render(request, "general/generic_error.html", {"error_message": str(e)})
 
 
+def _get_last_sync_time(model):
+    """Get the last sync time for a model, or None if no records exist."""
+    if not model.objects.exists():
+        return None
+    latest = model.objects.order_by("-xero_last_synced").first()
+    return latest.xero_last_synced if latest else None
+
+
 @csrf_exempt
 def get_xero_sync_info(request):
-    """Get current sync status and last sync times, including Xero Items/Stock."""
+    """Get current sync status and last sync times for all entities in ENTITY_CONFIGS."""
     try:
         token = get_valid_token()
         if not token:
@@ -872,61 +884,13 @@ def get_xero_sync_info(request):
                 },
                 status=401,
             )
-        last_syncs = {
-            "accounts": (
-                XeroAccount.objects.order_by("-xero_last_synced")
-                .first()
-                .xero_last_synced
-                if XeroAccount.objects.exists()
-                else None
-            ),
-            "contacts": (
-                Client.objects.order_by("-xero_last_synced").first().xero_last_synced
-                if Client.objects.exists()
-                else None
-            ),
-            "invoices": (
-                Invoice.objects.order_by("-xero_last_synced").first().xero_last_synced
-                if Invoice.objects.exists()
-                else None
-            ),
-            "bills": (
-                Bill.objects.order_by("-xero_last_synced").first().xero_last_synced
-                if Bill.objects.exists()
-                else None
-            ),
-            "quotes": (
-                Quote.objects.order_by("-xero_last_synced").first().xero_last_synced
-                if Quote.objects.exists()
-                else None
-            ),
-            "purchase_orders": (
-                PurchaseOrder.objects.order_by("-xero_last_synced")
-                .first()
-                .xero_last_synced
-                if PurchaseOrder.objects.exists()
-                else None
-            ),
-            "credit_notes": (
-                CreditNote.objects.order_by("-xero_last_synced")
-                .first()
-                .xero_last_synced
-                if CreditNote.objects.exists()
-                else None
-            ),
-            "journals": (
-                XeroJournal.objects.order_by("-xero_last_synced")
-                .first()
-                .xero_last_synced
-                if XeroJournal.objects.exists()
-                else None
-            ),
-            "stock": (
-                Stock.objects.order_by("-xero_last_modified").first().xero_last_modified
-                if Stock.objects.exists()
-                else None
-            ),
-        }
+
+        # Build last_syncs dynamically from ENTITY_CONFIGS
+        last_syncs = {}
+        for entity_key, config in ENTITY_CONFIGS.items():
+            model = config[2]  # Model is at index 2 in the config tuple
+            last_syncs[entity_key] = _get_last_sync_time(model)
+
         sync_range = "Syncing data since last successful sync"
         sync_in_progress = cache.get("xero_sync_lock", False)
 
@@ -940,9 +904,8 @@ def get_xero_sync_info(request):
         return JsonResponse(response_serializer.data)
     except Exception as e:
         logger.error(f"Error getting sync info: {str(e)}")
-        error_response = {"error": str(e)}
-        error_serializer = XeroSyncInfoResponseSerializer(error_response)
-        return JsonResponse(error_serializer.data, status=500)
+        persist_app_error(e)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt

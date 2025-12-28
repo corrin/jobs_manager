@@ -3,13 +3,8 @@
     "model": "workflow.companydefaults",
     "pk": 1,
     "fields": {
-      "company_name": "Morris Sheetmetal Works",
-      "company_abn": "12345678901",
-      "company_address": "123 Industrial Ave, Metalville",
-      "company_phone": "0123456789",
-      "company_email": "admin@morrissheetmetal.com",
-      "default_labour_rate": "45.00",
-      "default_markup_percentage": "25.00"
+      "company_name": "Test Company",
+      "company_email": "test@example.com"
     }
   },
   {

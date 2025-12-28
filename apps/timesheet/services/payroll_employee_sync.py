@@ -3,13 +3,24 @@
 from __future__ import annotations
 
 import logging
+import re
+import time
 from datetime import date
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.db import transaction
 
 from apps.accounts.models import Staff
-from apps.workflow.api.xero.payroll import create_payroll_employee, get_employees
+from apps.workflow.api.xero.payroll import (
+    create_payroll_employee,
+    get_earnings_rate_id_by_name,
+    get_employees,
+    get_payroll_calendars,
+)
+from apps.workflow.models import CompanyDefaults
+
+# Pattern to extract Staff UUID from job_title like "Workshop Worker [uuid-here]"
+STAFF_UUID_PATTERN = re.compile(r"\[([0-9a-f-]{36})\]$", re.IGNORECASE)
 
 logger = logging.getLogger("timesheet.payroll")
 
@@ -17,15 +28,23 @@ logger = logging.getLogger("timesheet.payroll")
 class PayrollEmployeeSyncService:
     """Service class used by management commands to sync staff with Xero Payroll."""
 
-    DEFAULT_COUNTRY: str = "New Zealand"
+    # Pause between creating employees to avoid overwhelming Xero API
+    PAUSE_BETWEEN_EMPLOYEES = 10  # seconds
+
+    # Employee defaults
     DEFAULT_DATE_OF_BIRTH: date = date(1990, 1, 1)
-    DEFAULT_START_DATE: date = date(2020, 1, 1)
+    DEFAULT_START_DATE: date = date(2025, 4, 1)  # April 1, 2025
     DEFAULT_JOB_TITLE: str = "Workshop Worker"
-    DEFAULT_ADDRESS_LINE1: str = "151 Captain Springs Road"
-    DEFAULT_ADDRESS_LINE2: str = ""
-    DEFAULT_CITY: str = "Auckland"
-    DEFAULT_SUBURB: str = "Onehunga"
-    DEFAULT_POST_CODE: str = "1061"
+
+    # Cached Xero lookups (populated once per sync run)
+    _cached_weekly_calendar_id: Optional[str] = None
+    _cached_ordinary_earnings_rate_id: Optional[str] = None
+
+    @classmethod
+    def _clear_cache(cls) -> None:
+        """Clear cached Xero lookups."""
+        cls._cached_weekly_calendar_id = None
+        cls._cached_ordinary_earnings_rate_id = None
 
     @classmethod
     def sync_staff(
@@ -38,8 +57,15 @@ class PayrollEmployeeSyncService:
         """
         Link Staff rows with Xero Payroll employees and optionally create missing employees.
         """
+        # Clear cache at start of each sync run
+        cls._clear_cache()
+
         if staff_queryset is None:
-            staff_queryset = Staff.objects.filter(date_left__isnull=True)
+            # Only sync active staff with a wage rate (excludes admin-only users)
+            staff_queryset = Staff.objects.filter(
+                date_left__isnull=True,
+                wage_rate__gt=0,
+            )
 
         staff_members = list(staff_queryset)
 
@@ -104,7 +130,7 @@ class PayrollEmployeeSyncService:
             summary["linked"].append(cls._summarize_link(staff, employee_id, match))
 
         if allow_create:
-            for staff, payload in creation_payloads:
+            for i, (staff, payload) in enumerate(creation_payloads):
                 employee = create_payroll_employee(payload)
                 employee_id = str(employee.employee_id)
                 cls._link_staff(staff, employee_id)
@@ -120,6 +146,13 @@ class PayrollEmployeeSyncService:
                         },
                     )
                 )
+                # Pause between employees (not after the last one)
+                if i < len(creation_payloads) - 1:
+                    logger.info(
+                        "Pausing %ds before next employee...",
+                        cls.PAUSE_BETWEEN_EMPLOYEES,
+                    )
+                    time.sleep(cls.PAUSE_BETWEEN_EMPLOYEES)
             summary["missing"] = []
         else:
             summary["missing"] = [cls._format_staff(staff) for staff in missing_staff]
@@ -141,7 +174,8 @@ class PayrollEmployeeSyncService:
     @classmethod
     def _index_xero_employees(
         cls, employees: Iterable[Any]
-    ) -> Dict[str, Dict[str, Dict[str, Optional[str]]]]:
+    ) -> Dict[str, Dict[Any, Dict[str, Optional[str]]]]:
+        by_staff_id: Dict[str, Dict[str, Optional[str]]] = {}
         by_email: Dict[str, Dict[str, Optional[str]]] = {}
         by_name: Dict[Tuple[str, str], Dict[str, Optional[str]]] = {}
 
@@ -151,22 +185,33 @@ class PayrollEmployeeSyncService:
             last_name = serialized["last_name"] or ""
             name_key = (first_name.lower(), last_name.lower())
 
+            # Index by Staff UUID from job_title (most reliable for re-linking)
+            if serialized["staff_id"]:
+                by_staff_id.setdefault(serialized["staff_id"], serialized)
+
             if serialized["email"]:
                 by_email.setdefault(serialized["email"], serialized)
 
             if name_key not in by_name:
                 by_name[name_key] = serialized
 
-        return {"by_email": by_email, "by_name": by_name}
+        return {"by_staff_id": by_staff_id, "by_email": by_email, "by_name": by_name}
 
     @classmethod
     def _match_staff_to_employee(
         cls, staff: Staff, index: Dict[str, Dict[Any, Dict[str, Optional[str]]]]
     ) -> Optional[Dict[str, Optional[str]]]:
+        # Priority 1: Match by Staff UUID in job_title (most reliable after DB restore)
+        staff_id = str(staff.id).lower()
+        if staff_id in index["by_staff_id"]:
+            return index["by_staff_id"][staff_id]
+
+        # Priority 2: Match by email
         email = (staff.email or "").strip().lower()
         if email and email in index["by_email"]:
             return index["by_email"][email]
 
+        # Priority 3: Match by name
         name_key = (
             (staff.first_name or "").strip().lower(),
             (staff.last_name or "").strip().lower(),
@@ -179,13 +224,64 @@ class PayrollEmployeeSyncService:
         first_name = getattr(employee, "first_name", "") or ""
         last_name = getattr(employee, "last_name", "") or ""
         email = getattr(employee, "email", "") or ""
+        job_title = getattr(employee, "job_title", "") or ""
+
+        # Extract Staff UUID from job_title if present
+        staff_id = None
+        match = STAFF_UUID_PATTERN.search(job_title)
+        if match:
+            staff_id = match.group(1).lower()
 
         return {
             "employee_id": str(employee_id) if employee_id else None,
             "first_name": first_name.strip(),
             "last_name": last_name.strip(),
             "email": email.strip().lower() if email else None,
+            "staff_id": staff_id,
         }
+
+    @classmethod
+    def _get_weekly_calendar_id(cls) -> Optional[str]:
+        """Get the payroll calendar ID by name from Xero (cached per sync run)."""
+        if cls._cached_weekly_calendar_id is not None:
+            return cls._cached_weekly_calendar_id
+
+        company = CompanyDefaults.get_instance()
+        if not company.xero_payroll_calendar_name:
+            raise ValueError(
+                "CompanyDefaults.xero_payroll_calendar_name is not configured."
+            )
+
+        calendars = get_payroll_calendars()
+        target_name = company.xero_payroll_calendar_name.lower()
+        for cal in calendars:
+            if cal.get("name", "").lower() == target_name:
+                cls._cached_weekly_calendar_id = cal["id"]
+                logger.info("Found calendar '%s': %s", cal["name"], cal["id"])
+                return cls._cached_weekly_calendar_id
+
+        raise ValueError(f"Calendar '{company.xero_payroll_calendar_name}' not found")
+
+    @classmethod
+    def _get_ordinary_earnings_rate_id(cls) -> str:
+        """Get earnings rate ID for 'Ordinary Time' from Xero (cached per sync run)."""
+        if cls._cached_ordinary_earnings_rate_id is not None:
+            return cls._cached_ordinary_earnings_rate_id
+
+        company = CompanyDefaults.get_instance()
+        rate_name = company.xero_ordinary_earnings_rate_name
+        if not rate_name:
+            raise ValueError(
+                "CompanyDefaults.xero_ordinary_earnings_rate_name is not configured."
+            )
+
+        cls._cached_ordinary_earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
+        logger.info(
+            "Found earnings rate '%s': %s",
+            rate_name,
+            cls._cached_ordinary_earnings_rate_id,
+        )
+        return cls._cached_ordinary_earnings_rate_id
 
     @classmethod
     def _build_employee_payload(cls, staff: Staff) -> Dict[str, Any]:
@@ -197,24 +293,49 @@ class PayrollEmployeeSyncService:
                 f"Staff {staff.id} is missing first name, last name, or email"
             )
 
-        start_date = staff.date_joined.date() if staff.date_joined else None
+        # Get company defaults for address
+        company = CompanyDefaults.get_instance()
+        if not company.address_line1 or not company.city or not company.post_code:
+            raise ValueError(
+                "CompanyDefaults is missing required address fields "
+                "(address_line1, city, post_code)"
+            )
+
+        # Look up Xero IDs dynamically
+        weekly_calendar_id = cls._get_weekly_calendar_id()
+        ordinary_earnings_rate_id = cls._get_ordinary_earnings_rate_id()
+
+        if not weekly_calendar_id:
+            raise ValueError("Could not find Weekly payroll calendar in Xero")
+        if not ordinary_earnings_rate_id:
+            raise ValueError("Could not find Ordinary Time earnings rate in Xero")
+
+        # Store Staff UUID in job_title for reliable re-linking after DB restore
+        job_title_with_id = f"{cls.DEFAULT_JOB_TITLE} [{staff.id}]"
 
         payload: Dict[str, Any] = {
             "first_name": first_name,
             "last_name": last_name,
             "email": email,
             "date_of_birth": cls.DEFAULT_DATE_OF_BIRTH,
-            "start_date": start_date or cls.DEFAULT_START_DATE,
+            "start_date": cls.DEFAULT_START_DATE,
             "phone_number": None,
-            "job_title": cls.DEFAULT_JOB_TITLE,
+            "job_title": job_title_with_id,
             "address": {
-                "address_line1": cls.DEFAULT_ADDRESS_LINE1,
-                "address_line2": cls.DEFAULT_ADDRESS_LINE2,
-                "city": cls.DEFAULT_CITY,
-                "post_code": cls.DEFAULT_POST_CODE,
-                "suburb": cls.DEFAULT_SUBURB,
-                "country_name": cls.DEFAULT_COUNTRY,
+                "address_line1": company.address_line1,
+                "address_line2": company.address_line2 or "",
+                "city": company.city,
+                "post_code": company.post_code,
+                "suburb": company.suburb or "",
+                "country_name": company.country,
             },
+            # Payroll setup
+            "payroll_calendar_id": weekly_calendar_id,
+            "ordinary_earnings_rate_id": ordinary_earnings_rate_id,
+            # Working hours from Staff model - all days must be defined
+            "hours_per_week": cls._get_hours_per_week(staff),
+            # Hourly wage rate from Staff model
+            "wage_rate": float(staff.wage_rate) if staff.wage_rate else None,
         }
 
         return payload
@@ -247,6 +368,25 @@ class PayrollEmployeeSyncService:
             }
         )
         return summary
+
+    @staticmethod
+    def _get_hours_per_week(staff: Staff) -> Dict[str, float]:
+        """Get working hours per day - fails if any day is None."""
+        days = [
+            ("monday", staff.hours_mon),
+            ("tuesday", staff.hours_tue),
+            ("wednesday", staff.hours_wed),
+            ("thursday", staff.hours_thu),
+            ("friday", staff.hours_fri),
+            ("saturday", staff.hours_sat),
+            ("sunday", staff.hours_sun),
+        ]
+        missing = [name for name, value in days if value is None]
+        if missing:
+            raise ValueError(
+                f"Staff {staff.id} ({staff.email}) missing hours for: {', '.join(missing)}"
+            )
+        return {name: float(value) for name, value in days}
 
     @staticmethod
     def _clean_string(

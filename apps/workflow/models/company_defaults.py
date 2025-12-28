@@ -4,6 +4,12 @@ from django.db import models, transaction
 
 class CompanyDefaults(models.Model):
     company_name = models.CharField(max_length=255, primary_key=True)
+    company_acronym = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Short acronym for the company (e.g., 'MSM' for Morris Sheetmetal)",
+    )
     is_primary = models.BooleanField(default=True, unique=True)
     time_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0.3)
     materials_markup = models.DecimalField(max_digits=5, decimal_places=2, default=0.2)
@@ -89,23 +95,26 @@ class CompanyDefaults(models.Model):
     )
 
     # Xero Payroll NZ earnings rate mappings for work time
-    xero_ordinary_earnings_rate_id = models.CharField(
+    # Names are used to look up IDs at runtime (IDs vary per Xero install)
+    xero_ordinary_earnings_rate_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll earnings rate ID for Ordinary Time (1.0x)",
+        default="Ordinary Time",
+        help_text="Xero Payroll earnings rate name for Ordinary Time (1.0x)",
     )
-    xero_time_half_earnings_rate_id = models.CharField(
+    xero_time_half_earnings_rate_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll earnings rate ID for Time and a Half (1.5x)",
+        default="Time and one half",
+        help_text="Xero Payroll earnings rate name for Time and a Half (1.5x)",
     )
-    xero_double_time_earnings_rate_id = models.CharField(
+    xero_double_time_earnings_rate_name = models.CharField(
         max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll earnings rate ID for Double Time (2.0x)",
+        default="Double Time",
+        help_text="Xero Payroll earnings rate name for Double Time (2.0x)",
+    )
+    xero_payroll_calendar_name = models.CharField(
+        max_length=100,
+        default="Weekly",
+        help_text="Name of Xero Payroll calendar to use (e.g., 'Weekly 2025')",
     )
 
     # Default working hours (Mon-Fri, 7am - 3pm)
@@ -128,6 +137,53 @@ class CompanyDefaults(models.Model):
         null=True,
         blank=True,
         help_text="The last time a deep Xero sync was performed (looking back 90 days)",
+    )
+
+    # Company address (used for employee records, documents, etc.)
+    address_line1 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Street address line 1",
+    )
+    address_line2 = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Street address line 2 (optional)",
+    )
+    suburb = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Suburb (for NZ addresses)",
+    )
+    city = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="City",
+    )
+    post_code = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="Postal/ZIP code",
+    )
+    country = models.CharField(
+        max_length=100,
+        default="New Zealand",
+        help_text="Country name",
+    )
+    company_email = models.EmailField(
+        null=True,
+        blank=True,
+        help_text="Company contact email address",
+    )
+    company_url = models.URLField(
+        null=True,
+        blank=True,
+        help_text="Company website URL",
     )
 
     # Shop client configuration

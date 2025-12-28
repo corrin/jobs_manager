@@ -25,20 +25,17 @@ from apps.workflow.models import AIProvider, CompanyDefaults
 class ChatPerformanceTests(TransactionTestCase):
     """Test chat performance characteristics"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(
@@ -457,20 +454,17 @@ class ChatPerformanceTests(TransactionTestCase):
 class ChatLoadTests(TestCase):
     """Test chat system under load"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
     def test_multiple_jobs_chat_history(self):

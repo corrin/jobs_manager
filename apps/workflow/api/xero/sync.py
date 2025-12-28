@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import date, datetime, timedelta
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 from typing import Any, Dict
 from uuid import UUID
@@ -420,6 +421,7 @@ def transform_stock(xero_item, xero_id):
         "quantity": quantity_value,
         "raw_json": raw_json,
         "xero_last_modified": xero_last_modified,
+        "xero_last_synced": timezone.now(),
         "xero_inventory_tracked": is_tracked,
         "source": "product_catalog",
     }
@@ -633,7 +635,17 @@ def transform_pay_run(xero_pay_run, xero_id):
     pay_run_type = getattr(xero_pay_run, "pay_run_type", None)
     total_cost = getattr(xero_pay_run, "total_cost", None)
     total_pay = getattr(xero_pay_run, "total_pay", None)
-    xero_last_modified = getattr(xero_pay_run, "updated_date_utc", None)
+    # Xero pay runs don't have updated_date_utc like invoices do.
+    # Posted runs have posted_date_time; Draft runs have no timestamp at all.
+    # Fall back to current time for Draft runs since Xero provides nothing.
+    posted_date_time = getattr(xero_pay_run, "posted_date_time", None)
+    if posted_date_time:
+        # Xero returns naive datetime, make it timezone-aware (assume UTC)
+        if timezone.is_naive(posted_date_time):
+            posted_date_time = posted_date_time.replace(tzinfo=dt_timezone.utc)
+        xero_last_modified = posted_date_time
+    else:
+        xero_last_modified = timezone.now()
     raw_json = process_xero_data(xero_pay_run)
 
     # Convert dates if they're datetime objects
@@ -655,6 +667,7 @@ def transform_pay_run(xero_pay_run, xero_id):
     )
 
     defaults = {
+        "xero_tenant_id": get_tenant_id(),
         "payroll_calendar_id": payroll_calendar_id,
         "period_start_date": period_start_date,
         "period_end_date": period_end_date,
@@ -697,7 +710,8 @@ def transform_pay_slip(xero_pay_slip, xero_id):
     gross_earnings = getattr(xero_pay_slip, "gross_earnings", 0) or 0
     tax_amount = getattr(xero_pay_slip, "tax", 0) or 0
     net_pay = getattr(xero_pay_slip, "net_pay", 0) or 0
-    xero_last_modified = getattr(xero_pay_slip, "updated_date_utc", None)
+    # Xero pay slips don't have updated_date_utc. Use current time.
+    xero_last_modified = timezone.now()
     raw_json = process_xero_data(xero_pay_slip)
 
     validate_required_fields(
@@ -737,6 +751,7 @@ def transform_pay_slip(xero_pay_slip, xero_id):
             leave_hours += Decimal(str(units))
 
     defaults = {
+        "xero_tenant_id": get_tenant_id(),
         "pay_run": pay_run,
         "xero_employee_id": employee_id,
         "employee_name": employee_name,
@@ -1051,7 +1066,7 @@ def sync_xero_data(
     }
 
 
-# Entity configurations
+# Entity configurations - ordered by business importance (accounts first, journals last)
 ENTITY_CONFIGS = {
     "accounts": (
         "accounts",
@@ -1080,6 +1095,26 @@ ENTITY_CONFIGS = {
         {"where": 'Type=="ACCREC"'},
         "page",
     ),
+    "quotes": (
+        "quotes",
+        "quotes",
+        Quote,
+        "get_quotes",
+        lambda items: sync_entities(items, Quote, "quote_id", transform_quote),
+        None,
+        "single",
+    ),
+    "purchase_orders": (
+        "purchase_orders",
+        "purchase_orders",
+        PurchaseOrder,
+        "get_purchase_orders",
+        lambda items: sync_entities(
+            items, PurchaseOrder, "purchase_order_id", transform_purchase_order
+        ),
+        None,
+        "page",
+    ),
     "bills": (
         "invoices",
         "bills",
@@ -1089,12 +1124,12 @@ ENTITY_CONFIGS = {
         {"where": 'Type=="ACCPAY"'},
         "page",
     ),
-    "quotes": (
-        "quotes",
-        "quotes",
-        Quote,
-        "get_quotes",
-        lambda items: sync_entities(items, Quote, "quote_id", transform_quote),
+    "stock": (
+        "items",
+        "stock",
+        Stock,
+        "get_xero_items",
+        lambda items: sync_entities(items, Stock, "item_id", transform_stock),
         None,
         "single",
     ),
@@ -1108,37 +1143,6 @@ ENTITY_CONFIGS = {
         ),
         None,
         "page",
-    ),
-    "purchase_orders": (
-        "purchase_orders",
-        "purchase_orders",
-        PurchaseOrder,
-        "get_purchase_orders",
-        lambda items: sync_entities(
-            items, PurchaseOrder, "purchase_order_id", transform_purchase_order
-        ),
-        None,
-        "page",
-    ),
-    "stock": (
-        "items",
-        "stock",
-        Stock,
-        "get_xero_items",
-        lambda items: sync_entities(items, Stock, "item_id", transform_stock),
-        None,
-        "single",
-    ),
-    "journals": (
-        "journals",
-        "journals",
-        XeroJournal,
-        "get_journals",
-        lambda items: sync_entities(
-            items, XeroJournal, "journal_id", transform_journal
-        ),
-        None,
-        "offset",
     ),
     # Payroll entities - use PayrollNzApi, not AccountingApi
     "pay_runs": (
@@ -1160,6 +1164,17 @@ ENTITY_CONFIGS = {
         ),
         None,
         "single",  # All slips fetched at once
+    ),
+    "journals": (
+        "journals",
+        "journals",
+        XeroJournal,
+        "get_journals",
+        lambda items: sync_entities(
+            items, XeroJournal, "journal_id", transform_journal
+        ),
+        None,
+        "offset",
     ),
 }
 
@@ -2060,3 +2075,26 @@ def sync_single_invoice(sync_service, invoice_id):
         logger.info(f"Synced invoice {invoice_id} from webhook")
     else:
         raise ValueError(f"Unknown invoice type {xero_invoice.type} for {invoice_id}")
+
+
+def sync_single_pay_run(pay_run_id):
+    """Fetch and sync a single pay run from Xero by ID.
+
+    Args:
+        pay_run_id: UUID of the pay run in Xero.
+
+    Returns:
+        The synced XeroPayRun instance.
+    """
+    from apps.workflow.api.xero.payroll import get_pay_run
+
+    if not pay_run_id:
+        raise ValueError("No pay_run_id provided")
+
+    xero_pay_run = get_pay_run(pay_run_id)
+    if not xero_pay_run:
+        raise ValueError(f"No pay run found with ID {pay_run_id}")
+
+    pay_run, status = transform_pay_run(xero_pay_run, pay_run_id)
+    logger.info(f"Synced pay run {pay_run_id}: {status}")
+    return pay_run
