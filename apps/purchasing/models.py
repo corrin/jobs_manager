@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from apps.job.enums import MetalType
 from apps.job.models import Job
-from apps.workflow.helpers import get_company_defaults
+from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class PurchaseOrder(models.Model):
 
     def generate_po_number(self):
         """Generate the next sequential PO number based on the configured prefix."""
-        defaults = get_company_defaults()
+        defaults = CompanyDefaults.get_instance()
         start = defaults.starting_po_number
         po_prefix = defaults.po_prefix  # Get prefix from CompanyDefaults
 

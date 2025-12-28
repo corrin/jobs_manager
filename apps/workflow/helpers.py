@@ -3,13 +3,6 @@ import json
 from decimal import Decimal
 from typing import Any, Union
 
-from apps.workflow.models import CompanyDefaults
-
-
-def get_company_defaults() -> CompanyDefaults:
-    """Retrieve the single CompanyDefaults instance using the singleton pattern."""
-    return CompanyDefaults.get_instance()
-
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:

@@ -10,7 +10,7 @@ from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Staff
 from apps.job.enums import SpeedQualityTradeoff
-from apps.job.helpers import get_company_defaults
+from apps.workflow.models import CompanyDefaults
 
 # We say . rather than job.models to avoid going through init,
 # otherwise it would have a circular import
@@ -373,9 +373,7 @@ class Job(models.Model):
         ]
 
     def generate_job_number(self) -> int:
-        from apps.workflow.models import CompanyDefaults
-
-        company_defaults: CompanyDefaults = get_company_defaults()
+        company_defaults: CompanyDefaults = CompanyDefaults.get_instance()
         starting_number: int = company_defaults.starting_job_number
         highest_job: int = (
             Job.objects.all().aggregate(Max("job_number"))["job_number__max"] or 0

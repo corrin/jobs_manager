@@ -2,6 +2,7 @@
 
 from .apps import JobConfig
 from .enums import MetalType, SpeedQualityTradeoff
+from .helpers import DecimalEncoder, decimal_to_float, get_job_folder_path
 
 # Conditional imports (only when Django is ready)
 try:
@@ -9,12 +10,6 @@ try:
 
     if apps.ready:
         from .diff import DiffResult, apply_diff, diff_costset
-        from .helpers import (
-            DecimalEncoder,
-            decimal_to_float,
-            get_company_defaults,
-            get_job_folder_path,
-        )
         from .mixins import JobLookupMixin, JobNumberLookupMixin
         from .permissions import IsOfficeStaff
         from .scheduler_jobs import set_paid_flag_jobs
@@ -36,7 +31,6 @@ __all__ = [
     "decimal_to_float",
     "diff_costset",
     "get_active_jobs",
-    "get_company_defaults",
     "get_job_folder_path",
     "get_jobs_data",
     "set_paid_flag_jobs",

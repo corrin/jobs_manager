@@ -24,7 +24,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Staff
-from apps.job.helpers import get_company_defaults
 from apps.job.models import Job, JobDeltaRejection
 from apps.job.serializers.job_serializer import (
     JobBasicInformationResponseSerializer,
@@ -50,6 +49,7 @@ from apps.job.serializers.job_serializer import (
 )
 from apps.job.services.job_rest_service import DeltaValidationError, JobRestService
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_and_raise
 from apps.workflow.utils import parse_pagination_params
 
@@ -1363,10 +1363,9 @@ class JobBasicInformationRestView(BaseJobRestView):
 def get_company_defaults_api(request):
     """
     API endpoint to fetch company default settings.
-    Uses the get_company_defaults() helper function to ensure
-    a single instance is retrieved or created if it doesn't exist.
+    Retrieves the singleton CompanyDefaults instance.
     """
-    defaults = get_company_defaults()
+    defaults = CompanyDefaults.get_instance()
     return JsonResponse(
         {
             "materials_markup": float(defaults.materials_markup),
