@@ -120,6 +120,9 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
     Serializer for CostLine creation and updates - full write capabilities
     """
 
+    meta = serializers.DictField(required=False, allow_empty=True, default=dict)
+    ext_refs = serializers.DictField(required=False, allow_empty=True, default=dict)
+
     class Meta:
         model = CostLine
         # Write fields - subset of API fields that can be written
@@ -223,13 +226,15 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     )
 
         return super().save(**kwargs)
-    
+
     def create(self, validated_data):
         """Override create to define line approval automatically"""
         staff: Staff = self.context["staff"]
 
         if not staff:
-            raise serializers.ValidationError("Missing staff context from request, can't proceed with line approval validation.")
+            raise serializers.ValidationError(
+                "Missing staff context from request, can't proceed with line approval validation."
+            )
 
         validated_data["approved"] = staff.is_office_staff
         return super().create(validated_data)
