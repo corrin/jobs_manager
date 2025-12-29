@@ -2,8 +2,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.serializers import CompanyDefaultsSerializer
-from apps.workflow.services.company_defaults_service import get_company_defaults
 
 
 class CompanyDefaultsAPIView(APIView):
@@ -30,7 +30,7 @@ class CompanyDefaultsAPIView(APIView):
     serializer_class = CompanyDefaultsSerializer
 
     def get(self, request):
-        instance = get_company_defaults()
+        instance = CompanyDefaults.get_instance()
         serializer = CompanyDefaultsSerializer(instance)
         return Response(serializer.data)
 
@@ -42,7 +42,7 @@ class CompanyDefaultsAPIView(APIView):
             else request.data
         )
 
-        instance = get_company_defaults()
+        instance = CompanyDefaults.get_instance()
         serializer = CompanyDefaultsSerializer(
             instance, data=request_data, context={"request": request}
         )
@@ -61,7 +61,7 @@ class CompanyDefaultsAPIView(APIView):
         )
         print(f"DEBUG: Extracted request_data = {request_data}")
 
-        instance = get_company_defaults()
+        instance = CompanyDefaults.get_instance()
         print(f"DEBUG: Current instance shop_client_name = {instance.shop_client_name}")
         serializer = CompanyDefaultsSerializer(
             instance, data=request_data, partial=True, context={"request": request}

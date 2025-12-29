@@ -2,7 +2,6 @@
 
 from .apps import AccountingConfig
 from .enums import InvoiceStatus, QuoteStatus
-from .utils import get_nz_tz
 
 # Conditional imports (only when Django is ready)
 try:
@@ -63,5 +62,4 @@ __all__ = [
     "StaffPerformanceStaffDataSerializer",
     "StaffPerformanceTeamAveragesSerializer",
     "StandardErrorSerializer",
-    "get_nz_tz",
 ]

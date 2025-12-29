@@ -41,14 +41,7 @@
       "billable_threshold_amber": "30.00",
       "daily_gp_target": "1250.00",
       "shop_hours_target_percentage": "20.00",
-      "xero_payroll_calendar_name": "Weekly Testing",
-      "xero_ordinary_earnings_rate_name": "Ordinary Time",
-      "xero_time_half_earnings_rate_name": "Time and one half",
-      "xero_double_time_earnings_rate_name": "Double Time",
-      "xero_annual_leave_type_id": "60a16095-bd73-441e-ae69-d01f758e9286",
-      "xero_sick_leave_type_id": "5d16bcd1-540a-4a8e-9f53-fe022761681d",
-      "xero_other_leave_type_id": null,
-      "xero_unpaid_leave_type_id": null
+      "xero_payroll_calendar_name": "Weekly Testing"
     }
   }
 ]

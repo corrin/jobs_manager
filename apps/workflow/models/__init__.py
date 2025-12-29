@@ -3,6 +3,7 @@
 from .ai_provider import AIProvider
 from .app_error import AppError, XeroError
 from .company_defaults import CompanyDefaults
+from .payroll_category import PayrollCategory
 from .service_api_key import ServiceAPIKey
 from .xero_account import XeroAccount
 from .xero_journal import XeroJournal, XeroJournalLineItem
@@ -13,6 +14,7 @@ __all__ = [
     "AIProvider",
     "AppError",
     "CompanyDefaults",
+    "PayrollCategory",
     "ServiceAPIKey",
     "XeroAccount",
     "XeroError",

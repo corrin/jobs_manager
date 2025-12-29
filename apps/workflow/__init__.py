@@ -21,7 +21,6 @@ try:
             service_api_key_required,
         )
         from .context_processors import debug_mode
-        from .helpers import DecimalEncoder, decimal_to_float, get_company_defaults
         from .middleware import (
             AccessLoggingMiddleware,
             DisallowedHostMiddleware,
@@ -45,6 +44,8 @@ try:
             AppErrorListResponseSerializer,
             AppErrorSerializer,
             CompanyDefaultsSerializer,
+            PayrollCategoryCreateUpdateSerializer,
+            PayrollCategorySerializer,
             XeroAccountSerializer,
             XeroAuthenticationErrorResponseSerializer,
             XeroDocumentErrorResponseSerializer,
@@ -83,12 +84,13 @@ __all__ = [
     "AppErrorSerializer",
     "BearerIdentityMiddleware",
     "CompanyDefaultsSerializer",
-    "DecimalEncoder",
     "DisallowedHostMiddleware",
     "F",
     "FrontendRedirectMiddleware",
     "LoginRequiredMiddleware",
     "PasswordStrengthMiddleware",
+    "PayrollCategoryCreateUpdateSerializer",
+    "PayrollCategorySerializer",
     "ServiceAPIKeyAuthentication",
     "WorkflowConfig",
     "XeroAccountSerializer",
@@ -109,9 +111,7 @@ __all__ = [
     "XeroValidationError",
     "XeroWebhookView",
     "debug_mode",
-    "decimal_to_float",
     "extract_messages",
-    "get_company_defaults",
     "get_machine_id",
     "get_scheduler",
     "is_valid_invoice_number",

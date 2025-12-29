@@ -68,49 +68,8 @@ class CompanyDefaults(models.Model):
         help_text="The Xero tenant ID to use for this company",
     )
 
-    # Xero Payroll NZ Leave Type ID mappings (use Leave API, not Timesheets)
-    xero_annual_leave_type_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll Leave Type ID for Annual Leave",
-    )
-    xero_sick_leave_type_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll Leave Type ID for Sick Leave",
-    )
-    xero_other_leave_type_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll Leave Type ID for Other Leave",
-    )
-    xero_unpaid_leave_type_id = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text="Xero Payroll Leave Type ID for Unpaid Leave",
-    )
-
-    # Xero Payroll NZ earnings rate mappings for work time
-    # Names are used to look up IDs at runtime (IDs vary per Xero install)
-    xero_ordinary_earnings_rate_name = models.CharField(
-        max_length=100,
-        default="Ordinary Time",
-        help_text="Xero Payroll earnings rate name for Ordinary Time (1.0x)",
-    )
-    xero_time_half_earnings_rate_name = models.CharField(
-        max_length=100,
-        default="Time and one half",
-        help_text="Xero Payroll earnings rate name for Time and a Half (1.5x)",
-    )
-    xero_double_time_earnings_rate_name = models.CharField(
-        max_length=100,
-        default="Double Time",
-        help_text="Xero Payroll earnings rate name for Double Time (2.0x)",
-    )
+    # Xero Payroll configuration
+    # Note: Leave type IDs and earnings rate names have moved to PayrollCategory model
     xero_payroll_calendar_name = models.CharField(
         max_length=100,
         default="Weekly",

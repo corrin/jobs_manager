@@ -1661,9 +1661,9 @@ class JobRestService:
         Returns:
             Dict with default settings
         """
-        from apps.job.helpers import get_company_defaults
+        from apps.workflow.models import CompanyDefaults
 
-        defaults = get_company_defaults()
+        defaults = CompanyDefaults.get_instance()
         return {
             "materials_markup": float(defaults.materials_markup),
             "time_markup": float(defaults.time_markup),
