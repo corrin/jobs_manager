@@ -71,10 +71,10 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "xero_leave_type_id",
+                    "xero_leave_type_name",
                     models.CharField(
                         blank=True,
-                        help_text="Xero Leave Type ID (UUID). Required if uses_leave_api=True.",
+                        help_text="Xero Leave Type name (looked up at runtime to get ID). Required if uses_leave_api=True.",
                         max_length=100,
                         null=True,
                     ),
