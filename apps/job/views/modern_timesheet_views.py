@@ -381,7 +381,7 @@ class ModernTimesheetEntryView(APIView):
                         "is_billable": is_billable,
                         "wage_rate": float(wage_rate),
                         "charge_out_rate": float(charge_out_rate),
-                        "rate_multiplier": float(rate_multiplier),
+                        "wage_rate_multiplier": float(rate_multiplier),
                         "created_from_timesheet": True,
                     },
                 )

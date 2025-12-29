@@ -61,15 +61,31 @@ class WorkshopTimesheetService:
         with transaction.atomic():
             cost_set = self._get_or_create_actual_cost_set(job)
             rate_multiplier = self._to_decimal(
-                data.get("rate_multiplier", Decimal("1.0")), default="1.0"
+                data.get("wage_rate_multiplier", Decimal("1.0")), default="1.0"
             )
             is_billable = data.get("is_billable", True)
+            start_time = data.get("start_time")
+            end_time = data.get("end_time")
 
             unit_cost, unit_rev, wage_rate, charge_out_rate = self._calculate_rates(
                 job=job,
                 rate_multiplier=rate_multiplier,
                 is_billable=is_billable,
             )
+
+            meta = {
+                "staff_id": str(self.staff.id),
+                "date": data["accounting_date"].isoformat(),
+                "is_billable": is_billable,
+                "wage_rate_multiplier": float(rate_multiplier),
+                "created_from_timesheet": True,
+                "wage_rate": float(wage_rate),
+                "charge_out_rate": float(charge_out_rate),
+            }
+            if start_time is not None:
+                meta["start_time"] = self._format_time(start_time)
+            if end_time is not None:
+                meta["end_time"] = self._format_time(end_time)
 
             cost_line = CostLine.objects.create(
                 cost_set=cost_set,
@@ -80,15 +96,7 @@ class WorkshopTimesheetService:
                 unit_rev=unit_rev,
                 accounting_date=data["accounting_date"],
                 ext_refs={},
-                meta={
-                    "staff_id": str(self.staff.id),
-                    "date": data["accounting_date"].isoformat(),
-                    "is_billable": is_billable,
-                    "rate_multiplier": float(rate_multiplier),
-                    "created_from_timesheet": True,
-                    "wage_rate": float(wage_rate),
-                    "charge_out_rate": float(charge_out_rate),
-                },
+                meta=meta,
                 approved=self.staff.is_office_staff,
             )
 
@@ -144,15 +152,32 @@ class WorkshopTimesheetService:
                 meta["is_billable"] = data["is_billable"]
                 recalc_rates = True
 
-            if "rate_multiplier" in data:
-                meta["rate_multiplier"] = float(data["rate_multiplier"])
+            if "wage_rate_multiplier" in data:
+                meta["wage_rate_multiplier"] = float(data["wage_rate_multiplier"])
                 recalc_rates = True
+
+            if "start_time" in data:
+                meta["start_time"] = (
+                    self._format_time(data["start_time"])
+                    if data["start_time"] is not None
+                    else None
+                )
+                has_updates = True
+
+            if "end_time" in data:
+                meta["end_time"] = (
+                    self._format_time(data["end_time"])
+                    if data["end_time"] is not None
+                    else None
+                )
+                has_updates = True
 
             cost_line.meta = meta
 
             if recalc_rates:
                 rate_multiplier = self._to_decimal(
-                    data.get("rate_multiplier") or meta.get("rate_multiplier", 1.0),
+                    data.get("wage_rate_multiplier")
+                    or meta.get("wage_rate_multiplier", 1.0),
                     default="1.0",
                 )
                 is_billable = meta.get("is_billable", True)
@@ -251,3 +276,11 @@ class WorkshopTimesheetService:
             return Decimal(str(value))
         except (InvalidOperation, TypeError):
             return Decimal(default)
+
+    @staticmethod
+    def _format_time(value):
+        if value is None:
+            return None
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return str(value)

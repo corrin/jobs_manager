@@ -12,7 +12,7 @@ class PayrollCategory(models.Model):
 
     Each row defines either:
     - A leave type (matched by job_name_pattern in the job name)
-    - A work rate type (matched by rate_multiplier on the time entry)
+    - A work rate type (matched by wage_rate_multiplier on the time entry)
 
     This centralizes all the mapping logic that was previously scattered across
     payroll.py categorization functions and CompanyDefaults Xero ID fields.

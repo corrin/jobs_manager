@@ -191,13 +191,14 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                     staff.wage_rate if staff.wage_rate else company_defaults.wage_rate
                 )
 
-                rate_multiplier = Decimal(meta.get("rate_multiplier", None))
-                if rate_multiplier is None:
+                rate_multiplier_value = meta.get("wage_rate_multiplier")
+                if rate_multiplier_value is None:
                     exception = serializers.ValidationError(
                         "Rate multiplier must be provided when creating a new timesheet entry."
                     )
                     raise exception
 
+                rate_multiplier = Decimal(rate_multiplier_value)
                 final_wage = wage_rate * rate_multiplier
                 self.validated_data["unit_cost"] = final_wage
                 logger.info(

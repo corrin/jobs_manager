@@ -198,8 +198,10 @@ class WorkshopTimesheetEntrySerializer(serializers.Serializer):
         max_digits=7, decimal_places=2, read_only=True, source="quantity"
     )
     accounting_date = serializers.DateField(read_only=True)
+    start_time = serializers.TimeField(read_only=True, allow_null=True)
+    end_time = serializers.TimeField(read_only=True, allow_null=True)
     is_billable = serializers.BooleanField(read_only=True)
-    rate_multiplier = serializers.DecimalField(
+    wage_rate_multiplier = serializers.DecimalField(
         max_digits=4, decimal_places=2, read_only=True
     )
     created_at = serializers.DateTimeField(read_only=True)
@@ -208,7 +210,7 @@ class WorkshopTimesheetEntrySerializer(serializers.Serializer):
     def to_representation(self, instance):
         job = getattr(getattr(instance, "cost_set", None), "job", None)
         meta = instance.meta or {}
-        raw_multiplier = meta.get("rate_multiplier", 1.0)
+        raw_multiplier = meta.get("wage_rate_multiplier", 1.0)
         try:
             rate_multiplier = Decimal(str(raw_multiplier))
         except (InvalidOperation, TypeError):
@@ -223,8 +225,10 @@ class WorkshopTimesheetEntrySerializer(serializers.Serializer):
             "description": instance.desc or "",
             "hours": float(instance.quantity),
             "accounting_date": instance.accounting_date,
+            "start_time": meta.get("start_time"),
+            "end_time": meta.get("end_time"),
             "is_billable": bool(meta.get("is_billable", True)),
-            "rate_multiplier": float(rate_multiplier),
+            "wage_rate_multiplier": float(rate_multiplier),
             "created_at": instance.created_at,
             "updated_at": instance.updated_at,
         }
@@ -241,8 +245,10 @@ class WorkshopTimesheetEntryRequestSerializer(serializers.Serializer):
     description = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, max_length=255
     )
+    start_time = serializers.TimeField(required=False, allow_null=True)
+    end_time = serializers.TimeField(required=False, allow_null=True)
     is_billable = serializers.BooleanField(required=False, default=True)
-    rate_multiplier = serializers.DecimalField(
+    wage_rate_multiplier = serializers.DecimalField(
         max_digits=4,
         decimal_places=2,
         required=False,
@@ -266,8 +272,10 @@ class WorkshopTimesheetEntryUpdateSerializer(serializers.Serializer):
     description = serializers.CharField(
         required=False, allow_blank=True, allow_null=True, max_length=255
     )
+    start_time = serializers.TimeField(required=False, allow_null=True)
+    end_time = serializers.TimeField(required=False, allow_null=True)
     is_billable = serializers.BooleanField(required=False)
-    rate_multiplier = serializers.DecimalField(
+    wage_rate_multiplier = serializers.DecimalField(
         max_digits=4, decimal_places=2, required=False, min_value=Decimal("0.1")
     )
 

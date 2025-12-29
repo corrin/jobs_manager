@@ -97,8 +97,9 @@ class CostLine(models.Model):
         - staff_id (str, UUID): Reference to Staff member who performed the work
         - date (str, ISO date): Date the work was performed (legacy, use accounting_date field)
         - is_billable (bool): Whether this time is billable to the client
+        - start_time (str, ISO time): Start time of the timesheet entry
+        - end_time (str, ISO time): End time of the timesheet entry
         - wage_rate_multiplier (float): Multiplier for staff wage rate (e.g., 1.5 for overtime)
-        - rate_multiplier (float): Alternative name for wage_rate_multiplier (legacy)
         - note (str): Optional notes about the time entry
         - created_from_timesheet (bool): True if created via modern timesheet interface
         - wage_rate (float): Wage rate at time of entry (for timesheet entries)

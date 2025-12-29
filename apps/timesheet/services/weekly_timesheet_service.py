@@ -229,8 +229,8 @@ class WeeklyTimesheetService:
                         (),
                         output_field=models.CharField(),
                     ),
-                    rate_multiplier=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.rate_multiplier'))",
+                    wage_rate_multiplier=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.wage_rate_multiplier'))",
                         (),
                         output_field=models.DecimalField(),
                     ),
@@ -256,7 +256,7 @@ class WeeklyTimesheetService:
             overtime_2x_hours = 0
 
             for line in cost_lines:
-                multiplier = line.rate_multiplier or Decimal("1.0")
+                multiplier = line.wage_rate_multiplier or Decimal("1.0")
                 hours = line.quantity
 
                 # Skip unpaid hours (multiplier 0.0)
@@ -555,7 +555,7 @@ class WeeklyTimesheetService:
                             "is_billable": False,
                             "wage_rate": float(staff.wage_rate),
                             "charge_out_rate": 0.0,
-                            "rate_multiplier": 1.0,
+                            "wage_rate_multiplier": 1.0,
                             "leave_type": leave_type,
                             "created_from_timesheet": True,
                         },
