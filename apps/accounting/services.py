@@ -5,13 +5,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 from logging import getLogger
 from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import holidays
 from django.db import models
 from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
-from apps.accounting.utils import get_nz_tz
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff, get_excluded_staff
 from apps.client.models import Client
@@ -36,7 +36,7 @@ class KPIService:
     All business logic related to KPIs shall be implemented here.
     """
 
-    nz_timezone = get_nz_tz()
+    nz_timezone = ZoneInfo("Pacific/Auckland")
     shop_client_id: Optional[str] = None  # Will be set on first access
 
     @classmethod
