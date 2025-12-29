@@ -5,13 +5,13 @@ from datetime import date, timedelta
 from decimal import Decimal
 from logging import getLogger
 from typing import Any, Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import holidays
 from django.db import models
 from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
-from apps.accounting.utils import get_nz_tz
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff, get_excluded_staff
 from apps.client.models import Client
@@ -36,7 +36,7 @@ class KPIService:
     All business logic related to KPIs shall be implemented here.
     """
 
-    nz_timezone = get_nz_tz()
+    nz_timezone = ZoneInfo("Pacific/Auckland")
     shop_client_id: Optional[str] = None  # Will be set on first access
 
     @classmethod
@@ -1080,28 +1080,18 @@ class JobAgingService:
             # Check cost lines across all job cost sets
             for cost_set in job.cost_sets.all():
                 for cost_line in cost_set.cost_lines.all():
-                    # Get the creation date - use the meta date if available,
-                    # otherwise fall back to cost_set creation
-                    line_date = cost_line.meta.get("date")
-                    if line_date:
-                        try:
-                            # Convert from ISO string to datetime
-                            line_datetime = datetime.datetime.fromisoformat(line_date)
-                            # Convert to timezone-aware datetime
-                            if timezone.is_naive(line_datetime):
-                                line_datetime = timezone.make_aware(line_datetime)
-                        except (ValueError, TypeError):
-                            # Fall back to cost_set creation date if date parsing fails
-                            line_datetime = cost_set.created
-                    else:
-                        logger.warning("Fallback called - cost_set created date used")
-                        # Fall back to cost_set creation date if no date in meta
-                        line_datetime = cost_set.created
+                    # Use the accounting_date field (not legacy meta.date)
+                    line_datetime = datetime.datetime.combine(
+                        cost_line.accounting_date,
+                        datetime.time.min,
+                        tzinfo=timezone.get_current_timezone(),
+                    )
 
                     description = (
                         f"{cost_line.get_kind_display()} entry: {cost_line.desc}"
                     )
-                    if cost_line.kind == "time":
+                    # Only actual time entries have staff - estimates/quotes are planning entries
+                    if cost_line.kind == "time" and cost_set.kind == "actual":
                         try:
                             staff_id = cost_line.meta.get("staff_id")
                             staff = Staff.objects.get(id=staff_id)

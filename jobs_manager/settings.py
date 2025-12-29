@@ -414,6 +414,26 @@ LOGIN_EXEMPT_URLS = [
     "accounts:token_verify",
 ]
 
+# API path prefixes - single source of truth for middlewares
+# These paths bypass browser redirect and use DRF/JWT authentication
+API_PATH_PREFIXES = [
+    "/api/",
+    "/clients/",
+    "/job/api/",
+    "/job/rest/",
+    "/purchasing/api/",
+    "/accounts/api/",
+    "/accounts/me/",
+    "/accounts/logout/",
+    "/timesheets/api/",
+    "/quoting/api/",
+    "/accounting/api/",
+    "/api/schema/",
+    "/api/docs",
+    "/api/xero/",
+    "/login",
+]
+
 # For OpenAPI schema generator
 SPECTACULAR_SETTINGS = {
     "TITLE": "Jobs Manager API",
@@ -806,14 +826,8 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 # Admin email notifications for errors
-DJANGO_ADMINS_ENV = os.getenv("DJANGO_ADMINS")
-ADMINS = []
-if DJANGO_ADMINS_ENV:
-    for name_email in DJANGO_ADMINS_ENV.split(","):
-        name_email = name_email.strip()
-        if ":" in name_email:
-            name, email = name_email.split(":", 1)
-            ADMINS.append((name.strip(), email.strip()))
+_admin_email = os.getenv("DJANGO_ADMINS")
+ADMINS = [("Admin", _admin_email)] if _admin_email else []
 
 # Email BCC list
 EMAIL_BCC_ENV = os.getenv("EMAIL_BCC")

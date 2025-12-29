@@ -170,7 +170,9 @@ class ModernTimesheetEntryView(APIView):
                     logger.info(
                         f"Line {line.id} staff_id in meta: {line.meta.get('staff_id')}"
                     )
-                    logger.info(f"Line {line.id} date in meta: {line.meta.get('date')}")
+                    logger.info(
+                        f"Line {line.id} accounting_date: {line.accounting_date}"
+                    )
                     logger.info(f"Looking for staff_id={staff_id}, date={entry_date}")
 
             # Calculate totals

@@ -14,7 +14,7 @@ from apps.workflow.api.xero.payroll import (
     get_payroll_calendars,
 )
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
-from apps.workflow.models import XeroToken
+from apps.workflow.models import PayrollCategory, XeroToken
 from apps.workflow.models.company_defaults import CompanyDefaults
 
 
@@ -119,14 +119,23 @@ class Command(BaseCommand):
             help="Comma separated list of staff emails to limit linking operations",
         )
         parser.add_argument(
-            "--link-staff-create-missing",
-            action="store_true",
-            help="When linking staff, create missing Xero Payroll employees automatically",
-        )
-        parser.add_argument(
             "--link-staff-dry-run",
             action="store_true",
-            help="Preview staff linking/creation without modifying Xero or the database",
+            help="Preview staff linking without modifying the database",
+        )
+        parser.add_argument(
+            "--create-staff",
+            action="store_true",
+            help="Create Xero Payroll employees for unlinked staff (use with --create-staff-emails)",
+        )
+        parser.add_argument(
+            "--create-staff-emails",
+            help="Comma separated list of staff emails to create in Xero Payroll",
+        )
+        parser.add_argument(
+            "--create-staff-dry-run",
+            action="store_true",
+            help="Preview staff creation without modifying Xero or the database",
         )
         parser.add_argument(
             "--raw-api",
@@ -176,13 +185,22 @@ class Command(BaseCommand):
 
         link_staff_requested = (
             options["link_staff"]
-            or bool(options.get("link_staff_create_missing"))
             or bool(options.get("link_staff_dry_run"))
             or bool(options.get("link_staff_emails"))
         )
 
         if link_staff_requested:
             self.link_staff(options)
+            return
+
+        create_staff_requested = (
+            options["create_staff"]
+            or bool(options.get("create_staff_dry_run"))
+            or bool(options.get("create_staff_emails"))
+        )
+
+        if create_staff_requested:
+            self.create_staff(options)
             return
 
         if options["tenant"]:
@@ -430,7 +448,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"Failed to fetch pay runs: {e}"))
 
     def configure_payroll(self):
-        """Interactively configure Xero Payroll mappings"""
+        """Interactively configure Xero Payroll mappings via PayrollCategory"""
         self.stdout.write(
             self.style.SUCCESS("\n=== Configure Xero Payroll Mappings ===\n")
         )
@@ -468,44 +486,33 @@ class Command(BaseCommand):
                     f"{i}. {rate['name']} ({rate['earnings_type']}) - ID: {rate['id']}"
                 )
 
-            # Get company defaults
-            company_defaults = CompanyDefaults.get_instance()
+            # Configure leave type categories (those with job_name_pattern set)
+            leave_categories = PayrollCategory.objects.filter(
+                job_name_pattern__isnull=False, uses_leave_api=True
+            )
+            if leave_categories.exists():
+                self.stdout.write(self.style.SUCCESS("\n--- Leave Types ---"))
+                for category in leave_categories:
+                    category.xero_leave_type_name = self._prompt_for_leave_type_name(
+                        category.display_name,
+                        leave_types,
+                        category.xero_leave_type_name,
+                    )
+                    category.save()
 
-            # Configure leave types
-            self.stdout.write(self.style.SUCCESS("\n--- Leave Types ---"))
-            company_defaults.xero_annual_leave_type_id = self._prompt_for_id(
-                "Annual Leave", leave_types, company_defaults.xero_annual_leave_type_id
+            # Configure work rate categories (those with rate_multiplier set)
+            work_categories = PayrollCategory.objects.filter(
+                rate_multiplier__isnull=False, posts_to_xero=True
             )
-            company_defaults.xero_sick_leave_type_id = self._prompt_for_id(
-                "Sick Leave", leave_types, company_defaults.xero_sick_leave_type_id
-            )
-            company_defaults.xero_other_leave_type_id = self._prompt_for_id(
-                "Other Leave", leave_types, company_defaults.xero_other_leave_type_id
-            )
-            company_defaults.xero_unpaid_leave_type_id = self._prompt_for_id(
-                "Unpaid Leave", leave_types, company_defaults.xero_unpaid_leave_type_id
-            )
-
-            # Configure work rates
-            self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))
-            company_defaults.xero_ordinary_earnings_rate_id = self._prompt_for_rate(
-                "Ordinary Time (1.0x)",
-                rates,
-                company_defaults.xero_ordinary_earnings_rate_id,
-            )
-            company_defaults.xero_time_half_earnings_rate_id = self._prompt_for_rate(
-                "Time and a Half (1.5x)",
-                rates,
-                company_defaults.xero_time_half_earnings_rate_id,
-            )
-            company_defaults.xero_double_time_earnings_rate_id = self._prompt_for_rate(
-                "Double Time (2.0x)",
-                rates,
-                company_defaults.xero_double_time_earnings_rate_id,
-            )
-
-            # Save
-            company_defaults.save()
+            if work_categories.exists():
+                self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))
+                for category in work_categories:
+                    category.xero_earnings_rate_name = self._prompt_for_rate_name(
+                        f"{category.display_name} ({category.rate_multiplier}x)",
+                        rates,
+                        category.xero_earnings_rate_name,
+                    )
+                    category.save()
 
             self.stdout.write(
                 self.style.SUCCESS("\n✓ Payroll mappings saved successfully!")
@@ -536,9 +543,8 @@ class Command(BaseCommand):
         return item_id
 
     def link_staff(self, options):
-        """Link Staff rows to Xero Payroll employees and optionally create missing ones."""
+        """Link Staff rows to existing Xero Payroll employees by email/name match."""
         emails_option = options.get("link_staff_emails")
-        create_missing = options.get("link_staff_create_missing", False)
         dry_run = options.get("link_staff_dry_run", False)
 
         queryset = Staff.objects.filter(date_left__isnull=True)
@@ -569,8 +575,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Processing {queryset.count()} staff member(s) "
-                f"(dry run={dry_run}, create_missing={create_missing})"
+                f"Linking {queryset.count()} staff member(s) (dry run={dry_run})"
             )
         )
 
@@ -578,12 +583,102 @@ class Command(BaseCommand):
             summary = PayrollEmployeeSyncService.sync_staff(
                 staff_queryset=queryset,
                 dry_run=dry_run,
-                allow_create=create_missing,
+                allow_create=False,  # Link only, no creation
             )
         except ValueError as exc:
             raise CommandError(str(exc)) from exc
 
         self._print_link_staff_summary(summary)
+
+    def create_staff(self, options):
+        """Create Xero Payroll employees for specified staff members."""
+        emails_option = options.get("create_staff_emails")
+        dry_run = options.get("create_staff_dry_run", False)
+
+        if not emails_option:
+            self.stdout.write(
+                self.style.ERROR(
+                    "--create-staff-emails is required. Specify which staff to create."
+                )
+            )
+            return
+
+        emails = [email.strip() for email in emails_option.split(",") if email.strip()]
+        if not emails:
+            self.stdout.write(
+                self.style.WARNING("No valid emails provided; nothing to do.")
+            )
+            return
+
+        email_filter = Q()
+        for email in emails:
+            email_filter |= Q(email__iexact=email)
+        queryset = Staff.objects.filter(date_left__isnull=True).filter(email_filter)
+
+        if not queryset.exists():
+            self.stdout.write(
+                self.style.WARNING("No staff records matched the provided emails.")
+            )
+            return
+
+        # Check for already-linked staff
+        already_linked = queryset.exclude(xero_user_id__isnull=True).exclude(
+            xero_user_id=""
+        )
+        if already_linked.exists():
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Skipping {already_linked.count()} already-linked staff:"
+                )
+            )
+            for s in already_linked:
+                self.stdout.write(f"  {s.email} -> {s.xero_user_id}")
+
+        # Only process unlinked staff
+        unlinked = queryset.filter(Q(xero_user_id__isnull=True) | Q(xero_user_id=""))
+
+        if not unlinked.exists():
+            self.stdout.write(self.style.WARNING("No unlinked staff to create."))
+            return
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Creating {unlinked.count()} Xero Payroll employee(s) (dry run={dry_run})"
+            )
+        )
+
+        try:
+            summary = PayrollEmployeeSyncService.sync_staff(
+                staff_queryset=unlinked,
+                dry_run=dry_run,
+                allow_create=True,  # Create in Xero
+            )
+        except ValueError as exc:
+            raise CommandError(str(exc)) from exc
+
+        self._print_create_staff_summary(summary)
+
+    def _print_create_staff_summary(self, summary):
+        """Print summary of staff creation."""
+        dry_run = summary.get("dry_run", False)
+        created = summary.get("created", [])
+        missing = summary.get("missing", [])
+
+        if created:
+            verb = "Would create" if dry_run else "Created"
+            self.stdout.write(
+                self.style.SUCCESS(f"{verb} {len(created)} Xero Payroll employee(s):")
+            )
+            for entry in created:
+                emp_id = entry.get("xero_employee_id") or "NEW"
+                self.stdout.write(f"  {entry['email']} -> {emp_id}")
+
+        if missing:
+            self.stdout.write(
+                self.style.ERROR(f"{len(missing)} staff could not be created:")
+            )
+            for entry in missing:
+                self.stdout.write(f"  {entry['email']}")
 
     def _print_link_staff_summary(self, summary):
         total = summary.get("total", 0)
@@ -630,23 +725,48 @@ class Command(BaseCommand):
             for entry in missing:
                 self.stdout.write(f"  {entry['email']}")
 
-    def _prompt_for_rate(self, label, rates, current_value):
-        """Prompt user to select an earnings rate"""
+    def _prompt_for_rate_name(self, label, rates, current_value):
+        """Prompt user to select an earnings rate by name (IDs looked up at runtime)."""
         current_display = current_value if current_value else "Not set"
-        prompt = f"\n{label} (current: {current_display})\nEnter earnings rate ID (or press Enter to skip): "
+        prompt = f"\n{label} (current: {current_display})\nEnter earnings rate name (or press Enter to keep): "
 
-        rate_id = input(prompt).strip()
+        rate_name = input(prompt).strip()
 
-        if not rate_id:
+        if not rate_name:
             return current_value  # Keep existing value
 
-        # Validate that the rate ID exists
-        if not any(r["id"] == rate_id for r in rates):
+        # Validate that the rate name exists
+        if not any(r["name"] == rate_name for r in rates):
             self.stdout.write(
-                self.style.WARNING(f"Warning: {rate_id} not found in available rates")
+                self.style.WARNING(
+                    f"Warning: '{rate_name}' not found in available rates"
+                )
             )
-            confirm = input("Use this ID anyway? (y/N): ").strip().lower()
+            confirm = input("Use this name anyway? (y/N): ").strip().lower()
             if confirm != "y":
                 return current_value
 
-        return rate_id
+        return rate_name
+
+    def _prompt_for_leave_type_name(self, label, leave_types, current_value):
+        """Prompt user to select a leave type by name (IDs looked up at runtime)."""
+        current_display = current_value if current_value else "Not set"
+        prompt = f"\n{label} (current: {current_display})\nEnter leave type name (or press Enter to keep): "
+
+        type_name = input(prompt).strip()
+
+        if not type_name:
+            return current_value  # Keep existing value
+
+        # Validate that the leave type name exists
+        if not any(lt["name"] == type_name for lt in leave_types):
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Warning: '{type_name}' not found in available leave types"
+                )
+            )
+            confirm = input("Use this name anyway? (y/N): ").strip().lower()
+            if confirm != "y":
+                return current_value
+
+        return type_name

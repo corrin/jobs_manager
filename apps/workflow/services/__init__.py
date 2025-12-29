@@ -6,7 +6,6 @@ try:
 
     if apps.ready:
         from .aws_service import AWSService
-        from .company_defaults_service import get_company_defaults
         from .error_persistence import (
             extract_job_context,
             extract_request_context,
@@ -28,7 +27,6 @@ __all__ = [
     "XeroSyncService",
     "extract_job_context",
     "extract_request_context",
-    "get_company_defaults",
     "list_app_errors",
     "persist_and_raise",
     "persist_app_error",

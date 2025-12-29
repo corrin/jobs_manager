@@ -44,8 +44,8 @@ class SafetyAIService:
 
     def _get_system_prompt(self) -> str:
         """Get the system prompt for safety document generation."""
-        company = CompanyDefaults.objects.first()
-        company_name = company.company_name if company else "Morris Sheetmetal"
+        company = CompanyDefaults.get_instance()
+        company_name = company.company_name
 
         return f"""You are a workplace safety expert specializing in New Zealand safety regulations,
 WorkSafe NZ guidelines, and Job Safety Analysis (JSA) creation for metal fabrication and installation work.

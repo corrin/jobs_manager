@@ -16,7 +16,7 @@ class XeroPayRun(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     xero_id = models.UUIDField(unique=True)
-    xero_tenant_id = models.CharField(max_length=255, null=True, blank=True)
+    xero_tenant_id = models.CharField(max_length=255)
 
     payroll_calendar_id = models.UUIDField(null=True, blank=True)
     period_start_date = models.DateField()
@@ -38,7 +38,7 @@ class XeroPayRun(models.Model):
     )
 
     raw_json = models.JSONField()
-    xero_last_modified = models.DateTimeField(null=True, blank=True)
+    xero_last_modified = models.DateTimeField()
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)
@@ -68,7 +68,7 @@ class XeroPaySlip(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     xero_id = models.UUIDField(unique=True)
-    xero_tenant_id = models.CharField(max_length=255, null=True, blank=True)
+    xero_tenant_id = models.CharField(max_length=255)
 
     pay_run = models.ForeignKey(
         XeroPayRun, on_delete=models.CASCADE, related_name="pay_slips"
@@ -110,7 +110,7 @@ class XeroPaySlip(models.Model):
         return self.timesheet_hours + self.leave_hours
 
     raw_json = models.JSONField()
-    xero_last_modified = models.DateTimeField(null=True, blank=True)
+    xero_last_modified = models.DateTimeField()
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
     django_created_at = models.DateTimeField(auto_now_add=True)
     django_updated_at = models.DateTimeField(auto_now=True)

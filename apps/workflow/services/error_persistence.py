@@ -3,12 +3,24 @@ import logging
 import traceback
 from pathlib import Path
 from typing import Any, Dict
+from uuid import UUID
 
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from apps.workflow.exceptions import AlreadyLoggedException, XeroValidationError
 from apps.workflow.models import AppError, XeroError
+
+
+def _make_json_serializable(obj: Any) -> Any:
+    """Convert non-JSON-serializable objects (like UUIDs) to strings."""
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: _make_json_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_json_serializable(item) for item in obj]
+    return obj
 
 
 def _extract_caller_context():
@@ -109,7 +121,7 @@ def persist_app_error(
 
     context_data = {"trace": traceback.format_exc()}
     if additional_context:
-        context_data.update(additional_context)
+        context_data.update(_make_json_serializable(additional_context))
 
     return AppError.objects.create(
         message=str(exception),

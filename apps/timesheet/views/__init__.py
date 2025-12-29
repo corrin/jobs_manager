@@ -16,6 +16,7 @@ try:
             TimesheetResponseMixin,
             WeeklyTimesheetAPIView,
             build_internal_error_response,
+            stream_payroll_post,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -32,4 +33,5 @@ __all__ = [
     "TimesheetResponseMixin",
     "WeeklyTimesheetAPIView",
     "build_internal_error_response",
+    "stream_payroll_post",
 ]

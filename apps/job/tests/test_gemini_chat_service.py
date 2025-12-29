@@ -24,20 +24,17 @@ from apps.workflow.models import AIProvider, CompanyDefaults
 class GeminiChatServiceConfigurationTests(TestCase):
     """Test service configuration and initialization"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(
@@ -119,7 +116,7 @@ class GeminiChatServiceConfigurationTests(TestCase):
         """Test system prompt includes job context"""
         prompt = self.service._get_system_prompt(self.job)
 
-        self.assertIn("Morris Sheetmetal Works", prompt)
+        self.assertIn(self.company_defaults.company_name, prompt)
         self.assertIn(self.job.name, prompt)
         self.assertIn(self.job.job_number, prompt)
         self.assertIn(self.client.name, prompt)
@@ -205,20 +202,17 @@ class GeminiChatServiceToolExecutionTests(TestCase):
 class GeminiChatServiceResponseGenerationTests(TransactionTestCase):
     """Test AI response generation with database transactions"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(
@@ -390,20 +384,17 @@ class GeminiChatServiceResponseGenerationTests(TransactionTestCase):
 class GeminiChatServiceIntegrationTests(TestCase):
     """Integration tests for the complete chat flow"""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data"""
-        self.company_defaults = CompanyDefaults.objects.create(
-            company_name="Test Company",
-            company_abn="123456789",
-            company_address="123 Test St",
-            company_phone="0123456789",
-            company_email="test@example.com",
-        )
+        self.company_defaults = CompanyDefaults.get_instance()
 
         self.client = Client.objects.create(
             name="Test Client",
             email="client@example.com",
             phone="0123456789",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         self.job = Job.objects.create(

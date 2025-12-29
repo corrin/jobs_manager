@@ -115,6 +115,7 @@ Dockerfile
 # Logs directory - keep directory but ignore all log files
 logs/*.log
 logs/*.log.*
+logs/*.json
 logs/.*.lock
 logs/restore_log_*.txt
 

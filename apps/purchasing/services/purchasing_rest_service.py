@@ -229,13 +229,37 @@ class PurchasingRestService:
         if has_costlines:
             return
 
-        _create_costline_from_allocation(
-            purchase_order=po,
-            line=line,
-            job=job,
-            qty=line.quantity,
-            retail_rate_pct=retail_rate_pct,
+        logger.info(
+            "Auto allocation payload for PO %s line %s (job=%s, qty=%s, unit_cost=%s, markup_pct=%s, price_tbc=%s)",
+            po.po_number,
+            line.id,
+            getattr(job, "job_number", None),
+            line.quantity,
+            line.unit_cost,
+            retail_rate_pct,
+            line.price_tbc,
         )
+
+        try:
+            _create_costline_from_allocation(
+                purchase_order=po,
+                line=line,
+                job=job,
+                qty=line.quantity,
+                retail_rate_pct=retail_rate_pct,
+            )
+        except ValidationError as exc:
+            logger.warning(
+                "Auto allocation failed for PO %s line %s (job=%s, qty=%s, unit_cost=%s, markup_pct=%s): %s",
+                po.po_number,
+                line.id,
+                getattr(job, "job_number", None),
+                line.quantity,
+                line.unit_cost,
+                retail_rate_pct,
+                exc,
+            )
+            raise
 
         line.received_quantity = line.quantity
 

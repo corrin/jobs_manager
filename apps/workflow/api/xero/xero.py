@@ -41,11 +41,6 @@ token_api = TokenApi(
 )
 
 
-# Helper function for pretty printing JSON/dict objects
-def pretty_print(obj: Any) -> str:
-    return json.dumps(obj, indent=2, sort_keys=True)
-
-
 @api_client.oauth2_token_getter
 def get_token() -> Optional[Dict[str, Any]]:
     """Get token from cache or database."""
@@ -242,7 +237,9 @@ def get_authentication_url(state: str) -> str:
         "scope": " ".join(settings.XERO_SCOPES),  # actual spaces
         "state": state,
     }
-    logger.info(f"Generating authentication URL with params: \n{pretty_print(params)}")
+    logger.info(
+        f"Generating authentication URL with params: \n{json.dumps(params, indent=2, sort_keys=True)}"
+    )
     # Use quote_via=quote to encode spaces as %20 instead of +
     url = f"https://login.xero.com/identity/connect/authorize?{urlencode(params, quote_via=quote)}"
     logger.info(f"Generated URL: {url}")

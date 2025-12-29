@@ -1,0 +1,100 @@
+[
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 1,
+    "fields": {
+      "name": "annual_leave",
+      "display_name": "Annual Leave",
+      "job_name_pattern": "annual leave",
+      "rate_multiplier": null,
+      "posts_to_xero": true,
+      "uses_leave_api": true,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": null
+    }
+  },
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 2,
+    "fields": {
+      "name": "sick_leave",
+      "display_name": "Sick Leave",
+      "job_name_pattern": "sick leave",
+      "rate_multiplier": null,
+      "posts_to_xero": true,
+      "uses_leave_api": true,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": null
+    }
+  },
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 3,
+    "fields": {
+      "name": "other_leave",
+      "display_name": "Other Leave",
+      "job_name_pattern": "other leave",
+      "rate_multiplier": null,
+      "posts_to_xero": true,
+      "uses_leave_api": false,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": null
+    }
+  },
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 4,
+    "fields": {
+      "name": "unpaid_leave",
+      "display_name": "Unpaid Leave",
+      "job_name_pattern": "unpaid leave",
+      "rate_multiplier": null,
+      "posts_to_xero": false,
+      "uses_leave_api": false,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": null
+    }
+  },
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 5,
+    "fields": {
+      "name": "work_ordinary",
+      "display_name": "Ordinary Time",
+      "job_name_pattern": null,
+      "rate_multiplier": "1.0",
+      "posts_to_xero": true,
+      "uses_leave_api": false,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": "Ordinary Time"
+    }
+  },
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 6,
+    "fields": {
+      "name": "work_time_half",
+      "display_name": "Time and a Half",
+      "job_name_pattern": null,
+      "rate_multiplier": "1.5",
+      "posts_to_xero": true,
+      "uses_leave_api": false,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": "Time and one half"
+    }
+  },
+  {
+    "model": "workflow.payrollcategory",
+    "pk": 7,
+    "fields": {
+      "name": "work_double",
+      "display_name": "Double Time",
+      "job_name_pattern": null,
+      "rate_multiplier": "2.0",
+      "posts_to_xero": true,
+      "uses_leave_api": false,
+      "xero_leave_type_name": null,
+      "xero_earnings_rate_name": "Double Time"
+    }
+  }
+]

@@ -224,10 +224,22 @@ def _create_costline_from_allocation(
     r = (Decimal(str(retail_rate_pct)) / Decimal("100")).quantize(Decimal("0.0001"))
     try:
         unit_revenue = (line.unit_cost or Decimal("0.00")) * (Decimal("1") + r)
+        unit_revenue = unit_revenue.quantize(Decimal("0.01"))
     except TypeError:
         raise DeliveryReceiptValidationError(
             f"Price not confirmed for line {line.id}; cannot create material cost."
         )
+
+    logger.info(
+        "Creating cost line allocation for PO %s line %s (job=%s, qty=%s, unit_cost=%s, markup_pct=%s) -> unit_rev=%s",
+        purchase_order.po_number,
+        line.id,
+        getattr(job, "job_number", None),
+        qty,
+        line.unit_cost,
+        retail_rate_pct,
+        unit_revenue,
+    )
 
     cs = _ensure_actual_costset(job)
     cl = CostLine.objects.create(

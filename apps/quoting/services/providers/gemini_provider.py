@@ -10,6 +10,8 @@ from google import genai
 from google.genai import types
 from PyPDF2 import PdfReader, PdfWriter
 
+from apps.workflow.models import CompanyDefaults
+
 from .common import clean_json_response, create_extraction_prompt, log_token_usage
 
 logger = logging.getLogger(__name__)
@@ -83,13 +85,19 @@ class GeminiPriceExtractionProvider:
         Returns:
             Processed data in the expected format
         """
-        # Ensure supplier information exists silent failure sucky motto
+        # Ensure supplier information exists
         supplier_info = raw_data.get("supplier", {})
         if not supplier_info.get("name"):
-            # Try to extract supplier name from filename or set default
-            filename = os.path.basename(file_path)
-            if "morris" in filename.lower():
-                supplier_info["name"] = "Morris SM"
+            # Try to extract supplier name from filename - if it matches our company, it's us not the supplier
+            filename = os.path.basename(file_path).lower()
+            company = CompanyDefaults.get_instance()
+            company_name_lower = company.company_name.lower()
+            # Check if filename contains our company name (we're the customer, not the supplier)
+            if company_name_lower in filename or any(
+                word in filename for word in company_name_lower.split()[:2]
+            ):
+                # Filename references us - we can't determine the supplier from it
+                supplier_info["name"] = "Unknown Supplier"
             else:
                 supplier_info["name"] = "Unknown Supplier"
 

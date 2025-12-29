@@ -21,6 +21,7 @@ from .views.api import (
     RefreshPayRunsAPIView,
     StaffListAPIView,
     WeeklyTimesheetAPIView,
+    stream_payroll_post,
 )
 
 app_name = "timesheet"
@@ -64,5 +65,10 @@ urlpatterns = [
         "api/payroll/post-staff-week/",
         PostWeekToXeroPayrollAPIView.as_view(),
         name="api_post_staff_week",
+    ),
+    path(
+        "api/payroll/post-staff-week/stream/<str:task_id>/",
+        stream_payroll_post,
+        name="api_post_staff_week_stream",
     ),
 ]

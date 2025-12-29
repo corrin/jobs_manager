@@ -330,18 +330,21 @@ class JobRestService:
             if not company_defaults:
                 raise ValueError("CompanyDefaults not found")
 
-            wage_rate = company_defaults.wage_rate
-            charge_out_rate = company_defaults.charge_out_rate
+            wage_rate = company_defaults.wage_rate.quantize(Decimal("0.01"))
+            charge_out_rate = company_defaults.charge_out_rate.quantize(Decimal("0.01"))
             materials_markup = company_defaults.materials_markup
 
             # Create material cost line
+            unit_rev_materials = (
+                estimated_materials * (Decimal("1") + materials_markup)
+            ).quantize(Decimal("0.01"))
             CostLine.objects.create(
                 cost_set=estimate_costset,
                 kind="material",
                 desc="Estimated materials",
                 quantity=Decimal("1.000"),
                 unit_cost=estimated_materials,
-                unit_rev=estimated_materials * (Decimal("1") + materials_markup),
+                unit_rev=unit_rev_materials,
                 accounting_date=timezone.now().date(),
             )
 
@@ -1661,9 +1664,9 @@ class JobRestService:
         Returns:
             Dict with default settings
         """
-        from apps.job.helpers import get_company_defaults
+        from apps.workflow.models import CompanyDefaults
 
-        defaults = get_company_defaults()
+        defaults = CompanyDefaults.get_instance()
         return {
             "materials_markup": float(defaults.materials_markup),
             "time_markup": float(defaults.time_markup),

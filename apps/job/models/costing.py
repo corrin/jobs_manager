@@ -6,6 +6,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from .costline_validators import (
+    validate_costline_ext_refs,
+    validate_costline_meta,
+)
 from .job import Job
 
 logger = logging.getLogger(__name__)
@@ -178,10 +182,12 @@ class CostLine(models.Model):
     )
     ext_refs = models.JSONField(
         default=dict,
+        blank=True,
         help_text="External references (e.g., time entry IDs, material IDs)",
     )
     meta = models.JSONField(
         default=dict,
+        blank=True,
         help_text="Additional metadata - structure varies by kind (see class docstring)",
     )
 
@@ -226,6 +232,7 @@ class CostLine(models.Model):
         return self.quantity * self.unit_rev
 
     def clean(self):
+        super().clean()
         # Log negative quantities but allow them (for adjustments, corrections, returns, etc.)
         if self.quantity < 0:
             logger.warning(
@@ -234,6 +241,9 @@ class CostLine(models.Model):
 
         if self.kind != "material" and not self.approved:
             raise ValidationError("Non-material cost line cannot be unapproved.")
+
+        validate_costline_meta(self.meta, self.kind)
+        validate_costline_ext_refs(self.ext_refs)
 
     def _update_cost_set_summary(self) -> None:
         """Update cost set summary with aggregated data - PRESERVE existing data"""
@@ -264,6 +274,7 @@ class CostLine(models.Model):
         cost_set.job.save(update_fields=["updated_at"])
 
     def save(self, *args, **kwargs):
+        self.full_clean()
         super().save(*args, **kwargs)
         self._update_cost_set_summary()
 

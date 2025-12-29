@@ -3,11 +3,18 @@ REST API views for timesheet functionality.
 Provides endpoints for the Vue.js frontend to interact with timesheet data.
 """
 
+import json
 import logging
 import os
+import uuid as uuid_module
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from django.core.cache import cache
+from django.http import StreamingHttpResponse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -30,13 +37,17 @@ from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunSerializer,
     PayRunForWeekResponseSerializer,
     PayRunSyncResponseSerializer,
-    PostWeekToXeroResponseSerializer,
     PostWeekToXeroSerializer,
 )
 from apps.timesheet.services.daily_timesheet_service import DailyTimesheetService
-from apps.timesheet.services.payroll_sync import PayrollSyncService
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
+from apps.workflow.api.xero.payroll import (
+    get_all_timesheets_for_week,
+    post_staff_week_to_xero,
+)
+from apps.workflow.api.xero.sync import sync_all_xero_data
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models import CompanyDefaults, XeroPayRun
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -541,47 +552,64 @@ class CreatePayRunAPIView(APIView):
     )
     def post(self, request):
         """Create a new pay run for the specified week."""
+        from django.utils import timezone
+
+        from apps.workflow.api.xero.payroll import create_pay_run
+
+        data = request.data
+        week_start_date_str = data.get("week_start_date")
+
+        if not week_start_date_str:
+            return Response(
+                {"error": "week_start_date is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Parse date
         try:
-            from apps.workflow.api.xero.payroll import create_pay_run
+            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            data = request.data
-            week_start_date_str = data.get("week_start_date")
+        try:
+            # Create pay run in Xero (validates Monday)
+            result = create_pay_run(week_start_date)
+            xero_pay_run_id = result["pay_run_id"]
+            payroll_calendar_id = result["payroll_calendar_id"]
 
-            if not week_start_date_str:
-                return Response(
-                    {"error": "week_start_date is required"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Parse date
-            try:
-                week_start_date = datetime.strptime(
-                    week_start_date_str, "%Y-%m-%d"
-                ).date()
-            except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Create pay run (validates Monday, creates in Xero)
-            pay_run_id = create_pay_run(week_start_date)
-
-            # Calculate dates for response
+            # Calculate dates
             week_end_date = week_start_date + timedelta(days=6)
             payment_date = week_end_date + timedelta(days=3)
 
-            try:
-                PayrollSyncService.sync_pay_runs()
-            except Exception as sync_exc:
-                logger.warning(
-                    "Pay run created but cache refresh failed: %s",
-                    sync_exc,
-                )
+            # Get tenant ID from company defaults
+            company_defaults = CompanyDefaults.get_instance()
+            tenant_id = company_defaults.xero_tenant_id
+            if not tenant_id:
+                raise ValueError("Xero tenant ID not configured in CompanyDefaults")
+
+            # Create local record immediately
+            now = timezone.now()
+            pay_run = XeroPayRun.objects.create(
+                xero_id=xero_pay_run_id,
+                xero_tenant_id=tenant_id,
+                payroll_calendar_id=payroll_calendar_id,
+                period_start_date=week_start_date,
+                period_end_date=week_end_date,
+                payment_date=payment_date,
+                pay_run_status="Draft",
+                pay_run_type="Scheduled",
+                raw_json={"created_locally": True, "xero_id": str(xero_pay_run_id)},
+                xero_last_modified=now,
+                xero_last_synced=now,
+            )
 
             return Response(
                 {
-                    "pay_run_id": pay_run_id,
+                    "id": str(pay_run.id),
+                    "xero_id": str(xero_pay_run_id),
                     "status": "Draft",
                     "period_start_date": week_start_date.isoformat(),
                     "period_end_date": week_end_date.isoformat(),
@@ -658,7 +686,59 @@ class PayRunForWeekAPIView(APIView):
             )
 
         try:
-            payload = PayrollSyncService.get_pay_run_for_week(week_start_date)
+            # Query local DB first
+            records = list(
+                XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
+                    "-django_updated_at"
+                )
+            )
+
+            # If no local record, sync from Xero
+            if not records:
+                logger.info(
+                    "No cached pay run for week %s. Refreshing from Xero.",
+                    week_start_date,
+                )
+                sync_all_xero_data(entities=["pay_runs"])
+                records = list(
+                    XeroPayRun.objects.filter(
+                        period_start_date=week_start_date
+                    ).order_by("-django_updated_at")
+                )
+
+            # Build warning if multiple pay runs exist
+            warning = None
+            if len(records) > 1:
+                ids = [str(pr.xero_id) for pr in records]
+                statuses = [pr.pay_run_status or "" for pr in records]
+                warning = (
+                    "Multiple pay runs exist for this week. "
+                    f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
+                )
+
+            if records:
+                pay_run = records[0]
+                payload = {
+                    "exists": True,
+                    "pay_run": {
+                        "id": str(pay_run.id),
+                        "xero_id": str(pay_run.xero_id),
+                        "payroll_calendar_id": (
+                            str(pay_run.payroll_calendar_id)
+                            if pay_run.payroll_calendar_id
+                            else None
+                        ),
+                        "period_start_date": pay_run.period_start_date,
+                        "period_end_date": pay_run.period_end_date,
+                        "payment_date": pay_run.payment_date,
+                        "pay_run_status": pay_run.pay_run_status,
+                        "pay_run_type": pay_run.pay_run_type,
+                    },
+                    "warning": warning,
+                }
+            else:
+                payload = {"exists": False, "pay_run": None, "warning": warning}
+
             return Response(payload, status=status.HTTP_200_OK)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -687,8 +767,17 @@ class RefreshPayRunsAPIView(APIView):
     def post(self, request):
         """Synchronize local pay run cache with Xero."""
         try:
-            result = PayrollSyncService.sync_pay_runs()
-            return Response(result, status=status.HTTP_200_OK)
+            # sync_all_xero_data is a generator - must consume it to run the sync
+            fetched = 0
+            for event in sync_all_xero_data(entities=["pay_runs"]):
+                # Count records from sync events
+                if "recordsUpdated" in event:
+                    fetched += event["recordsUpdated"]
+
+            return Response(
+                {"synced": True, "fetched": fetched, "created": 0, "updated": fetched},
+                status=status.HTTP_200_OK,
+            )
         except Exception as exc:
             return build_internal_error_response(
                 request=request,
@@ -697,30 +786,34 @@ class RefreshPayRunsAPIView(APIView):
             )
 
 
+# Cache timeout for payroll task data (10 minutes)
+PAYROLL_TASK_TIMEOUT = 600
+
+
 class PostWeekToXeroPayrollAPIView(APIView):
-    """API endpoint to post a weekly timesheet to Xero Payroll."""
+    """API endpoint to start posting weekly timesheets to Xero Payroll."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = PostWeekToXeroSerializer
 
     @extend_schema(
-        summary="Post weekly timesheet to Xero Payroll",
+        summary="Start posting weekly timesheets to Xero Payroll",
         request=PostWeekToXeroSerializer,
-        responses={
-            200: PostWeekToXeroResponseSerializer,
-            400: ClientErrorResponseSerializer,
-            500: ClientErrorResponseSerializer,
-        },
+        responses={200: None},
     )
     def post(self, request):
-        """Post a week's timesheet to Xero Payroll."""
+        """
+        Start posting timesheets. Returns a task_id to use with the stream endpoint.
+
+        Use GET /api/payroll/post-staff-week/stream/{task_id}/ to receive SSE progress.
+        """
         data = request.data
-        staff_id = data.get("staff_id")
+        staff_ids = data.get("staff_ids", [])
         week_start_date_str = data.get("week_start_date")
 
-        if not staff_id:
+        if not staff_ids:
             return Response(
-                {"error": "staff_id is required"},
+                {"error": "staff_ids is required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -739,21 +832,121 @@ class PostWeekToXeroPayrollAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            # Post to Xero (service validates Monday, checks pay run status, posts data)
-            result = PayrollSyncService.post_week_to_xero(staff_id, week_start_date)
-        except ValueError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as exc:
-            return build_internal_error_response(
-                request=request,
-                message="Failed to post week to Xero Payroll",
-                exc=exc,
+        # Validate Monday
+        if week_start_date.weekday() != 0:
+            return Response(
+                {"error": "week_start_date must be a Monday"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        logger.info(f"Result from payroll POST: {result}")
+        # Generate task ID and store task data in cache
+        task_id = str(uuid_module.uuid4())
+        task_data = {
+            "staff_ids": [str(sid) for sid in staff_ids],
+            "week_start_date": week_start_date_str,
+            "status": "pending",
+        }
+        cache.set(f"payroll_task_{task_id}", task_data, timeout=PAYROLL_TASK_TIMEOUT)
 
-        # Return appropriate HTTP status based on success
-        if result["success"]:
-            return Response(result, status=status.HTTP_200_OK)
-        return Response(result, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "task_id": task_id,
+                "stream_url": f"/timesheets/api/payroll/post-staff-week/stream/{task_id}/",
+            }
+        )
+
+
+@csrf_exempt
+@require_GET
+def stream_payroll_post(request, task_id):
+    """
+    SSE endpoint to stream payroll posting progress.
+
+    Connect with: new EventSource('/timesheets/api/payroll/post-staff-week/stream/{task_id}/')
+    """
+    # Retrieve task data from cache
+    task_data = cache.get(f"payroll_task_{task_id}")
+
+    if not task_data:
+        return StreamingHttpResponse(
+            f"data: {json.dumps({'event': 'error', 'message': 'Task not found or expired'})}\n\n",
+            content_type="text/event-stream",
+        )
+
+    staff_ids = task_data["staff_ids"]
+    week_start_date = datetime.strptime(task_data["week_start_date"], "%Y-%m-%d").date()
+
+    def generate_payroll_events():
+        """SSE generator yielding progress as each employee is processed."""
+        total = len(staff_ids)
+        successful = 0
+        failed = 0
+
+        # Starting event
+        yield f"data: {json.dumps({'event': 'start', 'total': total, 'datetime': timezone.now().isoformat()})}\n\n"
+
+        # Fetch all existing timesheets for the week in ONE API call
+        try:
+            existing_timesheets = get_all_timesheets_for_week(week_start_date)
+        except Exception as exc:
+            logger.exception("Failed to fetch existing timesheets")
+            persist_app_error(exc)
+            yield f"data: {json.dumps({'event': 'error', 'message': str(exc), 'datetime': timezone.now().isoformat()})}\n\n"
+            yield f"data: {json.dumps({'event': 'done', 'successful': 0, 'failed': total, 'datetime': timezone.now().isoformat()})}\n\n"
+            return
+
+        # Process each employee
+        for i, staff_id in enumerate(staff_ids):
+            staff_name = "Unknown"
+            try:
+                staff = Staff.objects.get(id=staff_id)
+                staff_name = staff.get_display_full_name()
+
+                # Progress event
+                yield f"data: {json.dumps({'event': 'progress', 'staff_id': str(staff_id), 'staff_name': staff_name, 'current': i + 1, 'total': total, 'datetime': timezone.now().isoformat()})}\n\n"
+
+                # Get pre-fetched existing timesheet for this employee
+                xero_employee_id = staff.xero_user_id
+                existing = (
+                    existing_timesheets.get(str(xero_employee_id))
+                    if xero_employee_id
+                    else None
+                )
+
+                # Post to Xero
+                result = post_staff_week_to_xero(
+                    staff_id=staff_id,
+                    week_start_date=week_start_date,
+                    existing_timesheet=existing,
+                )
+
+                if result["success"]:
+                    successful += 1
+                    yield f"data: {json.dumps({'event': 'complete', 'staff_id': str(staff_id), 'staff_name': staff_name, 'success': True, 'work_hours': str(result.get('work_hours', 0)), 'datetime': timezone.now().isoformat()})}\n\n"
+                else:
+                    failed += 1
+                    yield f"data: {json.dumps({'event': 'complete', 'staff_id': str(staff_id), 'staff_name': staff_name, 'success': False, 'errors': result.get('errors', []), 'datetime': timezone.now().isoformat()})}\n\n"
+
+            except Staff.DoesNotExist:
+                failed += 1
+                yield f"data: {json.dumps({'event': 'complete', 'staff_id': str(staff_id), 'staff_name': 'Unknown', 'success': False, 'errors': ['Staff not found'], 'datetime': timezone.now().isoformat()})}\n\n"
+
+            except Exception as exc:
+                persist_app_error(exc)
+                failed += 1
+                yield f"data: {json.dumps({'event': 'complete', 'staff_id': str(staff_id), 'staff_name': staff_name, 'success': False, 'errors': [str(exc)], 'datetime': timezone.now().isoformat()})}\n\n"
+
+        # Final event
+        yield f"data: {json.dumps({'event': 'done', 'successful': successful, 'failed': failed, 'total': total, 'datetime': timezone.now().isoformat()})}\n\n"
+
+        # Clean up task data
+        cache.delete(f"payroll_task_{task_id}")
+
+    response = StreamingHttpResponse(
+        generate_payroll_events(),
+        content_type="text/event-stream",
+    )
+    response["Cache-Control"] = "no-cache, no-transform"
+    response["X-Accel-Buffering"] = "no"
+    response["Content-Encoding"] = "identity"
+    return response

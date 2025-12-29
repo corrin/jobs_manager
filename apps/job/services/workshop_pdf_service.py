@@ -20,6 +20,7 @@ from reportlab.platypus import Paragraph, Table, TableStyle
 from apps.job.enums import SpeedQualityTradeoff
 from apps.job.models import Job
 from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
@@ -426,15 +427,21 @@ def create_workshop_main_document(job):
 
 
 def create_delivery_docket_main_document(job):
-    """Create the delivery docket document with two copies: MSM Copy and Customer Copy."""
+    """Create the delivery docket document with two copies: Company Copy and Customer Copy."""
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
 
-    # First page - MSM Copy
+    # Get company acronym for copy labels
+    company = CompanyDefaults.get_instance()
+    copy_label = (
+        f"{company.company_acronym} Copy" if company.company_acronym else "Office Copy"
+    )
+
+    # First page - Company Copy
     y_position = PAGE_HEIGHT - MARGIN
     y_position = add_logo(pdf, y_position)
     y_position = add_title(
-        pdf, y_position, job, title_prefix="DELIVERY DOCKET - MSM Copy"
+        pdf, y_position, job, title_prefix=f"DELIVERY DOCKET - {copy_label}"
     )
     y_position = add_delivery_docket_details_table(pdf, y_position, job)
     if y_position <= MARGIN + 220:

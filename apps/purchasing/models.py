@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from apps.job.enums import MetalType
 from apps.job.models import Job
-from apps.workflow.helpers import get_company_defaults
+from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ class PurchaseOrder(models.Model):
 
     def generate_po_number(self):
         """Generate the next sequential PO number based on the configured prefix."""
-        defaults = get_company_defaults()
+        defaults = CompanyDefaults.get_instance()
         start = defaults.starting_po_number
         po_prefix = defaults.po_prefix  # Get prefix from CompanyDefaults
 
@@ -395,6 +395,7 @@ class Stock(models.Model):
         "source_parent_stock",
         "xero_id",
         "xero_last_modified",
+        "xero_last_synced",
         "raw_json",
         "xero_inventory_tracked",
         "parsed_at",
@@ -519,6 +520,12 @@ class Stock(models.Model):
     )
     xero_last_modified = models.DateTimeField(
         null=True, blank=True, help_text="Last modified date from Xero for this item"
+    )
+    xero_last_synced = models.DateTimeField(
+        null=True,
+        blank=True,
+        default=timezone.now,
+        help_text="When this item was last synced with Xero",
     )
     raw_json = models.JSONField(
         null=True, blank=True, help_text="Raw JSON data from Xero for this item"

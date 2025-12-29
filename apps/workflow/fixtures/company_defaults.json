@@ -3,6 +3,7 @@
     "model": "workflow.companydefaults",
     "pk": "Demo Company",
     "fields": {
+      "company_acronym": "DC",
       "is_primary": true,
       "time_markup": "0.30",
       "materials_markup": "0.20",
@@ -22,6 +23,14 @@
       "thu_end": "15:00:00",
       "fri_start": "07:00:00",
       "fri_end": "15:00:00",
+      "address_line1": "1 Molesworth Street",
+      "address_line2": null,
+      "suburb": "Pipitea",
+      "city": "Wellington",
+      "post_code": "6011",
+      "country": "New Zealand",
+      "company_email": "info@democompany.example.com",
+      "company_url": "https://www.democompany.example.com",
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-01-01T00:00:00Z",
       "last_xero_sync": null,
@@ -31,7 +40,8 @@
       "billable_threshold_green": "45.00",
       "billable_threshold_amber": "30.00",
       "daily_gp_target": "1250.00",
-      "shop_hours_target_percentage": "20.00"
+      "shop_hours_target_percentage": "20.00",
+      "xero_payroll_calendar_name": "Weekly Testing"
     }
   }
 ]
