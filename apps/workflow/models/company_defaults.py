@@ -67,6 +67,12 @@ class CompanyDefaults(models.Model):
         blank=True,
         help_text="The Xero tenant ID to use for this company",
     )
+    xero_shortcode = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="Xero organisation shortcode for deep linking (e.g., '!8-5Xl')",
+    )
 
     # Xero Payroll configuration
     # Note: Leave type IDs and earnings rate names have moved to PayrollCategory model

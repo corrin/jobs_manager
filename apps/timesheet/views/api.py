@@ -584,11 +584,15 @@ class CreatePayRunAPIView(APIView):
             week_end_date = week_start_date + timedelta(days=6)
             payment_date = week_end_date + timedelta(days=3)
 
-            # Get tenant ID from company defaults
+            # Get tenant ID and shortcode from company defaults
             company_defaults = CompanyDefaults.get_instance()
             tenant_id = company_defaults.xero_tenant_id
             if not tenant_id:
                 raise ValueError("Xero tenant ID not configured in CompanyDefaults")
+            if not company_defaults.xero_shortcode:
+                raise ValueError(
+                    "Xero shortcode not configured. Run 'python manage.py setup_dev_xero' to fetch it."
+                )
 
             # Create local record immediately
             now = timezone.now()
@@ -606,6 +610,13 @@ class CreatePayRunAPIView(APIView):
                 xero_last_synced=now,
             )
 
+            # Build Xero deep link URL
+            xero_url = (
+                f"https://payroll.xero.com/PayRun"
+                f"?CID={company_defaults.xero_shortcode}"
+                f"#payruns/{xero_pay_run_id}"
+            )
+
             return Response(
                 {
                     "id": str(pay_run.id),
@@ -614,6 +625,7 @@ class CreatePayRunAPIView(APIView):
                     "period_start_date": week_start_date.isoformat(),
                     "period_end_date": week_end_date.isoformat(),
                     "payment_date": payment_date.isoformat(),
+                    "xero_url": xero_url,
                 },
                 status=status.HTTP_201_CREATED,
             )

@@ -75,8 +75,10 @@ class Command(BaseCommand):
                 self.stdout.write(f"  - {conn.tenant_name} ({conn.tenant_id})")
             return
 
-        # Step 4: Update CompanyDefaults
+        # Step 4: Update CompanyDefaults with tenant ID and shortcode
         try:
+            from xero_python.accounting import AccountingApi
+
             company = CompanyDefaults.objects.first()
             if not company:
                 self.stdout.write(
@@ -88,6 +90,19 @@ class Command(BaseCommand):
 
             old_tenant_id = company.xero_tenant_id
             company.xero_tenant_id = demo_tenant_id
+
+            # Fetch organisation shortcode for deep linking
+            accounting_api = AccountingApi(api_client)
+            org_response = accounting_api.get_organisations(
+                xero_tenant_id=demo_tenant_id
+            )
+            if org_response and org_response.organisations:
+                shortcode = org_response.organisations[0].short_code
+                company.xero_shortcode = shortcode
+                self.stdout.write(
+                    self.style.SUCCESS(f"Fetched Xero shortcode: {shortcode}")
+                )
+
             company.save()
 
             self.stdout.write(
