@@ -973,51 +973,37 @@ def create_pay_run(
         )
 
 
-def find_payroll_calendar_for_week(week_start_date: date) -> str:
+def get_payroll_calendar_id() -> str:
     """
-    Find the payroll calendar ID by searching local pay runs for the given week.
+    Get the configured payroll calendar ID from Xero.
 
-    Verifies the pay run is in Draft status (not Posted/locked).
-
-    Args:
-        week_start_date: Monday of the week
+    Uses CompanyDefaults.xero_payroll_calendar_name to find the calendar.
+    This allows timesheets to be created without requiring a pay run to exist.
 
     Returns:
-        Payroll calendar ID from the matching pay run
+        Payroll calendar ID (UUID string)
 
     Raises:
-        Exception: If no matching pay run found or pay run is already Posted
+        Exception: If calendar not found or not configured
     """
-    from apps.workflow.models import XeroPayRun
+    from apps.workflow.models import CompanyDefaults
 
-    week_end_date = week_start_date + timedelta(days=6)
+    company = CompanyDefaults.objects.first()
+    if not company or not company.xero_payroll_calendar_name:
+        raise Exception("xero_payroll_calendar_name not configured in CompanyDefaults")
 
-    logger.info(
-        f"Searching local pay runs for week {week_start_date} to {week_end_date}"
+    target_calendar_name = company.xero_payroll_calendar_name
+    calendars = get_payroll_calendars()
+
+    for cal in calendars:
+        if cal["name"] == target_calendar_name:
+            logger.info(f"Found payroll calendar '{target_calendar_name}': {cal['id']}")
+            return str(cal["id"])
+
+    raise Exception(
+        f"Payroll calendar '{target_calendar_name}' not found in Xero. "
+        f"Available calendars: {[c['name'] for c in calendars]}"
     )
-
-    try:
-        pay_run = XeroPayRun.objects.get(
-            period_start_date=week_start_date,
-            period_end_date=week_end_date,
-        )
-    except XeroPayRun.DoesNotExist:
-        raise Exception(
-            f"No pay run found for week {week_start_date} to {week_end_date}. "
-            "Create a pay run in Xero Payroll for this period first."
-        )
-
-    if pay_run.pay_run_status == "Posted":
-        raise Exception(
-            f"Pay run for week {week_start_date} to {week_end_date} is already Posted "
-            f"and cannot be modified. Pay run ID: {pay_run.xero_id}"
-        )
-
-    logger.info(
-        f"Found matching pay run: {pay_run.xero_id} "
-        f"(status: {pay_run.pay_run_status}) with calendar {pay_run.payroll_calendar_id}"
-    )
-    return str(pay_run.payroll_calendar_id)
 
 
 def get_all_timesheets_for_week(week_start_date: date) -> Dict[str, Any]:
@@ -1109,8 +1095,8 @@ def post_timesheet(
             f"Processing timesheet for employee {employee_id}, week starting {week_start_date}"
         )
 
-        # Find the payroll calendar for this week
-        payroll_calendar_id = find_payroll_calendar_for_week(week_start_date)
+        # Get the payroll calendar ID from company configuration
+        payroll_calendar_id = get_payroll_calendar_id()
 
         # Calculate week end date (Sunday)
         week_end_date = week_start_date + timedelta(days=6)
@@ -1146,6 +1132,23 @@ def post_timesheet(
         # Step 2: If timesheet exists, delete it entirely (faster than deleting lines one-by-one)
         if existing_timesheet:
             timesheet_id = existing_timesheet.timesheet_id
+
+            # If timesheet is Approved, revert to Draft first so we can delete it
+            if existing_timesheet.status == "Approved":
+                logger.info(f"Reverting approved timesheet {timesheet_id} to Draft")
+                payroll_api.revert_timesheet(
+                    xero_tenant_id=tenant_id,
+                    timesheet_id=str(timesheet_id),
+                )
+                logger.info(f"Successfully reverted timesheet {timesheet_id} to Draft")
+                time.sleep(SLEEP_TIME)
+            elif existing_timesheet.status != "Draft":
+                # Status is something other than Draft or Approved (e.g., Paid)
+                raise Exception(
+                    f"Timesheet {timesheet_id} is in '{existing_timesheet.status}' status "
+                    "and cannot be modified. This timesheet has already been paid."
+                )
+
             logger.info(f"Deleting existing timesheet {timesheet_id}")
             payroll_api.delete_timesheet(
                 xero_tenant_id=tenant_id,
@@ -1188,6 +1191,15 @@ def post_timesheet(
         logger.info(
             f"Successfully created timesheet {timesheet_id} with {len(lines)} lines"
         )
+
+        # Step 4: Approve the timesheet immediately
+        logger.info(f"Approving timesheet {timesheet_id}")
+        payroll_api.approve_timesheet(
+            xero_tenant_id=tenant_id,
+            timesheet_id=str(timesheet_id),
+        )
+        logger.info(f"Successfully approved timesheet {timesheet_id}")
+        time.sleep(SLEEP_TIME)
 
         return created_timesheet
 
