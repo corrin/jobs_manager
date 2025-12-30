@@ -258,8 +258,14 @@ class WorkshopTimesheetService:
         charge_out_rate = self._to_decimal(
             getattr(job, "charge_out_rate", None), default="0"
         )
-        unit_cost = wage_rate * rate_multiplier
-        unit_rev = charge_out_rate * rate_multiplier if is_billable else Decimal("0.00")
+        unit_cost = (wage_rate * rate_multiplier).quantize(Decimal("0.01"))
+        unit_rev = (
+            (charge_out_rate * rate_multiplier).quantize(Decimal("0.01"))
+            if is_billable
+            else Decimal("0.00")
+        )
+        wage_rate = wage_rate.quantize(Decimal("0.01"))
+        charge_out_rate = charge_out_rate.quantize(Decimal("0.01"))
         return unit_cost, unit_rev, wage_rate, charge_out_rate
 
     @staticmethod

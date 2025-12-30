@@ -240,9 +240,6 @@ class CostLine(models.Model):
                 f"CostLine has negative quantity: {self.quantity} for {self.desc}"
             )
 
-        if self.kind != "material" and not self.approved:
-            raise ValidationError("Non-material cost line cannot be unapproved.")
-
         validate_costline_meta(self.meta, self.kind)
         validate_costline_ext_refs(self.ext_refs)
 
