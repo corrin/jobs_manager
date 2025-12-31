@@ -248,14 +248,15 @@ class Job(models.Model):
     xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
-    # Payroll category for leave jobs (Annual Leave, Sick Leave, etc.)
-    payroll_category = models.ForeignKey(
-        "workflow.PayrollCategory",
+    # Default pay item for leave jobs (Annual Leave, Sick Leave, etc.)
+    # For work jobs, this is NULL - the pay item is computed from meta.rate_multiplier
+    default_xero_pay_item = models.ForeignKey(
+        "workflow.XeroPayItem",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="jobs",
-        help_text="Payroll category for leave jobs. NULL for regular work jobs.",
+        help_text="XeroPayItem for leave jobs. NULL for regular work jobs.",
     )
 
     class Meta:

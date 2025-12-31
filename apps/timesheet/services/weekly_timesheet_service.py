@@ -22,7 +22,6 @@ from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff
 from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
-from apps.workflow.models import PayrollCategory
 
 logger = logging.getLogger(__name__)
 
@@ -301,16 +300,16 @@ class WeeklyTimesheetService:
             bereavement_leave_hours = 0
 
             for line in leave_lines:
-                category = PayrollCategory.get_for_job(line.cost_set.job)
+                pay_item = line.cost_set.job.default_xero_pay_item
                 hours = line.quantity
 
-                if category is None:
+                if pay_item is None:
                     continue  # Not a leave job
-                elif category.xero_name == "Sick Leave":
+                elif pay_item.name == "Sick Leave":
                     sick_leave_hours += hours
-                elif category.xero_name == "Annual Leave":
+                elif pay_item.name == "Annual Leave":
                     annual_leave_hours += hours
-                elif category.xero_name == "Bereavement Leave":
+                elif pay_item.name == "Bereavement Leave":
                     bereavement_leave_hours += hours
                 # Skip Unpaid Leave
 

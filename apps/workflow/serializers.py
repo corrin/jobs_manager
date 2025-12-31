@@ -5,7 +5,6 @@ from .models import (
     AIProvider,
     AppError,
     CompanyDefaults,
-    PayrollCategory,
     XeroAccount,
     XeroError,
     XeroToken,
@@ -82,37 +81,6 @@ class AIProviderCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"api_key": "API key is required for a new provider."}
             )
-        return data
-
-
-class PayrollCategorySerializer(serializers.ModelSerializer):
-    """Serializer for reading PayrollCategory instances."""
-
-    class Meta:
-        model = PayrollCategory
-        fields = (
-            "id",
-            "xero_name",
-            "uses_leave_api",
-            "rate_multiplier",
-        )
-
-
-class PayrollCategoryCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating and updating PayrollCategory instances."""
-
-    class Meta:
-        model = PayrollCategory
-        fields = (
-            "xero_name",
-            "uses_leave_api",
-            "rate_multiplier",
-        )
-
-    def validate(self, data):
-        """Validate that xero_name is provided."""
-        if not data.get("xero_name"):
-            raise serializers.ValidationError({"xero_name": "xero_name is required."})
         return data
 
 

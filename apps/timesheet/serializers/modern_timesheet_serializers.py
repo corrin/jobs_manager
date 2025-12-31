@@ -13,7 +13,6 @@ from apps.job.models import Job
 from apps.timesheet.serializers.daily_timesheet_serializers import (
     SummaryStatsSerializer,
 )
-from apps.workflow.models import PayrollCategory
 
 
 class ModernTimesheetJobSerializer(serializers.ModelSerializer):
@@ -44,8 +43,8 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
 
     def get_leave_type(self, obj) -> str | None:
         """Get leave type if this is a payroll leave job"""
-        category = PayrollCategory.get_for_job(obj)
-        return category.name if category else None
+        pay_item = obj.default_xero_pay_item
+        return pay_item.name if pay_item else None
 
 
 class ModernStaffSerializer(serializers.Serializer):

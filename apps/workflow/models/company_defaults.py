@@ -75,7 +75,7 @@ class CompanyDefaults(models.Model):
     )
 
     # Xero Payroll configuration
-    # Note: Leave type IDs and earnings rate names have moved to PayrollCategory model
+    # Note: Leave type IDs and earnings rate names are synced to XeroPayItem model
     xero_payroll_calendar_name = models.CharField(
         max_length=100,
         default="Weekly",

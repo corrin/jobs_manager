@@ -14,7 +14,7 @@ from apps.workflow.api.xero.payroll import (
     get_payroll_calendars,
 )
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
-from apps.workflow.models import PayrollCategory, XeroToken
+from apps.workflow.models import XeroToken
 from apps.workflow.models.company_defaults import CompanyDefaults
 
 
@@ -448,78 +448,26 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"Failed to fetch pay runs: {e}"))
 
     def configure_payroll(self):
-        """Interactively configure Xero Payroll mappings via PayrollCategory"""
-        self.stdout.write(
-            self.style.SUCCESS("\n=== Configure Xero Payroll Mappings ===\n")
-        )
+        """Sync XeroPayItem from Xero Leave Types and Earnings Rates."""
+        from apps.workflow.api.xero.payroll import sync_xero_pay_items
+
+        self.stdout.write(self.style.SUCCESS("\n=== Sync Xero Pay Items ===\n"))
 
         try:
-            # Fetch available leave types
-            leave_types = get_leave_types()
-            if not leave_types:
-                self.stdout.write(
-                    self.style.ERROR(
-                        "No leave types found. Cannot configure leave mappings."
-                    )
-                )
-                return
-
-            # Fetch available earnings rates
-            rates = get_earnings_rates()
-            if not rates:
-                self.stdout.write(
-                    self.style.ERROR(
-                        "No earnings rates found. Cannot configure earnings rate mappings."
-                    )
-                )
-                return
-
-            # Display available leave types
-            self.stdout.write("\nAvailable leave types:")
-            for i, lt in enumerate(leave_types, 1):
-                self.stdout.write(f"{i}. {lt['name']} - ID: {lt['id']}")
-
-            # Display available earnings rates
-            self.stdout.write("\nAvailable earnings rates:")
-            for i, rate in enumerate(rates, 1):
-                self.stdout.write(
-                    f"{i}. {rate['name']} ({rate['earnings_type']}) - ID: {rate['id']}"
-                )
-
-            # Configure leave type categories (those with job_name_pattern set)
-            leave_categories = PayrollCategory.objects.filter(
-                job_name_pattern__isnull=False, uses_leave_api=True
-            )
-            if leave_categories.exists():
-                self.stdout.write(self.style.SUCCESS("\n--- Leave Types ---"))
-                for category in leave_categories:
-                    category.xero_leave_type_name = self._prompt_for_leave_type_name(
-                        category.display_name,
-                        leave_types,
-                        category.xero_leave_type_name,
-                    )
-                    category.save()
-
-            # Configure work rate categories (those with rate_multiplier set)
-            work_categories = PayrollCategory.objects.filter(
-                rate_multiplier__isnull=False
-            )
-            if work_categories.exists():
-                self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))
-                for category in work_categories:
-                    category.xero_earnings_rate_name = self._prompt_for_rate_name(
-                        f"{category.display_name} ({category.rate_multiplier}x)",
-                        rates,
-                        category.xero_earnings_rate_name,
-                    )
-                    category.save()
+            result = sync_xero_pay_items()
 
             self.stdout.write(
-                self.style.SUCCESS("\n✓ Payroll mappings saved successfully!")
+                f"Leave types: {result['leave_types_created']} created, "
+                f"{result['leave_types_updated']} updated"
             )
+            self.stdout.write(
+                f"Earnings rates: {result['earnings_rates_created']} created, "
+                f"{result['earnings_rates_updated']} updated"
+            )
+            self.stdout.write(self.style.SUCCESS("\n✓ XeroPayItem sync completed!"))
 
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f"Failed to configure mappings: {e}"))
+            self.stdout.write(self.style.ERROR(f"Failed to sync pay items: {e}"))
 
     def _prompt_for_id(self, label, items, current_value):
         """Prompt user to select an ID from a list of items (leave types, earnings rates, etc.)"""

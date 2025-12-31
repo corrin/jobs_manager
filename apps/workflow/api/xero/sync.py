@@ -1317,6 +1317,8 @@ def deep_sync_xero_data(days_back=30, entities=None):
 
 def synchronise_xero_data(delay_between_requests=1):
     """Yield progress events while performing a full Xero synchronisation."""
+    from apps.workflow.api.xero.payroll import sync_xero_pay_items
+
     if not cache.add("xero_sync_lock", True, timeout=60 * 60 * 4):
         logger.info("Skipping sync - another sync is running")
         yield {
@@ -1330,6 +1332,17 @@ def synchronise_xero_data(delay_between_requests=1):
     try:
         company_defaults = CompanyDefaults.objects.get()
         now = timezone.now()
+
+        # Sync pay items (leave types + earnings rates) - lightweight, 2 API calls
+        result = sync_xero_pay_items()
+        lt = result["leave_types"]
+        er = result["earnings_rates"]
+        yield {
+            "datetime": timezone.now().isoformat(),
+            "entity": "pay_items",
+            "severity": "info",
+            "message": f"Synced pay items: {lt['created'] + lt['updated']} leave types, {er['created'] + er['updated']} earnings rates",
+        }
 
         # Check if deep sync needed
         if (

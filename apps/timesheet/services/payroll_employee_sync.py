@@ -13,11 +13,10 @@ from django.db import transaction
 from apps.accounts.models import Staff
 from apps.workflow.api.xero.payroll import (
     create_payroll_employee,
-    get_earnings_rate_id_by_name,
     get_employees,
     get_payroll_calendars,
 )
-from apps.workflow.models import CompanyDefaults, PayrollCategory
+from apps.workflow.models import CompanyDefaults, XeroPayItem
 
 # Pattern to extract Staff UUID from job_title like "Workshop Worker [uuid-here]"
 STAFF_UUID_PATTERN = re.compile(r"\[([0-9a-f-]{36})\]$", re.IGNORECASE)
@@ -264,21 +263,20 @@ class PayrollEmployeeSyncService:
 
     @classmethod
     def _get_ordinary_earnings_rate_id(cls) -> str:
-        """Get earnings rate ID for 'Ordinary Time' from Xero (cached per sync run)."""
+        """Get earnings rate ID for 'Ordinary Time' from XeroPayItem."""
         if cls._cached_ordinary_earnings_rate_id is not None:
             return cls._cached_ordinary_earnings_rate_id
 
-        category = PayrollCategory.objects.get(name="work_ordinary")
-        rate_name = category.xero_earnings_rate_name
-        if not rate_name:
+        ordinary_time = XeroPayItem.get_ordinary_time()
+        if not ordinary_time:
             raise ValueError(
-                "PayrollCategory 'work_ordinary' does not have an earnings rate name configured."
+                "XeroPayItem 'Ordinary Time' not found. "
+                "Run sync_xero_pay_items() to sync pay items from Xero."
             )
 
-        cls._cached_ordinary_earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
+        cls._cached_ordinary_earnings_rate_id = ordinary_time.xero_id
         logger.info(
-            "Found earnings rate '%s': %s",
-            rate_name,
+            "Found earnings rate 'Ordinary Time': %s",
             cls._cached_ordinary_earnings_rate_id,
         )
         return cls._cached_ordinary_earnings_rate_id

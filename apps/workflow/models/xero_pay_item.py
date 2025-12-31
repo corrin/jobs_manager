@@ -88,11 +88,7 @@ class XeroPayItem(models.Model):
 
     @classmethod
     def get_by_multiplier(cls, multiplier: Decimal) -> "XeroPayItem | None":
-        """
-        Get the XeroPayItem for a given rate multiplier.
-
-        Used when creating time entries to find the appropriate earnings rate.
-        """
+        """Get a XeroPayItem by rate multiplier."""
         return cls.objects.filter(
             uses_leave_api=False,
             multiplier=multiplier,
@@ -100,5 +96,8 @@ class XeroPayItem(models.Model):
 
     @classmethod
     def get_ordinary_time(cls) -> "XeroPayItem | None":
-        """Get the 'Ordinary Time' pay item (multiplier=1.0)."""
-        return cls.get_by_multiplier(Decimal("1.0"))
+        """Get the 'Ordinary Time' pay item by name."""
+        return cls.objects.filter(
+            name="Ordinary Time",
+            uses_leave_api=False,
+        ).first()

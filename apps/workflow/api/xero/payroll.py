@@ -28,7 +28,7 @@ from xero_python.payrollnz.models import (
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.models import CompanyDefaults, PayrollCategory
+from apps.workflow.models import CompanyDefaults, XeroPayItem
 from apps.workflow.services.error_persistence import (
     persist_and_raise,
     persist_app_error,
@@ -1434,6 +1434,87 @@ def get_all_pay_slips_for_sync(**kwargs):
     return type("obj", (object,), {"pay_slips": all_pay_slips})()
 
 
+def validate_pay_items_for_week(
+    staff_ids: List[UUID],
+    week_start_date: date,
+) -> None:
+    """
+    Validate ALL required XeroPayItems exist for ALL staff entries BEFORE posting.
+
+    This is fail-early validation: we check everything upfront so we don't make
+    partial API calls and leave data in an inconsistent state.
+
+    Args:
+        staff_ids: List of staff UUIDs to validate
+        week_start_date: Monday of the week
+
+    Raises:
+        ValueError: If any required pay items are missing
+    """
+    from apps.job.models.costing import CostLine
+
+    week_end_date = week_start_date + timedelta(days=6)
+
+    # Collect ALL time entries for ALL staff in this week
+    all_entries = CostLine.objects.filter(
+        kind="time",
+        accounting_date__gte=week_start_date,
+        accounting_date__lte=week_end_date,
+    ).select_related("cost_set__job", "cost_set__job__default_xero_pay_item")
+
+    # Filter to only the staff we're posting
+    staff_id_strs = {str(sid) for sid in staff_ids}
+    entries = [e for e in all_entries if e.meta.get("staff_id") in staff_id_strs]
+
+    if not entries:
+        return  # No entries to validate
+
+    # Collect all required pay items
+    missing_pay_items = []
+    required_multipliers = set()
+
+    for entry in entries:
+        job = entry.cost_set.job
+        pay_item = job.default_xero_pay_item
+
+        if pay_item is not None:
+            # Leave job - pay_item is already set on job
+            # Validation: ensure xero_id exists
+            if not pay_item.xero_id:
+                missing_pay_items.append(
+                    f"Job '{job.name}' has XeroPayItem '{pay_item.name}' with no xero_id"
+                )
+        else:
+            # Work entry - needs lookup by multiplier
+            rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
+            required_multipliers.add(rate_multiplier)
+
+    # Validate all required multipliers have corresponding XeroPayItems
+    for multiplier in required_multipliers:
+        if multiplier == Decimal("1.0"):
+            pay_item = XeroPayItem.get_ordinary_time()
+            if not pay_item:
+                missing_pay_items.append(
+                    "XeroPayItem 'Ordinary Time' not found for multiplier 1.0"
+                )
+        else:
+            pay_item = XeroPayItem.get_by_multiplier(multiplier)
+            if not pay_item:
+                missing_pay_items.append(
+                    f"XeroPayItem not found for multiplier {multiplier}"
+                )
+
+    if missing_pay_items:
+        raise ValueError(
+            "Missing XeroPayItems - run sync_xero_pay_items() first:\n"
+            + "\n".join(f"  - {msg}" for msg in missing_pay_items)
+        )
+
+    logger.info(
+        f"Validated pay items for {len(entries)} entries across {len(staff_ids)} staff"
+    )
+
+
 def post_staff_week_to_xero(
     staff_id: UUID,
     week_start_date: date,
@@ -1479,21 +1560,14 @@ def post_staff_week_to_xero(
             f"Staff member {staff.email} does not have a xero_user_id configured"
         )
 
-    # PHASE 1: Pre-fetch and validate all Xero lookups before any modifying API calls
-    ensure_earnings_rate_cache()
-
-    # Validate all configured earnings rate names exist in Xero
-    work_categories = PayrollCategory.objects.filter(
-        rate_multiplier__isnull=False,
-    )
-    for category in work_categories:
-        if category.xero_name not in _earnings_rate_cache:
-            available = ", ".join(sorted(_earnings_rate_cache.keys()))
-            raise ValueError(
-                f"Earnings rate '{category.xero_name}' not found in Xero. "
-                f"Available: {available}"
-            )
-    logger.info("All required earnings rates validated")
+    # PHASE 1: Validate XeroPayItem data is synced
+    ordinary_time = XeroPayItem.get_ordinary_time()
+    if not ordinary_time:
+        raise ValueError(
+            "XeroPayItem 'Ordinary Time' (multiplier=1.0) not found. "
+            "Run sync_xero_pay_items() to sync pay items from Xero."
+        )
+    logger.info("XeroPayItem data validated")
 
     try:
         # Calculate week end date (Sunday)
@@ -1541,9 +1615,9 @@ def post_staff_week_to_xero(
         other_leave_entries = []
         for entry in timesheet_entries:
             job = entry.cost_set.job
-            category = PayrollCategory.get_for_job(job)
-            if category is not None:
-                # It's a leave job (e.g., other leave)
+            pay_item = job.default_xero_pay_item
+            if pay_item is not None:
+                # It's a leave job (e.g., other leave via Timesheets API)
                 other_leave_entries.append(entry)
             else:
                 work_entries.append(entry)
@@ -1609,7 +1683,7 @@ def _categorize_entries(entries: List) -> tuple:
     """
     Categorize cost line entries for Xero posting.
 
-    Uses PayrollCategory to determine how each entry should be posted.
+    Uses job.default_xero_pay_item to determine how each entry should be posted.
 
     Args:
         entries: List of CostLine entries to categorize
@@ -1624,12 +1698,12 @@ def _categorize_entries(entries: List) -> tuple:
 
     for entry in entries:
         job = entry.cost_set.job
-        category = PayrollCategory.get_for_job(job)
+        pay_item = job.default_xero_pay_item
 
-        if category is None:
+        if pay_item is None:
             # Regular work - post as timesheet
             timesheet_entries.append(entry)
-        elif category.uses_leave_api:
+        elif pay_item.uses_leave_api:
             # Uses Leave API (e.g., annual, sick, unpaid)
             leave_api_entries.append(entry)
         else:
@@ -1641,12 +1715,13 @@ def _categorize_entries(entries: List) -> tuple:
 
 def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     """
-    Map work CostLine entries to Xero Payroll timesheet lines format.
+    Map work/timesheet CostLine entries to Xero Payroll timesheet lines format.
 
-    Uses PayrollCategory to look up earnings rate names by rate multiplier.
+    For work entries: looks up XeroPayItem by rate_multiplier
+    For other leave entries: uses job.default_xero_pay_item
 
     Args:
-        entries: List of work CostLine entries
+        entries: List of CostLine entries (work or other leave via Timesheets API)
 
     Returns:
         List of timesheet line dictionaries for Xero API
@@ -1654,26 +1729,31 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     timesheet_lines = []
 
     for entry in entries:
-        rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
+        job = entry.cost_set.job
 
-        # Look up PayrollCategory by rate multiplier
-        category = PayrollCategory.get_for_rate_multiplier(rate_multiplier)
-        if category is None:
-            # Fall back to ordinary time (rate_multiplier=1.0)
-            category = PayrollCategory.get_for_rate_multiplier(Decimal("1.0"))
+        # Check if this is a leave job (other leave via Timesheets API)
+        if job.default_xero_pay_item is not None:
+            pay_item = job.default_xero_pay_item
+        else:
+            # Regular work - look up by rate multiplier
+            rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
 
-        if category is None:
-            raise ValueError(
-                f"No PayrollCategory found for rate_multiplier {rate_multiplier}"
-            )
+            if rate_multiplier == Decimal("1.0"):
+                # Use Ordinary Time specifically for 1.0x
+                pay_item = XeroPayItem.get_ordinary_time()
+            else:
+                # Use multiplier lookup for 1.5x, 2.0x, etc.
+                pay_item = XeroPayItem.get_by_multiplier(rate_multiplier)
 
-        # Look up the ID by name from Xero at runtime
-        earnings_rate_id = get_earnings_rate_id_by_name(category.xero_name)
+            if pay_item is None:
+                raise ValueError(
+                    f"No XeroPayItem found for rate_multiplier {rate_multiplier}"
+                )
 
         timesheet_lines.append(
             {
                 "date": entry.accounting_date,
-                "earnings_rate_id": earnings_rate_id,
+                "earnings_rate_id": pay_item.xero_id,
                 "number_of_units": float(entry.quantity),
             }
         )
@@ -1689,7 +1769,7 @@ def _post_leave_entries(
     Post leave CostLine entries to Xero using the Leave API.
 
     Groups consecutive days of the same leave type together.
-    Uses PayrollCategory to look up Xero leave type IDs.
+    Uses job.default_xero_pay_item to get Xero leave type IDs.
 
     Args:
         employee_id: Xero employee ID
@@ -1698,29 +1778,29 @@ def _post_leave_entries(
     Returns:
         List of leave IDs created in Xero
     """
-    # Group entries by PayrollCategory and sort by date
+    # Group entries by XeroPayItem and sort by date
     grouped = defaultdict(list)
     for entry in entries:
         job = entry.cost_set.job
-        category = PayrollCategory.get_for_job(job)
+        pay_item = job.default_xero_pay_item
 
-        if category is None:
+        if pay_item is None:
             raise ValueError(
                 f"Job '{job.name}' is not a leave job but was passed to _post_leave_entries"
             )
 
-        grouped[category].append(entry)
+        grouped[pay_item].append(entry)
 
     # Sort each group by date
-    for category in grouped:
-        grouped[category].sort(key=lambda e: e.accounting_date)
+    for pay_item in grouped:
+        grouped[pay_item].sort(key=lambda e: e.accounting_date)
 
     leave_ids = []
 
-    # Process each leave category
-    for category, type_entries in grouped.items():
-        # Look up the ID by name from Xero at runtime
-        leave_type_id = get_leave_type_id_by_name(category.xero_name)
+    # Process each leave type
+    for pay_item, type_entries in grouped.items():
+        # Use xero_id directly from XeroPayItem
+        leave_type_id = pay_item.xero_id
 
         # Group consecutive days together
         if not type_entries:
@@ -1749,7 +1829,7 @@ def _post_leave_entries(
                     start_date=current_start,
                     end_date=current_end,
                     hours_per_day=current_hours,
-                    description=category.xero_name,
+                    description=pay_item.name,
                 )
                 leave_ids.append(leave_id)
 
@@ -1765,7 +1845,7 @@ def _post_leave_entries(
             start_date=current_start,
             end_date=current_end,
             hours_per_day=current_hours,
-            description=category.xero_name,
+            description=pay_item.name,
         )
         leave_ids.append(leave_id)
 

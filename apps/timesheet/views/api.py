@@ -44,6 +44,7 @@ from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetServ
 from apps.workflow.api.xero.payroll import (
     get_all_timesheets_for_week,
     post_staff_week_to_xero,
+    validate_pay_items_for_week,
 )
 from apps.workflow.api.xero.sync import sync_all_xero_data
 from apps.workflow.exceptions import AlreadyLoggedException
@@ -896,6 +897,18 @@ def stream_payroll_post(request, task_id):
 
         # Starting event
         yield f"data: {json.dumps({'event': 'start', 'total': total, 'datetime': timezone.now().isoformat()})}\n\n"
+
+        # FAIL EARLY: Validate ALL required pay items exist for ALL staff
+        # before making any modifying API calls
+        try:
+            staff_uuids = [uuid_module.UUID(sid) for sid in staff_ids]
+            validate_pay_items_for_week(staff_uuids, week_start_date)
+        except ValueError as exc:
+            logger.error("Pay item validation failed: %s", exc)
+            persist_app_error(exc)
+            yield f"data: {json.dumps({'event': 'error', 'message': str(exc), 'datetime': timezone.now().isoformat()})}\n\n"
+            yield f"data: {json.dumps({'event': 'done', 'successful': 0, 'failed': total, 'datetime': timezone.now().isoformat()})}\n\n"
+            return
 
         # Fetch all existing timesheets for the week in ONE API call
         try:
