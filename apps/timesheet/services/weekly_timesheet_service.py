@@ -306,13 +306,13 @@ class WeeklyTimesheetService:
 
                 if category is None:
                     continue  # Not a leave job
-                elif category.name == "sick_leave":
+                elif category.xero_name == "Sick Leave":
                     sick_leave_hours += hours
-                elif category.name == "annual_leave":
+                elif category.xero_name == "Annual Leave":
                     annual_leave_hours += hours
-                elif category.name == "bereavement_leave":
+                elif category.xero_name == "Bereavement Leave":
                     bereavement_leave_hours += hours
-                # Skip unpaid leave
+                # Skip Unpaid Leave
 
             base_data.update(
                 {

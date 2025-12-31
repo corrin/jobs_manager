@@ -743,6 +743,15 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
         earnings_rates = []
         if response and response.earnings_rates:
             for rate in response.earnings_rates:
+                # Get multiplier from Xero
+                # rate_type can be: RatePerUnit, MultipleOfOrdinaryEarningsRate, FixedAmount
+                multiplier = None
+                if rate.rate_type == "MultipleOfOrdinaryEarningsRate":
+                    multiplier = rate.multiple_of_ordinary_earnings_rate
+                elif rate.rate_type == "RatePerUnit":
+                    # Ordinary time is rate per unit with implicit 1.0x multiplier
+                    multiplier = 1.0
+
                 earnings_rates.append(
                     {
                         "id": rate.earnings_rate_id,
@@ -750,6 +759,7 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
                         "earnings_type": rate.earnings_type,
                         "rate_type": rate.rate_type,
                         "type_of_units": rate.type_of_units,
+                        "multiplier": multiplier,
                     }
                 )
 
@@ -1477,15 +1487,10 @@ def post_staff_week_to_xero(
         rate_multiplier__isnull=False,
     )
     for category in work_categories:
-        rate_name = category.xero_earnings_rate_name
-        if not rate_name:
-            raise ValueError(
-                f"PayrollCategory '{category.name}' does not have an earnings rate name configured"
-            )
-        if rate_name not in _earnings_rate_cache:
+        if category.xero_name not in _earnings_rate_cache:
             available = ", ".join(sorted(_earnings_rate_cache.keys()))
             raise ValueError(
-                f"Earnings rate '{rate_name}' for category '{category.name}' not found in Xero. "
+                f"Earnings rate '{category.xero_name}' not found in Xero. "
                 f"Available: {available}"
             )
     logger.info("All required earnings rates validated")
@@ -1652,22 +1657,18 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
         rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
 
         # Look up PayrollCategory by rate multiplier
-        category = PayrollCategory.objects.filter(
-            rate_multiplier=rate_multiplier,
-            job_name_pattern__isnull=True,
-        ).first()
+        category = PayrollCategory.get_for_rate_multiplier(rate_multiplier)
         if category is None:
-            # Fall back to ordinary time
-            category = PayrollCategory.objects.get(name="work_ordinary")
+            # Fall back to ordinary time (rate_multiplier=1.0)
+            category = PayrollCategory.get_for_rate_multiplier(Decimal("1.0"))
 
-        rate_name = category.xero_earnings_rate_name
-        if not rate_name:
+        if category is None:
             raise ValueError(
-                f"PayrollCategory '{category.name}' does not have an earnings rate name configured"
+                f"No PayrollCategory found for rate_multiplier {rate_multiplier}"
             )
 
         # Look up the ID by name from Xero at runtime
-        earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
+        earnings_rate_id = get_earnings_rate_id_by_name(category.xero_name)
 
         timesheet_lines.append(
             {
@@ -1718,16 +1719,8 @@ def _post_leave_entries(
 
     # Process each leave category
     for category, type_entries in grouped.items():
-        leave_type_name = category.xero_leave_type_name
-
-        if not leave_type_name:
-            raise ValueError(
-                f"PayrollCategory '{category.display_name}' does not have a Xero leave type name configured. "
-                "Run: python manage.py interact_with_xero --configure-payroll"
-            )
-
         # Look up the ID by name from Xero at runtime
-        leave_type_id = get_leave_type_id_by_name(leave_type_name)
+        leave_type_id = get_leave_type_id_by_name(category.xero_name)
 
         # Group consecutive days together
         if not type_entries:
@@ -1756,7 +1749,7 @@ def _post_leave_entries(
                     start_date=current_start,
                     end_date=current_end,
                     hours_per_day=current_hours,
-                    description=category.display_name,
+                    description=category.xero_name,
                 )
                 leave_ids.append(leave_id)
 
@@ -1772,8 +1765,97 @@ def _post_leave_entries(
             start_date=current_start,
             end_date=current_end,
             hours_per_day=current_hours,
-            description=category.display_name,
+            description=category.xero_name,
         )
         leave_ids.append(leave_id)
 
     return leave_ids
+
+
+def sync_xero_pay_items() -> Dict[str, Any]:
+    """
+    Sync XeroPayItem from Xero Leave Types and Earnings Rates.
+
+    This creates/updates XeroPayItem records from Xero's:
+    - Leave Types (uses_leave_api=True)
+    - Earnings Rates (uses_leave_api=False)
+
+    Returns:
+        Dict with sync results: created, updated counts
+
+    Raises:
+        ValueError: If no Xero tenant ID configured
+        Exception: If Xero API calls fail
+    """
+    from django.utils import timezone
+
+    from apps.workflow.models import XeroPayItem
+
+    # Fail early: check tenant ID
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise ValueError("No Xero tenant ID configured")
+
+    results = {
+        "leave_types": {"created": 0, "updated": 0},
+        "earnings_rates": {"created": 0, "updated": 0},
+    }
+
+    # Fetch all data upfront - fail fast if API errors
+    logger.info("Fetching Xero Leave Types and Earnings Rates")
+    leave_types = get_leave_types()
+    earnings_rates = get_earnings_rates()
+
+    # Sync Leave Types
+    logger.info(f"Syncing {len(leave_types)} leave types to XeroPayItem")
+    for lt in leave_types:
+        pay_item, created = XeroPayItem.objects.update_or_create(
+            xero_id=str(lt["id"]),
+            defaults={
+                "xero_tenant_id": tenant_id,
+                "name": lt["name"],
+                "uses_leave_api": True,
+                "multiplier": None,
+                "xero_last_synced": timezone.now(),
+            },
+        )
+        if created:
+            results["leave_types"]["created"] += 1
+            logger.info(f"Created XeroPayItem: {lt['name']} (leave type)")
+        else:
+            results["leave_types"]["updated"] += 1
+
+    # Sync Earnings Rates
+    logger.info(f"Syncing {len(earnings_rates)} earnings rates to XeroPayItem")
+    for rate in earnings_rates:
+        multiplier = rate.get("multiplier")
+        if multiplier is not None:
+            multiplier = Decimal(str(multiplier))
+
+        pay_item, created = XeroPayItem.objects.update_or_create(
+            xero_id=str(rate["id"]),
+            defaults={
+                "xero_tenant_id": tenant_id,
+                "name": rate["name"],
+                "uses_leave_api": False,
+                "multiplier": multiplier,
+                "xero_last_synced": timezone.now(),
+            },
+        )
+        if created:
+            results["earnings_rates"]["created"] += 1
+            logger.info(
+                f"Created XeroPayItem: {rate['name']} (multiplier={multiplier})"
+            )
+        else:
+            results["earnings_rates"]["updated"] += 1
+
+    logger.info(
+        f"XeroPayItem sync complete: "
+        f"{results['leave_types']['created']} leave types created, "
+        f"{results['leave_types']['updated']} updated. "
+        f"{results['earnings_rates']['created']} earnings rates created, "
+        f"{results['earnings_rates']['updated']} updated."
+    )
+
+    return results

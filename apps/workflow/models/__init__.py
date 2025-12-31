@@ -7,6 +7,7 @@ from .payroll_category import PayrollCategory
 from .service_api_key import ServiceAPIKey
 from .xero_account import XeroAccount
 from .xero_journal import XeroJournal, XeroJournalLineItem
+from .xero_pay_item import XeroPayItem
 from .xero_payroll import XeroPayRun, XeroPaySlip
 from .xero_token import XeroToken
 
@@ -20,6 +21,7 @@ __all__ = [
     "XeroError",
     "XeroJournal",
     "XeroJournalLineItem",
+    "XeroPayItem",
     "XeroPayRun",
     "XeroPaySlip",
     "XeroToken",

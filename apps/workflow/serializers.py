@@ -92,13 +92,9 @@ class PayrollCategorySerializer(serializers.ModelSerializer):
         model = PayrollCategory
         fields = (
             "id",
-            "name",
-            "display_name",
-            "job_name_pattern",
-            "rate_multiplier",
+            "xero_name",
             "uses_leave_api",
-            "xero_leave_type_name",
-            "xero_earnings_rate_name",
+            "rate_multiplier",
         )
 
 
@@ -108,30 +104,15 @@ class PayrollCategoryCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PayrollCategory
         fields = (
-            "name",
-            "display_name",
-            "job_name_pattern",
-            "rate_multiplier",
+            "xero_name",
             "uses_leave_api",
-            "xero_leave_type_name",
-            "xero_earnings_rate_name",
+            "rate_multiplier",
         )
 
     def validate(self, data):
-        """Validate that categories have appropriate Xero names configured."""
-        uses_leave_api = data.get("uses_leave_api", False)
-
-        if uses_leave_api and not data.get("xero_leave_type_name"):
-            raise serializers.ValidationError(
-                {"xero_leave_type_name": "Required when uses_leave_api=True."}
-            )
-        if not uses_leave_api and not data.get("xero_earnings_rate_name"):
-            # Work categories require earnings rate name
-            # Leave categories using Timesheets API (other_leave) don't need it
-            if data.get("rate_multiplier") is not None:
-                raise serializers.ValidationError(
-                    {"xero_earnings_rate_name": "Required for work categories."}
-                )
+        """Validate that xero_name is provided."""
+        if not data.get("xero_name"):
+            raise serializers.ValidationError({"xero_name": "xero_name is required."})
         return data
 
 

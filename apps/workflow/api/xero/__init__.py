@@ -27,6 +27,7 @@ try:
             get_payroll_calendars,
             post_staff_week_to_xero,
             post_timesheet,
+            sync_xero_pay_items,
         )
         from .reprocess_xero import (
             reprocess_all,
@@ -193,6 +194,7 @@ __all__ = [
     "sync_stock_to_xero",
     "sync_time_entries_bulk",
     "sync_xero_data",
+    "sync_xero_pay_items",
     "synchronise_xero_data",
     "transform_bill",
     "transform_credit_note",
