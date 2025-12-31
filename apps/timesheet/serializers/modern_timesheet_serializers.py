@@ -98,7 +98,7 @@ class WeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
     overtime_2x_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     sick_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     annual_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    bereavement_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class WeeklyStaffDataSerializer(serializers.Serializer):
@@ -123,7 +123,9 @@ class WeeklyStaffDataSerializer(serializers.Serializer):
     total_overtime_2x_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_sick_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_annual_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    total_other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_bereavement_leave_hours = serializers.DecimalField(
+        max_digits=10, decimal_places=2
+    )
 
 
 @extend_schema_serializer(component_name="WeeklyTimesheetData")
@@ -156,7 +158,8 @@ class PaidAbsenceSerializer(serializers.Serializer):
         choices=[
             ("annual", "Annual Leave"),
             ("sick", "Sick Leave"),
-            ("other", "Other Leave"),
+            ("bereavement", "Bereavement Leave"),
+            ("unpaid", "Unpaid Leave"),
         ]
     )
     hours_per_day = serializers.FloatField(min_value=0.1, max_value=24.0)

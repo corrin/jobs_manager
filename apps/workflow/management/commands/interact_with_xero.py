@@ -502,7 +502,7 @@ class Command(BaseCommand):
 
             # Configure work rate categories (those with rate_multiplier set)
             work_categories = PayrollCategory.objects.filter(
-                rate_multiplier__isnull=False, posts_to_xero=True
+                rate_multiplier__isnull=False
             )
             if work_categories.exists():
                 self.stdout.write(self.style.SUCCESS("\n--- Work Time Rates ---"))

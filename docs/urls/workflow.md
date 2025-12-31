@@ -23,6 +23,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/company-defaults/` | `company_defaults_api.CompanyDefaultsAPIView` | `api_company_defaults` | API view for managing company default settings. |
+| `/api/company-defaults/schema/` | `company_defaults_schema_api.CompanyDefaultsSchemaAPIView` | `api_company_defaults_schema` | API endpoint that returns field metadata for CompanyDefaults. |
 | `/api/enums/<str:enum_name>/` | `get_enum_choices` | `get_enum_choices` | API endpoint to get enum choices. |
 
 #### Xero Integration

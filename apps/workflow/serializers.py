@@ -96,7 +96,6 @@ class PayrollCategorySerializer(serializers.ModelSerializer):
             "display_name",
             "job_name_pattern",
             "rate_multiplier",
-            "posts_to_xero",
             "uses_leave_api",
             "xero_leave_type_name",
             "xero_earnings_rate_name",
@@ -113,7 +112,6 @@ class PayrollCategoryCreateUpdateSerializer(serializers.ModelSerializer):
             "display_name",
             "job_name_pattern",
             "rate_multiplier",
-            "posts_to_xero",
             "uses_leave_api",
             "xero_leave_type_name",
             "xero_earnings_rate_name",
@@ -121,21 +119,18 @@ class PayrollCategoryCreateUpdateSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """Validate that categories have appropriate Xero names configured."""
-        posts_to_xero = data.get("posts_to_xero", True)
         uses_leave_api = data.get("uses_leave_api", False)
 
-        if posts_to_xero:
-            if uses_leave_api and not data.get("xero_leave_type_name"):
+        if uses_leave_api and not data.get("xero_leave_type_name"):
+            raise serializers.ValidationError(
+                {"xero_leave_type_name": "Required when uses_leave_api=True."}
+            )
+        if not uses_leave_api and not data.get("xero_earnings_rate_name"):
+            # Work categories require earnings rate name
+            # Leave categories using Timesheets API (other_leave) don't need it
+            if data.get("rate_multiplier") is not None:
                 raise serializers.ValidationError(
-                    {
-                        "xero_leave_type_name": "Required when posts_to_xero=True and uses_leave_api=True."
-                    }
-                )
-            if not uses_leave_api and not data.get("xero_earnings_rate_name"):
-                raise serializers.ValidationError(
-                    {
-                        "xero_earnings_rate_name": "Required when posts_to_xero=True and uses_leave_api=False."
-                    }
+                    {"xero_earnings_rate_name": "Required for work categories."}
                 )
         return data
 
@@ -383,3 +378,34 @@ class AWSInstanceStatusResponseSerializer(serializers.Serializer):
     status = serializers.CharField(required=False)
     error = serializers.CharField(required=False)
     details = serializers.CharField(required=False)
+
+
+# ---------------------------------------------------------------------------
+# Company Defaults Schema Serializers
+# ---------------------------------------------------------------------------
+
+
+class SettingsFieldSerializer(serializers.Serializer):
+    """Serializer for individual field metadata."""
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    type = serializers.CharField()
+    required = serializers.BooleanField()
+    help_text = serializers.CharField(allow_blank=True)
+    section = serializers.CharField()
+
+
+class SettingsSectionSerializer(serializers.Serializer):
+    """Serializer for a section containing fields."""
+
+    key = serializers.CharField()
+    title = serializers.CharField()
+    order = serializers.IntegerField()
+    fields = SettingsFieldSerializer(many=True)
+
+
+class CompanyDefaultsSchemaSerializer(serializers.Serializer):
+    """Serializer for the complete schema response."""
+
+    sections = SettingsSectionSerializer(many=True)

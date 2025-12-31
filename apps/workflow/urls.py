@@ -57,6 +57,7 @@ from apps.workflow.views.aws_instance_view import (
     stop_instance,
 )
 from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
+from apps.workflow.views.company_defaults_schema_api import CompanyDefaultsSchemaAPIView
 from apps.workflow.views.payroll_category_viewset import PayrollCategoryViewSet
 from apps.workflow.views.xero import xero_view
 from apps.workflow.xero_webhooks import XeroWebhookView
@@ -193,6 +194,11 @@ urlpatterns = [
         "api/company-defaults/",
         CompanyDefaultsAPIView.as_view(),
         name="api_company_defaults",
+    ),
+    path(
+        "api/company-defaults/schema/",
+        CompanyDefaultsSchemaAPIView.as_view(),
+        name="api_company_defaults_schema",
     ),
     # AI Provider CRUD & custom actions
     path("api/workflow/", include(router.urls)),

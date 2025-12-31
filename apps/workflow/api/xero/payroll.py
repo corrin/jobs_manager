@@ -1444,9 +1444,8 @@ def post_staff_week_to_xero(
             - xero_timesheet_id (str): Xero timesheet ID if successful
             - entries_posted (int): Number of entries posted
             - work_hours (Decimal): Total work hours
-            - other_leave_hours (Decimal): Total other leave hours
-            - annual_sick_hours (Decimal): Total annual/sick leave hours
-            - unpaid_hours (Decimal): Total unpaid hours (not posted)
+            - other_leave_hours (Decimal): Total other leave hours (timesheets API)
+            - leave_hours (Decimal): Total leave hours (leave API - annual/sick/unpaid)
             - errors (List[str]): Any errors encountered
 
     Raises:
@@ -1476,7 +1475,6 @@ def post_staff_week_to_xero(
     # Validate all configured earnings rate names exist in Xero
     work_categories = PayrollCategory.objects.filter(
         rate_multiplier__isnull=False,
-        posts_to_xero=True,
     )
     for category in work_categories:
         rate_name = category.xero_earnings_rate_name
@@ -1526,15 +1524,12 @@ def post_staff_week_to_xero(
                 "entries_posted": 0,
                 "work_hours": Decimal("0"),
                 "other_leave_hours": Decimal("0"),
-                "annual_sick_hours": Decimal("0"),
-                "unpaid_hours": Decimal("0"),
+                "leave_hours": Decimal("0"),
                 "errors": [],
             }
 
-        # Categorize entries into three buckets
-        leave_api_entries, timesheet_entries, discarded_entries = _categorize_entries(
-            staff_entries
-        )
+        # Categorize entries into two buckets
+        leave_api_entries, timesheet_entries = _categorize_entries(staff_entries)
 
         # Further split timesheet entries into work vs other leave
         work_entries = []
@@ -1576,10 +1571,7 @@ def post_staff_week_to_xero(
         other_leave_hours = sum(
             Decimal(str(entry.quantity)) for entry in other_leave_entries
         )
-        annual_sick_hours = sum(
-            Decimal(str(entry.quantity)) for entry in leave_api_entries
-        )
-        unpaid_hours = sum(Decimal(str(entry.quantity)) for entry in discarded_entries)
+        leave_hours = sum(Decimal(str(entry.quantity)) for entry in leave_api_entries)
 
         return {
             "success": True,
@@ -1588,8 +1580,7 @@ def post_staff_week_to_xero(
             "entries_posted": len(staff_entries),
             "work_hours": work_hours,
             "other_leave_hours": other_leave_hours,
-            "annual_sick_hours": annual_sick_hours,
-            "unpaid_hours": unpaid_hours,
+            "leave_hours": leave_hours,
             "errors": [],
         }
 
@@ -1619,14 +1610,12 @@ def _categorize_entries(entries: List) -> tuple:
         entries: List of CostLine entries to categorize
 
     Returns:
-        Tuple of (leave_api_entries, timesheet_entries, discarded_entries)
-        - leave_api_entries: Entries using Leave API (has balances)
+        Tuple of (leave_api_entries, timesheet_entries)
+        - leave_api_entries: Entries using Leave API (annual, sick, unpaid leave)
         - timesheet_entries: Entries using Timesheets API (work + other leave)
-        - discarded_entries: Entries not posted to Xero (unpaid leave)
     """
     leave_api_entries = []  # Leave API entries
     timesheet_entries = []  # Timesheets API entries
-    discarded_entries = []  # Not posted
 
     for entry in entries:
         job = entry.cost_set.job
@@ -1635,17 +1624,14 @@ def _categorize_entries(entries: List) -> tuple:
         if category is None:
             # Regular work - post as timesheet
             timesheet_entries.append(entry)
-        elif not category.posts_to_xero:
-            # Doesn't post to Xero (e.g., unpaid leave)
-            discarded_entries.append(entry)
         elif category.uses_leave_api:
-            # Uses Leave API (e.g., annual, sick)
+            # Uses Leave API (e.g., annual, sick, unpaid)
             leave_api_entries.append(entry)
         else:
             # Uses Timesheets API (e.g., other leave)
             timesheet_entries.append(entry)
 
-    return leave_api_entries, timesheet_entries, discarded_entries
+    return leave_api_entries, timesheet_entries
 
 
 def _map_work_entries(entries: List) -> List[Dict[str, Any]]:

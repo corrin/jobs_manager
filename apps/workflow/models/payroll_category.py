@@ -46,10 +46,6 @@ class PayrollCategory(models.Model):
     )
 
     # Posting behavior
-    posts_to_xero = models.BooleanField(
-        default=True,
-        help_text="Whether entries in this category are posted to Xero payroll",
-    )
     uses_leave_api = models.BooleanField(
         default=False,
         help_text="True = use Xero Leave API (for leave with balances). "
@@ -69,7 +65,7 @@ class PayrollCategory(models.Model):
         null=True,
         blank=True,
         help_text="Xero Earnings Rate name (looked up at runtime to get ID). "
-        "Required if uses_leave_api=False and posts_to_xero=True.",
+        "Required if uses_leave_api=False (work entries).",
     )
 
     class Meta:

@@ -100,7 +100,7 @@ class WeeklyTimesheetService:
             total_overtime_2x_hours = 0
             total_sick_leave_hours = 0
             total_annual_leave_hours = 0
-            total_other_leave_hours = 0
+            total_bereavement_leave_hours = 0
 
             for day in week_days:
                 daily_data = cls._get_payroll_daily_data(staff_member, day)
@@ -116,7 +116,9 @@ class WeeklyTimesheetService:
                 total_overtime_2x_hours += daily_data.get("overtime_2x_hours", 0)
                 total_sick_leave_hours += daily_data.get("sick_leave_hours", 0)
                 total_annual_leave_hours += daily_data.get("annual_leave_hours", 0)
-                total_other_leave_hours += daily_data.get("other_leave_hours", 0)
+                total_bereavement_leave_hours += daily_data.get(
+                    "bereavement_leave_hours", 0
+                )
 
             # Calculate percentages
             billable_percentage = (
@@ -138,7 +140,7 @@ class WeeklyTimesheetService:
                 "total_overtime_2x_hours": float(total_overtime_2x_hours),
                 "total_sick_leave_hours": float(total_sick_leave_hours),
                 "total_annual_leave_hours": float(total_annual_leave_hours),
-                "total_other_leave_hours": float(total_other_leave_hours),
+                "total_bereavement_leave_hours": float(total_bereavement_leave_hours),
             }
 
             staff_data.append(staff_entry)
@@ -296,7 +298,7 @@ class WeeklyTimesheetService:
 
             sick_leave_hours = 0
             annual_leave_hours = 0
-            other_leave_hours = 0
+            bereavement_leave_hours = 0
 
             for line in leave_lines:
                 category = PayrollCategory.get_for_job(line.cost_set.job)
@@ -308,8 +310,8 @@ class WeeklyTimesheetService:
                     sick_leave_hours += hours
                 elif category.name == "annual_leave":
                     annual_leave_hours += hours
-                elif category.name == "other_leave":
-                    other_leave_hours += hours
+                elif category.name == "bereavement_leave":
+                    bereavement_leave_hours += hours
                 # Skip unpaid leave
 
             base_data.update(
@@ -320,7 +322,7 @@ class WeeklyTimesheetService:
                     "overtime_2x_hours": float(overtime_2x_hours),
                     "sick_leave_hours": float(sick_leave_hours),
                     "annual_leave_hours": float(annual_leave_hours),
-                    "other_leave_hours": float(other_leave_hours),
+                    "bereavement_leave_hours": float(bereavement_leave_hours),
                 }
             )
 
@@ -500,16 +502,15 @@ class WeeklyTimesheetService:
 
             # Get appropriate leave job
             leave_job_names = {
-                "vacation": "Annual Leave",
+                "annual": "Annual Leave",
                 "sick": "Sick Leave",
-                "personal": "Other Leave",
-                "bereavement": "Other Leave",
-                "jury_duty": "Other Leave",
-                "training": "Training",
-                "other": "Other Leave",
+                "bereavement": "Bereavement Leave",
+                "unpaid": "Unpaid Leave",
             }
 
-            job_name = leave_job_names.get(leave_type, "Other Leave")
+            job_name = leave_job_names.get(leave_type)
+            if not job_name:
+                raise ValueError(f"Unknown leave type: {leave_type}")
             leave_job = Job.objects.filter(name=job_name).first()
 
             if not leave_job:

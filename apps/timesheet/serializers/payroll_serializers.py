@@ -45,8 +45,7 @@ class PostWeekToXeroResponseSerializer(serializers.Serializer):
     entries_posted = serializers.IntegerField()
     work_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    annual_sick_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    unpaid_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     errors = serializers.ListField(child=serializers.CharField())
 
 

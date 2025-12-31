@@ -2,6 +2,8 @@ import logging
 
 from django.apps import AppConfig
 from django.conf import settings
+from django.core.checks import Error, register
+from django.db import models
 
 from apps.workflow.scheduler import get_scheduler
 
@@ -13,6 +15,35 @@ from apps.workflow.scheduler_jobs import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@register()
+def check_company_defaults_field_sections(app_configs, **kwargs):
+    """
+    Verify all CompanyDefaults fields have section metadata defined.
+
+    This ensures new fields are properly categorized for the settings UI.
+    """
+    from apps.workflow.models import CompanyDefaults
+    from apps.workflow.models.settings_metadata import COMPANY_DEFAULTS_FIELD_SECTIONS
+
+    errors = []
+    for field in CompanyDefaults._meta.get_fields():
+        if not isinstance(field, models.Field):
+            continue
+        if field.name not in COMPANY_DEFAULTS_FIELD_SECTIONS:
+            errors.append(
+                Error(
+                    f"CompanyDefaults field '{field.name}' has no section defined",
+                    hint=(
+                        f"Add '{field.name}' to COMPANY_DEFAULTS_FIELD_SECTIONS in "
+                        f"apps/workflow/models/settings_metadata.py"
+                    ),
+                    obj=CompanyDefaults,
+                    id="workflow.E001",
+                )
+            )
+    return errors
 
 
 class WorkflowConfig(AppConfig):
