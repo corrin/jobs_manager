@@ -140,3 +140,4 @@ adhoc/
 schema.yml
 
 dropbox/
+*.zip
