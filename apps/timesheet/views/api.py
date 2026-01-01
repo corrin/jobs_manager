@@ -35,7 +35,7 @@ from apps.timesheet.serializers import (
 from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunResponseSerializer,
     CreatePayRunSerializer,
-    PayRunForWeekResponseSerializer,
+    PayRunListResponseSerializer,
     PayRunSyncResponseSerializer,
     PostWeekToXeroSerializer,
 )
@@ -644,60 +644,19 @@ class CreatePayRunAPIView(APIView):
             )
 
 
-class PayRunForWeekAPIView(APIView):
-    """
-    API endpoint to fetch pay run details.
-
-    If week_start_date is provided, returns the pay run for that specific week.
-    If not provided, returns all pay runs for the configured payroll calendar.
-    """
+class PayRunListAPIView(APIView):
+    """API endpoint to list all pay runs for the configured payroll calendar."""
 
     permission_classes = [IsAuthenticated]
-    serializer_class = PayRunForWeekResponseSerializer
 
     @extend_schema(
-        summary="Get pay runs",
-        parameters=[
-            OpenApiParameter(
-                "week_start_date",
-                OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Monday of the week (YYYY-MM-DD). If omitted, returns all pay runs.",
-                required=False,
-            )
-        ],
+        summary="List pay runs",
         responses={
-            200: PayRunForWeekResponseSerializer,
-            400: ClientErrorResponseSerializer,
+            200: PayRunListResponseSerializer,
             500: ClientErrorResponseSerializer,
         },
     )
     def get(self, request):
-        """Return pay run data. If week_start_date omitted, returns all for configured calendar."""
-        week_start_date_str = request.query_params.get("week_start_date")
-
-        # If no week specified, return all pay runs for the configured calendar
-        if not week_start_date_str:
-            return self._get_all_pay_runs()
-
-        # Otherwise, get pay run for specific week
-        try:
-            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if week_start_date.weekday() != 0:
-            return Response(
-                {"error": "week_start_date must be a Monday"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return self._get_pay_run_for_week(week_start_date)
-
-    def _get_all_pay_runs(self):
         """Return all pay runs for the configured payroll calendar."""
         calendar_id = get_payroll_calendar_id()
 
@@ -722,63 +681,6 @@ class PayRunForWeekAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-
-    def _get_pay_run_for_week(self, week_start_date):
-        """Return pay run for a specific week."""
-        # Query local DB first
-        records = list(
-            XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
-                "-django_updated_at"
-            )
-        )
-
-        # If no local record, sync from Xero
-        if not records:
-            logger.info(
-                "No cached pay run for week %s. Refreshing from Xero.",
-                week_start_date,
-            )
-            sync_all_xero_data(entities=["pay_runs"])
-            records = list(
-                XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
-                    "-django_updated_at"
-                )
-            )
-
-        # Build warning if multiple pay runs exist
-        warning = None
-        if len(records) > 1:
-            ids = [str(pr.xero_id) for pr in records]
-            statuses = [pr.pay_run_status or "" for pr in records]
-            warning = (
-                "Multiple pay runs exist for this week. "
-                f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
-            )
-
-        if records:
-            pay_run = records[0]
-            payload = {
-                "exists": True,
-                "pay_run": {
-                    "id": str(pay_run.id),
-                    "xero_id": str(pay_run.xero_id),
-                    "payroll_calendar_id": (
-                        str(pay_run.payroll_calendar_id)
-                        if pay_run.payroll_calendar_id
-                        else None
-                    ),
-                    "period_start_date": pay_run.period_start_date,
-                    "period_end_date": pay_run.period_end_date,
-                    "payment_date": pay_run.payment_date,
-                    "pay_run_status": pay_run.pay_run_status,
-                    "pay_run_type": pay_run.pay_run_type,
-                },
-                "warning": warning,
-            }
-        else:
-            payload = {"exists": False, "pay_run": None, "warning": warning}
-
-        return Response(payload, status=status.HTTP_200_OK)
 
 
 class RefreshPayRunsAPIView(APIView):
