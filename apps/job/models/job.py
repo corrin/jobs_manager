@@ -245,15 +245,13 @@ class Job(models.Model):
     xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(null=True, blank=True, default=timezone.now)
 
-    # Default pay item for leave jobs (Annual Leave, Sick Leave, etc.)
-    # For work jobs, this is NULL - the pay item is computed from meta.rate_multiplier
+    # Default pay item for time entry - prepopulates the pay item dropdown.
+    # Work jobs default to Ordinary Time, leave jobs to their specific type.
     default_xero_pay_item = models.ForeignKey(
         "workflow.XeroPayItem",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         related_name="jobs",
-        help_text="XeroPayItem for leave jobs. NULL for regular work jobs.",
+        help_text="Default pay item for time entry. Prepopulates dropdown, can be overridden.",
     )
 
     class Meta:
@@ -277,16 +275,26 @@ class Job(models.Model):
 
     @property
     def shop_job(self) -> bool:
-        """Indicates if this is a shop job (no client)."""
-        return (
-            str(self.client_id) == "00000000-0000-0000-0000-000000000001"
-        )  # This is the UUID for the shop client
+        """Indicates if this is a shop job (belongs to shop client)."""
+        if not self.client_id:
+            return False
+        from apps.client.models import Client
+
+        try:
+            shop_client_id = Client.get_shop_client_id()
+            return str(self.client_id) == shop_client_id
+        except (ValueError, RuntimeError):
+            # shop_client_name not configured - can't determine
+            return False
 
     @shop_job.setter
     def shop_job(self, value: bool) -> None:
         """Sets whether this is a shop job by updating the client ID."""
+        from apps.client.models import Client
+
         if value:
-            self.client_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+            shop_client_id = Client.get_shop_client_id()
+            self.client_id = uuid.UUID(shop_client_id)
         else:
             self.client_id = None
 

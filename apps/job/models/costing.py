@@ -264,6 +264,22 @@ class CostLine(models.Model):
         cost_set.job.save(update_fields=["updated_at"])
 
     def save(self, *args, **kwargs):
+        # Fail fast if trying to set revenue on shop jobs
+        job = self.cost_set.job
+        if job.shop_job:
+            if self.unit_rev != Decimal("0.00"):
+                raise ValidationError(
+                    f"Shop jobs cannot have revenue. Got unit_rev={self.unit_rev} "
+                    f"for job '{job.name}' (job_number={job.job_number})"
+                )
+            if self.kind == "time":
+                meta = self.meta if isinstance(self.meta, dict) else {}
+                if meta.get("is_billable", False):
+                    raise ValidationError(
+                        f"Shop job time entries cannot be billable. "
+                        f"Job '{job.name}' (job_number={job.job_number})"
+                    )
+
         super().save(*args, **kwargs)
         self._update_cost_set_summary()
 
