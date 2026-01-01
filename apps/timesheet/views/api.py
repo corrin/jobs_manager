@@ -35,6 +35,7 @@ from apps.timesheet.serializers import (
 from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunResponseSerializer,
     CreatePayRunSerializer,
+    LatestPostedPayRunSerializer,
     PayRunForWeekResponseSerializer,
     PayRunSyncResponseSerializer,
     PostWeekToXeroSerializer,
@@ -50,6 +51,7 @@ from apps.workflow.api.xero.sync import sync_all_xero_data
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.models import CompanyDefaults, XeroPayRun
 from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.utils import build_xero_payroll_url
 
 logger = logging.getLogger(__name__)
 
@@ -592,7 +594,7 @@ class CreatePayRunAPIView(APIView):
                 raise ValueError("Xero tenant ID not configured in CompanyDefaults")
             if not company_defaults.xero_shortcode:
                 raise ValueError(
-                    "Xero shortcode not configured. Run 'python manage.py setup_dev_xero' to fetch it."
+                    "Xero shortcode not configured. Run 'python manage.py setup_xero' to fetch it."
                 )
 
             # Create local record immediately
@@ -611,12 +613,7 @@ class CreatePayRunAPIView(APIView):
                 xero_last_synced=now,
             )
 
-            # Build Xero deep link URL
-            xero_url = (
-                f"https://payroll.xero.com/PayRun"
-                f"?CID={company_defaults.xero_shortcode}"
-                f"#payruns/{xero_pay_run_id}"
-            )
+            xero_url = build_xero_payroll_url(str(xero_pay_run_id))
 
             return Response(
                 {
@@ -795,6 +792,74 @@ class RefreshPayRunsAPIView(APIView):
             return build_internal_error_response(
                 request=request,
                 message="Failed to refresh pay runs",
+                exc=exc,
+            )
+
+
+class LatestPostedPayRunAPIView(APIView):
+    """
+    API endpoint to get the most recent Posted pay run.
+
+    Returns the period dates of the latest Posted pay run, which the frontend
+    can use to lock editing of timesheets for dates within that period.
+    Any date <= period_end_date is considered locked.
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = LatestPostedPayRunSerializer
+
+    @extend_schema(
+        summary="Get latest posted pay run",
+        description=(
+            "Returns the most recent Posted pay run. "
+            "Dates <= period_end_date are locked and cannot be edited."
+        ),
+        responses={
+            200: LatestPostedPayRunSerializer,
+            500: ClientErrorResponseSerializer,
+        },
+    )
+    def get(self, request):
+        """Return the latest Posted pay run if one exists."""
+        try:
+            # Get the most recent Posted pay run by period_end_date
+            latest = (
+                XeroPayRun.objects.filter(pay_run_status="Posted")
+                .order_by("-period_end_date")
+                .first()
+            )
+
+            if latest is None:
+                return Response(
+                    {
+                        "exists": False,
+                        "period_start_date": None,
+                        "period_end_date": None,
+                        "payment_date": None,
+                        "xero_id": None,
+                        "xero_url": None,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            xero_url = build_xero_payroll_url(str(latest.xero_id))
+
+            return Response(
+                {
+                    "exists": True,
+                    "period_start_date": latest.period_start_date,
+                    "period_end_date": latest.period_end_date,
+                    "payment_date": latest.payment_date,
+                    "xero_id": str(latest.xero_id),
+                    "xero_url": xero_url,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as exc:
+            return build_internal_error_response(
+                request=request,
+                message="Failed to get latest posted pay run",
                 exc=exc,
             )
 

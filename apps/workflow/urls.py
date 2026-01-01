@@ -59,6 +59,7 @@ from apps.workflow.views.aws_instance_view import (
 from apps.workflow.views.company_defaults_api import CompanyDefaultsAPIView
 from apps.workflow.views.company_defaults_schema_api import CompanyDefaultsSchemaAPIView
 from apps.workflow.views.xero import xero_view
+from apps.workflow.views.xero_pay_item_viewset import XeroPayItemViewSet
 from apps.workflow.xero_webhooks import XeroWebhookView
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,7 @@ from apps.workflow.xero_webhooks import XeroWebhookView
 router = DefaultRouter()
 router.register("ai-providers", AIProviderViewSet, basename="ai-provider")
 router.register("app-errors", AppErrorViewSet, basename="app-error")
+router.register("xero-pay-items", XeroPayItemViewSet, basename="xero-pay-item")
 
 # Create home redirect pattern with metadata
 home_pattern = path("", RedirectView.as_view(url="/kanban/"), name="home")

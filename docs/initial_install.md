@@ -200,45 +200,21 @@ poetry install
 3.  **Initiate Xero Connection:** Find the "Connect to Xero" or similar option (likely in Settings/Admin). Click it.
 4.  **Authorize in Xero:** You'll be redirected to Xero. Log in if needed. **Crucially, select and authorize the "Demo Company (Global)"**. Do _not_ use your live company data for development.
 
-### Important: Create Demo Company Shop Contact
+5.  **Configure Xero tenant:**
+    ```bash
+    python manage.py setup_xero
+    ```
+    This fetches your organisation's tenant ID and shortcode.
 
-**Before proceeding with the development setup, you must create a specific contact in Xero:**
-
-1. **Log into Xero Demo Company:** After authorization, log into your Xero Demo Company account at [https://go.xero.com/](https://go.xero.com/).
-2. **Create Shop Contact:**
-   - Navigate to Contacts → Add Contact
-   - Name: `Demo Company Shop` (exactly this name - case sensitive)
-   - This contact represents internal shop work/maintenance jobs
-   - Save the contact
-3. **Verify Creation:** Ensure the contact appears in your Xero contacts list as "Demo Company Shop"
-
-This contact is essential for proper shop hours tracking in KPI reports. 5. **Setup Development Xero Connection:** After authorization and creating the shop contact:
-`bash
-    python manage.py setup_dev_xero
-    `
-This command will:
-_ Automatically find the Demo Company tenant ID
-_ Update your CompanyDefaults with the correct tenant ID
-_ Sync the "Demo Company Shop" client to get its Xero contact ID
-_ Skip the full sync (default behavior - use --full-sync if you want to run it)
-
-6.  **Create shop jobs:** Create the special internal jobs for tracking shop work:
-    Note - only do this if you chose not to restore from production!
-    `bash
-    python manage.py create_shop_jobs
-    `
-
-7.  **Run full Xero sync:** Now sync all data from Xero:
-
+6.  **Sync data from Xero:**
     ```bash
     python manage.py start_xero_sync
     ```
 
-    **Alternative Manual Setup:** If you prefer to do this manually:
-
-    - Get available tenant IDs: `python manage.py interact_with_xero --tenant`
-    - Manually update CompanyDefaults in the admin interface
-    - Run sync manually: `python manage.py start_xero_sync`
+7.  **Create shop jobs:** (Only if not restoring from production)
+    ```bash
+    python manage.py create_shop_jobs
+    ```
 
 You now have a fully configured local development environment.
 
@@ -295,11 +271,10 @@ To wipe the local database and start fresh:
 
 5.  **Re-Connect Xero and Setup:** After resetting, you **must** repeat the Xero connection steps:
     - Log into the app and click "Connect to Xero"
-    - Authorize the Demo Company
-    - Create "Demo Company Shop" contact in Xero (if not already there)
-    - Run `python manage.py setup_dev_xero`
-    - Run `python manage.py create_shop_jobs` (only if you didn't restore from production)
+    - Authorize the organisation
+    - Run `python manage.py setup_xero`
     - Run `python manage.py start_xero_sync`
+    - Run `python manage.py create_shop_jobs` (only if you didn't restore from production)
 
 ## Troubleshooting
 

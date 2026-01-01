@@ -541,7 +541,7 @@ print(f'✅ Token expires at: {token.expires_at}')
 2. For local dev: Run ngrok if needed for the backend and frontend. For UAT: Skip - proper domains already configured.
 3. Navigate to `FRONT_END_URL` from .env
 4. Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
-5. Go to **Xero menu > Connect to Xero**
+5. Go to **Admin > Xero**, then click **Login with Xero**
 6. Complete the OAuth flow to authorize the application
 
 **Check:** You should see "Connected to Xero" status in the web interface.

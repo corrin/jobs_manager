@@ -7,6 +7,7 @@ from .models import (
     CompanyDefaults,
     XeroAccount,
     XeroError,
+    XeroPayItem,
     XeroToken,
 )
 
@@ -43,6 +44,12 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
 class XeroAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = XeroAccount
+        fields = "__all__"
+
+
+class XeroPayItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = XeroPayItem
         fields = "__all__"
 
 

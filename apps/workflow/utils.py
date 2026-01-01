@@ -86,3 +86,34 @@ def parse_pagination_params(request) -> tuple[int, int]:
     except (TypeError, ValueError):
         raise ValueError("Invalid pagination parameters")
     return limit, offset
+
+
+def build_xero_payroll_url(pay_run_xero_id: str) -> Optional[str]:
+    """
+    Build a Xero Payroll deep link URL for a pay run.
+
+    Args:
+        pay_run_xero_id: The Xero UUID of the pay run
+
+    Returns:
+        The deep link URL, or None if xero_shortcode is not configured
+
+    Raises:
+        ValueError: If xero_shortcode is not configured
+    """
+    from apps.workflow.models import CompanyDefaults
+
+    company = CompanyDefaults.get_instance()
+    shortcode = company.xero_shortcode
+
+    if not shortcode:
+        raise ValueError(
+            "Xero shortcode not configured. "
+            "Run 'python manage.py setup_xero' to fetch it."
+        )
+
+    return (
+        f"https://payroll.xero.com/PayRun"
+        f"?CID={shortcode}"
+        f"#payruns/{pay_run_xero_id}"
+    )

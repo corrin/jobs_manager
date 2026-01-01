@@ -6,8 +6,6 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
-from .job import Job
-
 logger = logging.getLogger(__name__)
 
 
@@ -47,7 +45,9 @@ class CostSet(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="cost_sets")
+    job = models.ForeignKey(
+        "job.Job", on_delete=models.CASCADE, related_name="cost_sets"
+    )
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
     summary = models.JSONField(

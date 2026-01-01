@@ -3,13 +3,6 @@
 from .apps import WorkflowConfig, check_company_defaults_field_sections
 from .enums import AIProviderTypes
 from .exceptions import AlreadyLoggedException, XeroValidationError
-from .utils import (
-    extract_messages,
-    get_machine_id,
-    is_valid_invoice_number,
-    is_valid_uuid,
-    parse_pagination_params,
-)
 
 # Conditional imports (only when Django is ready)
 try:
@@ -55,6 +48,7 @@ try:
             XeroErrorListResponseSerializer,
             XeroErrorSerializer,
             XeroOperationResponseSerializer,
+            XeroPayItemSerializer,
             XeroPingResponseSerializer,
             XeroQuoteCreateSerializer,
             XeroSseEventSerializer,
@@ -62,6 +56,14 @@ try:
             XeroSyncStartResponseSerializer,
             XeroTokenSerializer,
             XeroTriggerSyncResponseSerializer,
+        )
+        from .utils import (
+            build_xero_payroll_url,
+            extract_messages,
+            get_machine_id,
+            is_valid_invoice_number,
+            is_valid_uuid,
+            parse_pagination_params,
         )
         from .xero_webhooks import (
             XeroWebhookView,
@@ -103,6 +105,7 @@ __all__ = [
     "XeroErrorListResponseSerializer",
     "XeroErrorSerializer",
     "XeroOperationResponseSerializer",
+    "XeroPayItemSerializer",
     "XeroPingResponseSerializer",
     "XeroQuoteCreateSerializer",
     "XeroSseEventSerializer",
@@ -112,6 +115,7 @@ __all__ = [
     "XeroTriggerSyncResponseSerializer",
     "XeroValidationError",
     "XeroWebhookView",
+    "build_xero_payroll_url",
     "check_company_defaults_field_sections",
     "debug_mode",
     "extract_messages",

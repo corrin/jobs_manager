@@ -1,7 +1,7 @@
 import logging
 import uuid
 from datetime import date, datetime
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from django.db import models, transaction
 from django.db.models import Index, Max, Min
@@ -9,15 +9,12 @@ from django.utils import timezone
 from simple_history.models import HistoricalRecords
 
 from apps.accounts.models import Staff
+from apps.client.models import Client
 from apps.job.enums import SpeedQualityTradeoff
-from apps.workflow.models import CompanyDefaults
+from apps.workflow.models import CompanyDefaults, XeroPayItem
 
-# We say . rather than job.models to avoid going through init,
-# otherwise it would have a circular import
+from .costing import CostSet
 from .job_event import JobEvent
-
-if TYPE_CHECKING:
-    from .costing import CostSet
 
 logger = logging.getLogger(__name__)
 
@@ -393,7 +390,6 @@ class Job(models.Model):
         return next_job_number
 
     def save(self, *args, **kwargs):
-        from apps.workflow.models import CompanyDefaults
 
         staff = kwargs.pop("staff", None)
 
@@ -430,7 +426,6 @@ class Job(models.Model):
 
                 # Create initial CostSet instances (modern system)
                 logger.debug("Creating initial CostSet entries.")
-                from .costing import CostSet
 
                 # Initialize summary for new cost sets to avoid serialization errors
                 initial_summary = {"cost": 0.0, "rev": 0.0, "hours": 0.0}
@@ -535,6 +530,7 @@ class Job(models.Model):
                 "Job marked as COMPLEX JOB. This job requires special attention or has complex requirements",
                 "Job no longer marked as complex job",
             ),
+            "default_xero_pay_item_id": self._handle_xero_pay_item_change,
         }
 
         for field_name, handler in field_handlers.items():
@@ -588,7 +584,6 @@ class Job(models.Model):
 
         if old_client_id:
             try:
-                from apps.client.models import Client
 
                 old_client = Client.objects.get(id=old_client_id).name
             except Exception:
@@ -621,6 +616,29 @@ class Job(models.Model):
         return (
             "contact_changed",
             f"Primary contact changed from '{old_contact}' to '{new_contact}'",
+        )
+
+    def _handle_xero_pay_item_change(self, old_pay_item_id, new_pay_item_id):
+        """Handle Xero pay item change with proper name resolution."""
+        old_name = "None"
+        new_name = "None"
+
+        if old_pay_item_id:
+            try:
+                old_name = XeroPayItem.objects.get(id=old_pay_item_id).name
+            except Exception:
+                old_name = "Unknown"
+
+        if new_pay_item_id:
+            new_name = (
+                self.default_xero_pay_item.name
+                if self.default_xero_pay_item
+                else "Unknown"
+            )
+
+        return (
+            "job_updated",
+            f"Xero pay item changed from '{old_name}' to '{new_name}'",
         )
 
     def _handle_text_field_change(self, field_display_name, event_type):

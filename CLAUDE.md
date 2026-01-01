@@ -2,84 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
-
-### Environment Setup
-
-```bash
-# Activate Python environment
-poetry shell
-
-# Install dependencies
-poetry install
-
-# Start development server
-python manage.py runserver 0.0.0.0:8000
-
-# Start with tunnel (ngrok/localtunnel for Xero integration)
-python manage.py runserver_with_ngrok
-```
-
-### Code Quality
-
-```bash
-# Format code
-tox -e format
-
-# Lint code
-tox -e lint
-
-# Type checking
-tox -e typecheck
-
-# Run all quality checks
-tox
-```
-
-### Database Operations
-
-```bash
-# Apply migrations
-python manage.py migrate
-
-# Create database fixtures
-python manage.py loaddata apps/workflow/fixtures/company_defaults.json
-
-# then EITHER load demo data
-
-python manage.py loaddata apps/workflow/fixtures/initial_data.json
-python manage.py create_shop_jobs
-# OR backport from prod
-python manage.py backport_data_restore restore/prod_backup_20250614_095927.json.gz
-# You MUST do one of these.
-
-# Validate data integrity
-python manage.py validate_jobs
-```
-
-### Xero Integration
-
-```bash
-# Setup Xero for development (finds Demo Company and syncs)
-python manage.py setup_dev_xero
-
-# Setup Xero tenant ID only (skip initial sync)
-python manage.py setup_dev_xero --skip-sync
-
-# Start Xero synchronization manually
-python manage.py start_xero_sync
-
-# Get Xero tenant ID for setup
-python manage.py interact_with_xero --tenant
-```
-
-### Scheduler Management
-
-```bash
-# Start background scheduler (runs APScheduler jobs)
-python manage.py run_scheduler
-```
-
 ## Architecture Overview
 
 ### Core Application Purpose
@@ -88,55 +10,14 @@ Django-based job/project management system for custom metal fabrication business
 
 ### Django Apps Architecture
 
-**`workflow`** - Central hub and base functionality
-
-- Base models (CompanyDefaults, XeroAccount, XeroToken, AIProvider)
-- Xero accounting integration and synchronization
-- Authentication middleware and base templates
-- URL routing coordination
-
-**`job`** - Core job lifecycle management
-
-- Job model with Kanban-style status tracking (Quoting → In Progress → Completed → Archived)
-
-- JobFile for document attachments
-- JobEvent for comprehensive audit trails
-- Service layer for business logic orchestration
-
-**`accounts`** - User management with custom Staff model
-
-- Extends AbstractBaseUser for business-specific requirements
-- Password strength validation (minimum 10 characters)
-- Role-based permissions and authentication
-
-**`client`** - Customer relationship management
-
-- Client model with bidirectional Xero contact synchronization
-- Contact person and communication tracking
-
-**`timesheet`** - Time tracking and billing
-
-- Billable vs non-billable classification
-- Daily/weekly timesheet interfaces
-- Wage rate and charge-out rate management
-
-**`purchasing`** - Purchase order and inventory management
-
-- PurchaseOrder with comprehensive Xero integration via XeroPurchaseOrderManager
-- Stock management with source tracking and inventory control
-- Supplier quote processing and delivery receipts
-- **Integration**: Links to CostLine via external references for material costing
-
-**`accounting`** - Financial reporting and KPI tracking
-
-- KPI calendar views and financial analytics
-- Invoice generation via Xero integration
-
-**`quoting`** - Quote generation and supplier pricing
-
-- Supplier price list management
-- AI-powered price extraction (Gemini integration)
-- Web scraping for pricing updates
+- **`workflow`** - Central hub, Xero integration, auth middleware
+- **`job`** - Job lifecycle, Kanban status tracking (Quoting → In Progress → Completed → Archived), audit trails
+- **`accounts`** - Custom Staff model extending AbstractBaseUser, authentication
+- **`client`** - Customer management, bidirectional Xero contact sync
+- **`timesheet`** - Time tracking, billable/non-billable, wage rates
+- **`purchasing`** - POs, stock management, Xero integration, links to CostLine via ext_refs
+- **`accounting`** - KPIs, financial reporting, invoice generation
+- **`quoting`** - Quote generation, supplier pricing, AI price extraction (Gemini)
 
 ### Frontend
 
@@ -232,38 +113,15 @@ See `.env.example` for required environment variables. Key integrations: Xero AP
 
 ## Critical Architecture Guidelines
 
-### MAINTAIN ABSOLUTELY STRICT SEPARATION OF CONCERNS BETWEEN FRONTEND AND BACKEND
-
-**NEVER PUT FRONTEND LOGIC IN THE BACKEND. NEVER PUT BACKEND LOGIC IN THE FRONTEND.**
-
-**Backend responsibilities ONLY:**
-
-- Data persistence and retrieval
-- Business logic and calculations
-- Data validation and integrity
-- API contracts and serialization of actual data
-- Authentication and authorization
-- External system integrations
-
-**Frontend responsibilities ONLY:**
-
-- User interface and presentation logic
-- User interactions and form handling
-- Client-side validation for UX (never security)
-- Routing and navigation
-- Static constants and configuration
-- Display formatting and styling
-
-**Forbidden cross-contamination:**
-
-- ❌ Backend serializers for static UI constants (dropdown choices, labels, etc.)
-- ❌ Backend views that return HTML or UI-specific data structures
-- ❌ Frontend making business logic decisions or calculations
-- ❌ Frontend bypassing backend validation
-- ❌ Frontend defining data structures for backend data
-- ❌ Shared code between frontend and backend (except API contracts)
+### Frontend/Backend Separation
 
 **Rule**: If it doesn't involve the database, business rules, or external systems, it belongs in the frontend. If it involves data integrity, calculations, or persistence, it belongs in the backend.
+
+**Forbidden:**
+- Backend serializers for static UI constants (dropdown choices, labels)
+- Backend views that return HTML or UI-specific structures
+- Frontend making business logic decisions or calculations
+- Frontend bypassing backend validation
 
 ### Service Layer Patterns
 
