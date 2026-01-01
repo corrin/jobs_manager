@@ -157,7 +157,9 @@ def get_or_fetch_client(contact_id, reference=None):
     return synced[0].get_final_client()
 
 
-def sync_entities(items, model_class, xero_id_attr, transform_func):
+def sync_entities(
+    items, model_class, xero_id_attr, transform_func, delete_orphans=False
+):
     """Persist a batch of Xero objects.
 
     Args:
@@ -165,12 +167,23 @@ def sync_entities(items, model_class, xero_id_attr, transform_func):
         model_class: Django model used for storage.
         xero_id_attr: Attribute name of the Xero ID on each item.
         transform_func: Callable returning (instance, status) tuple or None.
+        delete_orphans: If True, delete local records not in the fetched set.
+            Use for cache-only entities where Xero is the master.
 
     Returns:
         int: Number of items successfully synced.
     """
+    # Convert to list if we need to iterate twice (for delete_orphans)
+    items_list = list(items) if delete_orphans else items
+
+    if delete_orphans:
+        xero_ids = {getattr(item, xero_id_attr) for item in items_list}
+        deleted, _ = model_class.objects.exclude(xero_id__in=xero_ids).delete()
+        if deleted:
+            logger.info(f"Deleted {deleted} orphaned {model_class.__name__} records")
+
     synced = 0
-    for item in items:
+    for item in items_list:
         xero_id = getattr(item, xero_id_attr)
 
         # Xero omits fields for deleted docs so we skip to avoid errors
@@ -1145,12 +1158,15 @@ ENTITY_CONFIGS = {
         "page",
     ),
     # Payroll entities - use PayrollNzApi, not AccountingApi
+    # Pay runs: Xero is master, local DB is cache. Delete orphans on sync.
     "pay_runs": (
         "pay_runs",
         "pay_runs",
         XeroPayRun,
         "get_pay_runs_for_sync",  # Custom API function
-        lambda items: sync_entities(items, XeroPayRun, "pay_run_id", transform_pay_run),
+        lambda items: sync_entities(
+            items, XeroPayRun, "pay_run_id", transform_pay_run, delete_orphans=True
+        ),
         None,
         "single",  # No pagination for pay runs
     ),
