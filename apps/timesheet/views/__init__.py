@@ -9,7 +9,6 @@ try:
             CreatePayRunAPIView,
             DailyTimesheetAPIView,
             JobsAPIView,
-            LatestPostedPayRunAPIView,
             PayRunForWeekAPIView,
             PostWeekToXeroPayrollAPIView,
             RefreshPayRunsAPIView,
@@ -17,7 +16,6 @@ try:
             TimesheetResponseMixin,
             WeeklyTimesheetAPIView,
             build_internal_error_response,
-            serialize_pay_run,
             stream_payroll_post,
         )
 except (ImportError, RuntimeError):
@@ -28,7 +26,6 @@ __all__ = [
     "CreatePayRunAPIView",
     "DailyTimesheetAPIView",
     "JobsAPIView",
-    "LatestPostedPayRunAPIView",
     "PayRunForWeekAPIView",
     "PostWeekToXeroPayrollAPIView",
     "RefreshPayRunsAPIView",
@@ -36,6 +33,5 @@ __all__ = [
     "TimesheetResponseMixin",
     "WeeklyTimesheetAPIView",
     "build_internal_error_response",
-    "serialize_pay_run",
     "stream_payroll_post",
 ]

@@ -35,7 +35,6 @@ from apps.timesheet.serializers import (
 from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunResponseSerializer,
     CreatePayRunSerializer,
-    LatestPostedPayRunSerializer,
     PayRunForWeekResponseSerializer,
     PayRunSyncResponseSerializer,
     PostWeekToXeroSerializer,
@@ -647,24 +646,24 @@ class CreatePayRunAPIView(APIView):
 
 class PayRunForWeekAPIView(APIView):
     """
-    API endpoint to fetch pay run details for a specific week.
+    API endpoint to fetch pay run details.
 
-    Responds with a warning when more than one pay run is stored for the same period
-    so operators know data cleanup is needed in Xero.
+    If week_start_date is provided, returns the pay run for that specific week.
+    If not provided, returns all pay runs for the configured payroll calendar.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = PayRunForWeekResponseSerializer
 
     @extend_schema(
-        summary="Get pay run for a week",
+        summary="Get pay runs",
         parameters=[
             OpenApiParameter(
                 "week_start_date",
                 OpenApiTypes.DATE,
                 location=OpenApiParameter.QUERY,
-                description="Monday of the week (YYYY-MM-DD)",
-                required=True,
+                description="Monday of the week (YYYY-MM-DD). If omitted, returns all pay runs.",
+                required=False,
             )
         ],
         responses={
@@ -674,14 +673,14 @@ class PayRunForWeekAPIView(APIView):
         },
     )
     def get(self, request):
-        """Return pay run data for the requested week if it exists."""
+        """Return pay run data. If week_start_date omitted, returns all for configured calendar."""
         week_start_date_str = request.query_params.get("week_start_date")
-        if not week_start_date_str:
-            return Response(
-                {"error": "week_start_date query parameter is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
+        # If no week specified, return all pay runs for the configured calendar
+        if not week_start_date_str:
+            return self._get_all_pay_runs()
+
+        # Otherwise, get pay run for specific week
         try:
             week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
         except ValueError:
@@ -696,70 +695,90 @@ class PayRunForWeekAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        try:
-            # Query local DB first
+        return self._get_pay_run_for_week(week_start_date)
+
+    def _get_all_pay_runs(self):
+        """Return all pay runs for the configured payroll calendar."""
+        calendar_id = get_payroll_calendar_id()
+
+        pay_runs = XeroPayRun.objects.filter(payroll_calendar_id=calendar_id).order_by(
+            "-period_end_date"
+        )
+
+        return Response(
+            {
+                "pay_runs": [
+                    {
+                        "id": str(pr.id),
+                        "xero_id": str(pr.xero_id),
+                        "period_start_date": pr.period_start_date,
+                        "period_end_date": pr.period_end_date,
+                        "payment_date": pr.payment_date,
+                        "pay_run_status": pr.pay_run_status,
+                        "xero_url": build_xero_payroll_url(str(pr.xero_id)),
+                    }
+                    for pr in pay_runs
+                ]
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def _get_pay_run_for_week(self, week_start_date):
+        """Return pay run for a specific week."""
+        # Query local DB first
+        records = list(
+            XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
+                "-django_updated_at"
+            )
+        )
+
+        # If no local record, sync from Xero
+        if not records:
+            logger.info(
+                "No cached pay run for week %s. Refreshing from Xero.",
+                week_start_date,
+            )
+            sync_all_xero_data(entities=["pay_runs"])
             records = list(
                 XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
                     "-django_updated_at"
                 )
             )
 
-            # If no local record, sync from Xero
-            if not records:
-                logger.info(
-                    "No cached pay run for week %s. Refreshing from Xero.",
-                    week_start_date,
-                )
-                sync_all_xero_data(entities=["pay_runs"])
-                records = list(
-                    XeroPayRun.objects.filter(
-                        period_start_date=week_start_date
-                    ).order_by("-django_updated_at")
-                )
-
-            # Build warning if multiple pay runs exist
-            warning = None
-            if len(records) > 1:
-                ids = [str(pr.xero_id) for pr in records]
-                statuses = [pr.pay_run_status or "" for pr in records]
-                warning = (
-                    "Multiple pay runs exist for this week. "
-                    f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
-                )
-
-            if records:
-                pay_run = records[0]
-                payload = {
-                    "exists": True,
-                    "pay_run": {
-                        "id": str(pay_run.id),
-                        "xero_id": str(pay_run.xero_id),
-                        "payroll_calendar_id": (
-                            str(pay_run.payroll_calendar_id)
-                            if pay_run.payroll_calendar_id
-                            else None
-                        ),
-                        "period_start_date": pay_run.period_start_date,
-                        "period_end_date": pay_run.period_end_date,
-                        "payment_date": pay_run.payment_date,
-                        "pay_run_status": pay_run.pay_run_status,
-                        "pay_run_type": pay_run.pay_run_type,
-                    },
-                    "warning": warning,
-                }
-            else:
-                payload = {"exists": False, "pay_run": None, "warning": warning}
-
-            return Response(payload, status=status.HTTP_200_OK)
-        except ValueError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as exc:
-            return build_internal_error_response(
-                request=request,
-                message="Failed to fetch pay run for week",
-                exc=exc,
-                staff_only_details=True,
+        # Build warning if multiple pay runs exist
+        warning = None
+        if len(records) > 1:
+            ids = [str(pr.xero_id) for pr in records]
+            statuses = [pr.pay_run_status or "" for pr in records]
+            warning = (
+                "Multiple pay runs exist for this week. "
+                f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
             )
+
+        if records:
+            pay_run = records[0]
+            payload = {
+                "exists": True,
+                "pay_run": {
+                    "id": str(pay_run.id),
+                    "xero_id": str(pay_run.xero_id),
+                    "payroll_calendar_id": (
+                        str(pay_run.payroll_calendar_id)
+                        if pay_run.payroll_calendar_id
+                        else None
+                    ),
+                    "period_start_date": pay_run.period_start_date,
+                    "period_end_date": pay_run.period_end_date,
+                    "payment_date": pay_run.payment_date,
+                    "pay_run_status": pay_run.pay_run_status,
+                    "pay_run_type": pay_run.pay_run_type,
+                },
+                "warning": warning,
+            }
+        else:
+            payload = {"exists": False, "pay_run": None, "warning": warning}
+
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class RefreshPayRunsAPIView(APIView):
@@ -795,83 +814,6 @@ class RefreshPayRunsAPIView(APIView):
                 message="Failed to refresh pay runs",
                 exc=exc,
             )
-
-
-def serialize_pay_run(pay_run):
-    """Convert XeroPayRun to dict for PayRunSummarySerializer."""
-    if pay_run is None:
-        return None
-    return {
-        "period_start_date": pay_run.period_start_date,
-        "period_end_date": pay_run.period_end_date,
-        "payment_date": pay_run.payment_date,
-        "xero_id": pay_run.xero_id,
-        "xero_url": build_xero_payroll_url(str(pay_run.xero_id)),
-    }
-
-
-class LatestPostedPayRunAPIView(APIView):
-    """
-    API endpoint to get the most recent Posted and Draft pay runs.
-
-    Returns the period dates of the latest Posted pay run (for locking timesheets)
-    and the latest Draft pay run (for current payroll processing).
-    Only returns pay runs from the configured payroll calendar.
-    """
-
-    permission_classes = [IsAuthenticated]
-    serializer_class = LatestPostedPayRunSerializer
-
-    @extend_schema(
-        summary="Get latest posted and draft pay runs",
-        description=(
-            "Returns the most recent Posted and Draft pay runs for the configured calendar. "
-            "Dates <= posted.period_end_date are locked and cannot be edited."
-        ),
-        responses={
-            200: LatestPostedPayRunSerializer,
-            500: ClientErrorResponseSerializer,
-        },
-    )
-    def get(self, request):
-        """Return the latest Posted and Draft pay runs for the configured calendar."""
-        # Get the configured payroll calendar ID - fail fast if not configured
-        calendar_id = get_payroll_calendar_id()
-
-        # Filter by the configured calendar
-        base_qs = XeroPayRun.objects.filter(payroll_calendar_id=calendar_id)
-
-        # Get the most recent Posted pay run by period_end_date
-        latest_posted = (
-            base_qs.filter(pay_run_status="Posted").order_by("-period_end_date").first()
-        )
-
-        # Get the most recent Draft pay run by period_end_date
-        latest_draft = (
-            base_qs.filter(pay_run_status="Draft").order_by("-period_end_date").first()
-        )
-
-        data = {
-            "exists": latest_posted is not None,
-            "posted": serialize_pay_run(latest_posted),
-            "draft": serialize_pay_run(latest_draft),
-            # Legacy fields for backwards compatibility
-            "period_start_date": (
-                latest_posted.period_start_date if latest_posted else None
-            ),
-            "period_end_date": (
-                latest_posted.period_end_date if latest_posted else None
-            ),
-            "payment_date": latest_posted.payment_date if latest_posted else None,
-            "xero_id": latest_posted.xero_id if latest_posted else None,
-            "xero_url": (
-                build_xero_payroll_url(str(latest_posted.xero_id))
-                if latest_posted
-                else None
-            ),
-        }
-        serializer = LatestPostedPayRunSerializer(data)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # Cache timeout for payroll task data (10 minutes)
