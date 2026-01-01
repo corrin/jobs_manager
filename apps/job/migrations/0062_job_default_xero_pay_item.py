@@ -3,41 +3,80 @@
 This migration:
 1. Removes the payroll_category FK (pointed to PayrollCategory)
 2. Adds default_xero_pay_item FK (points to XeroPayItem synced from Xero)
-3. Backfills leave jobs by matching job name to XeroPayItem.name
+3. Backfills all jobs: leave jobs get their specific type, work jobs get Ordinary Time
 """
 
 import django.db.models.deletion
 from django.db import migrations, models
 
 
-def backfill_default_xero_pay_item(apps, schema_editor):
-    """Set default_xero_pay_item for leave jobs by matching job name to XeroPayItem.name."""
+def backfill_default_xero_pay_item(apps, _schema_editor):
+    """Set default_xero_pay_item for all jobs.
+
+    - Rename "Other Leave" to "Bereavement Leave" (cleanup legacy name)
+    - Leave jobs: Map to specific leave pay items by name
+    - All other jobs: Set to Ordinary Time
+    """
     Job = apps.get_model("job", "Job")
     XeroPayItem = apps.get_model("workflow", "XeroPayItem")
 
-    # Map job name patterns to XeroPayItem names
-    leave_mappings = {
-        "annual leave": "Annual Leave",
-        "sick leave": "Sick Leave",
-        "bereavement leave": "Bereavement Leave",
-        "unpaid leave": "Unpaid Leave",
+    # Shop client UUID - jobs with this client are "special" jobs
+    SHOP_CLIENT_ID = "00000000-0000-0000-0000-000000000001"
+
+    # Step 0: Rename "Other Leave" to "Bereavement Leave"
+    renamed = Job.objects.filter(name="Other Leave").update(name="Bereavement Leave")
+    if renamed:
+        print(f"  Renamed {renamed} 'Other Leave' job(s) to 'Bereavement Leave'")
+
+    # Get Ordinary Time - required for most jobs
+    try:
+        ordinary_time = XeroPayItem.objects.get(
+            name="Ordinary Time", uses_leave_api=False
+        )
+    except XeroPayItem.DoesNotExist:
+        raise RuntimeError(
+            "'Ordinary Time' XeroPayItem not found. "
+            "Run 'python manage.py setup_xero' to sync Xero pay items first."
+        )
+
+    # Step 1: Map leave jobs to their specific pay items
+    # Keys are job names, values are XeroPayItem names
+    leave_job_mappings = {
+        "Annual Leave": "Annual Leave",
+        "Sick Leave": "Sick Leave",
+        "Unpaid Leave": "Unpaid Leave",
+        "Bereavement Leave": "Bereavement Leave",
     }
 
-    for pattern, xero_name in leave_mappings.items():
+    for job_name, pay_item_name in leave_job_mappings.items():
         try:
-            pay_item = XeroPayItem.objects.get(name=xero_name)
+            pay_item = XeroPayItem.objects.get(name=pay_item_name)
         except XeroPayItem.DoesNotExist:
-            print(f"  WARNING: XeroPayItem '{xero_name}' not found - skipping")
+            print(
+                f"  WARNING: XeroPayItem '{pay_item_name}' not found - skipping '{job_name}'"
+            )
             continue
 
-        # Find jobs matching this pattern (case-insensitive)
-        matching_jobs = Job.objects.filter(name__icontains=pattern)
-        count = matching_jobs.update(default_xero_pay_item=pay_item)
+        count = Job.objects.filter(name=job_name).update(default_xero_pay_item=pay_item)
         if count:
-            print(f"  Set default_xero_pay_item for {count} jobs matching '{pattern}'")
+            print(f"  Mapped '{job_name}' → '{pay_item_name}'")
+
+    # Step 2: Set all remaining jobs to Ordinary Time
+    remaining = Job.objects.filter(default_xero_pay_item__isnull=True)
+    remaining_count = remaining.count()
+
+    # List special jobs that will get Ordinary Time (for visibility)
+    special_getting_ordinary = list(
+        remaining.filter(client_id=SHOP_CLIENT_ID).values_list("name", flat=True)
+    )
+    if special_getting_ordinary:
+        print(f"  Special jobs defaulting to Ordinary Time: {special_getting_ordinary}")
+
+    remaining.update(default_xero_pay_item=ordinary_time)
+    print(f"  Set {remaining_count} remaining jobs to 'Ordinary Time'")
 
 
-def noop(apps, schema_editor):
+def noop(_apps, _schema_editor):
     """Reverse operation - no-op since this is a one-way migration."""
 
 
@@ -58,14 +97,14 @@ class Migration(migrations.Migration):
             model_name="job",
             name="payroll_category",
         ),
-        # Step 2: Add new FK to XeroPayItem
+        # Step 2: Add new FK to XeroPayItem (nullable initially)
         migrations.AddField(
             model_name="historicaljob",
             name="default_xero_pay_item",
             field=models.ForeignKey(
                 blank=True,
                 db_constraint=False,
-                help_text="XeroPayItem for leave jobs. NULL for regular work jobs.",
+                help_text="Default pay item for time entry.",
                 null=True,
                 on_delete=django.db.models.deletion.DO_NOTHING,
                 related_name="+",
@@ -77,13 +116,13 @@ class Migration(migrations.Migration):
             name="default_xero_pay_item",
             field=models.ForeignKey(
                 blank=True,
-                help_text="XeroPayItem for leave jobs. NULL for regular work jobs.",
+                help_text="Default pay item for time entry.",
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
                 related_name="jobs",
                 to="workflow.xeropayitem",
             ),
         ),
-        # Step 3: Backfill leave jobs
+        # Step 3: Backfill all jobs
         migrations.RunPython(backfill_default_xero_pay_item, noop),
     ]

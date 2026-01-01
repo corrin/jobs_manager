@@ -71,7 +71,7 @@ NB: If you have a backup from production, do NOT run start_xero_sync. Instead fo
 python manage.py create_shop_jobs
 ```
 
-This creates: Annual Leave, Sick Leave, Other Leave, Travel, Training, Business Development, Office Admin, Worker Admin, Bench.
+This creates: Annual Leave, Sick Leave, Bereavement Leave, Travel, Training, Business Development, Office Admin, Worker Admin, Bench.
 
 ## Step 4: Link Staff to Xero Employees
 

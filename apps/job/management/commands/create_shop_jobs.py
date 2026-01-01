@@ -36,8 +36,8 @@ class Command(BaseCommand):
             {"name": "Annual Leave", "description": "Annual leave taken by workers"},
             {"name": "Sick Leave", "description": "Sick leave taken by workers"},
             {
-                "name": "Other Leave",
-                "description": "Other types of leave taken by workers",
+                "name": "Bereavement Leave",
+                "description": "Bereavement leave taken by workers",
             },
             {"name": "Travel", "description": "Travel for work purposes"},
             {

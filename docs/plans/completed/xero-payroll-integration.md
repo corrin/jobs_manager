@@ -24,8 +24,8 @@ Backend service layer for submitting weekly timesheets to Xero Payroll NZ API. U
   - Draft status allows editing, Posted status is locked forever
   - Only one Draft pay run allowed per calendar at a time
 
-- **Work Hours & Other Leave:** Timesheets API (`POST /timesheets`, `POST /timesheets/{id}/lines`)
-  - Regular work + "Other Leave" (paid leave without balances)
+- **Work Hours:** Timesheets API (`POST /timesheets`, `POST /timesheets/{id}/lines`)
+  - Regular work entries
   - Requires earnings rate ID (Ordinary Time, Time & Half, Double Time)
   - Requires payroll calendar ID matching the week
   - Posted as timesheet lines with `number_of_units` (hours)
