@@ -594,7 +594,7 @@ class CreatePayRunAPIView(APIView):
                 raise ValueError("Xero tenant ID not configured in CompanyDefaults")
             if not company_defaults.xero_shortcode:
                 raise ValueError(
-                    "Xero shortcode not configured. Run 'python manage.py setup_xero' to fetch it."
+                    "Xero shortcode not configured. Run 'python manage.py xero --setup' to fetch it."
                 )
 
             # Create local record immediately

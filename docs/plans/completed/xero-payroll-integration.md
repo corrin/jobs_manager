@@ -118,7 +118,7 @@ Main service class with methods:
 - `success`, `xero_timesheet_id`, `xero_leave_ids`, `entries_posted`, `work_hours`, `other_leave_hours`, `annual_sick_hours`, `unpaid_hours`, `errors`
 
 ### 5. Management Commands (COMPLETE)
-**File:** `apps/workflow/management/commands/interact_with_xero.py`
+**File:** `apps/workflow/management/commands/xero.py`
 
 Added flags:
 - `--payroll-employees` - List Xero employees

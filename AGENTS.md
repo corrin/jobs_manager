@@ -30,7 +30,7 @@ python manage.py loaddata apps/workflow/fixtures/company_defaults.json
 python manage.py loaddata apps/workflow/fixtures/initial_data.json  # or backport_data_restore
 
 # Integrations & schedulers
-python manage.py setup_xero
+python manage.py xero --setup
 python manage.py start_xero_sync
 python manage.py run_scheduler         # APScheduler background jobs
 ```

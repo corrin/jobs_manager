@@ -552,7 +552,7 @@ print(f'✅ Token expires at: {token.expires_at}')
 **Command:**
 
 ```bash
-python manage.py interact_with_xero --tenant
+python manage.py xero --tenant
 ```
 
 **Expected output:**

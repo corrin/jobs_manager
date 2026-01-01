@@ -1,6 +1,7 @@
 import requests
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Q
+from xero_python.accounting import AccountingApi
 from xero_python.identity import IdentityApi
 from xero_python.project import ProjectApi
 
@@ -64,6 +65,11 @@ class Command(BaseCommand):
     help = "Interactive Xero API utility - get tenant IDs, users, and other data"
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--setup",
+            action="store_true",
+            help="Configure Xero tenant ID, shortcode, and payroll calendar",
+        )
         parser.add_argument(
             "--no-set",
             action="store_true",
@@ -149,12 +155,17 @@ class Command(BaseCommand):
         if not token:
             self.stdout.write(
                 self.style.ERROR(
-                    "No valid Xero token found. Please authenticate with Xero first."
+                    "No valid Xero token found.\n"
+                    "Connect to Xero via Admin > Xero Settings in the web app first."
                 )
             )
             return
 
         # Handle specific flags
+        if options["setup"]:
+            self.run_setup()
+            return
+
         if options["users"]:
             self.get_users()
             return
@@ -256,6 +267,108 @@ class Command(BaseCommand):
                     "not automatically setting tenant ID"
                 )
             )
+
+    def run_setup(self):
+        """Configure Xero tenant ID, shortcode, and payroll calendar."""
+        self.stdout.write("Setting up Xero connection...")
+
+        # Step 1: Get connected organisations
+        try:
+            identity_api = IdentityApi(api_client)
+            connections = identity_api.get_connections()
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"Failed to get Xero connections: {e}"))
+            raise
+
+        if not connections:
+            self.stdout.write(
+                self.style.ERROR(
+                    "No Xero organisations connected.\n"
+                    "Please connect an organisation in Xero first."
+                )
+            )
+            return
+
+        # Step 2: Use first connected organisation
+        connection = connections[0]
+        tenant_id = connection.tenant_id
+        tenant_name = connection.tenant_name
+
+        self.stdout.write(f"Using organisation: {tenant_name}")
+
+        if len(connections) > 1:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Note: {len(connections)} organisations connected. Using first one."
+                )
+            )
+
+        # Step 3: Get CompanyDefaults
+        company = CompanyDefaults.objects.first()
+        if not company:
+            self.stdout.write(
+                self.style.ERROR(
+                    "No CompanyDefaults found.\n"
+                    "Run: python manage.py loaddata apps/workflow/fixtures/company_defaults.json"
+                )
+            )
+            return
+
+        # Step 4: Fetch organisation shortcode for deep linking
+        accounting_api = AccountingApi(api_client)
+        org_response = accounting_api.get_organisations(xero_tenant_id=tenant_id)
+
+        if not org_response or not org_response.organisations:
+            self.stdout.write(
+                self.style.ERROR("Failed to fetch organisation details from Xero.")
+            )
+            return
+
+        shortcode = org_response.organisations[0].short_code
+
+        # Step 5: Fetch payroll calendar ID
+        calendar_name = company.xero_payroll_calendar_name
+        if not calendar_name:
+            self.stdout.write(
+                self.style.WARNING(
+                    "xero_payroll_calendar_name not configured in CompanyDefaults. "
+                    "Skipping payroll calendar setup."
+                )
+            )
+            payroll_calendar_id = None
+        else:
+            calendars = get_payroll_calendars()
+            matching_calendar = next(
+                (c for c in calendars if c["name"] == calendar_name), None
+            )
+            if not matching_calendar:
+                available = [c["name"] for c in calendars]
+                self.stdout.write(
+                    self.style.ERROR(
+                        f"Payroll calendar '{calendar_name}' not found in Xero.\n"
+                        f"Available calendars: {available}"
+                    )
+                )
+                return
+            payroll_calendar_id = matching_calendar["id"]
+
+        # Step 6: Save to CompanyDefaults
+        company.xero_tenant_id = tenant_id
+        company.xero_shortcode = shortcode
+        company.xero_payroll_calendar_id = payroll_calendar_id
+        company.save()
+
+        self.stdout.write(self.style.SUCCESS(f"Tenant ID: {tenant_id}"))
+        self.stdout.write(self.style.SUCCESS(f"Shortcode: {shortcode}"))
+        if payroll_calendar_id:
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"Payroll Calendar: {calendar_name} ({payroll_calendar_id})"
+                )
+            )
+        self.stdout.write(self.style.SUCCESS("Xero setup complete."))
+        self.stdout.write("")
+        self.stdout.write("Next step: python manage.py start_xero_sync")
 
     def get_users(self):
         """Get Xero users from Projects API"""

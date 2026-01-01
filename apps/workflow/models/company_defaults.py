@@ -81,6 +81,11 @@ class CompanyDefaults(models.Model):
         default="Weekly",
         help_text="Name of Xero Payroll calendar to use (e.g., 'Weekly 2025')",
     )
+    xero_payroll_calendar_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="Cached Xero Payroll calendar ID (set by xero --setup command)",
+    )
 
     # Default working hours (Mon-Fri, 7am - 3pm)
     mon_start = models.TimeField(default="07:00")

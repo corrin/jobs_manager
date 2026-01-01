@@ -985,35 +985,24 @@ def create_pay_run(
 
 def get_payroll_calendar_id() -> str:
     """
-    Get the configured payroll calendar ID from Xero.
+    Get the configured payroll calendar ID from CompanyDefaults.
 
-    Uses CompanyDefaults.xero_payroll_calendar_name to find the calendar.
-    This allows timesheets to be created without requiring a pay run to exist.
+    The calendar ID is cached in CompanyDefaults.xero_payroll_calendar_id,
+    which is populated by the xero --setup management command.
 
     Returns:
         Payroll calendar ID (UUID string)
 
     Raises:
-        Exception: If calendar not found or not configured
+        ValueError: If calendar ID not configured (run xero --setup first)
     """
-    from apps.workflow.models import CompanyDefaults
-
-    company = CompanyDefaults.objects.first()
-    if not company or not company.xero_payroll_calendar_name:
-        raise Exception("xero_payroll_calendar_name not configured in CompanyDefaults")
-
-    target_calendar_name = company.xero_payroll_calendar_name
-    calendars = get_payroll_calendars()
-
-    for cal in calendars:
-        if cal["name"] == target_calendar_name:
-            logger.info(f"Found payroll calendar '{target_calendar_name}': {cal['id']}")
-            return str(cal["id"])
-
-    raise Exception(
-        f"Payroll calendar '{target_calendar_name}' not found in Xero. "
-        f"Available calendars: {[c['name'] for c in calendars]}"
-    )
+    company = CompanyDefaults.get_instance()
+    if not company.xero_payroll_calendar_id:
+        raise ValueError(
+            "xero_payroll_calendar_id not configured in CompanyDefaults. "
+            "Run: python manage.py xero --setup"
+        )
+    return str(company.xero_payroll_calendar_id)
 
 
 def get_all_timesheets_for_week(week_start_date: date) -> Dict[str, Any]:

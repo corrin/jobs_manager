@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("workflow", "0185_fix_unpaid_leave_and_remove_posts_to_xero"),
-        ("job", "0061_job_payroll_category"),
+        ("job", "0063_job_payroll_category"),
     ]
 
     operations = [

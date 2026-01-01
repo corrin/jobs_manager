@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("job", "0062_job_default_xero_pay_item"),
+        ("job", "0064_job_default_xero_pay_item"),
         ("workflow", "0188_delete_payrollcategory"),
     ]
 

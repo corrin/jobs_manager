@@ -96,7 +96,7 @@ def noop(_apps, _schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("job", "0063_make_default_xero_pay_item_required"),
+        ("job", "0065_make_default_xero_pay_item_required"),
         ("client", "0001_initial"),
         ("workflow", "0188_delete_payrollcategory"),
     ]

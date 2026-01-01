@@ -109,7 +109,7 @@ def build_xero_payroll_url(pay_run_xero_id: str) -> Optional[str]:
     if not shortcode:
         raise ValueError(
             "Xero shortcode not configured. "
-            "Run 'python manage.py setup_xero' to fetch it."
+            "Run 'python manage.py xero --setup' to fetch it."
         )
 
     return (

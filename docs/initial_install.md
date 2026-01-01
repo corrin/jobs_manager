@@ -202,7 +202,7 @@ poetry install
 
 5.  **Configure Xero tenant:**
     ```bash
-    python manage.py setup_xero
+    python manage.py xero --setup
     ```
     This fetches your organisation's tenant ID and shortcode.
 
@@ -272,7 +272,7 @@ To wipe the local database and start fresh:
 5.  **Re-Connect Xero and Setup:** After resetting, you **must** repeat the Xero connection steps:
     - Log into the app and click "Connect to Xero"
     - Authorize the organisation
-    - Run `python manage.py setup_xero`
+    - Run `python manage.py xero --setup`
     - Run `python manage.py start_xero_sync`
     - Run `python manage.py create_shop_jobs` (only if you didn't restore from production)
 

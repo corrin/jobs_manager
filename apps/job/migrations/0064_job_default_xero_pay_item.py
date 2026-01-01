@@ -36,7 +36,7 @@ def backfill_default_xero_pay_item(apps, _schema_editor):
     except XeroPayItem.DoesNotExist:
         raise RuntimeError(
             "'Ordinary Time' XeroPayItem not found. "
-            "Run 'python manage.py setup_xero' to sync Xero pay items first."
+            "Run 'python manage.py xero --configure-payroll' to sync Xero pay items first."
         )
 
     # Step 1: Map leave jobs to their specific pay items
@@ -84,7 +84,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("workflow", "0187_create_xero_pay_item"),
-        ("job", "0061_job_payroll_category"),
+        ("job", "0063_job_payroll_category"),
     ]
 
     operations = [

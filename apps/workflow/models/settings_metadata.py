@@ -117,6 +117,7 @@ COMPANY_DEFAULTS_FIELD_SECTIONS: dict[str, str] = {
     "xero_tenant_id": "xero",
     "xero_shortcode": "xero",
     "xero_payroll_calendar_name": "xero",
+    "xero_payroll_calendar_id": "xero",
     "last_xero_sync": "xero",
     "last_xero_deep_sync": "xero",
     # Internal - auto-managed fields, not shown in UI

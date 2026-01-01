@@ -53,7 +53,7 @@ This will be used for leave, admin time, training, etc.
 5. Run:
 
 ```bash
-python manage.py setup_xero
+python manage.py xero --setup
 python manage.py start_xero_sync
 ```
 

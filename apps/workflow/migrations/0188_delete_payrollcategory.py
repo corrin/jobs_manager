@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("workflow", "0187_create_xero_pay_item"),
-        ("job", "0062_job_default_xero_pay_item"),
+        ("job", "0064_job_default_xero_pay_item"),
     ]
 
     operations = [

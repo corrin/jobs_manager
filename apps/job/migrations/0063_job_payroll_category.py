@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("workflow", "0185_fix_unpaid_leave_and_remove_posts_to_xero"),
-        ("job", "0060_alter_historicaljob_rejected_flag_and_more"),
+        ("job", "0062_alter_costline_meta_ext_refs"),
     ]
 
     operations = [
