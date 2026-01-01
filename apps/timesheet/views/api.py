@@ -797,15 +797,15 @@ class RefreshPayRunsAPIView(APIView):
             )
 
 
-def _pay_run_to_dict(pay_run):
-    """Convert XeroPayRun to dict for API response."""
+def serialize_pay_run(pay_run):
+    """Convert XeroPayRun to dict for PayRunSummarySerializer."""
     if pay_run is None:
         return None
     return {
         "period_start_date": pay_run.period_start_date,
         "period_end_date": pay_run.period_end_date,
         "payment_date": pay_run.payment_date,
-        "xero_id": str(pay_run.xero_id),
+        "xero_id": pay_run.xero_id,
         "xero_url": build_xero_payroll_url(str(pay_run.xero_id)),
     }
 
@@ -851,28 +851,27 @@ class LatestPostedPayRunAPIView(APIView):
             base_qs.filter(pay_run_status="Draft").order_by("-period_end_date").first()
         )
 
-        return Response(
-            {
-                "exists": latest_posted is not None,
-                "posted": _pay_run_to_dict(latest_posted),
-                "draft": _pay_run_to_dict(latest_draft),
-                # Legacy fields for backwards compatibility
-                "period_start_date": (
-                    latest_posted.period_start_date if latest_posted else None
-                ),
-                "period_end_date": (
-                    latest_posted.period_end_date if latest_posted else None
-                ),
-                "payment_date": (latest_posted.payment_date if latest_posted else None),
-                "xero_id": str(latest_posted.xero_id) if latest_posted else None,
-                "xero_url": (
-                    build_xero_payroll_url(str(latest_posted.xero_id))
-                    if latest_posted
-                    else None
-                ),
-            },
-            status=status.HTTP_200_OK,
-        )
+        data = {
+            "exists": latest_posted is not None,
+            "posted": serialize_pay_run(latest_posted),
+            "draft": serialize_pay_run(latest_draft),
+            # Legacy fields for backwards compatibility
+            "period_start_date": (
+                latest_posted.period_start_date if latest_posted else None
+            ),
+            "period_end_date": (
+                latest_posted.period_end_date if latest_posted else None
+            ),
+            "payment_date": latest_posted.payment_date if latest_posted else None,
+            "xero_id": latest_posted.xero_id if latest_posted else None,
+            "xero_url": (
+                build_xero_payroll_url(str(latest_posted.xero_id))
+                if latest_posted
+                else None
+            ),
+        }
+        serializer = LatestPostedPayRunSerializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # Cache timeout for payroll task data (10 minutes)

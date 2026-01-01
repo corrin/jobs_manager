@@ -81,10 +81,23 @@ class PayRunSyncResponseSerializer(serializers.Serializer):
     updated = serializers.IntegerField(help_text="Number of existing pay runs updated")
 
 
+class PayRunSummarySerializer(serializers.Serializer):
+    """Summary of a pay run for API responses."""
+
+    period_start_date = serializers.DateField()
+    period_end_date = serializers.DateField()
+    payment_date = serializers.DateField()
+    xero_id = serializers.UUIDField()
+    xero_url = serializers.CharField(help_text="Deep link to Xero")
+
+
 class LatestPostedPayRunSerializer(serializers.Serializer):
     """Response for the latest posted pay run endpoint."""
 
     exists = serializers.BooleanField(help_text="Whether a posted pay run exists")
+    posted = PayRunSummarySerializer(allow_null=True, help_text="Latest posted pay run")
+    draft = PayRunSummarySerializer(allow_null=True, help_text="Latest draft pay run")
+    # Legacy fields for backwards compatibility
     period_start_date = serializers.DateField(
         allow_null=True, help_text="Start of the locked period"
     )
