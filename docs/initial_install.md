@@ -164,6 +164,8 @@ poetry install
 
 ## Phase 3: Running the Application & Connecting Xero
 
+> **Note:** Steps 8-9 below are needed for initial setup. For subsequent development sessions, see [development_session.md](development_session.md) for the complete daily startup checklist.
+
 ### Step 8: Start Ngrok Tunnel (Backend)
 
 1.  Open a **new, separate terminal window**.
