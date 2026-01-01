@@ -44,6 +44,7 @@ from apps.timesheet.services.daily_timesheet_service import DailyTimesheetServic
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
 from apps.workflow.api.xero.payroll import (
     get_all_timesheets_for_week,
+    get_payroll_calendar_id,
     post_staff_week_to_xero,
     validate_pay_items_for_week,
 )
@@ -796,23 +797,36 @@ class RefreshPayRunsAPIView(APIView):
             )
 
 
+def _pay_run_to_dict(pay_run):
+    """Convert XeroPayRun to dict for API response."""
+    if pay_run is None:
+        return None
+    return {
+        "period_start_date": pay_run.period_start_date,
+        "period_end_date": pay_run.period_end_date,
+        "payment_date": pay_run.payment_date,
+        "xero_id": str(pay_run.xero_id),
+        "xero_url": build_xero_payroll_url(str(pay_run.xero_id)),
+    }
+
+
 class LatestPostedPayRunAPIView(APIView):
     """
-    API endpoint to get the most recent Posted pay run.
+    API endpoint to get the most recent Posted and Draft pay runs.
 
-    Returns the period dates of the latest Posted pay run, which the frontend
-    can use to lock editing of timesheets for dates within that period.
-    Any date <= period_end_date is considered locked.
+    Returns the period dates of the latest Posted pay run (for locking timesheets)
+    and the latest Draft pay run (for current payroll processing).
+    Only returns pay runs from the configured payroll calendar.
     """
 
     permission_classes = [IsAuthenticated]
     serializer_class = LatestPostedPayRunSerializer
 
     @extend_schema(
-        summary="Get latest posted pay run",
+        summary="Get latest posted and draft pay runs",
         description=(
-            "Returns the most recent Posted pay run. "
-            "Dates <= period_end_date are locked and cannot be edited."
+            "Returns the most recent Posted and Draft pay runs for the configured calendar. "
+            "Dates <= posted.period_end_date are locked and cannot be edited."
         ),
         responses={
             200: LatestPostedPayRunSerializer,
@@ -820,48 +834,45 @@ class LatestPostedPayRunAPIView(APIView):
         },
     )
     def get(self, request):
-        """Return the latest Posted pay run if one exists."""
-        try:
-            # Get the most recent Posted pay run by period_end_date
-            latest = (
-                XeroPayRun.objects.filter(pay_run_status="Posted")
-                .order_by("-period_end_date")
-                .first()
-            )
+        """Return the latest Posted and Draft pay runs for the configured calendar."""
+        # Get the configured payroll calendar ID - fail fast if not configured
+        calendar_id = get_payroll_calendar_id()
 
-            if latest is None:
-                return Response(
-                    {
-                        "exists": False,
-                        "period_start_date": None,
-                        "period_end_date": None,
-                        "payment_date": None,
-                        "xero_id": None,
-                        "xero_url": None,
-                    },
-                    status=status.HTTP_200_OK,
-                )
+        # Filter by the configured calendar
+        base_qs = XeroPayRun.objects.filter(payroll_calendar_id=calendar_id)
 
-            xero_url = build_xero_payroll_url(str(latest.xero_id))
+        # Get the most recent Posted pay run by period_end_date
+        latest_posted = (
+            base_qs.filter(pay_run_status="Posted").order_by("-period_end_date").first()
+        )
 
-            return Response(
-                {
-                    "exists": True,
-                    "period_start_date": latest.period_start_date,
-                    "period_end_date": latest.period_end_date,
-                    "payment_date": latest.payment_date,
-                    "xero_id": str(latest.xero_id),
-                    "xero_url": xero_url,
-                },
-                status=status.HTTP_200_OK,
-            )
+        # Get the most recent Draft pay run by period_end_date
+        latest_draft = (
+            base_qs.filter(pay_run_status="Draft").order_by("-period_end_date").first()
+        )
 
-        except Exception as exc:
-            return build_internal_error_response(
-                request=request,
-                message="Failed to get latest posted pay run",
-                exc=exc,
-            )
+        return Response(
+            {
+                "exists": latest_posted is not None,
+                "posted": _pay_run_to_dict(latest_posted),
+                "draft": _pay_run_to_dict(latest_draft),
+                # Legacy fields for backwards compatibility
+                "period_start_date": (
+                    latest_posted.period_start_date if latest_posted else None
+                ),
+                "period_end_date": (
+                    latest_posted.period_end_date if latest_posted else None
+                ),
+                "payment_date": (latest_posted.payment_date if latest_posted else None),
+                "xero_id": str(latest_posted.xero_id) if latest_posted else None,
+                "xero_url": (
+                    build_xero_payroll_url(str(latest_posted.xero_id))
+                    if latest_posted
+                    else None
+                ),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 # Cache timeout for payroll task data (10 minutes)

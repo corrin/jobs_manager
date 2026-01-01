@@ -17,7 +17,7 @@
 #### Payroll Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
-| `/api/payroll/latest-posted/` | `api.LatestPostedPayRunAPIView` | `timesheet:api_latest_posted_pay_run` | API endpoint to get the most recent Posted pay run. |
+| `/api/payroll/latest-posted/` | `api.LatestPostedPayRunAPIView` | `timesheet:api_latest_posted_pay_run` | API endpoint to get the most recent Posted and Draft pay runs. |
 | `/api/payroll/pay-runs/` | `api.PayRunForWeekAPIView` | `timesheet:api_get_pay_run_for_week` | API endpoint to fetch pay run details for a specific week. |
 | `/api/payroll/pay-runs/create/` | `api.CreatePayRunAPIView` | `timesheet:api_create_pay_run` | API endpoint to create a pay run in Xero Payroll. |
 | `/api/payroll/pay-runs/refresh/` | `api.RefreshPayRunsAPIView` | `timesheet:api_refresh_pay_runs` | API endpoint to refresh cached pay runs from Xero. |
