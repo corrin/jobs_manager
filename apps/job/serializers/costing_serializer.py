@@ -120,6 +120,9 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
     Serializer for CostLine creation and updates - full write capabilities
     """
 
+    meta = serializers.DictField(required=False, allow_empty=True, default=dict)
+    ext_refs = serializers.DictField(required=False, allow_empty=True, default=dict)
+
     class Meta:
         model = CostLine
         # Write fields - subset of API fields that can be written
