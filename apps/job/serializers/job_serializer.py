@@ -10,6 +10,7 @@ from apps.accounting.models.invoice import Invoice
 from apps.accounting.models.quote import Quote
 from apps.client.models import Client, ClientContact
 from apps.job.models import Job, JobEvent, JobFile
+from apps.workflow.models import XeroPayItem
 
 from .costing_serializer import CostSetSerializer, TimesheetCostLineSerializer
 from .job_file_serializer import JobFileSerializer
@@ -127,6 +128,19 @@ class JobSerializer(serializers.ModelSerializer):
     contact_name = serializers.CharField(
         source="contact.name", read_only=True, required=False, allow_null=True
     )
+    default_xero_pay_item_id = serializers.PrimaryKeyRelatedField(
+        queryset=XeroPayItem.objects.all(),
+        source="default_xero_pay_item",
+        write_only=False,
+        required=False,
+        allow_null=True,
+    )
+    default_xero_pay_item_name = serializers.CharField(
+        source="default_xero_pay_item.name",
+        read_only=True,
+        required=False,
+        allow_null=True,
+    )
     job_status = serializers.CharField(source="status")
     job_files = JobFileSerializer(
         source="files", many=True, required=False
@@ -219,6 +233,8 @@ class JobSerializer(serializers.ModelSerializer):
             "xero_invoices",
             "shop_job",
             "rejected_flag",
+            "default_xero_pay_item_id",
+            "default_xero_pay_item_name",
         ]
 
     def validate(self, attrs):
@@ -735,11 +751,23 @@ class JobHeaderResponseSerializer(serializers.ModelSerializer):
     job_id = serializers.UUIDField(source="id")
     client = JobClientHeaderSerializer()
     quoted = serializers.BooleanField()
+    default_xero_pay_item_id = serializers.UUIDField(
+        source="default_xero_pay_item.id", read_only=True, allow_null=True
+    )
+    default_xero_pay_item_name = serializers.CharField(
+        source="default_xero_pay_item.name", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = Job
         # Derive fields from Job.JOB_DIRECT_FIELDS, plus special fields
-        fields = ["job_id", "client", "quoted"] + Job.JOB_DIRECT_FIELDS
+        fields = [
+            "job_id",
+            "client",
+            "quoted",
+            "default_xero_pay_item_id",
+            "default_xero_pay_item_name",
+        ] + Job.JOB_DIRECT_FIELDS
 
 
 class JobStatusChoicesResponseSerializer(serializers.Serializer):

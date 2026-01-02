@@ -10,7 +10,6 @@ from .costline_validators import (
     validate_costline_ext_refs,
     validate_costline_meta,
 )
-from .job import Job
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,9 @@ class CostSet(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="cost_sets")
+    job = models.ForeignKey(
+        "job.Job", on_delete=models.CASCADE, related_name="cost_sets"
+    )
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
     summary = models.JSONField(
@@ -147,6 +148,7 @@ class CostLine(models.Model):
         "xero_last_modified",
         "xero_last_synced",
         "approved",
+        "xero_pay_item",
     ]
 
     # Internal fields not exposed in API
@@ -210,6 +212,16 @@ class CostLine(models.Model):
         help_text="Indicates whether this line is approved or not by an office staff (when the line is created by a workshop worker)",
     )
 
+    # Xero pay item - determines how this time entry is paid (leave type, overtime, etc.)
+    xero_pay_item = models.ForeignKey(
+        "workflow.XeroPayItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cost_lines",
+        help_text="The Xero pay item for this time entry (leave type, earnings rate, etc.)",
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=["cost_set_id", "kind"]),
@@ -241,6 +253,9 @@ class CostLine(models.Model):
 
         if self.kind != "material" and not self.approved:
             raise ValidationError("Non-material cost line cannot be unapproved.")
+
+        if self.kind == "time" and self.xero_pay_item is None:
+            raise ValidationError("Time entries must have xero_pay_item set.")
 
         validate_costline_meta(self.meta, self.kind)
         validate_costline_ext_refs(self.ext_refs)
@@ -274,6 +289,22 @@ class CostLine(models.Model):
         cost_set.job.save(update_fields=["updated_at"])
 
     def save(self, *args, **kwargs):
+        # Fail fast if trying to set revenue on shop jobs
+        job = self.cost_set.job
+        if job.shop_job:
+            if self.unit_rev != Decimal("0.00"):
+                raise ValidationError(
+                    f"Shop jobs cannot have revenue. Got unit_rev={self.unit_rev} "
+                    f"for job '{job.name}' (job_number={job.job_number})"
+                )
+            if self.kind == "time":
+                meta = self.meta if isinstance(self.meta, dict) else {}
+                if meta.get("is_billable", False):
+                    raise ValidationError(
+                        f"Shop job time entries cannot be billable. "
+                        f"Job '{job.name}' (job_number={job.job_number})"
+                    )
+
         self.full_clean()
         super().save(*args, **kwargs)
         self._update_cost_set_summary()

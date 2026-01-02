@@ -21,8 +21,7 @@ from django.db.models.expressions import RawSQL
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff
 from apps.job.models import Job
-from apps.job.models.costing import CostLine, CostSet
-from apps.workflow.models import PayrollCategory
+from apps.job.models.costing import CostLine
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +99,7 @@ class WeeklyTimesheetService:
             total_overtime_2x_hours = 0
             total_sick_leave_hours = 0
             total_annual_leave_hours = 0
-            total_other_leave_hours = 0
+            total_bereavement_leave_hours = 0
 
             for day in week_days:
                 daily_data = cls._get_payroll_daily_data(staff_member, day)
@@ -116,7 +115,9 @@ class WeeklyTimesheetService:
                 total_overtime_2x_hours += daily_data.get("overtime_2x_hours", 0)
                 total_sick_leave_hours += daily_data.get("sick_leave_hours", 0)
                 total_annual_leave_hours += daily_data.get("annual_leave_hours", 0)
-                total_other_leave_hours += daily_data.get("other_leave_hours", 0)
+                total_bereavement_leave_hours += daily_data.get(
+                    "bereavement_leave_hours", 0
+                )
 
             # Calculate percentages
             billable_percentage = (
@@ -138,7 +139,7 @@ class WeeklyTimesheetService:
                 "total_overtime_2x_hours": float(total_overtime_2x_hours),
                 "total_sick_leave_hours": float(total_sick_leave_hours),
                 "total_annual_leave_hours": float(total_annual_leave_hours),
-                "total_other_leave_hours": float(total_other_leave_hours),
+                "total_bereavement_leave_hours": float(total_bereavement_leave_hours),
             }
 
             staff_data.append(staff_entry)
@@ -296,21 +297,21 @@ class WeeklyTimesheetService:
 
             sick_leave_hours = 0
             annual_leave_hours = 0
-            other_leave_hours = 0
+            bereavement_leave_hours = 0
 
             for line in leave_lines:
-                category = PayrollCategory.get_for_job(line.cost_set.job)
+                pay_item = line.cost_set.job.default_xero_pay_item
                 hours = line.quantity
 
-                if category is None:
+                if pay_item is None:
                     continue  # Not a leave job
-                elif category.name == "sick_leave":
+                elif pay_item.name == "Sick Leave":
                     sick_leave_hours += hours
-                elif category.name == "annual_leave":
+                elif pay_item.name == "Annual Leave":
                     annual_leave_hours += hours
-                elif category.name == "other_leave":
-                    other_leave_hours += hours
-                # Skip unpaid leave
+                elif pay_item.name == "Bereavement Leave":
+                    bereavement_leave_hours += hours
+                # Skip Unpaid Leave
 
             base_data.update(
                 {
@@ -320,7 +321,7 @@ class WeeklyTimesheetService:
                     "overtime_2x_hours": float(overtime_2x_hours),
                     "sick_leave_hours": float(sick_leave_hours),
                     "annual_leave_hours": float(annual_leave_hours),
-                    "other_leave_hours": float(other_leave_hours),
+                    "bereavement_leave_hours": float(bereavement_leave_hours),
                 }
             )
 
@@ -482,102 +483,3 @@ class WeeklyTimesheetService:
         today = date.today()
         current_week_start = today - timedelta(days=today.weekday())
         return start_date == current_week_start
-
-    @classmethod
-    def submit_paid_absence(
-        cls,
-        staff_id: str,
-        start_date: date,
-        end_date: date,
-        leave_type: str,
-        hours_per_day: float,
-        description: str = "",
-    ) -> Dict[str, Any]:
-        """Submit a paid absence request using CostLine system."""
-        try:
-            # Get staff member
-            staff = Staff.objects.get(id=staff_id)
-
-            # Get appropriate leave job
-            leave_job_names = {
-                "vacation": "Annual Leave",
-                "sick": "Sick Leave",
-                "personal": "Other Leave",
-                "bereavement": "Other Leave",
-                "jury_duty": "Other Leave",
-                "training": "Training",
-                "other": "Other Leave",
-            }
-
-            job_name = leave_job_names.get(leave_type, "Other Leave")
-            leave_job = Job.objects.filter(name=job_name).first()
-
-            if not leave_job:
-                raise ValueError(f"Leave job '{job_name}' not found")
-
-            # Get or create actual cost set for the leave job
-            cost_set, created = CostSet.objects.get_or_create(
-                job=leave_job, kind="actual", defaults={"rev": 1, "summary": {}}
-            )
-
-            # Create cost lines for each working day
-            current_date = start_date
-            entries_created = 0
-
-            while current_date <= end_date:
-                # Include all days (no weekend skip)
-                # Check if entry already exists using CostLine
-                existing_lines = CostLine.objects.annotate(
-                    staff_id=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                ).filter(
-                    cost_set=cost_set,
-                    kind="time",
-                    staff_id=str(staff_id),
-                    accounting_date=current_date,
-                )
-
-                if not existing_lines.exists():
-                    CostLine.objects.create(
-                        cost_set=cost_set,
-                        kind="time",
-                        desc=f"{leave_type.title()} - {description}".strip(),
-                        quantity=Decimal(str(hours_per_day)),
-                        unit_cost=staff.wage_rate,  # Use staff wage rate
-                        unit_rev=Decimal("0"),  # Leave is not billable
-                        accounting_date=current_date,
-                        meta={
-                            "staff_id": str(staff_id),
-                            "date": current_date.isoformat(),
-                            "is_billable": False,
-                            "wage_rate": float(staff.wage_rate),
-                            "charge_out_rate": 0.0,
-                            "rate_multiplier": 1.0,
-                            "leave_type": leave_type,
-                            "created_from_timesheet": True,
-                        },
-                    )
-                    entries_created += 1
-
-                current_date += timedelta(days=1)
-
-            # Update job's latest_actual pointer if needed
-            if (
-                not leave_job.latest_actual
-                or cost_set.rev >= leave_job.latest_actual.rev
-            ):
-                leave_job.latest_actual = cost_set
-                leave_job.save(update_fields=["latest_actual"])
-
-            return {
-                "success": True,
-                "entries_created": entries_created,
-                "message": f"Successfully created {entries_created} leave entries",
-            }
-
-        except Exception as e:
-            logger.error(f"Error submitting paid absence: {e}")
-            return {"success": False, "error": str(e)}

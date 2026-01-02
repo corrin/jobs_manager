@@ -48,10 +48,10 @@ You should end up with:
 **NEVER run steps out of order. The following steps MUST be completed before ANY testing:**
 1. Steps 1-16: Basic restore and setup
 2. Step 17: **XERO OAUTH CONNECTION** (MANUAL - CANNOT BE SKIPPED)
-3. Steps 18-21: Xero configuration
-4. Steps 22-24: Testing ONLY AFTER Xero is connected
+3. Steps 18-20: Xero configuration
+4. Steps 21-23: Testing ONLY AFTER Xero is connected
 
-**Testing (Steps 22-24) is FORBIDDEN until Xero OAuth (Step 17) is complete.**
+**Testing (Steps 21-23) is FORBIDDEN until Xero OAuth (Step 17) is complete.**
 
 ## Common mistakes to avoid
 
@@ -541,7 +541,7 @@ print(f'✅ Token expires at: {token.expires_at}')
 2. For local dev: Run ngrok if needed for the backend and frontend. For UAT: Skip - proper domains already configured.
 3. Navigate to `FRONT_END_URL` from .env
 4. Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
-5. Go to **Xero menu > Connect to Xero**
+5. Go to **Admin > Xero**, then click **Login with Xero**
 6. Complete the OAuth flow to authorize the application
 
 **Check:** You should see "Connected to Xero" status in the web interface.
@@ -552,7 +552,7 @@ print(f'✅ Token expires at: {token.expires_at}')
 **Command:**
 
 ```bash
-python manage.py interact_with_xero --tenant
+python manage.py xero --tenant
 ```
 
 **Expected output:**
@@ -652,38 +652,7 @@ print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 
 **Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
-#### Step 20: Set Up Demo Payroll Data
-
-**Run as:** Development system user
-
-**Purpose:** Employees created in step 19 need IRD numbers, tax codes, ESCT rates, and bank accounts to be included in pay runs. This step generates valid demo data for these Xero-only fields.
-
-**Command:**
-
-```bash
-python scripts/setup_demo_payroll.py --execute
-```
-
-**What this does:**
-1. Generates valid NZ IRD numbers (with proper checksums) for each employee
-2. Sets tax code to M (main employment) with 17.5% ESCT rate
-3. Sets up KiwiSaver (3% employee, 3% employer contributions)
-4. Sets up leave entitlements (160h annual, 80h sick)
-5. Sets up bank accounts (pre-validated NZ format)
-
-**Expected output:**
-```
-Mode: EXECUTE
-Found 15 staff with Xero IDs
-Omar Adams: IRD=10-001-005 Bank=01-0242-1596000-000
-  Tax OK: IRD=10-001-005 KiwiSaver=3%/3%
-  Leave OK: Annual=160h Sick=80h
-  Bank OK: 01-0242-1596000-000
-...
-Results: Tax 15/15, Leave 15/15, Bank 15/15
-```
-
-#### Step 21: Sync Xero
+#### Step 20: Sync Xero
 
 **Run as:** Development system user
 **Command:**
@@ -696,7 +665,7 @@ python manage.py start_xero_sync
 
 Error and warning free sync between local and xero data.
 
-#### Step 22: Test Serializers (Before API Testing)
+#### Step 21: Test Serializers (Before API Testing)
 
 **Run as:** Development system user
 **Command:**
@@ -713,7 +682,7 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 23: Test Kanban HTTP API
+#### Step 22: Test Kanban HTTP API
 
 **Run as:** Development system user
 **Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
@@ -743,7 +712,7 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 24: Final Application Test
+#### Step 23: Final Application Test
 
 **Run as:** Development system user
 **Command:**

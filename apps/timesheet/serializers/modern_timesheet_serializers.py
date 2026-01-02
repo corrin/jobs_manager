@@ -13,7 +13,6 @@ from apps.job.models import Job
 from apps.timesheet.serializers.daily_timesheet_serializers import (
     SummaryStatsSerializer,
 )
-from apps.workflow.models import PayrollCategory
 
 
 class ModernTimesheetJobSerializer(serializers.ModelSerializer):
@@ -24,6 +23,12 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
     )
     has_actual_costset = serializers.SerializerMethodField()
     leave_type = serializers.SerializerMethodField()
+    default_xero_pay_item_id = serializers.UUIDField(
+        source="default_xero_pay_item.id", read_only=True
+    )
+    default_xero_pay_item_name = serializers.CharField(
+        source="default_xero_pay_item.name", read_only=True
+    )
 
     class Meta:
         model = Job
@@ -36,6 +41,8 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
             "charge_out_rate",
             "has_actual_costset",
             "leave_type",
+            "default_xero_pay_item_id",
+            "default_xero_pay_item_name",
         ]
 
     def get_has_actual_costset(self, obj) -> bool:
@@ -44,8 +51,8 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
 
     def get_leave_type(self, obj) -> str | None:
         """Get leave type if this is a payroll leave job"""
-        category = PayrollCategory.get_for_job(obj)
-        return category.name if category else None
+        pay_item = obj.default_xero_pay_item
+        return pay_item.name if pay_item else None
 
 
 class ModernStaffSerializer(serializers.Serializer):
@@ -98,7 +105,7 @@ class WeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
     overtime_2x_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     sick_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     annual_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    bereavement_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class WeeklyStaffDataSerializer(serializers.Serializer):
@@ -123,7 +130,9 @@ class WeeklyStaffDataSerializer(serializers.Serializer):
     total_overtime_2x_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_sick_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_annual_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    total_other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_bereavement_leave_hours = serializers.DecimalField(
+        max_digits=10, decimal_places=2
+    )
 
 
 @extend_schema_serializer(component_name="WeeklyTimesheetData")
@@ -156,7 +165,8 @@ class PaidAbsenceSerializer(serializers.Serializer):
         choices=[
             ("annual", "Annual Leave"),
             ("sick", "Sick Leave"),
-            ("other", "Other Leave"),
+            ("bereavement", "Bereavement Leave"),
+            ("unpaid", "Unpaid Leave"),
         ]
     )
     hours_per_day = serializers.FloatField(min_value=0.1, max_value=24.0)

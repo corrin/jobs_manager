@@ -28,7 +28,7 @@ from xero_python.payrollnz.models import (
 
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.models import CompanyDefaults, PayrollCategory
+from apps.workflow.models import CompanyDefaults, XeroPayItem
 from apps.workflow.services.error_persistence import (
     persist_and_raise,
     persist_app_error,
@@ -743,6 +743,15 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
         earnings_rates = []
         if response and response.earnings_rates:
             for rate in response.earnings_rates:
+                # Get multiplier from Xero
+                # rate_type can be: RatePerUnit, MultipleOfOrdinaryEarningsRate, FixedAmount
+                multiplier = None
+                if rate.rate_type == "MultipleOfOrdinaryEarningsRate":
+                    multiplier = rate.multiple_of_ordinary_earnings_rate
+                elif rate.rate_type == "RatePerUnit":
+                    # Ordinary time is rate per unit with implicit 1.0x multiplier
+                    multiplier = 1.0
+
                 earnings_rates.append(
                     {
                         "id": rate.earnings_rate_id,
@@ -750,6 +759,7 @@ def get_earnings_rates() -> List[Dict[str, Any]]:
                         "earnings_type": rate.earnings_type,
                         "rate_type": rate.rate_type,
                         "type_of_units": rate.type_of_units,
+                        "multiplier": multiplier,
                     }
                 )
 
@@ -973,51 +983,26 @@ def create_pay_run(
         )
 
 
-def find_payroll_calendar_for_week(week_start_date: date) -> str:
+def get_payroll_calendar_id() -> str:
     """
-    Find the payroll calendar ID by searching local pay runs for the given week.
+    Get the configured payroll calendar ID from CompanyDefaults.
 
-    Verifies the pay run is in Draft status (not Posted/locked).
-
-    Args:
-        week_start_date: Monday of the week
+    The calendar ID is cached in CompanyDefaults.xero_payroll_calendar_id,
+    which is populated by the xero --setup management command.
 
     Returns:
-        Payroll calendar ID from the matching pay run
+        Payroll calendar ID (UUID string)
 
     Raises:
-        Exception: If no matching pay run found or pay run is already Posted
+        ValueError: If calendar ID not configured (run xero --setup first)
     """
-    from apps.workflow.models import XeroPayRun
-
-    week_end_date = week_start_date + timedelta(days=6)
-
-    logger.info(
-        f"Searching local pay runs for week {week_start_date} to {week_end_date}"
-    )
-
-    try:
-        pay_run = XeroPayRun.objects.get(
-            period_start_date=week_start_date,
-            period_end_date=week_end_date,
+    company = CompanyDefaults.get_instance()
+    if not company.xero_payroll_calendar_id:
+        raise ValueError(
+            "xero_payroll_calendar_id not configured in CompanyDefaults. "
+            "Run: python manage.py xero --setup"
         )
-    except XeroPayRun.DoesNotExist:
-        raise Exception(
-            f"No pay run found for week {week_start_date} to {week_end_date}. "
-            "Create a pay run in Xero Payroll for this period first."
-        )
-
-    if pay_run.pay_run_status == "Posted":
-        raise Exception(
-            f"Pay run for week {week_start_date} to {week_end_date} is already Posted "
-            f"and cannot be modified. Pay run ID: {pay_run.xero_id}"
-        )
-
-    logger.info(
-        f"Found matching pay run: {pay_run.xero_id} "
-        f"(status: {pay_run.pay_run_status}) with calendar {pay_run.payroll_calendar_id}"
-    )
-    return str(pay_run.payroll_calendar_id)
+    return str(company.xero_payroll_calendar_id)
 
 
 def get_all_timesheets_for_week(week_start_date: date) -> Dict[str, Any]:
@@ -1109,8 +1094,8 @@ def post_timesheet(
             f"Processing timesheet for employee {employee_id}, week starting {week_start_date}"
         )
 
-        # Find the payroll calendar for this week
-        payroll_calendar_id = find_payroll_calendar_for_week(week_start_date)
+        # Get the payroll calendar ID from company configuration
+        payroll_calendar_id = get_payroll_calendar_id()
 
         # Calculate week end date (Sunday)
         week_end_date = week_start_date + timedelta(days=6)
@@ -1146,6 +1131,23 @@ def post_timesheet(
         # Step 2: If timesheet exists, delete it entirely (faster than deleting lines one-by-one)
         if existing_timesheet:
             timesheet_id = existing_timesheet.timesheet_id
+
+            # If timesheet is Approved, revert to Draft first so we can delete it
+            if existing_timesheet.status == "Approved":
+                logger.info(f"Reverting approved timesheet {timesheet_id} to Draft")
+                payroll_api.revert_timesheet(
+                    xero_tenant_id=tenant_id,
+                    timesheet_id=str(timesheet_id),
+                )
+                logger.info(f"Successfully reverted timesheet {timesheet_id} to Draft")
+                time.sleep(SLEEP_TIME)
+            elif existing_timesheet.status != "Draft":
+                # Status is something other than Draft or Approved (e.g., Paid)
+                raise Exception(
+                    f"Timesheet {timesheet_id} is in '{existing_timesheet.status}' status "
+                    "and cannot be modified. This timesheet has already been paid."
+                )
+
             logger.info(f"Deleting existing timesheet {timesheet_id}")
             payroll_api.delete_timesheet(
                 xero_tenant_id=tenant_id,
@@ -1188,6 +1190,15 @@ def post_timesheet(
         logger.info(
             f"Successfully created timesheet {timesheet_id} with {len(lines)} lines"
         )
+
+        # Step 4: Approve the timesheet immediately
+        logger.info(f"Approving timesheet {timesheet_id}")
+        payroll_api.approve_timesheet(
+            xero_tenant_id=tenant_id,
+            timesheet_id=str(timesheet_id),
+        )
+        logger.info(f"Successfully approved timesheet {timesheet_id}")
+        time.sleep(SLEEP_TIME)
 
         return created_timesheet
 
@@ -1412,6 +1423,65 @@ def get_all_pay_slips_for_sync(**kwargs):
     return type("obj", (object,), {"pay_slips": all_pay_slips})()
 
 
+def validate_pay_items_for_week(
+    staff_ids: List[UUID],
+    week_start_date: date,
+) -> None:
+    """
+    Validate ALL required XeroPayItems exist for ALL staff entries BEFORE posting.
+
+    This is fail-early validation: we check everything upfront so we don't make
+    partial API calls and leave data in an inconsistent state.
+
+    Args:
+        staff_ids: List of staff UUIDs to validate
+        week_start_date: Monday of the week
+
+    Raises:
+        ValueError: If any required pay items are missing
+    """
+    from apps.job.models.costing import CostLine
+
+    week_end_date = week_start_date + timedelta(days=6)
+
+    # Collect ALL time entries for ALL staff in this week
+    all_entries = CostLine.objects.filter(
+        kind="time",
+        accounting_date__gte=week_start_date,
+        accounting_date__lte=week_end_date,
+    ).select_related("cost_set__job", "cost_set__job__default_xero_pay_item")
+
+    # Filter to only the staff we're posting
+    staff_id_strs = {str(sid) for sid in staff_ids}
+    entries = [e for e in all_entries if e.meta.get("staff_id") in staff_id_strs]
+
+    if not entries:
+        return  # No entries to validate
+
+    # Validate all entries have xero_pay_item with valid xero_id
+    missing_pay_items = []
+
+    for entry in entries:
+        pay_item = entry.xero_pay_item
+
+        if pay_item is None:
+            missing_pay_items.append(f"CostLine {entry.id} has no xero_pay_item")
+        elif not pay_item.xero_id:
+            missing_pay_items.append(
+                f"CostLine {entry.id} has XeroPayItem '{pay_item.name}' with no xero_id"
+            )
+
+    if missing_pay_items:
+        raise ValueError(
+            "Missing XeroPayItems - run sync_xero_pay_items() first:\n"
+            + "\n".join(f"  - {msg}" for msg in missing_pay_items)
+        )
+
+    logger.info(
+        f"Validated pay items for {len(entries)} entries across {len(staff_ids)} staff"
+    )
+
+
 def post_staff_week_to_xero(
     staff_id: UUID,
     week_start_date: date,
@@ -1432,9 +1502,8 @@ def post_staff_week_to_xero(
             - xero_timesheet_id (str): Xero timesheet ID if successful
             - entries_posted (int): Number of entries posted
             - work_hours (Decimal): Total work hours
-            - other_leave_hours (Decimal): Total other leave hours
-            - annual_sick_hours (Decimal): Total annual/sick leave hours
-            - unpaid_hours (Decimal): Total unpaid hours (not posted)
+            - other_leave_hours (Decimal): Total other leave hours (timesheets API)
+            - leave_hours (Decimal): Total leave hours (leave API - annual/sick/unpaid)
             - errors (List[str]): Any errors encountered
 
     Raises:
@@ -1458,27 +1527,14 @@ def post_staff_week_to_xero(
             f"Staff member {staff.email} does not have a xero_user_id configured"
         )
 
-    # PHASE 1: Pre-fetch and validate all Xero lookups before any modifying API calls
-    ensure_earnings_rate_cache()
-
-    # Validate all configured earnings rate names exist in Xero
-    work_categories = PayrollCategory.objects.filter(
-        rate_multiplier__isnull=False,
-        posts_to_xero=True,
-    )
-    for category in work_categories:
-        rate_name = category.xero_earnings_rate_name
-        if not rate_name:
-            raise ValueError(
-                f"PayrollCategory '{category.name}' does not have an earnings rate name configured"
-            )
-        if rate_name not in _earnings_rate_cache:
-            available = ", ".join(sorted(_earnings_rate_cache.keys()))
-            raise ValueError(
-                f"Earnings rate '{rate_name}' for category '{category.name}' not found in Xero. "
-                f"Available: {available}"
-            )
-    logger.info("All required earnings rates validated")
+    # PHASE 1: Validate XeroPayItem data is synced
+    ordinary_time = XeroPayItem.get_ordinary_time()
+    if not ordinary_time:
+        raise ValueError(
+            "XeroPayItem 'Ordinary Time' (multiplier=1.0) not found. "
+            "Run sync_xero_pay_items() to sync pay items from Xero."
+        )
+    logger.info("XeroPayItem data validated")
 
     try:
         # Calculate week end date (Sunday)
@@ -1514,27 +1570,23 @@ def post_staff_week_to_xero(
                 "entries_posted": 0,
                 "work_hours": Decimal("0"),
                 "other_leave_hours": Decimal("0"),
-                "annual_sick_hours": Decimal("0"),
-                "unpaid_hours": Decimal("0"),
+                "leave_hours": Decimal("0"),
                 "errors": [],
             }
 
-        # Categorize entries into three buckets
-        leave_api_entries, timesheet_entries, discarded_entries = _categorize_entries(
-            staff_entries
-        )
+        # Categorize entries into two buckets
+        leave_api_entries, timesheet_entries = _categorize_entries(staff_entries)
 
-        # Further split timesheet entries into work vs other leave
+        # Further split timesheet entries into work vs other leave (for reporting)
         work_entries = []
         other_leave_entries = []
         for entry in timesheet_entries:
-            job = entry.cost_set.job
-            category = PayrollCategory.get_for_job(job)
-            if category is not None:
-                # It's a leave job (e.g., other leave)
-                other_leave_entries.append(entry)
-            else:
+            pay_item = entry.xero_pay_item
+            # Work entries have multipliers (1.0, 1.5, 2.0), leave entries don't
+            if pay_item and pay_item.multiplier is not None:
                 work_entries.append(entry)
+            else:
+                other_leave_entries.append(entry)
 
         xero_employee_id = UUID(staff.xero_user_id)
         xero_timesheet_id = None
@@ -1564,10 +1616,7 @@ def post_staff_week_to_xero(
         other_leave_hours = sum(
             Decimal(str(entry.quantity)) for entry in other_leave_entries
         )
-        annual_sick_hours = sum(
-            Decimal(str(entry.quantity)) for entry in leave_api_entries
-        )
-        unpaid_hours = sum(Decimal(str(entry.quantity)) for entry in discarded_entries)
+        leave_hours = sum(Decimal(str(entry.quantity)) for entry in leave_api_entries)
 
         return {
             "success": True,
@@ -1576,8 +1625,7 @@ def post_staff_week_to_xero(
             "entries_posted": len(staff_entries),
             "work_hours": work_hours,
             "other_leave_hours": other_leave_hours,
-            "annual_sick_hours": annual_sick_hours,
-            "unpaid_hours": unpaid_hours,
+            "leave_hours": leave_hours,
             "errors": [],
         }
 
@@ -1601,49 +1649,43 @@ def _categorize_entries(entries: List) -> tuple:
     """
     Categorize cost line entries for Xero posting.
 
-    Uses PayrollCategory to determine how each entry should be posted.
+    Uses entry.xero_pay_item to determine how each entry should be posted.
 
     Args:
         entries: List of CostLine entries to categorize
 
     Returns:
-        Tuple of (leave_api_entries, timesheet_entries, discarded_entries)
-        - leave_api_entries: Entries using Leave API (has balances)
+        Tuple of (leave_api_entries, timesheet_entries)
+        - leave_api_entries: Entries using Leave API (annual, sick, unpaid leave)
         - timesheet_entries: Entries using Timesheets API (work + other leave)
-        - discarded_entries: Entries not posted to Xero (unpaid leave)
     """
     leave_api_entries = []  # Leave API entries
     timesheet_entries = []  # Timesheets API entries
-    discarded_entries = []  # Not posted
 
     for entry in entries:
-        job = entry.cost_set.job
-        category = PayrollCategory.get_for_job(job)
+        pay_item = entry.xero_pay_item
 
-        if category is None:
-            # Regular work - post as timesheet
-            timesheet_entries.append(entry)
-        elif not category.posts_to_xero:
-            # Doesn't post to Xero (e.g., unpaid leave)
-            discarded_entries.append(entry)
-        elif category.uses_leave_api:
-            # Uses Leave API (e.g., annual, sick)
+        if pay_item is None:
+            raise ValueError(f"CostLine {entry.id} has no xero_pay_item")
+
+        if pay_item.uses_leave_api:
+            # Uses Leave API (e.g., annual, sick, unpaid)
             leave_api_entries.append(entry)
         else:
-            # Uses Timesheets API (e.g., other leave)
+            # Uses Timesheets API (work or other leave)
             timesheet_entries.append(entry)
 
-    return leave_api_entries, timesheet_entries, discarded_entries
+    return leave_api_entries, timesheet_entries
 
 
 def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     """
-    Map work CostLine entries to Xero Payroll timesheet lines format.
+    Map CostLine entries to Xero Payroll timesheet lines format.
 
-    Uses PayrollCategory to look up earnings rate names by rate multiplier.
+    Uses entry.xero_pay_item to get the earnings rate ID.
 
     Args:
-        entries: List of work CostLine entries
+        entries: List of CostLine entries (uses Timesheets API)
 
     Returns:
         List of timesheet line dictionaries for Xero API
@@ -1651,30 +1693,15 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     timesheet_lines = []
 
     for entry in entries:
-        rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
+        pay_item = entry.xero_pay_item
 
-        # Look up PayrollCategory by rate multiplier
-        category = PayrollCategory.objects.filter(
-            rate_multiplier=rate_multiplier,
-            job_name_pattern__isnull=True,
-        ).first()
-        if category is None:
-            # Fall back to ordinary time
-            category = PayrollCategory.objects.get(name="work_ordinary")
-
-        rate_name = category.xero_earnings_rate_name
-        if not rate_name:
-            raise ValueError(
-                f"PayrollCategory '{category.name}' does not have an earnings rate name configured"
-            )
-
-        # Look up the ID by name from Xero at runtime
-        earnings_rate_id = get_earnings_rate_id_by_name(rate_name)
+        if pay_item is None:
+            raise ValueError(f"CostLine {entry.id} has no xero_pay_item")
 
         timesheet_lines.append(
             {
                 "date": entry.accounting_date,
-                "earnings_rate_id": earnings_rate_id,
+                "earnings_rate_id": pay_item.xero_id,
                 "number_of_units": float(entry.quantity),
             }
         )
@@ -1690,7 +1717,7 @@ def _post_leave_entries(
     Post leave CostLine entries to Xero using the Leave API.
 
     Groups consecutive days of the same leave type together.
-    Uses PayrollCategory to look up Xero leave type IDs.
+    Uses entry.xero_pay_item to get Xero leave type IDs.
 
     Args:
         employee_id: Xero employee ID
@@ -1699,37 +1726,26 @@ def _post_leave_entries(
     Returns:
         List of leave IDs created in Xero
     """
-    # Group entries by PayrollCategory and sort by date
+    # Group entries by XeroPayItem and sort by date
     grouped = defaultdict(list)
     for entry in entries:
-        job = entry.cost_set.job
-        category = PayrollCategory.get_for_job(job)
+        pay_item = entry.xero_pay_item
 
-        if category is None:
-            raise ValueError(
-                f"Job '{job.name}' is not a leave job but was passed to _post_leave_entries"
-            )
+        if pay_item is None:
+            raise ValueError(f"CostLine {entry.id} has no xero_pay_item set")
 
-        grouped[category].append(entry)
+        grouped[pay_item].append(entry)
 
     # Sort each group by date
-    for category in grouped:
-        grouped[category].sort(key=lambda e: e.accounting_date)
+    for pay_item in grouped:
+        grouped[pay_item].sort(key=lambda e: e.accounting_date)
 
     leave_ids = []
 
-    # Process each leave category
-    for category, type_entries in grouped.items():
-        leave_type_name = category.xero_leave_type_name
-
-        if not leave_type_name:
-            raise ValueError(
-                f"PayrollCategory '{category.display_name}' does not have a Xero leave type name configured. "
-                "Run: python manage.py interact_with_xero --configure-payroll"
-            )
-
-        # Look up the ID by name from Xero at runtime
-        leave_type_id = get_leave_type_id_by_name(leave_type_name)
+    # Process each leave type
+    for pay_item, type_entries in grouped.items():
+        # Use xero_id directly from XeroPayItem
+        leave_type_id = pay_item.xero_id
 
         # Group consecutive days together
         if not type_entries:
@@ -1758,7 +1774,7 @@ def _post_leave_entries(
                     start_date=current_start,
                     end_date=current_end,
                     hours_per_day=current_hours,
-                    description=category.display_name,
+                    description=pay_item.name,
                 )
                 leave_ids.append(leave_id)
 
@@ -1774,8 +1790,97 @@ def _post_leave_entries(
             start_date=current_start,
             end_date=current_end,
             hours_per_day=current_hours,
-            description=category.display_name,
+            description=pay_item.name,
         )
         leave_ids.append(leave_id)
 
     return leave_ids
+
+
+def sync_xero_pay_items() -> Dict[str, Any]:
+    """
+    Sync XeroPayItem from Xero Leave Types and Earnings Rates.
+
+    This creates/updates XeroPayItem records from Xero's:
+    - Leave Types (uses_leave_api=True)
+    - Earnings Rates (uses_leave_api=False)
+
+    Returns:
+        Dict with sync results: created, updated counts
+
+    Raises:
+        ValueError: If no Xero tenant ID configured
+        Exception: If Xero API calls fail
+    """
+    from django.utils import timezone
+
+    from apps.workflow.models import XeroPayItem
+
+    # Fail early: check tenant ID
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise ValueError("No Xero tenant ID configured")
+
+    results = {
+        "leave_types": {"created": 0, "updated": 0},
+        "earnings_rates": {"created": 0, "updated": 0},
+    }
+
+    # Fetch all data upfront - fail fast if API errors
+    logger.info("Fetching Xero Leave Types and Earnings Rates")
+    leave_types = get_leave_types()
+    earnings_rates = get_earnings_rates()
+
+    # Sync Leave Types
+    logger.info(f"Syncing {len(leave_types)} leave types to XeroPayItem")
+    for lt in leave_types:
+        pay_item, created = XeroPayItem.objects.update_or_create(
+            xero_id=str(lt["id"]),
+            defaults={
+                "xero_tenant_id": tenant_id,
+                "name": lt["name"],
+                "uses_leave_api": True,
+                "multiplier": None,
+                "xero_last_synced": timezone.now(),
+            },
+        )
+        if created:
+            results["leave_types"]["created"] += 1
+            logger.info(f"Created XeroPayItem: {lt['name']} (leave type)")
+        else:
+            results["leave_types"]["updated"] += 1
+
+    # Sync Earnings Rates
+    logger.info(f"Syncing {len(earnings_rates)} earnings rates to XeroPayItem")
+    for rate in earnings_rates:
+        multiplier = rate.get("multiplier")
+        if multiplier is not None:
+            multiplier = Decimal(str(multiplier))
+
+        pay_item, created = XeroPayItem.objects.update_or_create(
+            xero_id=str(rate["id"]),
+            defaults={
+                "xero_tenant_id": tenant_id,
+                "name": rate["name"],
+                "uses_leave_api": False,
+                "multiplier": multiplier,
+                "xero_last_synced": timezone.now(),
+            },
+        )
+        if created:
+            results["earnings_rates"]["created"] += 1
+            logger.info(
+                f"Created XeroPayItem: {rate['name']} (multiplier={multiplier})"
+            )
+        else:
+            results["earnings_rates"]["updated"] += 1
+
+    logger.info(
+        f"XeroPayItem sync complete: "
+        f"{results['leave_types']['created']} leave types created, "
+        f"{results['leave_types']['updated']} updated. "
+        f"{results['earnings_rates']['created']} earnings rates created, "
+        f"{results['earnings_rates']['updated']} updated."
+    )
+
+    return results

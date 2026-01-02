@@ -9,5 +9,5 @@ class IsOfficeStaff(BasePermission):
     def has_permission(self, request, view):
         if request.user.is_office_staff:
             return True
-        
+
         return False

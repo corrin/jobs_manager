@@ -35,7 +35,7 @@ from apps.timesheet.serializers import (
 from apps.timesheet.serializers.payroll_serializers import (
     CreatePayRunResponseSerializer,
     CreatePayRunSerializer,
-    PayRunForWeekResponseSerializer,
+    PayRunListResponseSerializer,
     PayRunSyncResponseSerializer,
     PostWeekToXeroSerializer,
 )
@@ -43,12 +43,15 @@ from apps.timesheet.services.daily_timesheet_service import DailyTimesheetServic
 from apps.timesheet.services.weekly_timesheet_service import WeeklyTimesheetService
 from apps.workflow.api.xero.payroll import (
     get_all_timesheets_for_week,
+    get_payroll_calendar_id,
     post_staff_week_to_xero,
+    validate_pay_items_for_week,
 )
 from apps.workflow.api.xero.sync import sync_all_xero_data
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.models import CompanyDefaults, XeroPayRun
 from apps.workflow.services.error_persistence import persist_app_error
+from apps.workflow.utils import build_xero_payroll_url
 
 logger = logging.getLogger(__name__)
 
@@ -452,87 +455,6 @@ class WeeklyTimesheetAPIView(TimesheetResponseMixin, APIView):
         """Return weekly timesheet data with payroll fields (5/7 days)."""
         return self.build_timesheet_response(request)
 
-    @extend_schema(
-        summary="Submit paid absence",
-        request=OpenApiTypes.OBJECT,
-        responses={
-            201: OpenApiTypes.OBJECT,
-            400: ClientErrorResponseSerializer,
-            500: ClientErrorResponseSerializer,
-        },
-    )
-    def post(self, request):
-        """
-        Submit paid absence request.
-
-        Expected payload:
-        {
-            "staff_id": "uuid",
-            "start_date": "YYYY-MM-DD",
-            "end_date": "YYYY-MM-DD",
-            "leave_type": "annual|sick|other",
-            "hours_per_day": 8.0,
-            "description": "Optional description"
-        }
-        """
-        try:
-            data = request.data
-
-            # Validate required fields
-            required_fields = [
-                "staff_id",
-                "start_date",
-                "end_date",
-                "leave_type",
-                "hours_per_day",
-            ]
-            for field in required_fields:
-                if field not in data:
-                    return Response(
-                        {"error": f"Missing required field: {field}"},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-            # Parse dates
-            try:
-                start_date = datetime.strptime(data["start_date"], "%Y-%m-%d").date()
-                end_date = datetime.strptime(data["end_date"], "%Y-%m-%d").date()
-            except ValueError:
-                return Response(
-                    {"error": "Invalid date format. Use YYYY-MM-DD"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Validate date range
-            if end_date < start_date:
-                return Response(
-                    {"error": "End date cannot be before start date"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # Submit paid absence using service
-            result = WeeklyTimesheetService.submit_paid_absence(
-                staff_id=data["staff_id"],
-                start_date=start_date,
-                end_date=end_date,
-                leave_type=data["leave_type"],
-                hours_per_day=float(data["hours_per_day"]),
-                description=data.get("description", ""),
-            )
-
-            if result.get("success"):
-                return Response(result, status=status.HTTP_201_CREATED)
-            else:
-                return Response(result, status=status.HTTP_400_BAD_REQUEST)
-
-        except Exception as exc:
-            return build_internal_error_response(
-                request=request,
-                message="Failed to submit paid absence",
-                exc=exc,
-                staff_only_details=True,
-            )
-
 
 class CreatePayRunAPIView(APIView):
     """API endpoint to create a pay run in Xero Payroll."""
@@ -584,11 +506,15 @@ class CreatePayRunAPIView(APIView):
             week_end_date = week_start_date + timedelta(days=6)
             payment_date = week_end_date + timedelta(days=3)
 
-            # Get tenant ID from company defaults
+            # Get tenant ID and shortcode from company defaults
             company_defaults = CompanyDefaults.get_instance()
             tenant_id = company_defaults.xero_tenant_id
             if not tenant_id:
                 raise ValueError("Xero tenant ID not configured in CompanyDefaults")
+            if not company_defaults.xero_shortcode:
+                raise ValueError(
+                    "Xero shortcode not configured. Run 'python manage.py xero --setup' to fetch it."
+                )
 
             # Create local record immediately
             now = timezone.now()
@@ -606,6 +532,8 @@ class CreatePayRunAPIView(APIView):
                 xero_last_synced=now,
             )
 
+            xero_url = build_xero_payroll_url(str(xero_pay_run_id))
+
             return Response(
                 {
                     "id": str(pay_run.id),
@@ -614,6 +542,7 @@ class CreatePayRunAPIView(APIView):
                     "period_start_date": week_start_date.isoformat(),
                     "period_end_date": week_end_date.isoformat(),
                     "payment_date": payment_date.isoformat(),
+                    "xero_url": xero_url,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -634,121 +563,43 @@ class CreatePayRunAPIView(APIView):
             )
 
 
-class PayRunForWeekAPIView(APIView):
-    """
-    API endpoint to fetch pay run details for a specific week.
-
-    Responds with a warning when more than one pay run is stored for the same period
-    so operators know data cleanup is needed in Xero.
-    """
+class PayRunListAPIView(APIView):
+    """API endpoint to list all pay runs for the configured payroll calendar."""
 
     permission_classes = [IsAuthenticated]
-    serializer_class = PayRunForWeekResponseSerializer
 
     @extend_schema(
-        summary="Get pay run for a week",
-        parameters=[
-            OpenApiParameter(
-                "week_start_date",
-                OpenApiTypes.DATE,
-                location=OpenApiParameter.QUERY,
-                description="Monday of the week (YYYY-MM-DD)",
-                required=True,
-            )
-        ],
+        summary="List pay runs",
         responses={
-            200: PayRunForWeekResponseSerializer,
-            400: ClientErrorResponseSerializer,
+            200: PayRunListResponseSerializer,
             500: ClientErrorResponseSerializer,
         },
     )
     def get(self, request):
-        """Return pay run data for the requested week if it exists."""
-        week_start_date_str = request.query_params.get("week_start_date")
-        if not week_start_date_str:
-            return Response(
-                {"error": "week_start_date query parameter is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        """Return all pay runs for the configured payroll calendar."""
+        calendar_id = get_payroll_calendar_id()
 
-        try:
-            week_start_date = datetime.strptime(week_start_date_str, "%Y-%m-%d").date()
-        except ValueError:
-            return Response(
-                {"error": "Invalid date format. Use YYYY-MM-DD"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        pay_runs = XeroPayRun.objects.filter(payroll_calendar_id=calendar_id).order_by(
+            "-period_end_date"
+        )
 
-        if week_start_date.weekday() != 0:
-            return Response(
-                {"error": "week_start_date must be a Monday"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        try:
-            # Query local DB first
-            records = list(
-                XeroPayRun.objects.filter(period_start_date=week_start_date).order_by(
-                    "-django_updated_at"
-                )
-            )
-
-            # If no local record, sync from Xero
-            if not records:
-                logger.info(
-                    "No cached pay run for week %s. Refreshing from Xero.",
-                    week_start_date,
-                )
-                sync_all_xero_data(entities=["pay_runs"])
-                records = list(
-                    XeroPayRun.objects.filter(
-                        period_start_date=week_start_date
-                    ).order_by("-django_updated_at")
-                )
-
-            # Build warning if multiple pay runs exist
-            warning = None
-            if len(records) > 1:
-                ids = [str(pr.xero_id) for pr in records]
-                statuses = [pr.pay_run_status or "" for pr in records]
-                warning = (
-                    "Multiple pay runs exist for this week. "
-                    f"IDs: {', '.join(ids)} | Statuses: {', '.join(statuses)}"
-                )
-
-            if records:
-                pay_run = records[0]
-                payload = {
-                    "exists": True,
-                    "pay_run": {
-                        "id": str(pay_run.id),
-                        "xero_id": str(pay_run.xero_id),
-                        "payroll_calendar_id": (
-                            str(pay_run.payroll_calendar_id)
-                            if pay_run.payroll_calendar_id
-                            else None
-                        ),
-                        "period_start_date": pay_run.period_start_date,
-                        "period_end_date": pay_run.period_end_date,
-                        "payment_date": pay_run.payment_date,
-                        "pay_run_status": pay_run.pay_run_status,
-                        "pay_run_type": pay_run.pay_run_type,
-                    },
-                    "warning": warning,
-                }
-            else:
-                payload = {"exists": False, "pay_run": None, "warning": warning}
-
-            return Response(payload, status=status.HTTP_200_OK)
-        except ValueError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as exc:
-            return build_internal_error_response(
-                request=request,
-                message="Failed to fetch pay run for week",
-                exc=exc,
-                staff_only_details=True,
-            )
+        return Response(
+            {
+                "pay_runs": [
+                    {
+                        "id": str(pr.id),
+                        "xero_id": str(pr.xero_id),
+                        "period_start_date": pr.period_start_date,
+                        "period_end_date": pr.period_end_date,
+                        "payment_date": pr.payment_date,
+                        "pay_run_status": pr.pay_run_status,
+                        "xero_url": build_xero_payroll_url(str(pr.xero_id)),
+                    }
+                    for pr in pay_runs
+                ]
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class RefreshPayRunsAPIView(APIView):
@@ -884,6 +735,18 @@ def stream_payroll_post(request, task_id):
 
         # Starting event
         yield f"data: {json.dumps({'event': 'start', 'total': total, 'datetime': timezone.now().isoformat()})}\n\n"
+
+        # FAIL EARLY: Validate ALL required pay items exist for ALL staff
+        # before making any modifying API calls
+        try:
+            staff_uuids = [uuid_module.UUID(sid) for sid in staff_ids]
+            validate_pay_items_for_week(staff_uuids, week_start_date)
+        except ValueError as exc:
+            logger.error("Pay item validation failed: %s", exc)
+            persist_app_error(exc)
+            yield f"data: {json.dumps({'event': 'error', 'message': str(exc), 'datetime': timezone.now().isoformat()})}\n\n"
+            yield f"data: {json.dumps({'event': 'done', 'successful': 0, 'failed': total, 'datetime': timezone.now().isoformat()})}\n\n"
+            return
 
         # Fetch all existing timesheets for the week in ONE API call
         try:

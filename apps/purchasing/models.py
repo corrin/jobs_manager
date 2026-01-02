@@ -524,8 +524,7 @@ class Stock(models.Model):
     xero_last_synced = models.DateTimeField(
         null=True,
         blank=True,
-        default=timezone.now,
-        help_text="When this item was last synced with Xero",
+        help_text="When this item was last synced with Xero (None = never synced)",
     )
     raw_json = models.JSONField(
         null=True, blank=True, help_text="Raw JSON data from Xero for this item"

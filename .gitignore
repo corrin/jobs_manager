@@ -138,3 +138,6 @@ cookies.txt
 adhoc/performance_investigation/*.json
 adhoc/
 schema.yml
+
+dropbox/
+*.zip
