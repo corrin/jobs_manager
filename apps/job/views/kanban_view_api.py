@@ -278,7 +278,7 @@ class FetchJobsAPIView(APIView):
 class FetchStatusValuesAPIView(APIView):
     """Return available status values for Kanban - API endpoint."""
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
     serializer_class = FetchStatusValuesResponseSerializer
 
     def get(self, request: Request) -> Response:

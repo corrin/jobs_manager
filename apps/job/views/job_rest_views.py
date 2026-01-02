@@ -29,6 +29,7 @@ from apps.accounts.models import Staff
 from apps.job.models import Job, JobDeltaRejection
 from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.job_serializer import (
+    CompanyDefaultsJobDetailSerializer,
     JobBasicInformationResponseSerializer,
     JobCostSummaryResponseSerializer,
     JobCreateResponseSerializer,
@@ -1069,6 +1070,7 @@ class JobStatusChoicesRestView(BaseJobRestView):
     Returns available status choices for jobs.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = JobStatusChoicesResponseSerializer
 
     @extend_schema(
@@ -1366,6 +1368,11 @@ class JobBasicInformationRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
+@extend_schema(
+    responses={200: CompanyDefaultsJobDetailSerializer},
+    description="Fetch company default settings.",
+    tags=["Jobs"],
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_company_defaults_api(request):
