@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("purchasing", "0024_stock_item_code_unique"),
+        ("purchasing", "0022_add_pickup_address_to_po"),
     ]
 
     operations = [

@@ -2,8 +2,10 @@
 
 This migration:
 1. Removes the payroll_category FK (pointed to PayrollCategory)
-2. Adds default_xero_pay_item FK (points to XeroPayItem synced from Xero)
-3. Backfills all jobs: leave jobs get their specific type, work jobs get Ordinary Time
+2. Adds default_xero_pay_item FK to Job (points to XeroPayItem synced from Xero)
+3. Adds xero_pay_item FK to CostLine (nullable - only for time entries)
+4. Backfills all jobs: leave jobs get their specific type, work jobs get Ordinary Time
+5. Backfills time CostLines with their job's default_xero_pay_item
 """
 
 import django.db.models.deletion
@@ -76,6 +78,24 @@ def backfill_default_xero_pay_item(apps, _schema_editor):
     print(f"  Set {remaining_count} remaining jobs to 'Ordinary Time'")
 
 
+def backfill_costline_xero_pay_item(apps, _schema_editor):
+    """Set xero_pay_item for all time CostLines from their job's default."""
+    CostLine = apps.get_model("job", "CostLine")
+
+    time_entries = CostLine.objects.filter(
+        kind="time", xero_pay_item__isnull=True
+    ).select_related("cost_set__job")
+
+    updated = 0
+    for entry in time_entries:
+        if entry.cost_set.job.default_xero_pay_item_id:
+            entry.xero_pay_item_id = entry.cost_set.job.default_xero_pay_item_id
+            entry.save(update_fields=["xero_pay_item_id"])
+            updated += 1
+
+    print(f"  Backfilled {updated} time CostLines")
+
+
 def noop(_apps, _schema_editor):
     """Reverse operation - no-op since this is a one-way migration."""
 
@@ -88,28 +108,50 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Step 1: Remove old FK to PayrollCategory
-        migrations.RemoveField(
-            model_name="historicaljob",
-            name="payroll_category",
+        # Step 1: Remove old FK to PayrollCategory from historicaljob
+        # Use SeparateDatabaseAndState because historicaljob uses custom table_name="workflow_historicaljob"
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="ALTER TABLE workflow_historicaljob DROP COLUMN IF EXISTS payroll_category_id;",
+                    reverse_sql="ALTER TABLE workflow_historicaljob ADD COLUMN payroll_category_id CHAR(32) NULL;",
+                ),
+            ],
+            state_operations=[
+                migrations.RemoveField(
+                    model_name="historicaljob",
+                    name="payroll_category",
+                ),
+            ],
         ),
         migrations.RemoveField(
             model_name="job",
             name="payroll_category",
         ),
-        # Step 2: Add new FK to XeroPayItem (nullable initially)
-        migrations.AddField(
-            model_name="historicaljob",
-            name="default_xero_pay_item",
-            field=models.ForeignKey(
-                blank=True,
-                db_constraint=False,
-                help_text="Default pay item for time entry.",
-                null=True,
-                on_delete=django.db.models.deletion.DO_NOTHING,
-                related_name="+",
-                to="workflow.xeropayitem",
-            ),
+        # Step 2: Add new FK to XeroPayItem (nullable initially) to historicaljob
+        # Use SeparateDatabaseAndState because historicaljob uses custom table_name="workflow_historicaljob"
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="ALTER TABLE workflow_historicaljob ADD COLUMN IF NOT EXISTS default_xero_pay_item_id CHAR(32) NULL;",
+                    reverse_sql="ALTER TABLE workflow_historicaljob DROP COLUMN IF EXISTS default_xero_pay_item_id;",
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name="historicaljob",
+                    name="default_xero_pay_item",
+                    field=models.ForeignKey(
+                        blank=True,
+                        db_constraint=False,
+                        help_text="Default pay item for time entry.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="+",
+                        to="workflow.xeropayitem",
+                    ),
+                ),
+            ],
         ),
         migrations.AddField(
             model_name="job",
@@ -125,4 +167,19 @@ class Migration(migrations.Migration):
         ),
         # Step 3: Backfill all jobs
         migrations.RunPython(backfill_default_xero_pay_item, noop),
+        # Step 4: Add xero_pay_item FK to CostLine (nullable - only for time entries)
+        migrations.AddField(
+            model_name="costline",
+            name="xero_pay_item",
+            field=models.ForeignKey(
+                blank=True,
+                help_text="The Xero pay item for this time entry (leave type, earnings rate, etc.)",
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="cost_lines",
+                to="workflow.xeropayitem",
+            ),
+        ),
+        # Step 5: Backfill time CostLines
+        migrations.RunPython(backfill_costline_xero_pay_item, noop),
     ]

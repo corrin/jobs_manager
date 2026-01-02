@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("purchasing", "0025_add_xero_last_synced_to_stock"),
+        ("purchasing", "0024_stock_item_code_unique"),
     ]
 
     operations = [

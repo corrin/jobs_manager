@@ -23,6 +23,12 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
     )
     has_actual_costset = serializers.SerializerMethodField()
     leave_type = serializers.SerializerMethodField()
+    default_xero_pay_item_id = serializers.UUIDField(
+        source="default_xero_pay_item.id", read_only=True
+    )
+    default_xero_pay_item_name = serializers.CharField(
+        source="default_xero_pay_item.name", read_only=True
+    )
 
     class Meta:
         model = Job
@@ -35,6 +41,8 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
             "charge_out_rate",
             "has_actual_costset",
             "leave_type",
+            "default_xero_pay_item_id",
+            "default_xero_pay_item_name",
         ]
 
     def get_has_actual_costset(self, obj) -> bool:

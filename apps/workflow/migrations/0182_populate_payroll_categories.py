@@ -9,13 +9,11 @@ def populate_payroll_categories(apps, schema_editor):
     Create initial PayrollCategory records and copy Xero IDs from CompanyDefaults.
     """
     PayrollCategory = apps.get_model("workflow", "PayrollCategory")
-    CompanyDefaults = apps.get_model("workflow", "CompanyDefaults")
+    apps.get_model("workflow", "CompanyDefaults")
 
-    # Get the CompanyDefaults instance (if it exists)
-    try:
-        defaults = CompanyDefaults.objects.get()
-    except CompanyDefaults.DoesNotExist:
-        defaults = None
+    # Don't query CompanyDefaults - the xero_*_earnings_rate_name fields
+    # may not exist in schema and are removed by migration 0183 anyway.
+    defaults = None
 
     # Define the initial categories
     categories = [

@@ -148,6 +148,7 @@ class CostLine(models.Model):
         "xero_last_modified",
         "xero_last_synced",
         "approved",
+        "xero_pay_item",
     ]
 
     # Internal fields not exposed in API
@@ -211,6 +212,16 @@ class CostLine(models.Model):
         help_text="Indicates whether this line is approved or not by an office staff (when the line is created by a workshop worker)",
     )
 
+    # Xero pay item - determines how this time entry is paid (leave type, overtime, etc.)
+    xero_pay_item = models.ForeignKey(
+        "workflow.XeroPayItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cost_lines",
+        help_text="The Xero pay item for this time entry (leave type, earnings rate, etc.)",
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=["cost_set_id", "kind"]),
@@ -242,6 +253,9 @@ class CostLine(models.Model):
 
         if self.kind != "material" and not self.approved:
             raise ValidationError("Non-material cost line cannot be unapproved.")
+
+        if self.kind == "time" and self.xero_pay_item is None:
+            raise ValidationError("Time entries must have xero_pay_item set.")
 
         validate_costline_meta(self.meta, self.kind)
         validate_costline_ext_refs(self.ext_refs)

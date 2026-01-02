@@ -15,20 +15,17 @@ def zero_shop_job_revenue(apps, _schema_editor):
     CostSet = apps.get_model("job", "CostSet")
     Job = apps.get_model("job", "Job")
     Client = apps.get_model("client", "Client")
-    CompanyDefaults = apps.get_model("workflow", "CompanyDefaults")
 
-    # Get shop client ID - FAIL FAST if not configured
-    company_defaults = CompanyDefaults.objects.first()
-    if not company_defaults:
-        raise RuntimeError("CompanyDefaults not configured")
-    if not company_defaults.shop_client_name:
-        raise RuntimeError("shop_client_name not configured in CompanyDefaults")
+    # Shop client has a well-known UUID (same as used in migration 0064).
+    # We use the UUID directly rather than looking up via CompanyDefaults because
+    # CompanyDefaults is not in the production backup - it comes from a fixture
+    # that loads AFTER migrations run.
+    SHOP_CLIENT_ID = "00000000-0000-0000-0000-000000000001"
 
-    shop_client = Client.objects.filter(name=company_defaults.shop_client_name).first()
+    shop_client = Client.objects.filter(id=SHOP_CLIENT_ID).first()
     if not shop_client:
-        raise RuntimeError(
-            f"Shop client '{company_defaults.shop_client_name}' not found"
-        )
+        print(f"  Skipping: Shop client {SHOP_CLIENT_ID} not found")
+        return
 
     # Get shop job cost sets
     shop_jobs = Job.objects.filter(client_id=shop_client.id)

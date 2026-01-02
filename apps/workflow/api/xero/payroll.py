@@ -1458,40 +1458,18 @@ def validate_pay_items_for_week(
     if not entries:
         return  # No entries to validate
 
-    # Collect all required pay items
+    # Validate all entries have xero_pay_item with valid xero_id
     missing_pay_items = []
-    required_multipliers = set()
 
     for entry in entries:
-        job = entry.cost_set.job
-        pay_item = job.default_xero_pay_item
+        pay_item = entry.xero_pay_item
 
-        if pay_item is not None:
-            # Leave job - pay_item is already set on job
-            # Validation: ensure xero_id exists
-            if not pay_item.xero_id:
-                missing_pay_items.append(
-                    f"Job '{job.name}' has XeroPayItem '{pay_item.name}' with no xero_id"
-                )
-        else:
-            # Work entry - needs lookup by multiplier
-            rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
-            required_multipliers.add(rate_multiplier)
-
-    # Validate all required multipliers have corresponding XeroPayItems
-    for multiplier in required_multipliers:
-        if multiplier == Decimal("1.0"):
-            pay_item = XeroPayItem.get_ordinary_time()
-            if not pay_item:
-                missing_pay_items.append(
-                    "XeroPayItem 'Ordinary Time' not found for multiplier 1.0"
-                )
-        else:
-            pay_item = XeroPayItem.get_by_multiplier(multiplier)
-            if not pay_item:
-                missing_pay_items.append(
-                    f"XeroPayItem not found for multiplier {multiplier}"
-                )
+        if pay_item is None:
+            missing_pay_items.append(f"CostLine {entry.id} has no xero_pay_item")
+        elif not pay_item.xero_id:
+            missing_pay_items.append(
+                f"CostLine {entry.id} has XeroPayItem '{pay_item.name}' with no xero_id"
+            )
 
     if missing_pay_items:
         raise ValueError(
@@ -1599,17 +1577,16 @@ def post_staff_week_to_xero(
         # Categorize entries into two buckets
         leave_api_entries, timesheet_entries = _categorize_entries(staff_entries)
 
-        # Further split timesheet entries into work vs other leave
+        # Further split timesheet entries into work vs other leave (for reporting)
         work_entries = []
         other_leave_entries = []
         for entry in timesheet_entries:
-            job = entry.cost_set.job
-            pay_item = job.default_xero_pay_item
-            if pay_item is not None:
-                # It's a leave job (e.g., other leave via Timesheets API)
-                other_leave_entries.append(entry)
-            else:
+            pay_item = entry.xero_pay_item
+            # Work entries have multipliers (1.0, 1.5, 2.0), leave entries don't
+            if pay_item and pay_item.multiplier is not None:
                 work_entries.append(entry)
+            else:
+                other_leave_entries.append(entry)
 
         xero_employee_id = UUID(staff.xero_user_id)
         xero_timesheet_id = None
@@ -1672,7 +1649,7 @@ def _categorize_entries(entries: List) -> tuple:
     """
     Categorize cost line entries for Xero posting.
 
-    Uses job.default_xero_pay_item to determine how each entry should be posted.
+    Uses entry.xero_pay_item to determine how each entry should be posted.
 
     Args:
         entries: List of CostLine entries to categorize
@@ -1686,17 +1663,16 @@ def _categorize_entries(entries: List) -> tuple:
     timesheet_entries = []  # Timesheets API entries
 
     for entry in entries:
-        job = entry.cost_set.job
-        pay_item = job.default_xero_pay_item
+        pay_item = entry.xero_pay_item
 
         if pay_item is None:
-            # Regular work - post as timesheet
-            timesheet_entries.append(entry)
-        elif pay_item.uses_leave_api:
+            raise ValueError(f"CostLine {entry.id} has no xero_pay_item")
+
+        if pay_item.uses_leave_api:
             # Uses Leave API (e.g., annual, sick, unpaid)
             leave_api_entries.append(entry)
         else:
-            # Uses Timesheets API (e.g., other leave)
+            # Uses Timesheets API (work or other leave)
             timesheet_entries.append(entry)
 
     return leave_api_entries, timesheet_entries
@@ -1704,13 +1680,12 @@ def _categorize_entries(entries: List) -> tuple:
 
 def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     """
-    Map work/timesheet CostLine entries to Xero Payroll timesheet lines format.
+    Map CostLine entries to Xero Payroll timesheet lines format.
 
-    For work entries: looks up XeroPayItem by rate_multiplier
-    For other leave entries: uses job.default_xero_pay_item
+    Uses entry.xero_pay_item to get the earnings rate ID.
 
     Args:
-        entries: List of CostLine entries (work or other leave via Timesheets API)
+        entries: List of CostLine entries (uses Timesheets API)
 
     Returns:
         List of timesheet line dictionaries for Xero API
@@ -1718,26 +1693,10 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     timesheet_lines = []
 
     for entry in entries:
-        job = entry.cost_set.job
+        pay_item = entry.xero_pay_item
 
-        # Check if this is a leave job (other leave via Timesheets API)
-        if job.default_xero_pay_item is not None:
-            pay_item = job.default_xero_pay_item
-        else:
-            # Regular work - look up by rate multiplier
-            rate_multiplier = Decimal(str(entry.meta.get("wage_rate_multiplier", 1.0)))
-
-            if rate_multiplier == Decimal("1.0"):
-                # Use Ordinary Time specifically for 1.0x
-                pay_item = XeroPayItem.get_ordinary_time()
-            else:
-                # Use multiplier lookup for 1.5x, 2.0x, etc.
-                pay_item = XeroPayItem.get_by_multiplier(rate_multiplier)
-
-            if pay_item is None:
-                raise ValueError(
-                    f"No XeroPayItem found for rate_multiplier {rate_multiplier}"
-                )
+        if pay_item is None:
+            raise ValueError(f"CostLine {entry.id} has no xero_pay_item")
 
         timesheet_lines.append(
             {
@@ -1758,7 +1717,7 @@ def _post_leave_entries(
     Post leave CostLine entries to Xero using the Leave API.
 
     Groups consecutive days of the same leave type together.
-    Uses job.default_xero_pay_item to get Xero leave type IDs.
+    Uses entry.xero_pay_item to get Xero leave type IDs.
 
     Args:
         employee_id: Xero employee ID
@@ -1770,13 +1729,10 @@ def _post_leave_entries(
     # Group entries by XeroPayItem and sort by date
     grouped = defaultdict(list)
     for entry in entries:
-        job = entry.cost_set.job
-        pay_item = job.default_xero_pay_item
+        pay_item = entry.xero_pay_item
 
         if pay_item is None:
-            raise ValueError(
-                f"Job '{job.name}' is not a leave job but was passed to _post_leave_entries"
-            )
+            raise ValueError(f"CostLine {entry.id} has no xero_pay_item set")
 
         grouped[pay_item].append(entry)
 

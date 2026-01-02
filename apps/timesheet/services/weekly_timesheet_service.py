@@ -21,7 +21,7 @@ from django.db.models.expressions import RawSQL
 from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff
 from apps.job.models import Job
-from apps.job.models.costing import CostLine, CostSet
+from apps.job.models.costing import CostLine
 
 logger = logging.getLogger(__name__)
 
@@ -483,101 +483,3 @@ class WeeklyTimesheetService:
         today = date.today()
         current_week_start = today - timedelta(days=today.weekday())
         return start_date == current_week_start
-
-    @classmethod
-    def submit_paid_absence(
-        cls,
-        staff_id: str,
-        start_date: date,
-        end_date: date,
-        leave_type: str,
-        hours_per_day: float,
-        description: str = "",
-    ) -> Dict[str, Any]:
-        """Submit a paid absence request using CostLine system."""
-        try:
-            # Get staff member
-            staff = Staff.objects.get(id=staff_id)
-
-            # Get appropriate leave job
-            leave_job_names = {
-                "annual": "Annual Leave",
-                "sick": "Sick Leave",
-                "bereavement": "Bereavement Leave",
-                "unpaid": "Unpaid Leave",
-            }
-
-            job_name = leave_job_names.get(leave_type)
-            if not job_name:
-                raise ValueError(f"Unknown leave type: {leave_type}")
-            leave_job = Job.objects.filter(name=job_name).first()
-
-            if not leave_job:
-                raise ValueError(f"Leave job '{job_name}' not found")
-
-            # Get or create actual cost set for the leave job
-            cost_set, created = CostSet.objects.get_or_create(
-                job=leave_job, kind="actual", defaults={"rev": 1, "summary": {}}
-            )
-
-            # Create cost lines for each working day
-            current_date = start_date
-            entries_created = 0
-
-            while current_date <= end_date:
-                # Include all days (no weekend skip)
-                # Check if entry already exists using CostLine
-                existing_lines = CostLine.objects.annotate(
-                    staff_id=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                ).filter(
-                    cost_set=cost_set,
-                    kind="time",
-                    staff_id=str(staff_id),
-                    accounting_date=current_date,
-                )
-
-                if not existing_lines.exists():
-                    CostLine.objects.create(
-                        cost_set=cost_set,
-                        kind="time",
-                        desc=f"{leave_type.title()} - {description}".strip(),
-                        quantity=Decimal(str(hours_per_day)),
-                        unit_cost=staff.wage_rate,  # Use staff wage rate
-                        unit_rev=Decimal("0"),  # Leave is not billable
-                        accounting_date=current_date,
-                        meta={
-                            "staff_id": str(staff_id),
-                            "date": current_date.isoformat(),
-                            "is_billable": False,
-                            "wage_rate": float(staff.wage_rate),
-                            "charge_out_rate": 0.0,
-                            "rate_multiplier": 1.0,
-                            "leave_type": leave_type,
-                            "created_from_timesheet": True,
-                        },
-                    )
-                    entries_created += 1
-
-                current_date += timedelta(days=1)
-
-            # Update job's latest_actual pointer if needed
-            if (
-                not leave_job.latest_actual
-                or cost_set.rev >= leave_job.latest_actual.rev
-            ):
-                leave_job.latest_actual = cost_set
-                leave_job.save(update_fields=["latest_actual"])
-
-            return {
-                "success": True,
-                "entries_created": entries_created,
-                "message": f"Successfully created {entries_created} leave entries",
-            }
-
-        except Exception as e:
-            logger.error(f"Error submitting paid absence: {e}")
-            return {"success": False, "error": str(e)}

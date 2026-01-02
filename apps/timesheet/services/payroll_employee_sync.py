@@ -11,6 +11,13 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from django.db import transaction
 
 from apps.accounts.models import Staff
+from apps.timesheet.services.demo_payroll_data import (
+    generate_ird_number,
+    get_bank_account,
+    setup_employee_bank,
+    setup_employee_leave,
+    setup_employee_tax,
+)
 from apps.workflow.api.xero.payroll import (
     create_payroll_employee,
     get_employees,
@@ -101,7 +108,8 @@ class PayrollEmployeeSyncService:
         creation_payloads: List[Tuple[Staff, Dict[str, Any]]] = []
         if allow_create and missing_staff:
             creation_payloads = [
-                (staff, cls._build_employee_payload(staff)) for staff in missing_staff
+                (staff, cls._build_employee_payload(staff, i))
+                for i, staff in enumerate(missing_staff)
             ]
 
         if dry_run:
@@ -132,6 +140,12 @@ class PayrollEmployeeSyncService:
             for i, (staff, payload) in enumerate(creation_payloads):
                 employee = create_payroll_employee(payload)
                 employee_id = str(employee.employee_id)
+
+                # Complete employee setup (tax/KiwiSaver, leave, bank)
+                setup_employee_tax(employee_id, payload["ird_number"])
+                setup_employee_leave(employee_id)
+                setup_employee_bank(employee_id, payload["bank_account_number"])
+
                 cls._link_staff(staff, employee_id)
                 summary["created"].append(
                     cls._summarize_link(
@@ -282,7 +296,9 @@ class PayrollEmployeeSyncService:
         return cls._cached_ordinary_earnings_rate_id
 
     @classmethod
-    def _build_employee_payload(cls, staff: Staff) -> Dict[str, Any]:
+    def _build_employee_payload(
+        cls, staff: Staff, employee_index: int
+    ) -> Dict[str, Any]:
         first_name = cls._clean_string(staff.first_name, 35)
         last_name = cls._clean_string(staff.last_name, 35)
         email = cls._clean_string(staff.email, 255)
@@ -334,6 +350,9 @@ class PayrollEmployeeSyncService:
             "hours_per_week": cls._get_hours_per_week(staff),
             # Hourly wage rate from Staff model
             "wage_rate": float(staff.wage_rate) if staff.wage_rate else None,
+            # Generated demo payroll data (see demo_payroll_data.py)
+            "ird_number": generate_ird_number(employee_index + 1),
+            "bank_account_number": get_bank_account(employee_index + 1),
         }
 
         return payload
