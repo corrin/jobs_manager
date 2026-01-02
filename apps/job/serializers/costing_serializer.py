@@ -71,8 +71,10 @@ class TimesheetCostLineSerializer(serializers.ModelSerializer):
     wage_rate = serializers.SerializerMethodField()
 
     # Xero pay item name for display
+    # min_length=1 ensures OpenAPI schema generates minLength: 1
+    # Time entries always have xero_pay_item set (validated in CostLine.clean)
     xero_pay_item_name = serializers.CharField(
-        source="xero_pay_item.name", read_only=True
+        source="xero_pay_item.name", read_only=True, min_length=1
     )
 
     def get_total_cost(self, obj) -> float:
