@@ -114,7 +114,7 @@ class Migration(migrations.Migration):
             database_operations=[
                 migrations.RunSQL(
                     sql="ALTER TABLE workflow_historicaljob DROP COLUMN IF EXISTS payroll_category_id;",
-                    reverse_sql="ALTER TABLE workflow_historicaljob ADD COLUMN payroll_category_id CHAR(32) NULL;",
+                    reverse_sql="ALTER TABLE workflow_historicaljob ADD COLUMN payroll_category_id CHAR(36) NULL;",
                 ),
             ],
             state_operations=[
@@ -133,7 +133,7 @@ class Migration(migrations.Migration):
         migrations.SeparateDatabaseAndState(
             database_operations=[
                 migrations.RunSQL(
-                    sql="ALTER TABLE workflow_historicaljob ADD COLUMN IF NOT EXISTS default_xero_pay_item_id CHAR(32) NULL;",
+                    sql="ALTER TABLE workflow_historicaljob ADD COLUMN IF NOT EXISTS default_xero_pay_item_id CHAR(36) NULL;",
                     reverse_sql="ALTER TABLE workflow_historicaljob DROP COLUMN IF EXISTS default_xero_pay_item_id;",
                 ),
             ],
