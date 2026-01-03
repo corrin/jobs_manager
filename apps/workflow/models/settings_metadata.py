@@ -67,6 +67,9 @@ DJANGO_TO_UI_TYPE: dict[type["models.Field[Any, Any]"], str] = {
 }
 
 
+# Fields that should not be editable via the API (e.g., primary keys)
+COMPANY_DEFAULTS_READ_ONLY_FIELDS: set[str] = {"company_name"}
+
 # Field name to section mapping for CompanyDefaults
 # This is the authoritative source for which section each field belongs to.
 # Adding a field to CompanyDefaults without adding it here will cause a startup error.
@@ -140,12 +143,14 @@ def get_ui_type_for_field(field: "models.Field[Any, Any]") -> str:
 
 
 def get_field_metadata(
-    field: "models.Field[Any, Any]", field_name: str
+    field: "models.Field[Any, Any]",
+    field_name: str,
+    read_only_fields: set[str] | None = None,
 ) -> dict[str, Any]:
     """
     Extract metadata from a Django model field for UI rendering.
 
-    Returns dict with: key, label, type, required, help_text, section
+    Returns dict with: key, label, type, required, help_text, section, read_only
     """
     section = COMPANY_DEFAULTS_FIELD_SECTIONS.get(field_name, "company")
 
@@ -162,4 +167,5 @@ def get_field_metadata(
         "required": not field.blank and not field.null,
         "help_text": field.help_text or "",
         "section": section,
+        "read_only": field_name in (read_only_fields or set()),
     }

@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.models.settings_metadata import (
     COMPANY_DEFAULTS_FIELD_SECTIONS,
+    COMPANY_DEFAULTS_READ_ONLY_FIELDS,
     SettingsSection,
     get_field_metadata,
 )
@@ -99,7 +100,9 @@ class CompanyDefaultsSchemaAPIView(APIView):
 
             # Add field metadata
             if section_key in sections_dict:
-                field_meta = get_field_metadata(field, field_name)
+                field_meta = get_field_metadata(
+                    field, field_name, COMPANY_DEFAULTS_READ_ONLY_FIELDS
+                )
                 sections_dict[section_key]["fields"].append(field_meta)
 
         # Convert to sorted list
