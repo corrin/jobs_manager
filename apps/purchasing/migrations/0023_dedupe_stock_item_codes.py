@@ -42,7 +42,7 @@ def dedupe_stock_item_codes(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("purchasing", "0022_add_pickup_address_to_po"),
+        ("purchasing", "0025_add_xero_last_synced_to_stock"),
     ]
 
     operations = [

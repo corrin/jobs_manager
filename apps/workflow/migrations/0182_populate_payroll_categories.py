@@ -9,13 +9,11 @@ def populate_payroll_categories(apps, schema_editor):
     Create initial PayrollCategory records and copy Xero IDs from CompanyDefaults.
     """
     PayrollCategory = apps.get_model("workflow", "PayrollCategory")
-    CompanyDefaults = apps.get_model("workflow", "CompanyDefaults")
+    apps.get_model("workflow", "CompanyDefaults")
 
-    # Get the CompanyDefaults instance (if it exists)
-    try:
-        defaults = CompanyDefaults.objects.get()
-    except CompanyDefaults.DoesNotExist:
-        defaults = None
+    # Don't query CompanyDefaults - the xero_*_earnings_rate_name fields
+    # may not exist in schema and are removed by migration 0183 anyway.
+    defaults = None
 
     # Define the initial categories
     categories = [
@@ -27,11 +25,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": None,
             "posts_to_xero": True,
             "uses_leave_api": True,
-            "xero_leave_type_id": (
-                getattr(defaults, "xero_annual_leave_type_id", None)
-                if defaults
-                else None
-            ),
+            "xero_leave_type_name": "Annual Leave",
             "xero_earnings_rate_name": None,
         },
         {
@@ -41,9 +35,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": None,
             "posts_to_xero": True,
             "uses_leave_api": True,
-            "xero_leave_type_id": (
-                getattr(defaults, "xero_sick_leave_type_id", None) if defaults else None
-            ),
+            "xero_leave_type_name": "Sick Leave",
             "xero_earnings_rate_name": None,
         },
         {
@@ -53,11 +45,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": None,
             "posts_to_xero": True,
             "uses_leave_api": False,
-            "xero_leave_type_id": (
-                getattr(defaults, "xero_other_leave_type_id", None)
-                if defaults
-                else None
-            ),
+            "xero_leave_type_name": None,
             "xero_earnings_rate_name": None,
         },
         {
@@ -67,11 +55,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": None,
             "posts_to_xero": False,
             "uses_leave_api": False,
-            "xero_leave_type_id": (
-                getattr(defaults, "xero_unpaid_leave_type_id", None)
-                if defaults
-                else None
-            ),
+            "xero_leave_type_name": "Unpaid Leave",
             "xero_earnings_rate_name": None,
         },
         # Work types - matched by rate multiplier
@@ -82,7 +66,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": Decimal("1.0"),
             "posts_to_xero": True,
             "uses_leave_api": False,
-            "xero_leave_type_id": None,
+            "xero_leave_type_name": None,
             "xero_earnings_rate_name": (
                 getattr(defaults, "xero_ordinary_earnings_rate_name", None)
                 if defaults
@@ -96,7 +80,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": Decimal("1.5"),
             "posts_to_xero": True,
             "uses_leave_api": False,
-            "xero_leave_type_id": None,
+            "xero_leave_type_name": None,
             "xero_earnings_rate_name": (
                 getattr(defaults, "xero_time_half_earnings_rate_name", None)
                 if defaults
@@ -110,7 +94,7 @@ def populate_payroll_categories(apps, schema_editor):
             "rate_multiplier": Decimal("2.0"),
             "posts_to_xero": True,
             "uses_leave_api": False,
-            "xero_leave_type_id": None,
+            "xero_leave_type_name": None,
             "xero_earnings_rate_name": (
                 getattr(defaults, "xero_double_time_earnings_rate_name", None)
                 if defaults

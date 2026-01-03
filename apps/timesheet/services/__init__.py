@@ -9,6 +9,13 @@ try:
             DailyTimesheetService,
             ensure_json_serializable,
         )
+        from .demo_payroll_data import (
+            generate_ird_number,
+            get_bank_account,
+            setup_employee_bank,
+            setup_employee_leave,
+            setup_employee_tax,
+        )
         from .payroll_employee_sync import PayrollEmployeeSyncService
         from .weekly_timesheet_service import WeeklyTimesheetService
 except (ImportError, RuntimeError):
@@ -20,4 +27,9 @@ __all__ = [
     "PayrollEmployeeSyncService",
     "WeeklyTimesheetService",
     "ensure_json_serializable",
+    "generate_ird_number",
+    "get_bank_account",
+    "setup_employee_bank",
+    "setup_employee_leave",
+    "setup_employee_tax",
 ]

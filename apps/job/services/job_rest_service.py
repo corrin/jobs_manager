@@ -34,7 +34,7 @@ from apps.job.serializers.job_serializer import (
 )
 from apps.job.services.delta_checksum import compute_job_delta_checksum, normalise_value
 from apps.workflow.exceptions import AlreadyLoggedException
-from apps.workflow.models import CompanyDefaults
+from apps.workflow.models import CompanyDefaults, XeroPayItem
 from apps.workflow.services.error_persistence import persist_and_raise
 
 logger = logging.getLogger(__name__)
@@ -294,6 +294,14 @@ class JobRestService:
             except ClientContact.DoesNotExist:
                 raise ValueError(f"Contact with id {contact_id} not found")
 
+        # Set default pay item to Ordinary Time for new jobs
+        ordinary_time = XeroPayItem.get_ordinary_time()
+        if not ordinary_time:
+            raise ValueError(
+                "Ordinary Time pay item not found. Sync Xero pay items first."
+            )
+        job_data["default_xero_pay_item"] = ordinary_time
+
         # Not needed for now, but needs to be discussed when we activate project sync
         # job_data["xero_last_modified"] = timezone.now()
 
@@ -357,6 +365,7 @@ class JobRestService:
                 unit_cost=wage_rate,
                 unit_rev=charge_out_rate,
                 accounting_date=timezone.now().date(),
+                xero_pay_item=ordinary_time,
             )
 
             # Calculate office time (1:8 ratio, rounded up to quarter hours)
@@ -371,6 +380,7 @@ class JobRestService:
                 unit_cost=wage_rate,
                 unit_rev=charge_out_rate,
                 accounting_date=timezone.now().date(),
+                xero_pay_item=ordinary_time,
             )
 
             # For fixed_price jobs, copy estimate lines to quote CostSet
@@ -391,6 +401,7 @@ class JobRestService:
                             else {}
                         ),
                         meta=estimate_line.meta.copy() if estimate_line.meta else {},
+                        xero_pay_item=estimate_line.xero_pay_item,
                     )
 
         return job

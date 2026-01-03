@@ -10,32 +10,34 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_annual_leave_type_id",
+        # Use RunSQL with IF EXISTS because schema may predate migration 0170
+        # which added these columns. They may not exist in restored backups.
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_annual_leave_type_id;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_double_time_earnings_rate_name",
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_double_time_earnings_rate_name;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_ordinary_earnings_rate_name",
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_ordinary_earnings_rate_name;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_other_leave_type_id",
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_other_leave_type_id;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_sick_leave_type_id",
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_sick_leave_type_id;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_time_half_earnings_rate_name",
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_time_half_earnings_rate_name;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
-        migrations.RemoveField(
-            model_name="companydefaults",
-            name="xero_unpaid_leave_type_id",
+        migrations.RunSQL(
+            sql="ALTER TABLE workflow_companydefaults DROP COLUMN IF EXISTS xero_unpaid_leave_type_id;",
+            reverse_sql=migrations.RunSQL.noop,
         ),
     ]

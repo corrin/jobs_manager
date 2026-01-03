@@ -194,7 +194,7 @@ rest_urlpatterns = [
     path(
         "rest/cost_lines/<str:cost_line_id>/approve/",
         CostLineApprovalView.as_view(),
-        name="costline_approve_rest"
+        name="costline_approve_rest",
     ),
     # Modern Timesheet API endpoints
     path(

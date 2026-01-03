@@ -45,30 +45,26 @@ class PostWeekToXeroResponseSerializer(serializers.Serializer):
     entries_posted = serializers.IntegerField()
     work_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     other_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    annual_sick_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
-    unpaid_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     errors = serializers.ListField(child=serializers.CharField())
 
 
-class PayRunDetailsSerializer(serializers.Serializer):
-    """Serializer representing details from a Xero pay run."""
+class PayRunListItemSerializer(serializers.Serializer):
+    """Serializer for a pay run in the list response."""
 
     id = serializers.UUIDField(help_text="Django primary key")
     xero_id = serializers.UUIDField(help_text="Xero pay run ID")
-    payroll_calendar_id = serializers.CharField(allow_null=True)
     period_start_date = serializers.DateField()
     period_end_date = serializers.DateField()
     payment_date = serializers.DateField()
     pay_run_status = serializers.CharField()
-    pay_run_type = serializers.CharField(allow_null=True)
+    xero_url = serializers.CharField(help_text="Deep link to pay run in Xero")
 
 
-class PayRunForWeekResponseSerializer(serializers.Serializer):
-    """Response serializer when fetching pay run data for a week."""
+class PayRunListResponseSerializer(serializers.Serializer):
+    """Response serializer for listing all pay runs."""
 
-    exists = serializers.BooleanField()
-    pay_run = PayRunDetailsSerializer(allow_null=True)
-    warning = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    pay_runs = PayRunListItemSerializer(many=True)
 
 
 class PayRunSyncResponseSerializer(serializers.Serializer):

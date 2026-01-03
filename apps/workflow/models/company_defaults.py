@@ -67,13 +67,24 @@ class CompanyDefaults(models.Model):
         blank=True,
         help_text="The Xero tenant ID to use for this company",
     )
+    xero_shortcode = models.CharField(
+        max_length=20,
+        null=True,
+        blank=True,
+        help_text="Xero organisation shortcode for deep linking (e.g., '!8-5Xl')",
+    )
 
     # Xero Payroll configuration
-    # Note: Leave type IDs and earnings rate names have moved to PayrollCategory model
+    # Note: Leave type IDs and earnings rate names are synced to XeroPayItem model
     xero_payroll_calendar_name = models.CharField(
         max_length=100,
         default="Weekly",
         help_text="Name of Xero Payroll calendar to use (e.g., 'Weekly 2025')",
+    )
+    xero_payroll_calendar_id = models.UUIDField(
+        null=True,
+        blank=True,
+        help_text="Cached Xero Payroll calendar ID (set by xero --setup command)",
     )
 
     # Default working hours (Mon-Fri, 7am - 3pm)
@@ -196,20 +207,10 @@ class CompanyDefaults(models.Model):
         verbose_name_plural = "Company Defaults"
 
     def save(self, *args, **kwargs):
-        print(
-            f"DEBUG: CompanyDefaults.save called with shop_client_name = {self.shop_client_name}"
-        )
         if not self.pk and CompanyDefaults.objects.exists():
             raise ValidationError("There can be only one CompanyDefaults instance")
         self.is_primary = True
-        print(
-            f"DEBUG: About to call super().save() with shop_client_name = {self.shop_client_name}"
-        )
-        result = super().save(*args, **kwargs)
-        print(
-            f"DEBUG: After super().save(), shop_client_name = {self.shop_client_name}"
-        )
-        return result
+        return super().save(*args, **kwargs)
 
     @classmethod
     def get_instance(cls) -> "CompanyDefaults":

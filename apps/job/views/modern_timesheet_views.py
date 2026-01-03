@@ -32,6 +32,7 @@ from apps.job.serializers.job_serializer import (
     ModernTimesheetErrorResponseSerializer,
     ModernTimesheetJobGetResponseSerializer,
 )
+from apps.workflow.models import XeroPayItem
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,7 @@ class ModernTimesheetEntryView(APIView):
             description = validated_data["description"]
             is_billable = validated_data.get("is_billable", True)
             hourly_rate = validated_data.get("hourly_rate")
+            xero_pay_item_id = validated_data["xero_pay_item_id"]
             if not entry_date:
                 return Response(
                     {"error": "entry_date must be in YYYY-MM-DD format"},
@@ -333,8 +335,9 @@ class ModernTimesheetEntryView(APIView):
                 error_serializer.is_valid(raise_exception=True)
                 return Response(error_serializer.data, status=status.HTTP_404_NOT_FOUND)
 
-            # Extract other fields with defaults
-            rate_multiplier = Decimal("1.0")
+            # Get rate multiplier from the selected XeroPayItem
+            xero_pay_item = XeroPayItem.objects.get(id=xero_pay_item_id)
+            rate_multiplier = xero_pay_item.multiplier
 
             # Get rates from staff and job
             wage_rate = hourly_rate if hourly_rate else staff.wage_rate
@@ -374,6 +377,7 @@ class ModernTimesheetEntryView(APIView):
                     unit_cost=unit_cost,
                     unit_rev=unit_rev,
                     accounting_date=entry_date,
+                    xero_pay_item_id=xero_pay_item_id,
                     ext_refs={},
                     meta={
                         "staff_id": str(staff_id),

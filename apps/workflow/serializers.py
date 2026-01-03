@@ -5,11 +5,12 @@ from .models import (
     AIProvider,
     AppError,
     CompanyDefaults,
-    PayrollCategory,
     XeroAccount,
     XeroError,
+    XeroPayItem,
     XeroToken,
 )
+from .models.settings_metadata import COMPANY_DEFAULTS_READ_ONLY_FIELDS
 
 
 class XeroTokenSerializer(serializers.ModelSerializer):
@@ -39,11 +40,18 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyDefaults
         fields = "__all__"
+        read_only_fields = tuple(COMPANY_DEFAULTS_READ_ONLY_FIELDS)
 
 
 class XeroAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = XeroAccount
+        fields = "__all__"
+
+
+class XeroPayItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = XeroPayItem
         fields = "__all__"
 
 
@@ -82,61 +90,6 @@ class AIProviderCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {"api_key": "API key is required for a new provider."}
             )
-        return data
-
-
-class PayrollCategorySerializer(serializers.ModelSerializer):
-    """Serializer for reading PayrollCategory instances."""
-
-    class Meta:
-        model = PayrollCategory
-        fields = (
-            "id",
-            "name",
-            "display_name",
-            "job_name_pattern",
-            "rate_multiplier",
-            "posts_to_xero",
-            "uses_leave_api",
-            "xero_leave_type_name",
-            "xero_earnings_rate_name",
-        )
-
-
-class PayrollCategoryCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating and updating PayrollCategory instances."""
-
-    class Meta:
-        model = PayrollCategory
-        fields = (
-            "name",
-            "display_name",
-            "job_name_pattern",
-            "rate_multiplier",
-            "posts_to_xero",
-            "uses_leave_api",
-            "xero_leave_type_name",
-            "xero_earnings_rate_name",
-        )
-
-    def validate(self, data):
-        """Validate that categories have appropriate Xero names configured."""
-        posts_to_xero = data.get("posts_to_xero", True)
-        uses_leave_api = data.get("uses_leave_api", False)
-
-        if posts_to_xero:
-            if uses_leave_api and not data.get("xero_leave_type_name"):
-                raise serializers.ValidationError(
-                    {
-                        "xero_leave_type_name": "Required when posts_to_xero=True and uses_leave_api=True."
-                    }
-                )
-            if not uses_leave_api and not data.get("xero_earnings_rate_name"):
-                raise serializers.ValidationError(
-                    {
-                        "xero_earnings_rate_name": "Required when posts_to_xero=True and uses_leave_api=False."
-                    }
-                )
         return data
 
 
@@ -383,3 +336,35 @@ class AWSInstanceStatusResponseSerializer(serializers.Serializer):
     status = serializers.CharField(required=False)
     error = serializers.CharField(required=False)
     details = serializers.CharField(required=False)
+
+
+# ---------------------------------------------------------------------------
+# Company Defaults Schema Serializers
+# ---------------------------------------------------------------------------
+
+
+class SettingsFieldSerializer(serializers.Serializer):
+    """Serializer for individual field metadata."""
+
+    key = serializers.CharField()
+    label = serializers.CharField()
+    type = serializers.CharField()
+    required = serializers.BooleanField()
+    help_text = serializers.CharField(allow_blank=True)
+    section = serializers.CharField()
+    read_only = serializers.BooleanField()
+
+
+class SettingsSectionSerializer(serializers.Serializer):
+    """Serializer for a section containing fields."""
+
+    key = serializers.CharField()
+    title = serializers.CharField()
+    order = serializers.IntegerField()
+    fields = SettingsFieldSerializer(many=True)
+
+
+class CompanyDefaultsSchemaSerializer(serializers.Serializer):
+    """Serializer for the complete schema response."""
+
+    sections = SettingsSectionSerializer(many=True)

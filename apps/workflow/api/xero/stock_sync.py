@@ -244,7 +244,10 @@ def sync_stock_to_xero(
 
                 stock_item.xero_id = existing.item_id
                 stock_item.xero_last_modified = timezone.now()
-                stock_item.save(update_fields=["xero_id", "xero_last_modified"])
+                stock_item.xero_last_synced = timezone.now()
+                stock_item.save(
+                    update_fields=["xero_id", "xero_last_modified", "xero_last_synced"]
+                )
                 logger.info(
                     f"Linked local stock {stock_item.id} to existing Xero item {stock_item.xero_id} by Code"
                 )
@@ -256,6 +259,8 @@ def sync_stock_to_xero(
                 tenant_id, item_id=stock_item.xero_id, items={"Items": [item_data]}
             )
             time.sleep(SLEEP_TIME)
+            stock_item.xero_last_synced = timezone.now()
+            stock_item.save(update_fields=["xero_last_synced"])
             logger.info(f"Updated stock item {stock_item.id} in Xero")
             return True
 
@@ -271,7 +276,10 @@ def sync_stock_to_xero(
         xero_item = created[0]
         stock_item.xero_id = xero_item.item_id
         stock_item.xero_last_modified = timezone.now()
-        stock_item.save(update_fields=["xero_id", "xero_last_modified"])
+        stock_item.xero_last_synced = timezone.now()
+        stock_item.save(
+            update_fields=["xero_id", "xero_last_modified", "xero_last_synced"]
+        )
         logger.info(
             f"Created stock item {stock_item.id} in Xero with ID {stock_item.xero_id}"
         )
@@ -308,7 +316,10 @@ def sync_stock_to_xero(
 
             stock_item.xero_id = existing.item_id
             stock_item.xero_last_modified = timezone.now()
-            stock_item.save(update_fields=["xero_id", "xero_last_modified"])
+            stock_item.xero_last_synced = timezone.now()
+            stock_item.save(
+                update_fields=["xero_id", "xero_last_modified", "xero_last_synced"]
+            )
 
             try:
                 item_data["ItemID"] = stock_item.xero_id

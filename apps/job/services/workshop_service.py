@@ -95,6 +95,7 @@ class WorkshopTimesheetService:
                 unit_cost=unit_cost,
                 unit_rev=unit_rev,
                 accounting_date=data["accounting_date"],
+                xero_pay_item=job.default_xero_pay_item,
                 ext_refs={},
                 meta=meta,
                 approved=self.staff.is_office_staff,

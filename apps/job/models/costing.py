@@ -10,7 +10,6 @@ from .costline_validators import (
     validate_costline_ext_refs,
     validate_costline_meta,
 )
-from .job import Job
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +50,9 @@ class CostSet(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    job = models.ForeignKey(Job, on_delete=models.CASCADE, related_name="cost_sets")
+    job = models.ForeignKey(
+        "job.Job", on_delete=models.CASCADE, related_name="cost_sets"
+    )
     kind = models.CharField(max_length=20, choices=KIND_CHOICES)
     rev = models.IntegerField()
     summary = models.JSONField(
@@ -129,6 +130,10 @@ class CostLine(models.Model):
     #   8. get_allocation_details() in apps/purchasing/services/allocation_service.py (subset)
     #   9. _process_time_entries() in apps/timesheet/services/weekly_timesheet_service.py
     #  10. sync_time_entries_from_xero() in apps/workflow/api/xero/sync.py (Xero format)
+    #  11. JobRestService.create_job() in apps/job/services/job_rest_service.py (estimate time lines)
+    #  12. WorkshopTimesheetService.create_entry() in apps/job/services/workshop_service.py
+    #  13. _create_cost_line_from_draft() and _copy_cost_line() in apps/job/diff.py
+    #  14. _copy_estimate_to_quote_costset() in apps/job/services/quote_sync_service.py
     #
     # Fields exposed via API serializers
     COSTLINE_API_FIELDS = [
@@ -148,6 +153,7 @@ class CostLine(models.Model):
         "xero_last_modified",
         "xero_last_synced",
         "approved",
+        "xero_pay_item",
     ]
 
     # Internal fields not exposed in API
@@ -211,6 +217,16 @@ class CostLine(models.Model):
         help_text="Indicates whether this line is approved or not by an office staff (when the line is created by a workshop worker)",
     )
 
+    # Xero pay item - determines how this time entry is paid (leave type, overtime, etc.)
+    xero_pay_item = models.ForeignKey(
+        "workflow.XeroPayItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cost_lines",
+        help_text="The Xero pay item for this time entry (leave type, earnings rate, etc.)",
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=["cost_set_id", "kind"]),
@@ -272,6 +288,22 @@ class CostLine(models.Model):
         cost_set.job.save(update_fields=["updated_at"])
 
     def save(self, *args, **kwargs):
+        # Fail fast if trying to set revenue on shop jobs
+        job = self.cost_set.job
+        if job.shop_job:
+            if self.unit_rev != Decimal("0.00"):
+                raise ValidationError(
+                    f"Shop jobs cannot have revenue. Got unit_rev={self.unit_rev} "
+                    f"for job '{job.name}' (job_number={job.job_number})"
+                )
+            if self.kind == "time":
+                meta = self.meta if isinstance(self.meta, dict) else {}
+                if meta.get("is_billable", False):
+                    raise ValidationError(
+                        f"Shop job time entries cannot be billable. "
+                        f"Job '{job.name}' (job_number={job.job_number})"
+                    )
+
         self.full_clean()
         super().save(*args, **kwargs)
         self._update_cost_set_summary()

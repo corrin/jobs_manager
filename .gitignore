@@ -138,3 +138,9 @@ cookies.txt
 adhoc/performance_investigation/*.json
 adhoc/
 schema.yml
+
+dropbox/
+*.zip
+
+# AI provider keys (copy from .example and add real keys)
+apps/workflow/fixtures/ai_providers.json
