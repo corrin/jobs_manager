@@ -39,47 +39,27 @@ You should end up with:
 7. Linked to the dev Xero
 8. Key data from prod's restore synced to the dev xero
 9. The Xero token is locked in via python manage.py run_scheduler
-9. LLM keys set up and configured
-10. Testing passes - confirm using playwright test
+10. LLM keys set up and configured
+11. Playwright tests pass
 
 
 ## CRITICAL ORDER ENFORCEMENT
 
 **NEVER run steps out of order. The following steps MUST be completed before ANY testing:**
-1. Steps 1-16: Basic restore and setup
-2. Step 17: **XERO OAUTH CONNECTION** (MANUAL - CANNOT BE SKIPPED)
-3. Steps 18-20: Xero configuration
-4. Steps 21-23: Testing ONLY AFTER Xero is connected
-
-**Testing (Steps 21-23) is FORBIDDEN until Xero OAuth (Step 17) is complete.**
+1. Steps 1-20: Basic restore and setup
+2. Step 21: **XERO OAUTH CONNECTION** (CANNOT BE SKIPPED)
+3. Steps 22-26: Xero configuration
+4. Steps 27-29: Testing ONLY AFTER Xero is connected
 
 ## Common mistakes to avoid
 
 1. Always avoid using < to pass SQL scripts. It works for small scripts but not big ones. You MUST stick to --execute="source scripts/file.sql"
-2. ALways immediate stop on errors. We are fixing a process here, not hacking past issues
-3. If anything goes wrong, at all... even a little bit. THen stop. NEVER work around issues or surprises. As an example, this is illegal: "Perfect! Now I need to check if we have production backup files or if we need to load demo data instead. Let me check the restore directory:". This document never gave the option to load demo data.
+2. Always immediate stop on errors. We are fixing a process here, not hacking past issues
+3. If anything goes wrong, at all... even a little bit. Then stop. NEVER work around issues or surprises. As an example, this is illegal: "Perfect! Now I need to check if we have production backup files or if we need to load demo data instead. Let me check the restore directory:". This document never gave the option to load demo data.
 
 ### PRODUCTION STEPS
 
-#### Step 1: Create Schema Backup (Production)
-
-**Run as:** Production system user with database access
-**Command:**
-
-```bash
-MYSQL_PWD=your_prod_password mysqldump -u your_prod_user --no-data --routines --triggers jobs_manager > prod_backup_$(date +%Y%m%d_%H%M%S)_schema.sql
-```
-
-**Check:**
-
-```bash
-ls -la prod_backup_*_schema.sql
-# Should show file exists with reasonable size (typically 50-200KB)
-grep "CREATE TABLE \`workflow_job\`" prod_backup_*_schema.sql
-# Should show the table creation statement
-```
-
-#### Step 2: Create Data Backup (Production)
+#### Step 1: Create Backup (Production)
 
 **Run as:** Production system user with Django access
 **Command:**
@@ -88,32 +68,45 @@ grep "CREATE TABLE \`workflow_job\`" prod_backup_*_schema.sql
 python manage.py backport_data_backup
 ```
 
+This creates a zip file in `/tmp` containing both the schema and anonymized data backup.
+
 **Check:**
 
 ```bash
-ls -la restore/prod_backup_*.json.gz
-# Should show compressed file exists with large size (typically 5-25MB)
-gunzip -c restore/prod_backup_*.json.gz | head -20
-# Should show JSON array with Django model data (anonymized)
-gunzip -c restore/prod_backup_*.json.gz | wc -l
-# Should show thousands of lines
+ls -la /tmp/prod_backup_*_complete.zip
+# Should show zip file (typically 5-25MB)
 ```
 
-#### Step 3: Transfer Files to Development
+#### Step 2: Transfer Backup to Development
 
 **Run as:** Development system user
-**Commands:**
+**Command:**
 
 ```bash
-scp prod-server:path/to/prod_backup_YYYYMMDD_HHMMSS_schema.sql restore/
-scp prod-server:path/to/restore/prod_backup_YYYYMMDD_HHMMSS.json.gz restore/
+scp prod-server:/tmp/prod_backup_YYYYMMDD_HHMMSS_complete.zip restore/
+```
+
+**Check:**
+
+```bash
+ls -la restore/*.zip
+# Should show the zip file transferred
+```
+
+#### Step 3: Extract Backup Files
+
+**Run as:** Development system user
+**Command:**
+
+```bash
+cd restore && unzip prod_backup_YYYYMMDD_HHMMSS_complete.zip
 ```
 
 **Check:**
 
 ```bash
 ls -la restore/
-# Should show both files transferred
+# Should show both .json.gz and .schema.sql files
 ```
 
 ### DEVELOPMENT STEPS
@@ -170,7 +163,7 @@ export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_
 **Command:**
 
 ```bash
-export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS_schema.sql"
+export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.schema.sql"
 ```
 
 **Check:**
@@ -217,19 +210,19 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 **Command:**
 
 ```bash
-MYSQL_PWD=$DB_PASSWORD mysql -u $MYSQL_DB_USER $MYSQL_DATABASE --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
 ```
 
 **Check:**
 
 ```bash
-MYSQL_PWD=your_dev_password mysql -u django_user -e "
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
 SELECT 'workflow_job' as table_name, COUNT(*) as count FROM workflow_job
 UNION SELECT 'workflow_staff', COUNT(*) FROM workflow_staff
 UNION SELECT 'workflow_client', COUNT(*) FROM workflow_client
 UNION SELECT 'job_costset', COUNT(*) FROM job_costset
 UNION SELECT 'job_costline', COUNT(*) FROM job_costline;
-" msm_workflow
+"
 ```
 
 **Expected output (update with actual numbers):**
@@ -290,7 +283,7 @@ print(f'Company defaults loaded: {company.company_name}')
 Company defaults loaded: Demo Company
 ```
 
-#### Step 10.5: Load AI Providers Fixture (Optional)
+#### Step 11: Load AI Providers Fixture (Optional)
 
 **Run as:** Development system user
 
@@ -348,23 +341,23 @@ Gemini: ✓ Hi there!
 Mistral: ✓ API key valid (X models available)
 ```
 
-#### Step 11: Verify Specific Data
+#### Step 12: Verify Specific Data
 
 **Run as:** Development system user
 **Command:**
 
 ```bash
-MYSQL_PWD=your_dev_password mysql -u django_user -e "
+MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "
 SELECT id, name, job_number, status
 FROM workflow_job
 WHERE name LIKE '%test%' OR name LIKE '%sample%'
 LIMIT 5;
-" msm_workflow
+"
 ```
 
 **Check:** Should show actual job records with realistic data
 
-#### Step 12: Test Django ORM
+#### Step 13: Test Django ORM
 
 **Run as:** Development system user
 **Command:**
@@ -396,7 +389,7 @@ Sample job: [Real Job Name] (#12345)
 Contact: [Real Contact Name]
 ```
 
-#### Step 13: Create Admin User
+#### Step 14: Create Admin User
 
 **Run as:** Development system user
 **Command:**
@@ -421,7 +414,7 @@ Is staff: True
 Is superuser: True
 ```
 
-#### Step 14: Create Dummy Files for JobFile Instances
+#### Step 15: Create Dummy Files for JobFile Instances
 
 **Run as:** Development system user
 **Command:**
@@ -460,7 +453,7 @@ Dummy files created: X
 Missing files: 0
 ```
 
-#### Step 15: Fix Shop Client Name (Required after Production Restore)
+#### Step 16: Fix Shop Client Name (Required after Production Restore)
 
 **Run as:** Development system user
 **Command:**
@@ -499,7 +492,7 @@ print(f'Shop client: {shop.name}')
 ```
 Shop client: Demo Company Shop
 ```
-#### Step 15.5: Verify Test Client Exists or CREATE IF NEEDED
+#### Step 17: Verify Test Client Exists or Create if Needed
 
 **Run as:** Development system user
 
@@ -533,7 +526,22 @@ else:
 Created test client: ABC Carpet Cleaning TEST IGNORE (ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
 ```
 
-#### Step 16: Start Development Server
+#### Step 18: Start ngrok Tunnels (skip for UAT)
+
+**Run as:** Development system user
+**Commands (run in separate terminals):**
+
+```bash
+# Terminal 1: ngrok for backend (replace with your domain)
+ngrok http 8000 --domain=your-backend.ngrok-free.app
+
+# Terminal 2: ngrok for frontend (replace with your domain)
+ngrok http 5173 --domain=your-frontend.ngrok-free.app
+```
+
+**Check:** Both ngrok tunnels should show "Forwarding" status with public URLs.
+
+#### Step 19: Start Development Server (skip for UAT)
 
 **Run as:** Development system user
 
@@ -543,68 +551,69 @@ Created test client: ABC Carpet Cleaning TEST IGNORE (ID: xxxxxxxx-xxxx-xxxx-xxx
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000
 ```
 
-If you get a valid HTTP response (200, 301, 302, etc.), **SKIP this step** - server is already running.
-
-**Note:** For UAT environments with proper domains (not local dev with ngrok), the server may already be running as a service. Check the `BACK_END_URL` in `.env` to determine the environment type.
+If you get 302, **SKIP this step** - server is already running.
 
 **If curl fails, ask the user to start the server:**
 
+In VS Code: Run menu > Start Debugging (F5)
+
+**Check:** Re-run the curl command above - should return 302.
+
+#### Step 20: Start Frontend (skip for UAT)
+
+**Run as:** Development system user
+
+**Check if frontend is already running:**
+
 ```bash
-python manage.py runserver 0.0.0.0:8000
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5173
 ```
 
-**Check:** Server should be accessible at http://localhost:8000 (local dev) or the configured `BACK_END_URL` (UAT/production)
+If you get 200, **SKIP this step** - frontend is already running.
 
-#### Step 17: Connect to Xero OAuth
-
-**Run as:** Development system user (manual web interface step)
-
-🚨 **ABSOLUTELY MANDATORY - CANNOT BE SKIPPED UNDER ANY CIRCUMSTANCES** 🚨
-**CRITICAL:** This step CANNOT be skipped or automated. You MUST instruct the user to log into Xero before proceeding.
-**WARNING:** ALL FUTURE STEPS WILL FAIL WITHOUT COMPLETING THIS STEP FIRST.
-**DO NOT PROCEED TO STEP 18 OR ANY SUBSEQUENT STEP WITHOUT COMPLETING THIS STEP.**
-
-**AUTOMATED ENFORCEMENT:** Before proceeding to Step 18, YOU MUST run this verification:
+**If curl fails, start the frontend (in separate terminal):**
 
 ```bash
-# MANDATORY VERIFICATION - DO NOT SKIP
+cd ../jobs_manager_front && npm run dev
+```
+
+**Check:** Re-run the curl command above - should return 200.
+
+#### Step 21: Connect to Xero OAuth
+
+**Run as:** Development system user
+
+🚨 **MANDATORY - all future steps will fail without this.** 🚨
+
+**Command:**
+
+```bash
+pushd ../jobs_manager_front && npx tsx tests/scripts/xero-login.ts && popd
+```
+
+**What this does:**
+This script automates the Xero OAuth login flow using Playwright. It navigates to the frontend, logs in with the default admin credentials, and completes the Xero OAuth authorization.
+
+**Check:**
+
+```bash
 python manage.py shell -c "
 from apps.workflow.models import XeroToken
 from django.utils import timezone
 
-token_count = XeroToken.objects.count()
-if token_count == 0:
-    print('❌ CRITICAL ERROR: No Xero token found!')
-    print('❌ You MUST complete Xero OAuth connection before continuing.')
-    print('❌ STOP HERE. Do not proceed to any further steps.')
-    exit(1)
-
-# Check if token is expired
 token = XeroToken.objects.first()
+if not token:
+    print('❌ No Xero token found. Login script may have failed.')
+    exit(1)
 if token.expires_at and token.expires_at < timezone.now():
-    print('❌ CRITICAL ERROR: Xero token is expired!')
-    print('❌ You MUST reconnect to Xero before continuing.')
+    print('❌ Xero token is expired.')
     exit(1)
 
-print('✅ Xero OAuth token found. Safe to proceed.')
-print(f'✅ Token expires at: {token.expires_at}')
+print('✅ Xero OAuth token found.')
 "
 ```
 
-**If the verification fails, STOP IMMEDIATELY. Do not attempt any workarounds.**
-
-**Steps:**
-
-1. Start the frontend (in separate terminal, in jobs_manager_front directory) - skip if already running as a service
-2. For local dev: Run ngrok if needed for the backend and frontend. For UAT: Skip - proper domains already configured.
-3. Navigate to `FRONT_END_URL` from .env
-4. Login with credentials: `defaultadmin@example.com` / `Default-admin-password`
-5. Go to **Admin > Xero**, then click **Login with Xero**
-6. Complete the OAuth flow to authorize the application
-
-**Check:** You should see "Connected to Xero" status in the web interface.
-
-#### Step 18: Set Xero Tenant ID
+#### Step 22: Set Xero Tenant ID
 
 **Run as:** Development system user
 **Command:**
@@ -627,7 +636,7 @@ Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaul
 
 **Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
 
-#### Step 18.5: Sync Chart of Accounts from Xero
+#### Step 23: Sync Chart of Accounts from Xero
 
 **Run as:** Development system user
 **Command:**
@@ -660,7 +669,7 @@ Sales account (200): Sales
 Purchases account (300): Purchases
 ```
 
-#### Step 19: Seed Database to Xero
+#### Step 24: Seed Database to Xero
 
 **Run as:** Development system user
 
@@ -677,7 +686,7 @@ echo "Background process started, PID: $!"
 1. Clears production Xero IDs (clients, jobs, stock, purchase orders, staff)
 2. Links/creates contacts in Xero for all clients
 3. Creates projects in Xero for all jobs
-4. Syncs stock items to Xero inventory (using account codes from Step 18.5)
+4. Syncs stock items to Xero inventory (using account codes from Step 23)
 5. Links/creates payroll employees for all active staff (uses Staff UUID in job_title for reliable re-linking)
 
 **Monitor progress:**
@@ -710,7 +719,7 @@ print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 
 **Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
-#### Step 20: Sync Xero
+#### Step 25: Sync Xero
 
 **Run as:** Development system user
 **Command:**
@@ -723,16 +732,21 @@ python manage.py start_xero_sync
 
 Error and warning free sync between local and xero data.
 
-#### Step 21: Test Serializers (Before API Testing)
+#### Step 26: Start Background Scheduler
+
+**Run as:** Development system user
+**Command (in separate terminal):**
+
+```bash
+python manage.py run_scheduler
+```
+
+This keeps the Xero token refreshed automatically.
+
+#### Step 27: Test Serializers
 
 **Run as:** Development system user
 **Command:**
-
-```bash
-python scripts/test_serializers.py --serializer job
-```
-
-**Alternative: Test all serializers comprehensively:**
 
 ```bash
 python scripts/test_serializers.py --verbose
@@ -740,11 +754,9 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 22: Test Kanban HTTP API
+#### Step 28: Test Kanban HTTP API
 
 **Run as:** Development system user
-**Prerequisites:** Development server must be running: `python manage.py runserver 0.0.0.0:8000`
-
 **Command:**
 
 ```bash
@@ -770,27 +782,21 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 23: Final Application Test
+#### Step 29: Run Playwright Tests
 
 **Run as:** Development system user
 **Command:**
 
 ```bash
-python manage.py runserver 0.0.0.0:8000
+cd ../jobs_manager_front && npx playwright test
 ```
 
-**Check in browser:** Navigate to http://localhost:8000 and verify:
-
-- Login works with credentials: `defaultadmin@example.com` / `Default-admin-password`
-- Job list displays with real data
-- Kanban board loads without errors and shows jobs
-- Xero integration shows connected status
-- No database errors in console
+**Expected:** All tests pass.
 
 ## Troubleshooting
 
 Here are some errors we tripped over in the creation of this markdown. You shouldn't have these happen since we've now
-coded around them, but they're included to give you a sense of the sort of errors that happen in real ife.
+coded around them, but they're included to give you a sense of the sort of errors that happen in real life.
 
 ### Reset Script Fails
 
@@ -809,9 +815,9 @@ coded around them, but they're included to give you a sense of the sort of error
 **Debug steps:**
 
 1. Check JSON file size: `ls -la restore/prod_backup_*.json`
-2. Check SQL file has INSERT statements: `grep "INSERT INTO" restore/prod_backup_final.sql | head -5`
-3. Check for SQL errors: `MYSQL_PWD=password mysql -u django_user -v --execute="source restore/prod_backup_final.sql"`
-4. Verify table schema matches data: `MYSQL_PWD=password mysql -u django_user -e "DESCRIBE workflow_job;" msm_workflow`
+2. Check SQL file has INSERT statements: `grep "INSERT INTO" restore/prod_backup_*.sql | head -5`
+3. Check for SQL errors: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -v --execute="source restore/prod_backup_*.sql"`
+4. Verify table schema matches data: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "DESCRIBE workflow_job;"`
 
 ### Django ORM Errors
 
@@ -821,12 +827,13 @@ coded around them, but they're included to give you a sense of the sort of error
 
 ## File Locations
 
-- **Production schema:** `prod_backup_YYYYMMDD_HHMMSS_schema.sql`
-- **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz`
+- **Combined backup:** `/tmp/prod_backup_YYYYMMDD_HHMMSS_complete.zip` (created by backup command)
+- **Production schema:** `prod_backup_YYYYMMDD_HHMMSS.schema.sql` (inside zip)
+- **Production data:** `prod_backup_YYYYMMDD_HHMMSS.json.gz` (inside zip)
 - **Development restore:** `restore/` directory
 - **Reset script:** `scripts/reset_database.sql`
-- **Converter script:** `scripts/json_to_mysql.py` (enhanced with foreign key mappings)
-- **Generated SQL:** `restore/prod_backup_YYYYMMDD_HHMMSS.sql` (auto-generated)
+- **Converter script:** `scripts/json_to_mysql.py`
+- **Generated SQL:** `restore/prod_backup_YYYYMMDD_HHMMSS.sql` (auto-generated from JSON)
 
 ## Key Improvements Made
 
