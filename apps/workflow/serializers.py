@@ -10,6 +10,7 @@ from .models import (
     XeroPayItem,
     XeroToken,
 )
+from .models.settings_metadata import COMPANY_DEFAULTS_READ_ONLY_FIELDS
 
 
 class XeroTokenSerializer(serializers.ModelSerializer):
@@ -39,6 +40,7 @@ class CompanyDefaultsSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyDefaults
         fields = "__all__"
+        read_only_fields = tuple(COMPANY_DEFAULTS_READ_ONLY_FIELDS)
 
 
 class XeroAccountSerializer(serializers.ModelSerializer):
@@ -350,6 +352,7 @@ class SettingsFieldSerializer(serializers.Serializer):
     required = serializers.BooleanField()
     help_text = serializers.CharField(allow_blank=True)
     section = serializers.CharField()
+    read_only = serializers.BooleanField()
 
 
 class SettingsSectionSerializer(serializers.Serializer):

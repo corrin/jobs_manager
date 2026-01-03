@@ -51,29 +51,17 @@ class CompanyDefaultsAPIView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
-        print(f"DEBUG: PATCH request received with data = {request.data}")
-
         # Extract data from 'body' wrapper if it exists (Zodios sends data wrapped in 'body')
         request_data = (
             request.data.get("body", request.data)
             if isinstance(request.data, dict) and "body" in request.data
             else request.data
         )
-        print(f"DEBUG: Extracted request_data = {request_data}")
 
         instance = CompanyDefaults.get_instance()
-        print(f"DEBUG: Current instance shop_client_name = {instance.shop_client_name}")
         serializer = CompanyDefaultsSerializer(
             instance, data=request_data, partial=True, context={"request": request}
         )
-        print("DEBUG: Serializer created, calling is_valid()")
         serializer.is_valid(raise_exception=True)
-        print(
-            f"DEBUG: Serializer is valid, validated_data = {serializer.validated_data}"
-        )
-        print("DEBUG: Calling serializer.save()")
-        result = serializer.save()
-        print(
-            f"DEBUG: serializer.save() returned, shop_client_name = {result.shop_client_name}"
-        )
+        serializer.save()
         return Response(serializer.data)

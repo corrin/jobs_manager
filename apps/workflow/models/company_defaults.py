@@ -207,20 +207,10 @@ class CompanyDefaults(models.Model):
         verbose_name_plural = "Company Defaults"
 
     def save(self, *args, **kwargs):
-        print(
-            f"DEBUG: CompanyDefaults.save called with shop_client_name = {self.shop_client_name}"
-        )
         if not self.pk and CompanyDefaults.objects.exists():
             raise ValidationError("There can be only one CompanyDefaults instance")
         self.is_primary = True
-        print(
-            f"DEBUG: About to call super().save() with shop_client_name = {self.shop_client_name}"
-        )
-        result = super().save(*args, **kwargs)
-        print(
-            f"DEBUG: After super().save(), shop_client_name = {self.shop_client_name}"
-        )
-        return result
+        return super().save(*args, **kwargs)
 
     @classmethod
     def get_instance(cls) -> "CompanyDefaults":
