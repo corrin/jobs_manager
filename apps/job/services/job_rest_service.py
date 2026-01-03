@@ -514,10 +514,10 @@ class JobRestService:
 
     @staticmethod
     def _validate_delta_payload(job: Job, delta: JobDeltaPayload) -> None:
-        logger.info(
+        logger.debug(
             f"[DELTA_VALIDATION] Starting validation for job {job.id}, change_id: {delta.change_id}"
         )
-        logger.info(f"[DELTA_VALIDATION] Fields to validate: {list(delta.fields)}")
+        logger.debug(f"[DELTA_VALIDATION] Fields to validate: {list(delta.fields)}")
 
         fields = set(delta.fields)
         if not fields:
@@ -537,7 +537,7 @@ class JobRestService:
                 issues.append(f"missing 'after' values for {sorted(missing_after)}")
             raise ValueError("Delta payload is inconsistent: " + "; ".join(issues))
 
-        logger.info(
+        logger.debug(
             "[DELTA_VALIDATION] Payload structure validated. Getting current job values..."
         )
 
@@ -548,14 +548,13 @@ class JobRestService:
                 f"[DELTA_VALIDATION] Current value for '{field}': {current_values[field]} (type: {type(current_values[field])})"
             )
 
-        logger.info(f"[DELTA_VALIDATION] Current job values: {current_values}")
-        logger.info(f"[DELTA_VALIDATION] Delta before values: {delta.before}")
-        logger.info(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
+        logger.debug(f"[DELTA_VALIDATION] Current job values: {current_values}")
+        logger.debug(f"[DELTA_VALIDATION] Delta before values: {delta.before}")
+        logger.debug(f"[DELTA_VALIDATION] Client checksum: {delta.before_checksum}")
 
         # Compute server checksum
-        logger.info("[DELTA_VALIDATION] Computing server checksum...")
         server_checksum = compute_job_delta_checksum(job.id, current_values, fields)
-        logger.info(f"[DELTA_VALIDATION] Server computed checksum: {server_checksum}")
+        logger.debug(f"[DELTA_VALIDATION] Server computed checksum: {server_checksum}")
 
         soft_fail = JobRestService._is_soft_fail_enabled()
 
@@ -584,7 +583,7 @@ class JobRestService:
                 )
 
         if not soft_fail:
-            logger.info(
+            logger.debug(
                 "[DELTA_VALIDATION] Checksum validation passed. Checking individual field values..."
             )
             # Validate field values strictly only when not in soft-fail mode
@@ -603,6 +602,10 @@ class JobRestService:
                         current_values=current_values,
                         server_checksum=server_checksum,
                     )
+
+        logger.info(
+            f"[DELTA_VALIDATION] Passed for job {job.id}, fields: {sorted(fields)}"
+        )
 
         # Attach telemetry for callers (soft-fail persistence path)
         setattr(delta, "_current_values", current_values)
@@ -807,14 +810,14 @@ class JobRestService:
         try:
             with transaction.atomic():
                 # Lock the row to avoid race between compare and update
-                logger.info("[JOB_UPDATE] Locking job row for update...")
+                logger.debug("[JOB_UPDATE] Locking job row for update...")
                 job = get_object_or_404(Job.objects.select_for_update(), id=job_id)
-                logger.info(
+                logger.debug(
                     f"[JOB_UPDATE] Job locked. Current updated_at: {job.updated_at}"
                 )
 
                 # **VALIDATE DELTA FIRST** - before any other checks that might modify the job
-                logger.info("[JOB_UPDATE] Starting delta payload validation...")
+                logger.debug("[JOB_UPDATE] Starting delta payload validation...")
                 try:
                     JobRestService._validate_delta_payload(job, delta_payload)
                     logger.info("[JOB_UPDATE] Delta validation passed successfully")
@@ -839,21 +842,21 @@ class JobRestService:
                 )
 
                 # Concurrency check using normalized ETag value - AFTER delta validation
-                logger.info("[JOB_UPDATE] Checking ETag precondition...")
+                logger.debug("[JOB_UPDATE] Checking ETag precondition...")
                 if not if_match:
                     logger.warning(
                         "[JOB_UPDATE] No If-Match header provided - skipping ETag validation"
                     )
                 else:
                     current_norm = _current_job_etag_value(job)
-                    logger.info(f"[JOB_UPDATE] Current ETag: {current_norm}")
-                    logger.info(f"[JOB_UPDATE] Client ETag: {if_match}")
+                    logger.debug(f"[JOB_UPDATE] Current ETag: {current_norm}")
+                    logger.debug(f"[JOB_UPDATE] Client ETag: {if_match}")
                     if current_norm != if_match:
                         logger.error(
                             f"[JOB_UPDATE] ETag mismatch! Current: {current_norm}, Expected: {if_match}"
                         )
                         raise PreconditionFailed("ETag mismatch: resource has changed")
-                    logger.info("[JOB_UPDATE] ETag validation passed")
+                    logger.debug("[JOB_UPDATE] ETag validation passed")
 
                 # DEBUG: Log incoming data
                 logger.debug(f"JobRestService.update_job - Incoming data: {data}")
