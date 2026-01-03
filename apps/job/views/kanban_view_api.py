@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
-from apps.job.permissions import IsOfficeStaff
+from apps.job.permissions import IsOfficeStaff, IsStaffUser
 from apps.job.serializers import (
     AdvancedSearchResponseSerializer,
     FetchAllJobsResponseSerializer,
@@ -37,7 +37,7 @@ class FetchAllJobsAPIView(APIView):
     Fetch all jobs for Kanban board - API endpoint.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffUser]
     serializer_class = FetchAllJobsResponseSerializer
 
     def get(self, request: Request) -> Response:
@@ -89,7 +89,7 @@ class FetchAllJobsAPIView(APIView):
 class UpdateJobStatusAPIView(APIView):
     """Update job status - API endpoint."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsStaffUser]
     serializer_class = KanbanSuccessResponseSerializer
 
     def get_serializer_class(self):

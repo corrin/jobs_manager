@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.permissions import IsOfficeStaff
+from apps.job.permissions import IsStaffUser
 from apps.job.serializers import AssignJobResponseSerializer, AssignJobSerializer
 from apps.job.services.job_service import JobStaffService
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class JobAssignmentCreateView(APIView):
     """API Endpoint to assign staff to a job (POST /api/job/<job_id>/assignment)"""
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated, IsStaffUser]
 
     @extend_schema(
         request=AssignJobSerializer,
@@ -73,7 +73,7 @@ class JobAssignmentCreateView(APIView):
 class JobAssignmentDeleteView(APIView):
     """API Endpoint to remove staff from a job (DELETE /api/job/<job_id>/assignment/<staff_id>)"""
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated, IsStaffUser]
 
     @extend_schema(
         responses={status.HTTP_200_OK: AssignJobResponseSerializer},
