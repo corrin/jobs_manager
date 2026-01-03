@@ -270,7 +270,9 @@ def _apply_existing_lines(
         # Check if this line needs updating
         if old_line in lines_to_update:
             draft = lines_to_update[old_line]
-            _create_cost_line_from_draft(new_cost_set, draft, old_line.ext_refs)
+            _create_cost_line_from_draft(
+                new_cost_set, draft, old_line.ext_refs, old_line.xero_pay_item
+            )
         else:
             # Copy line as-is
             _copy_cost_line(old_line, new_cost_set)
@@ -283,7 +285,10 @@ def _apply_new_lines(cost_set: CostSet, new_drafts: List[DraftLine]) -> None:
 
 
 def _create_cost_line_from_draft(
-    cost_set: CostSet, draft: DraftLine, existing_ext_refs: Optional[Dict] = None
+    cost_set: CostSet,
+    draft: DraftLine,
+    existing_ext_refs: Optional[Dict] = None,
+    xero_pay_item=None,
 ) -> CostLine:
     """
     Create a CostLine from a DraftLine.
@@ -292,6 +297,7 @@ def _create_cost_line_from_draft(
         cost_set: CostSet to add the line to
         draft: DraftLine to convert
         existing_ext_refs: Existing external references to preserve
+        xero_pay_item: XeroPayItem to assign (for time entries)
 
     Returns:
         Created CostLine object
@@ -315,6 +321,7 @@ def _create_cost_line_from_draft(
         accounting_date=timezone.now().date(),
         ext_refs=ext_refs,
         meta=draft.meta,
+        xero_pay_item=xero_pay_item,
     )
 
 
@@ -330,6 +337,7 @@ def _copy_cost_line(old_line: CostLine, new_cost_set: CostSet) -> CostLine:
         accounting_date=old_line.accounting_date,
         ext_refs=old_line.ext_refs,
         meta=old_line.meta,
+        xero_pay_item=old_line.xero_pay_item,
     )
 
 
