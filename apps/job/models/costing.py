@@ -129,6 +129,10 @@ class CostLine(models.Model):
     #   8. get_allocation_details() in apps/purchasing/services/allocation_service.py (subset)
     #   9. _process_time_entries() in apps/timesheet/services/weekly_timesheet_service.py
     #  10. sync_time_entries_from_xero() in apps/workflow/api/xero/sync.py (Xero format)
+    #  11. JobRestService.create_job() in apps/job/services/job_rest_service.py (estimate time lines)
+    #  12. WorkshopTimesheetService.create_entry() in apps/job/services/workshop_service.py
+    #  13. _create_cost_line_from_draft() and _copy_cost_line() in apps/job/diff.py
+    #  14. _copy_estimate_to_quote_costset() in apps/job/services/quote_sync_service.py
     #
     # Fields exposed via API serializers
     COSTLINE_API_FIELDS = [

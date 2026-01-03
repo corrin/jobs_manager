@@ -1835,11 +1835,11 @@ def sync_xero_pay_items() -> Dict[str, Any]:
     logger.info(f"Syncing {len(leave_types)} leave types to XeroPayItem")
     for lt in leave_types:
         pay_item, created = XeroPayItem.objects.update_or_create(
-            xero_id=str(lt["id"]),
+            name=lt["name"],
+            uses_leave_api=True,
             defaults={
+                "xero_id": str(lt["id"]),
                 "xero_tenant_id": tenant_id,
-                "name": lt["name"],
-                "uses_leave_api": True,
                 "multiplier": None,
                 "xero_last_synced": timezone.now(),
             },
@@ -1858,11 +1858,11 @@ def sync_xero_pay_items() -> Dict[str, Any]:
             multiplier = Decimal(str(multiplier))
 
         pay_item, created = XeroPayItem.objects.update_or_create(
-            xero_id=str(rate["id"]),
+            name=rate["name"],
+            uses_leave_api=False,
             defaults={
+                "xero_id": str(rate["id"]),
                 "xero_tenant_id": tenant_id,
-                "name": rate["name"],
-                "uses_leave_api": False,
                 "multiplier": multiplier,
                 "xero_last_synced": timezone.now(),
             },

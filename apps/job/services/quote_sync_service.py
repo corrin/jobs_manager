@@ -463,7 +463,7 @@ def _copy_estimate_to_quote_costset(estimate_cost_set, quote_cost_set):
                 unit_cost=estimate_line.unit_cost,
                 unit_rev=estimate_line.unit_rev,
                 accounting_date=estimate_line.accounting_date,
-                # Copy any other relevant fields
+                xero_pay_item=estimate_line.xero_pay_item,
             )
 
         # Update quote costset totals

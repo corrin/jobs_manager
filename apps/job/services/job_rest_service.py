@@ -365,6 +365,7 @@ class JobRestService:
                 unit_cost=wage_rate,
                 unit_rev=charge_out_rate,
                 accounting_date=timezone.now().date(),
+                xero_pay_item=ordinary_time,
             )
 
             # Calculate office time (1:8 ratio, rounded up to quarter hours)
@@ -379,6 +380,7 @@ class JobRestService:
                 unit_cost=wage_rate,
                 unit_rev=charge_out_rate,
                 accounting_date=timezone.now().date(),
+                xero_pay_item=ordinary_time,
             )
 
             # For fixed_price jobs, copy estimate lines to quote CostSet
@@ -399,6 +401,7 @@ class JobRestService:
                             else {}
                         ),
                         meta=estimate_line.meta.copy() if estimate_line.meta else {},
+                        xero_pay_item=estimate_line.xero_pay_item,
                     )
 
         return job
