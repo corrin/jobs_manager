@@ -116,7 +116,7 @@ class ModernTimesheetEntryView(APIView):
             return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            logger.info(
+            logger.debug(
                 f"Starting timesheet entries fetch for staff {staff_id}, date {entry_date}"
             )
 
@@ -141,45 +141,46 @@ class ModernTimesheetEntryView(APIView):
                 .order_by("id")
             )
 
-            logger.info(f"Query SQL: {cost_lines.query}")
-            logger.info(f"Found {cost_lines.count()} cost lines")
+            logger.debug(f"Query SQL: {cost_lines.query}")
+            entry_count = cost_lines.count()
+            logger.debug(f"Found {entry_count} cost lines")
 
             # Debug first cost line
             if cost_lines.exists():
                 first_line = cost_lines.first()
-                logger.info(f"First line type: {type(first_line)}")
-                logger.info(f"First line ID: {first_line.id}")
-                logger.info(f"First line meta: {first_line.meta}")
-                logger.info(f"First line quantity: {first_line.quantity}")
-                logger.info(f"First line unit_cost: {first_line.unit_cost}")
-                logger.info(
+                logger.debug(f"First line type: {type(first_line)}")
+                logger.debug(f"First line ID: {first_line.id}")
+                logger.debug(f"First line meta: {first_line.meta}")
+                logger.debug(f"First line quantity: {first_line.quantity}")
+                logger.debug(f"First line unit_cost: {first_line.unit_cost}")
+                logger.debug(
                     f"First line calculated_total_cost: {first_line.calculated_total_cost}"
                 )
             else:
-                logger.info("No cost lines found!")
+                logger.debug("No cost lines found!")
                 # Let's check why - debug the filter conditions
                 all_cost_lines = CostLine.objects.filter(
                     cost_set__kind="actual", kind="time"
                 )
-                logger.info(
+                logger.debug(
                     f"Total time cost lines in actual cost sets: {all_cost_lines.count()}"
                 )
 
                 for line in all_cost_lines[:5]:  # Check first 5
-                    logger.info(f"Line {line.id} meta: {line.meta}")
-                    logger.info(
+                    logger.debug(f"Line {line.id} meta: {line.meta}")
+                    logger.debug(
                         f"Line {line.id} staff_id in meta: {line.meta.get('staff_id')}"
                     )
-                    logger.info(
+                    logger.debug(
                         f"Line {line.id} accounting_date: {line.accounting_date}"
                     )
-                    logger.info(f"Looking for staff_id={staff_id}, date={entry_date}")
+                    logger.debug(f"Looking for staff_id={staff_id}, date={entry_date}")
 
             # Calculate totals
-            logger.info("Calculating totals...")
+            logger.debug("Calculating totals...")
             try:
                 total_hours = sum(Decimal(line.quantity) for line in cost_lines)
-                logger.info(f"Total hours calculated: {total_hours}")
+                logger.debug(f"Total hours calculated: {total_hours}")
             except Exception as e:
                 logger.error(f"Error calculating total hours: {e}")
                 raise
@@ -190,14 +191,14 @@ class ModernTimesheetEntryView(APIView):
                     for line in cost_lines
                     if line.meta.get("is_billable", True)
                 )
-                logger.info(f"Billable hours calculated: {billable_hours}")
+                logger.debug(f"Billable hours calculated: {billable_hours}")
             except Exception as e:
                 logger.error(f"Error calculating billable hours: {e}")
                 raise
 
             try:
                 total_cost = sum(line.calculated_total_cost for line in cost_lines)
-                logger.info(f"Total cost calculated: {total_cost}")
+                logger.debug(f"Total cost calculated: {total_cost}")
             except Exception as e:
                 logger.error(f"Error calculating total cost: {e}")
                 logger.error(f"First line type: {type(cost_lines.first())}")
@@ -213,12 +214,10 @@ class ModernTimesheetEntryView(APIView):
 
             try:
                 total_revenue = sum(line.calculated_total_rev for line in cost_lines)
-                logger.info(f"Total revenue calculated: {total_revenue}")
+                logger.debug(f"Total revenue calculated: {total_revenue}")
             except Exception as e:
                 logger.error(f"Error calculating total revenue: {e}")
                 raise
-            logger.info("Creating response data...")
-
             response_data = {
                 "cost_lines": cost_lines,
                 "staff": {
@@ -238,12 +237,12 @@ class ModernTimesheetEntryView(APIView):
                 },
             }
 
-            logger.info("Validating response with serializer...")
-
             response_serializer = ModernTimesheetEntryGetResponseSerializer(
                 response_data
             )
-            logger.info("Response validation successful")
+            logger.info(
+                f"Fetched {entry_count} timesheet entries for staff {staff_id}, date {entry_date}"
+            )
             return Response(response_serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:

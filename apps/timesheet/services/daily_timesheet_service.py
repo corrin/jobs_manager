@@ -104,7 +104,7 @@ class DailyTimesheetService:
         """Get timesheet data for a specific staff member"""
 
         try:
-            logger.info(
+            logger.debug(
                 f"Processing staff: {staff.id} ({type(staff.id)}) for date {target_date}"
             )
             # Get cost lines for this staff and date (kind='time')
@@ -123,7 +123,7 @@ class DailyTimesheetService:
                 accounting_date=target_date,
             ).select_related("cost_set__job")
 
-            logger.info(f"Found {len(cost_lines)} cost lines for staff {staff.id}")
+            logger.debug(f"Found {len(cost_lines)} cost lines for staff {staff.id}")
 
             # Calculate totals
             total_hours = sum(Decimal(line.quantity) for line in cost_lines)
@@ -143,7 +143,7 @@ class DailyTimesheetService:
 
             # Get job breakdown
             job_breakdown = cls._get_job_breakdown(cost_lines)
-            logger.info(f"Job breakdown for staff {staff.id}: {job_breakdown}")
+            logger.debug(f"Job breakdown for staff {staff.id}: {job_breakdown}")
 
             staff_data = {
                 "staff_id": str(staff.id),
@@ -171,7 +171,11 @@ class DailyTimesheetService:
                 ),
             }
 
-            logger.info(f"Staff data for {staff.id}: {staff_data}")
+            logger.debug(f"Staff data for {staff.id}: {staff_data}")
+            logger.info(
+                f"Processed timesheet for {staff.first_name} {staff.last_name}: "
+                f"{total_hours}h ({len(cost_lines)} entries)"
+            )
             return staff_data
 
         except Exception as e:
