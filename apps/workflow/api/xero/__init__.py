@@ -28,6 +28,7 @@ try:
             post_staff_week_to_xero,
             post_timesheet,
             sync_xero_pay_items,
+            update_employee_name,
             validate_pay_items_for_week,
         )
         from .reprocess_xero import (
@@ -206,6 +207,7 @@ __all__ = [
     "transform_purchase_order",
     "transform_quote",
     "transform_stock",
+    "update_employee_name",
     "update_expense_entries",
     "update_project",
     "update_stock_item_codes",

@@ -241,27 +241,27 @@ class Command(BaseCommand):
         return results["synced_count"]
 
     def process_employees(self, dry_run):
-        """Phase 4: Link/create payroll employees for active staff.
+        """Phase 4: Link/create payroll employees for all staff.
 
-        Only processes staff who HAD xero_user_id in the backup (were linked in prod).
+        Processes ALL staff who HAD xero_user_id in the backup (were linked in prod),
+        including those who have left. This is important because:
+        1. Historical timesheets may need to be posted for departed staff
+        2. Xero should have the complete employee history with end_date set
+
         The backup's xero_user_id values are for PROD's Xero tenant, so we:
         1. Identify staff who had xero_user_id (were linked in prod)
         2. Clear those IDs (wrong tenant)
         3. Re-link to DEV's Xero using job_title UUID, email, or name matching
-        4. Create in DEV's Xero if no match found
+        4. Create in DEV's Xero if no match found (with end_date for departed staff)
 
         Staff without xero_user_id in backup are left alone (weren't linked in prod).
         """
-        # Find active staff WITH xero_user_id set (from backup = were linked in prod)
-        # These need to be re-linked to dev's Xero employees (or created if not found)
-        staff_to_sync = list(
-            Staff.objects.filter(date_left__isnull=True, xero_user_id__isnull=False)
-        )
+        # Find ALL staff WITH xero_user_id set (from backup = were linked in prod)
+        # Include staff who have left - they need valid Xero IDs for historical timesheets
+        staff_to_sync = list(Staff.objects.filter(xero_user_id__isnull=False))
 
         # Staff without xero_user_id were not linked in prod - leave them alone
-        unlinked_count = Staff.objects.filter(
-            date_left__isnull=True, xero_user_id__isnull=True
-        ).count()
+        unlinked_count = Staff.objects.filter(xero_user_id__isnull=True).count()
 
         self.stdout.write(
             f"Found {len(staff_to_sync)} staff to sync (had xero_user_id in backup)"

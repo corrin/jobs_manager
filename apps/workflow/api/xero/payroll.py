@@ -140,6 +140,7 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
         employee_data: Dict containing:
             - first_name, last_name, email (required)
             - date_of_birth, start_date, job_title
+            - end_date (optional, for terminated employees)
             - address (dict with address_line1, city, post_code)
             - payroll_calendar_id (required for employment)
             - ordinary_earnings_rate_id (required for salary)
@@ -202,6 +203,7 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
             email=employee_data.get("email"),
             phone_number=employee_data.get("phone_number"),
             start_date=employee_data.get("start_date"),
+            end_date=employee_data.get("end_date"),
             engagement_type=employee_data.get("engagement_type"),
             gender=employee_data.get("gender"),
             job_title=employee_data.get("job_title"),
@@ -296,6 +298,55 @@ def create_payroll_employee(employee_data: Dict[str, Any]) -> Employee:
                 "email": employee_data.get("email"),
             },
         )
+
+
+def update_employee_name(employee_id: str, first_name: str, last_name: str) -> None:
+    """
+    Update an existing Xero Payroll employee's name.
+
+    Fetches the existing employee data and only updates the name fields.
+
+    Args:
+        employee_id: Xero employee ID (UUID string)
+        first_name: New first name
+        last_name: New last name
+    """
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        raise Exception("No Xero tenant ID configured")
+
+    payroll_api = PayrollNzApi(api_client)
+
+    # Fetch existing employee to preserve their data
+    response = payroll_api.get_employee(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+    )
+    if not response or not response.employee:
+        raise Exception(f"Employee {employee_id} not found in Xero")
+
+    existing = response.employee
+
+    # Fix garbage data from Xero demo company (gender serialized as string 'None')
+    if existing.gender == "None":
+        existing.gender = None
+
+    # Update only the name fields
+    existing.first_name = first_name
+    existing.last_name = last_name
+
+    payroll_api.update_employee(
+        xero_tenant_id=tenant_id,
+        employee_id=employee_id,
+        employee=existing,
+    )
+    time.sleep(SLEEP_TIME)
+    logger.info(
+        "Updated Xero employee %s name to %s %s",
+        employee_id,
+        first_name,
+        last_name,
+    )
 
 
 def _create_employment(
@@ -1042,6 +1093,35 @@ def get_all_timesheets_for_week(week_start_date: date) -> Dict[str, Any]:
     return result
 
 
+def _timesheet_lines_match(
+    existing_lines: List[Any], new_lines: List[Dict[str, Any]]
+) -> bool:
+    """
+    Compare existing Xero timesheet lines with new lines to detect changes.
+
+    Args:
+        existing_lines: TimesheetLine objects from Xero
+        new_lines: Dict representations of new lines to post
+
+    Returns:
+        True if the lines are equivalent (no update needed)
+    """
+    if len(existing_lines) != len(new_lines):
+        return False
+
+    # Build sets of (date, earnings_rate_id, rounded_units) for comparison
+    # Round to 2 decimal places to avoid floating point comparison issues
+    existing_set = {
+        (line.date, str(line.earnings_rate_id), round(float(line.number_of_units), 2))
+        for line in existing_lines
+    }
+    new_set = {
+        (line["date"], line["earnings_rate_id"], round(line["number_of_units"], 2))
+        for line in new_lines
+    }
+    return existing_set == new_set
+
+
 def post_timesheet(
     employee_id: UUID,
     week_start_date: date,
@@ -1127,6 +1207,16 @@ def post_timesheet(
             logger.info(
                 f"Using pre-fetched existing timesheet: {existing_timesheet.timesheet_id}"
             )
+
+        # Check if existing timesheet already matches what we want to post
+        if existing_timesheet and existing_timesheet.timesheet_lines:
+            if _timesheet_lines_match(
+                existing_timesheet.timesheet_lines, timesheet_lines
+            ):
+                logger.info(
+                    f"Timesheet {existing_timesheet.timesheet_id} unchanged, skipping update"
+                )
+                return existing_timesheet
 
         # Step 2: If timesheet exists, delete it entirely (faster than deleting lines one-by-one)
         if existing_timesheet:
@@ -1560,13 +1650,21 @@ def post_staff_week_to_xero(
         ]
 
         if not staff_entries:
-            logger.warning(
-                f"No timesheet entries found for {staff.email} "
-                f"in week {week_start_date}"
+            # Post empty timesheet to override Xero's Pay Template default (40 hrs)
+            # Xero rejects 0-unit lines but accepts empty timesheets
+            logger.info(
+                f"No timesheet entries for {staff.email} in week {week_start_date} "
+                f"- posting empty timesheet"
+            )
+            xero_timesheet = post_timesheet(
+                employee_id=staff.xero_user_id,
+                week_start_date=week_start_date,
+                timesheet_lines=[],
+                existing_timesheet=existing_timesheet,
             )
             return {
                 "success": True,
-                "xero_timesheet_id": None,
+                "xero_timesheet_id": str(xero_timesheet.timesheet_id),
                 "entries_posted": 0,
                 "work_hours": Decimal("0"),
                 "other_leave_hours": Decimal("0"),
@@ -1682,7 +1780,9 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     """
     Map CostLine entries to Xero Payroll timesheet lines format.
 
-    Uses entry.xero_pay_item to get the earnings rate ID.
+    Aggregates entries by date and pay item - if multiple entries exist
+    for the same date and xero_pay_item, they are rolled up into a single
+    timesheet line with summed hours.
 
     Args:
         entries: List of CostLine entries (uses Timesheets API)
@@ -1690,7 +1790,8 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
     Returns:
         List of timesheet line dictionaries for Xero API
     """
-    timesheet_lines = []
+    # Group entries by (date, xero_pay_item.xero_id) and sum quantities
+    aggregated: Dict[tuple, float] = defaultdict(float)
 
     for entry in entries:
         pay_item = entry.xero_pay_item
@@ -1698,11 +1799,17 @@ def _map_work_entries(entries: List) -> List[Dict[str, Any]]:
         if pay_item is None:
             raise ValueError(f"CostLine {entry.id} has no xero_pay_item")
 
+        key = (entry.accounting_date, pay_item.xero_id)
+        aggregated[key] += float(entry.quantity)
+
+    # Build timesheet lines from aggregated data
+    timesheet_lines = []
+    for (entry_date, earnings_rate_id), quantity in aggregated.items():
         timesheet_lines.append(
             {
-                "date": entry.accounting_date,
-                "earnings_rate_id": pay_item.xero_id,
-                "number_of_units": float(entry.quantity),
+                "date": entry_date,
+                "earnings_rate_id": earnings_rate_id,
+                "number_of_units": quantity,
             }
         )
 
