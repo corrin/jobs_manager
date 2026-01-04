@@ -25,6 +25,7 @@ from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff
 from apps.client.serializers import ClientErrorResponseSerializer
 from apps.job.models import Job
+from apps.job.models.costing import CostLine
 from apps.timesheet.serializers import (
     DailyTimesheetSummarySerializer,
     JobsListResponseSerializer,
@@ -764,6 +765,24 @@ def stream_payroll_post(request, task_id):
             try:
                 staff = Staff.objects.get(id=staff_id)
                 staff_name = staff.get_display_full_name()
+
+                # Skip inactive staff - Xero payroll API rejects them
+                if staff.date_left is not None:
+                    # Only warn if they actually have entries we're skipping
+                    week_end_date = week_start_date + timedelta(days=6)
+                    has_entries = CostLine.objects.filter(
+                        kind="time",
+                        accounting_date__gte=week_start_date,
+                        accounting_date__lte=week_end_date,
+                        meta__staff_id=str(staff_id),
+                    ).exists()
+                    if has_entries:
+                        logger.warning(
+                            f"Skipping inactive staff {staff_name} (left {staff.date_left}) "
+                            "who has time entries - handle manually in Xero"
+                        )
+                    yield f"data: {json.dumps({'event': 'complete', 'staff_id': str(staff_id), 'staff_name': staff_name, 'success': True, 'skipped': True, 'reason': 'Staff no longer active', 'has_entries': has_entries, 'datetime': timezone.now().isoformat()})}\n\n"
+                    continue
 
                 # Progress event
                 yield f"data: {json.dumps({'event': 'progress', 'staff_id': str(staff_id), 'staff_name': staff_name, 'current': i + 1, 'total': total, 'datetime': timezone.now().isoformat()})}\n\n"

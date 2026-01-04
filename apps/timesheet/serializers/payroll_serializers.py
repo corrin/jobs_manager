@@ -22,6 +22,7 @@ class CreatePayRunResponseSerializer(serializers.Serializer):
     period_start_date = serializers.DateField()
     period_end_date = serializers.DateField()
     payment_date = serializers.DateField()
+    xero_url = serializers.CharField(help_text="Deep link to pay run in Xero")
 
 
 class PostWeekToXeroSerializer(serializers.Serializer):

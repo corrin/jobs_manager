@@ -22,6 +22,7 @@ from apps.workflow.api.xero.payroll import (
     create_payroll_employee,
     get_employees,
     get_payroll_calendars,
+    update_employee_name,
 )
 from apps.workflow.models import CompanyDefaults, XeroPayItem
 
@@ -180,6 +181,9 @@ class PayrollEmployeeSyncService:
             staff.email,
             employee_id,
         )
+        # Update Xero employee name to match Staff
+        update_employee_name(employee_id, staff.first_name, staff.last_name)
+
         staff.xero_user_id = employee_id
         with transaction.atomic():
             staff.save(update_fields=["xero_user_id", "updated_at"])
@@ -333,6 +337,7 @@ class PayrollEmployeeSyncService:
             "email": email,
             "date_of_birth": cls.DEFAULT_DATE_OF_BIRTH,
             "start_date": cls.DEFAULT_START_DATE,
+            "end_date": staff.date_left if staff.date_left else None,
             "phone_number": None,
             "job_title": job_title_with_id,
             "address": {

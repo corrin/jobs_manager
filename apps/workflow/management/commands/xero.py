@@ -604,11 +604,16 @@ class Command(BaseCommand):
         return item_id
 
     def link_staff(self, options):
-        """Link Staff rows to existing Xero Payroll employees by email/name match."""
+        """Link Staff rows to existing Xero Payroll employees by email/name match.
+
+        Includes all staff (active and inactive) so that historical timesheets
+        can be posted for departed employees.
+        """
         emails_option = options.get("link_staff_emails")
         dry_run = options.get("link_staff_dry_run", False)
 
-        queryset = Staff.objects.filter(date_left__isnull=True)
+        # Only include staff with wage rates (excludes admin-only users)
+        queryset = Staff.objects.filter(wage_rate__gt=0)
         if emails_option:
             emails = [
                 email.strip() for email in emails_option.split(",") if email.strip()
@@ -674,7 +679,8 @@ class Command(BaseCommand):
         email_filter = Q()
         for email in emails:
             email_filter |= Q(email__iexact=email)
-        queryset = Staff.objects.filter(date_left__isnull=True).filter(email_filter)
+        # Include all staff (active and inactive) for historical timesheet support
+        queryset = Staff.objects.filter(email_filter)
 
         if not queryset.exists():
             self.stdout.write(
