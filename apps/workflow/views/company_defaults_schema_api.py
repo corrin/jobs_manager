@@ -67,7 +67,16 @@ class CompanyDefaultsSchemaAPIView(APIView):
     )
     def get(self, request: Request) -> Response:
         """Return schema metadata for CompanyDefaults fields."""
-        sections_dict: dict[str, dict[str, Any]] = {}
+        sections_dict: dict[str, dict[str, Any]] = {
+            section_key: {
+                "key": section_key,
+                "title": title,
+                "order": order,
+                "fields": [],
+            }
+            for section_key, title, order in SettingsSection.all_sections()
+            if section_key != "internal"
+        }
 
         # Get all model fields
         model = CompanyDefaults
@@ -86,17 +95,6 @@ class CompanyDefaultsSchemaAPIView(APIView):
             # Skip internal fields
             if section_key == "internal":
                 continue
-
-            # Get or create section entry
-            if section_key not in sections_dict:
-                section_info = SettingsSection.get_section_info(section_key)
-                if section_info:
-                    sections_dict[section_key] = {
-                        "key": section_key,
-                        "title": section_info[1],
-                        "order": section_info[2],
-                        "fields": [],
-                    }
 
             # Add field metadata
             if section_key in sections_dict:

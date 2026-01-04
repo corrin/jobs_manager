@@ -23,7 +23,7 @@ def noop_reverse(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("job", "0062_alter_costline_meta_ext_refs"),
+        ("job", "0066_zero_shop_job_revenue"),
     ]
 
     operations = [

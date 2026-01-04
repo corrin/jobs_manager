@@ -25,12 +25,14 @@ class SettingsSection:
     Order determines display sequence in the UI.
     """
 
-    COMPANY = ("company", "Company", 1)
-    WORKING_HOURS = ("working_hours", "Working Hours", 2)
-    FINANCES = ("finances", "Finances", 3)
-    KPI = ("kpi", "KPI & Thresholds", 4)
-    SETUP = ("setup", "Setup", 5)
-    XERO = ("xero", "Xero", 6)
+    GENERAL = ("general", "General", 1)
+    GOOGLE = ("google", "Google", 2)
+    XERO = ("xero", "Xero", 3)
+    KPI = ("kpi", "KPI", 4)
+    AI = ("ai", "AI", 5)
+    WORKING_HOURS = ("working_hours", "Working Hours", 6)
+    ADDRESS = ("address", "Address", 7)
+    CONTACT = ("contact", "Contact", 8)
     INTERNAL = ("internal", "Internal", 99)  # Hidden from UI
 
     @classmethod
@@ -54,37 +56,60 @@ class SettingsSection:
 # Mapping from Django field types to UI input types
 DJANGO_TO_UI_TYPE: dict[type["models.Field[Any, Any]"], str] = {
     models.CharField: "text",
-    models.TextField: "textarea",
+    models.TextField: "text",
     models.IntegerField: "number",
     models.DecimalField: "number",
     models.FloatField: "number",
     models.BooleanField: "boolean",
-    models.EmailField: "email",
-    models.URLField: "url",
-    models.TimeField: "time",
+    models.EmailField: "text",
+    models.URLField: "text",
+    models.TimeField: "text",
     models.DateField: "date",
-    models.DateTimeField: "datetime",
+    models.DateTimeField: "text",
 }
 
 
 # Fields that should not be editable via the API (e.g., primary keys)
-COMPANY_DEFAULTS_READ_ONLY_FIELDS: set[str] = {"company_name"}
+COMPANY_DEFAULTS_READ_ONLY_FIELDS: set[str] = {
+    "company_name",
+    "last_xero_sync",
+    "last_xero_deep_sync",
+}
 
 # Field name to section mapping for CompanyDefaults
 # This is the authoritative source for which section each field belongs to.
 # Adding a field to CompanyDefaults without adding it here will cause a startup error.
 COMPANY_DEFAULTS_FIELD_SECTIONS: dict[str, str] = {
-    # Company info
-    "company_name": "company",
-    "company_acronym": "company",
-    "address_line1": "company",
-    "address_line2": "company",
-    "suburb": "company",
-    "city": "company",
-    "post_code": "company",
-    "country": "company",
-    "company_email": "company",
-    "company_url": "company",
+    # General
+    "company_name": "general",
+    "company_acronym": "general",
+    "is_primary": "internal",
+    "time_markup": "general",
+    "materials_markup": "general",
+    "charge_out_rate": "general",
+    "wage_rate": "general",
+    "starting_job_number": "general",
+    "starting_po_number": "general",
+    "po_prefix": "general",
+    "shop_client_name": "general",
+    "test_client_name": "general",
+    # Google
+    "master_quote_template_url": "google",
+    "master_quote_template_id": "google",
+    "gdrive_quotes_folder_url": "google",
+    "gdrive_quotes_folder_id": "google",
+    # Xero integration
+    "xero_tenant_id": "xero",
+    "xero_payroll_calendar_name": "xero",
+    "last_xero_sync": "xero",
+    "last_xero_deep_sync": "xero",
+    "xero_shortcode": "internal",
+    "xero_payroll_calendar_id": "internal",
+    # KPI thresholds
+    "billable_threshold_green": "kpi",
+    "billable_threshold_amber": "kpi",
+    "daily_gp_target": "kpi",
+    "shop_hours_target_percentage": "kpi",
     # Working hours
     "mon_start": "working_hours",
     "mon_end": "working_hours",
@@ -96,35 +121,17 @@ COMPANY_DEFAULTS_FIELD_SECTIONS: dict[str, str] = {
     "thu_end": "working_hours",
     "fri_start": "working_hours",
     "fri_end": "working_hours",
-    # Finances
-    "time_markup": "finances",
-    "materials_markup": "finances",
-    "charge_out_rate": "finances",
-    "wage_rate": "finances",
-    # KPI thresholds
-    "billable_threshold_green": "kpi",
-    "billable_threshold_amber": "kpi",
-    "daily_gp_target": "kpi",
-    "shop_hours_target_percentage": "kpi",
-    # Setup (initial configuration)
-    "master_quote_template_url": "setup",
-    "master_quote_template_id": "setup",
-    "gdrive_quotes_folder_url": "setup",
-    "gdrive_quotes_folder_id": "setup",
-    "starting_job_number": "setup",
-    "starting_po_number": "setup",
-    "po_prefix": "setup",
-    "shop_client_name": "setup",
-    "test_client_name": "setup",
-    # Xero integration
-    "xero_tenant_id": "xero",
-    "xero_shortcode": "xero",
-    "xero_payroll_calendar_name": "xero",
-    "xero_payroll_calendar_id": "xero",
-    "last_xero_sync": "xero",
-    "last_xero_deep_sync": "xero",
+    # Address
+    "address_line1": "address",
+    "address_line2": "address",
+    "suburb": "address",
+    "city": "address",
+    "post_code": "address",
+    "country": "address",
+    # Contact
+    "company_email": "contact",
+    "company_url": "contact",
     # Internal - auto-managed fields, not shown in UI
-    "is_primary": "internal",
     "created_at": "internal",
     "updated_at": "internal",
 }
