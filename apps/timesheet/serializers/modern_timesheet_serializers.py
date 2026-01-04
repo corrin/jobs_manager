@@ -106,6 +106,7 @@ class WeeklyStaffDataWeeklyHoursSerializer(serializers.Serializer):
     sick_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     annual_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     bereavement_leave_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    daily_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 class WeeklyStaffDataSerializer(serializers.Serializer):
@@ -133,6 +134,7 @@ class WeeklyStaffDataSerializer(serializers.Serializer):
     total_bereavement_leave_hours = serializers.DecimalField(
         max_digits=10, decimal_places=2
     )
+    weekly_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 @extend_schema_serializer(component_name="WeeklyTimesheetData")

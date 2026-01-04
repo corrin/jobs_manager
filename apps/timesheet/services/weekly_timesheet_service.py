@@ -100,9 +100,16 @@ class WeeklyTimesheetService:
             total_sick_leave_hours = 0
             total_annual_leave_hours = 0
             total_bereavement_leave_hours = 0
+            total_weighted_hours = 0  # For cost calculation (hours × rate_multiplier)
 
             for day in week_days:
                 daily_data = cls._get_payroll_daily_data(staff_member, day)
+
+                # Calculate daily cost from weighted hours
+                daily_weighted = daily_data.get("daily_weighted_hours", 0)
+                daily_data["daily_cost"] = round(
+                    float(staff_member.wage_rate) * daily_weighted, 2
+                )
 
                 weekly_hours.append(daily_data)
                 total_hours += daily_data["hours"]
@@ -118,8 +125,10 @@ class WeeklyTimesheetService:
                 total_bereavement_leave_hours += daily_data.get(
                     "bereavement_leave_hours", 0
                 )
+                total_weighted_hours += daily_data.get("daily_weighted_hours", 0)
 
-            # Calculate percentages
+            # Calculate cost and percentages
+            weekly_cost = float(staff_member.wage_rate) * total_weighted_hours
             billable_percentage = (
                 (total_billable_hours / total_hours * 100) if total_hours > 0 else 0
             )
@@ -140,6 +149,7 @@ class WeeklyTimesheetService:
                 "total_sick_leave_hours": float(total_sick_leave_hours),
                 "total_annual_leave_hours": float(total_annual_leave_hours),
                 "total_bereavement_leave_hours": float(total_bereavement_leave_hours),
+                "weekly_cost": round(weekly_cost, 2),
             }
 
             staff_data.append(staff_entry)
@@ -255,12 +265,16 @@ class WeeklyTimesheetService:
             unbilled_hours = 0
             overtime_1_5x_hours = 0
             overtime_2x_hours = 0
+            daily_weighted_hours = Decimal(0)  # hours × rate_multiplier for cost calc
 
             for line in cost_lines:
                 multiplier = line.rate_multiplier or Decimal("1.0")
                 hours = line.quantity
 
-                # Skip unpaid hours (multiplier 0.0)
+                # Accumulate weighted hours for cost (unpaid hours × 0 = 0)
+                daily_weighted_hours += hours * multiplier
+
+                # Skip unpaid hours from billability/overtime categorization
                 if multiplier == Decimal("0.0"):
                     continue
 
@@ -307,11 +321,14 @@ class WeeklyTimesheetService:
                     continue  # Not a leave job
                 elif pay_item.name == "Sick Leave":
                     sick_leave_hours += hours
+                    daily_weighted_hours += hours  # Paid at 1.0x
                 elif pay_item.name == "Annual Leave":
                     annual_leave_hours += hours
+                    daily_weighted_hours += hours  # Paid at 1.0x
                 elif pay_item.name == "Bereavement Leave":
                     bereavement_leave_hours += hours
-                # Skip Unpaid Leave
+                    daily_weighted_hours += hours  # Paid at 1.0x
+                # Skip Unpaid Leave (contributes $0 to cost)
 
             base_data.update(
                 {
@@ -322,6 +339,7 @@ class WeeklyTimesheetService:
                     "sick_leave_hours": float(sick_leave_hours),
                     "annual_leave_hours": float(annual_leave_hours),
                     "bereavement_leave_hours": float(bereavement_leave_hours),
+                    "daily_weighted_hours": float(daily_weighted_hours),
                 }
             )
 
