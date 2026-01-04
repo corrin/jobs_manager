@@ -256,6 +256,9 @@ class CostLine(models.Model):
                 f"CostLine has negative quantity: {self.quantity} for {self.desc}"
             )
 
+        if self.kind == "time" and self.xero_pay_item is None:
+            raise ValidationError("Time entries must have xero_pay_item set.")
+
         validate_costline_meta(self.meta, self.kind)
         validate_costline_ext_refs(self.ext_refs)
 
