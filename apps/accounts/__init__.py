@@ -24,6 +24,7 @@ try:
             TokenRefreshResponseSerializer,
             UserProfileSerializer,
         )
+        from .staff_anonymization import create_staff_profile, generate_email
         from .utils import get_displayable_staff, get_excluded_staff, is_valid_uuid
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -46,6 +47,8 @@ __all__ = [
     "TokenObtainPairResponseSerializer",
     "TokenRefreshResponseSerializer",
     "UserProfileSerializer",
+    "create_staff_profile",
+    "generate_email",
     "get_displayable_staff",
     "get_excluded_staff",
     "is_valid_uuid",
