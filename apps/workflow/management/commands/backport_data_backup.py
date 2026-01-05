@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 from faker import Faker
 
+from apps.accounts.staff_anonymization import create_staff_profile
 from apps.workflow.models import CompanyDefaults
 
 
@@ -45,13 +46,8 @@ class Command(BaseCommand):
 
         # Configuration: model -> field -> replacement type
         # Replacement types: "name", "email", "phone", "text", "number", "date", "address"
+        # Note: accounts.staff is handled separately in _anonymize_staff() for coherent profiles
         self.PII_CONFIG = {
-            "accounts.staff": {
-                "first_name": "first_name",
-                "last_name": "last_name",
-                "preferred_name": "first_name",
-                "email": "email",
-            },
             "client.client": {
                 "name": "company",
                 "primary_contact_name": "name",
@@ -206,6 +202,11 @@ class Command(BaseCommand):
             # Skip anonymization entirely for preserved clients
             return
 
+        # Special case: staff uses coherent profiles (preferred_name matches first_name)
+        if model == "accounts.staff":
+            self._anonymize_staff(fields)
+            return
+
         if model not in self.PII_CONFIG:
             return  # No PII configuration for this model
 
@@ -213,6 +214,14 @@ class Command(BaseCommand):
         for field_path, replacement_type in self.PII_CONFIG[model].items():
             value = self._get_replacement_value(replacement_type, fake)
             self._set_field_by_path(fields, field_path, value)
+
+    def _anonymize_staff(self, fields):
+        """Anonymize staff with coherent profile (preferred_name/email match first_name)."""
+        profile = create_staff_profile()
+        fields["first_name"] = profile["first_name"]
+        fields["last_name"] = profile["last_name"]
+        fields["preferred_name"] = profile["preferred_name"]
+        fields["email"] = profile["email"]
 
     def _get_replacement_value(self, replacement_type, fake):
         """Get replacement value based on type"""
