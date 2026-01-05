@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
-from apps.job.permissions import IsOfficeStaff, IsStaffUser
+from apps.job.permissions import IsStaffUser
 from apps.job.serializers import (
     AdvancedSearchResponseSerializer,
     FetchAllJobsResponseSerializer,
@@ -234,7 +234,7 @@ class ReorderJobAPIView(APIView):
 class FetchJobsAPIView(APIView):
     """Fetch jobs by status with optional search - API endpoint."""
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
     serializer_class = FetchJobsResponseSerializer
 
     def get(self, request: Request, status: str) -> Response:
