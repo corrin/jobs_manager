@@ -70,12 +70,6 @@ class JobCostSetView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if kind != "actual" and not getattr(request.user, "is_office_staff", False):
-            return Response(
-                {"error": "Only office staff can access this cost set."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         # Get the job
         job = get_object_or_404(Job, id=pk)
 
@@ -123,8 +117,13 @@ class JobQuoteRevisionView(APIView):
     Only works with kind='quote' CostSets.
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
     serializer_class = QuoteRevisionSerializer
+
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsOfficeStaff()]
 
     @extend_schema(
         summary="List archived quote revisions",

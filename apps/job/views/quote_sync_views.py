@@ -115,7 +115,7 @@ class PreviewQuoteAPIView(APIView):
     POST /job/rest/jobs/<uuid:pk>/quote/preview/
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
     serializer_class = PreviewQuoteResponseSerializer
 
     def post(self, request: Request, pk: str) -> Response:

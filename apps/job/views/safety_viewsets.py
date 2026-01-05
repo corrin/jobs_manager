@@ -54,7 +54,12 @@ class SafetyDocumentContentView(APIView):
     - PUT: Push updated content to Google Docs
     """
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsOfficeStaff()]
 
     def _get_document(self, pk):
         doc = get_object_or_404(SafetyDocument, pk=pk)
@@ -123,7 +128,12 @@ class SafetyDocumentViewSet(
 
     queryset = SafetyDocument.objects.all()
     serializer_class = SafetyDocumentSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsOfficeStaff()]
 
     def get_serializer_class(self):
         if self.action == "list":
@@ -155,7 +165,7 @@ class SafetyDocumentViewSet(
 class JSAListView(APIView):
     """List all JSAs for a job."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses=SafetyDocumentListSerializer(many=True))
     def get(self, request, job_id):
@@ -183,7 +193,7 @@ class JSAGenerateView(APIView):
 class SWPListView(APIView):
     """List all Safe Work Procedures."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses=SafetyDocumentListSerializer(many=True))
     def get(self, request):
@@ -213,7 +223,7 @@ class SWPGenerateView(APIView):
 class SOPListView(APIView):
     """List all Standard Operating Procedures."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(responses=SafetyDocumentListSerializer(many=True))
     def get(self, request):
@@ -294,7 +304,7 @@ class ImproveDocumentResponseSerializer(serializers.Serializer):
 class AIGenerateHazardsView(APIView):
     """Generate hazards for a task description using AI."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         request=GenerateHazardsRequestSerializer,
@@ -312,7 +322,7 @@ class AIGenerateHazardsView(APIView):
 class AIGenerateControlsView(APIView):
     """Generate controls for hazards using AI."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         request=GenerateControlsRequestSerializer,
@@ -331,7 +341,7 @@ class AIGenerateControlsView(APIView):
 class AIImproveSectionView(APIView):
     """Improve a section of text using AI."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         request=ImproveSectionRequestSerializer,
@@ -351,7 +361,7 @@ class AIImproveSectionView(APIView):
 class AIImproveDocumentView(APIView):
     """Improve an entire document using AI."""
 
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+    permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
         request=ImproveDocumentRequestSerializer,

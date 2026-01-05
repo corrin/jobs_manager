@@ -21,7 +21,7 @@ from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -67,7 +67,12 @@ class BaseJobRestView(APIView):
     Inherits from APIView for JWT authentication support.
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsOfficeStaff()]
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):

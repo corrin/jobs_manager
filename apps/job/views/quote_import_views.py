@@ -17,7 +17,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
-from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.costing_serializer import (
     CostSetSerializer,
     QuoteImportStatusResponseSerializer,
@@ -34,7 +33,7 @@ class QuoteImportPreviewView(APIView):
     POST /jobs/<job_id>/quote/import/preview/
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, job_id):
         """Return deprecation notice"""
@@ -56,7 +55,7 @@ class QuoteImportView(APIView):
     POST /jobs/<job_id>/quote/import/
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, job_id):
         """Return deprecation notice"""
@@ -77,7 +76,7 @@ class QuoteImportStatusView(APIView):
     GET /jobs/<job_id>/quote/status/
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
     serializer_class = QuoteImportStatusResponseSerializer
 
     def get(self, request, job_id):

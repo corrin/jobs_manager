@@ -23,8 +23,6 @@ def get_enum_choices(request: HttpRequest, enum_name: str) -> JsonResponse:
     """
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Authentication required"}, status=401)
-    if not getattr(request.user, "is_office_staff", False):
-        return JsonResponse({"error": "Office staff only"}, status=403)
 
     try:
         # First check the job enums module

@@ -16,7 +16,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
-from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers import (
     JobQuoteChatInteractionErrorResponseSerializer,
     JobQuoteChatInteractionSerializer,
@@ -42,7 +41,7 @@ class JobQuoteChatInteractionView(APIView):
     # ---------------------------------------------------------------------
 
     # Only allow POST (and implicit OPTIONS for CORS pre-flight)
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
     http_method_names = ["post", "options"]
     serializer_class = JobQuoteChatInteractionSerializer
 

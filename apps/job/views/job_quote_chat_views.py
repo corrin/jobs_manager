@@ -37,7 +37,12 @@ class BaseJobQuoteChatView(APIView):
     Base view for Job Quote Chat REST operations.
     """
 
-    permission_classes = [IsAuthenticated, IsOfficeStaff]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsOfficeStaff()]
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
