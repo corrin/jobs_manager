@@ -32,9 +32,7 @@ def get_excluded_staff(
             else Staff.objects.currently_active()
         )
 
-        staff_records = list(
-            staff_queryset.values_list("id", "xero_user_id")
-        )
+        staff_records = list(staff_queryset.values_list("id", "xero_user_id"))
         has_valid_xero_id = any(
             xero_user_id and is_valid_uuid(xero_user_id)
             for _, xero_user_id in staff_records
