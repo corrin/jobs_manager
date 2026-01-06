@@ -48,8 +48,8 @@ You should end up with:
 **NEVER run steps out of order. The following steps MUST be completed before ANY testing:**
 1. Steps 1-20: Basic restore and setup
 2. Step 21: **XERO OAUTH CONNECTION** (CANNOT BE SKIPPED)
-3. Steps 22-26: Xero configuration
-4. Steps 27-29: Testing ONLY AFTER Xero is connected
+3. Steps 22-27: Xero configuration
+4. Steps 28-30: Testing ONLY AFTER Xero is connected
 
 ## Common mistakes to avoid
 
@@ -749,24 +749,11 @@ python scripts/test_serializers.py --verbose
 python scripts/test_kanban_api.py
 ```
 
-**Expected output (WORKING API):**
+**Expected output:**
 
 ```
 ✓ API working: 174 active jobs, 23 archived
 ```
-
-**Expected output (BROKEN API):**
-
-```
-✗ ERROR: API test failed
-Server errors:
-ERROR 2025-07-13 01:44:27,880 kanban_view_api Error fetching all jobs
-ERROR 2025-07-13 01:44:27,886 log Internal Server Error: /job/api/jobs/fetch-all/
-API response:
-{"success": false, "error": "validation errors", ...}
-```
-
-**CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
 #### Step 30: Run Playwright Tests
 
