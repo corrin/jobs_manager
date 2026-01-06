@@ -18,14 +18,9 @@ Remove-Item Env:MYSQL_PWD
 
 Note: On Windows, always use `--execute "source path\to\file.sql"` for loading SQL files, and remove MYSQL_PWD after each command.
 
-## Complete Step-by-Step Guide
+## CRITICAL: No Workarounds
 
-Note! Important! Do not EVER use fake or fake-initial
-We need to create a flawless process so we are 100% certain that it will apply without issues on production
-YOU MUST RUN EVERY SINGLE STEP IN THE RESTORE. No step can be skipped, including manual steps where you need to get the user to do things
-
-Make sure you create an audit log of any run of this script in logs, e.g restore_log_20250711.txt
-Write to this log each step, and the outcome from running that step (e.g. test results). Do this after each step, don't wait until the end.
+This process runs unattended on UAT with no user interaction. Any workaround you apply on dev will fail silently on UAT. If anything goes wrong, STOP and fix the underlying problem.
 
 ## Overview/Target State
 
@@ -51,11 +46,9 @@ You should end up with:
 3. Steps 22-27: Xero configuration
 4. Steps 28-30: Testing ONLY AFTER Xero is connected
 
-## Common mistakes to avoid
+## Technical Notes
 
-1. Always avoid using < to pass SQL scripts. It works for small scripts but not big ones. You MUST stick to --execute="source scripts/file.sql"
-2. Always immediate stop on errors. We are fixing a process here, not hacking past issues
-3. If anything goes wrong, at all... even a little bit. Then stop. NEVER work around issues or surprises. As an example, this is illegal: "Perfect! Now I need to check if we have production backup files or if we need to load demo data instead. Let me check the restore directory:". This document never gave the option to load demo data.
+- Use `--execute="source file.sql"` not `< file.sql` for SQL scripts (large files fail with redirection)
 
 ### PRODUCTION STEPS
 
@@ -233,15 +226,13 @@ UNION SELECT 'job_costline', COUNT(*) FROM job_costline;
 +-------------------+-------+
 ```
 
-#### Step 9: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
+#### Step 9: Apply Django Migrations
 
 **Command:**
 
 ```bash
 python manage.py migrate
 ```
-
-**Why this step is critical:** The production schema may not match current Django models. Migrations align the schema with current code before loading fixtures that depend on the correct schema.
 
 **Check:**
 
@@ -443,9 +434,6 @@ cd ../jobs_manager_front && npm run dev
 
 #### Step 21: Connect to Xero OAuth
 
-
-🚨 **MANDATORY - all future steps will fail without this.** 🚨
-
 **Command:**
 
 ```bash
@@ -588,7 +576,7 @@ This keeps the Xero token refreshed automatically.
 **Command:**
 
 ```bash
-python scripts/test_serializers.py --verbose
+python scripts/restore_checks/test_serializers.py --verbose
 ```
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
@@ -598,7 +586,7 @@ python scripts/test_serializers.py --verbose
 **Command:**
 
 ```bash
-python scripts/test_kanban_api.py
+python scripts/restore_checks/test_kanban_api.py
 ```
 
 **Expected output:**
@@ -619,35 +607,10 @@ cd ../jobs_manager_front && npx playwright test
 
 ## Troubleshooting
 
-Here are some errors we tripped over in the creation of this markdown. You shouldn't have these happen since we've now
-coded around them, but they're included to give you a sense of the sort of errors that happen in real life.
-
 ### Reset Script Fails
 
 **Symptoms:** Permission denied errors
 **Solution:** run the create database as root: `sudo mysql --execute="source scripts/reset_database.sql"`
-
-### Schema Missing Columns
-
-**Symptoms:** workflow_job missing contact_person, contact_email, contact_phone
-**Cause:** Schema backup taken after Django migrations removed columns
-**Solution:** Take the schema backup from production at the same time as the data backup
-
-### Zero Records After Data Load
-
-**Symptoms:** All table counts show 0
-**Debug steps:**
-
-1. Check JSON file size: `ls -la restore/prod_backup_*.json`
-2. Check SQL file has INSERT statements: `grep "INSERT INTO" restore/prod_backup_*.sql | head -5`
-3. Check for SQL errors: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -v --execute="source restore/prod_backup_*.sql"`
-4. Verify table schema matches data: `MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" -e "DESCRIBE workflow_job;"`
-
-### Django ORM Errors
-
-**Symptoms:** Model queries fail after restore
-**Cause:** Schema/model mismatch
-**Solution:** Run `python manage.py migrate` to align schema with current models
 
 ## File Locations
 
@@ -658,30 +621,6 @@ coded around them, but they're included to give you a sense of the sort of error
 - **Reset script:** `scripts/reset_database.sql`
 - **Converter script:** `scripts/json_to_mysql.py`
 - **Generated SQL:** `restore/prod_backup_YYYYMMDD_HHMMSS.sql` (auto-generated from JSON)
-
-## Key Improvements Made
-
-### Enhanced JSON to SQL Converter
-
-The `scripts/json_to_mysql.py` script has been enhanced to:
-
-- **Handle Django migrations table:** Includes `django_migrations` table to preserve exact migration state
-- **Foreign key field mappings:** Correctly maps Django foreign key fields (e.g., `supplier` → `supplier_id`)
-- **Content types support:** Handles `django_content_type` table for Django internals
-
-### Enhanced Backup Script
-
-The `backport_data_backup.py` script now:
-
-- **Captures migration state:** Includes `django_migrations` table in backup using raw SQL extraction
-- **Preserves exact production state:** No more guessing which migrations were applied in production
-
-### Verified Working Process
-
-✅ **620 jobs** successfully restored from production
-✅ **246 migrations** correctly captured and restored
-✅ **Schema matches data** - no foreign key constraint errors
-✅ **Migration state preserved** - development knows exactly which migrations to apply
 
 ## Required Passwords
 
