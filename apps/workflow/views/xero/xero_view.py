@@ -7,7 +7,13 @@ import uuid
 from django.conf import settings
 from django.contrib import messages
 from django.core.cache import cache
-from django.http import HttpRequest, HttpResponse, JsonResponse, StreamingHttpResponse
+from django.http import (
+    HttpRequest,
+    HttpResponse,
+    HttpResponseForbidden,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -15,14 +21,16 @@ from django.views.decorators.http import require_GET, require_POST
 from django.views.generic import TemplateView
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from xero_python.identity import IdentityApi
 
 from apps.accounting.models import Invoice
 from apps.job.models import Job
+from apps.job.permissions import IsOfficeStaff
 from apps.purchasing.models import PurchaseOrder
 from apps.workflow.api.pagination import FiftyPerPagePagination
 from apps.workflow.api.xero.sync import ENTITY_CONFIGS
@@ -80,9 +88,32 @@ def _build_xero_error_payload(
     return payload
 
 
+def _require_office_staff_html(request: HttpRequest):
+    if not request.user.is_authenticated:
+        return redirect(getattr(settings, "LOGIN_URL", "/login/"))
+    if not getattr(request.user, "is_office_staff", False):
+        return HttpResponseForbidden("Office staff only")
+    return None
+
+
+def _require_office_staff_json(request: HttpRequest):
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"success": False, "error": "Authentication required"}, status=401
+        )
+    if not getattr(request.user, "is_office_staff", False):
+        return JsonResponse(
+            {"success": False, "error": "Office staff only"}, status=403
+        )
+    return None
+
+
 # Xero Authentication (Step 1: Redirect user to Xero OAuth2 login)
 @csrf_exempt
 def xero_authenticate(request: HttpRequest) -> HttpResponse:
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     state = str(uuid.uuid4())
     request.session["oauth_state"] = state
     redirect_after_login = request.GET.get("next", "/")
@@ -94,6 +125,9 @@ def xero_authenticate(request: HttpRequest) -> HttpResponse:
 # OAuth callback
 @csrf_exempt
 def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     code = request.GET.get("code")
     state = request.GET.get("state")
     session_state = request.session.get("oauth_state")
@@ -139,6 +173,9 @@ def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
 # Refresh OAuth token and handle redirects
 @csrf_exempt
 def refresh_xero_token(request: HttpRequest) -> HttpResponse:
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     refreshed_token = refresh_token()
     if not refreshed_token:
         return redirect("api_xero_authenticate")
@@ -148,12 +185,18 @@ def refresh_xero_token(request: HttpRequest) -> HttpResponse:
 # Xero connection success view
 @csrf_exempt
 def success_xero_connection(request: HttpRequest) -> HttpResponse:
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     return render(request, "xero/success_xero_connection.html")
 
 
 @csrf_exempt
 def refresh_xero_data(request):
     """Refresh Xero data, handling authentication properly."""
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     try:
         token = get_valid_token()
         if not token:
@@ -294,6 +337,9 @@ def stream_xero_sync(request: HttpRequest) -> StreamingHttpResponse:
     """
     HTTP endpoint to serve an EventSource stream of Xero sync events.
     """
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     response = StreamingHttpResponse(
         generate_xero_sync_events(), content_type="text/event-stream"
     )
@@ -349,6 +395,7 @@ def ensure_xero_authentication():
     description="Creates an invoice in Xero for the specified job",
 )
 @api_view(["POST"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def create_xero_invoice(request: Request, job_id: uuid.UUID) -> Response:
     """Creates an Invoice in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -412,6 +459,7 @@ def create_xero_invoice(request: Request, job_id: uuid.UUID) -> Response:
     ],
 )
 @api_view(["POST"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def create_xero_purchase_order(
     request: Request, purchase_order_id: uuid.UUID
 ) -> Response:
@@ -570,6 +618,7 @@ def create_xero_purchase_order(
     description="Creates a quote in Xero for the specified job",
 )
 @api_view(["POST"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def create_xero_quote(request: Request, job_id: uuid.UUID) -> Response:
     """Creates a quote in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -644,6 +693,7 @@ def create_xero_quote(request: Request, job_id: uuid.UUID) -> Response:
     ],
 )
 @api_view(["DELETE"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def delete_xero_invoice(request: Request, job_id: uuid.UUID) -> Response:
     """Deletes a specific invoice in Xero for a given job, identified by its Xero ID."""
     tenant_id = ensure_xero_authentication()
@@ -711,6 +761,7 @@ def delete_xero_invoice(request: Request, job_id: uuid.UUID) -> Response:
     description="Deletes a quote in Xero for the specified job",
 )
 @api_view(["DELETE"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def delete_xero_quote(request: Request, job_id: uuid.UUID) -> Response:
     """Deletes a quote in Xero for a given job."""
     tenant_id = ensure_xero_authentication()
@@ -766,6 +817,7 @@ def delete_xero_quote(request: Request, job_id: uuid.UUID) -> Response:
     description="Deletes a purchase order in Xero for the specified purchase order",
 )
 @api_view(["DELETE"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def delete_xero_purchase_order(
     request: Request, purchase_order_id: uuid.UUID
 ) -> Response:
@@ -824,6 +876,9 @@ def delete_xero_purchase_order(
 @csrf_exempt
 def xero_disconnect(request):
     """Disconnects from Xero by clearing the token from cache and database."""
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     try:  # Corrected indentation
         cache.delete("xero_token")
         cache.delete("xero_tenant_id")  # Use consistent cache key
@@ -840,10 +895,19 @@ class XeroIndexView(TemplateView):
 
     template_name = "xero_index.html"
 
+    def dispatch(self, request, *args, **kwargs):
+        guard = _require_office_staff_html(request)
+        if guard:
+            return guard
+        return super().dispatch(request, *args, **kwargs)
+
 
 @csrf_exempt
 def xero_sync_progress_page(request):
     """Render the Xero sync progress page."""
+    guard = _require_office_staff_html(request)
+    if guard:
+        return guard
     try:
         token = get_valid_token()
         if not token:
@@ -874,6 +938,9 @@ def _get_last_sync_time(model):
 @csrf_exempt
 def get_xero_sync_info(request):
     """Get current sync status and last sync times for all entities in ENTITY_CONFIGS."""
+    guard = _require_office_staff_json(request)
+    if guard:
+        return guard
     try:
         token = get_valid_token()
         if not token:
@@ -913,6 +980,9 @@ def start_xero_sync(request):
     """
     View function to start a Xero sync as a background task.
     """
+    guard = _require_office_staff_json(request)
+    if guard:
+        return guard
     try:
         token = get_valid_token()
         if not token:
@@ -973,6 +1043,9 @@ def xero_ping(request: HttpRequest) -> JsonResponse:
     Returns {"connected": true} or {"connected": false}.
     Always returns HTTP 200 for frontend simplicity.
     """
+    guard = _require_office_staff_json(request)
+    if guard:
+        return guard
     try:
         token = get_valid_token()
         is_connected = bool(token)
@@ -1002,6 +1075,7 @@ class XeroErrorListAPIView(ListAPIView):
     queryset = XeroError.objects.all().order_by("-timestamp")
     serializer_class = XeroErrorSerializer
     pagination_class = FiftyPerPagePagination
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
 
 class XeroErrorDetailAPIView(RetrieveAPIView):
@@ -1017,3 +1091,4 @@ class XeroErrorDetailAPIView(RetrieveAPIView):
 
     queryset = XeroError.objects.all()
     serializer_class = XeroErrorSerializer
+    permission_classes = [IsAuthenticated, IsOfficeStaff]

@@ -21,6 +21,9 @@ def get_enum_choices(request: HttpRequest, enum_name: str) -> JsonResponse:
     Returns:
         JsonResponse with the enum choices
     """
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+
     try:
         # First check the job enums module
         try:

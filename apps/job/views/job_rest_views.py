@@ -20,12 +20,16 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import OpenApiParameter, OpenApiTypes, extend_schema
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import Staff
 from apps.job.models import Job, JobDeltaRejection
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.job_serializer import (
+    CompanyDefaultsJobDetailSerializer,
     JobBasicInformationResponseSerializer,
     JobCostSummaryResponseSerializer,
     JobCreateResponseSerializer,
@@ -62,6 +66,13 @@ class BaseJobRestView(APIView):
     Implements common functionality like JSON parsing and error handling.
     Inherits from APIView for JWT authentication support.
     """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsOfficeStaff()]
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
@@ -301,6 +312,7 @@ class JobDetailRestView(BaseJobRestView):
     REST view for CRUD operations on a specific Job.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = JobDetailResponseSerializer
 
     def get_serializer_class(self):
@@ -1063,6 +1075,7 @@ class JobStatusChoicesRestView(BaseJobRestView):
     Returns available status choices for jobs.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = JobStatusChoicesResponseSerializer
 
     @extend_schema(
@@ -1360,6 +1373,13 @@ class JobBasicInformationRestView(BaseJobRestView):
             return self.handle_service_error(e)
 
 
+@extend_schema(
+    responses={200: CompanyDefaultsJobDetailSerializer},
+    description="Fetch company default settings.",
+    tags=["Jobs"],
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def get_company_defaults_api(request):
     """
     API endpoint to fetch company default settings.

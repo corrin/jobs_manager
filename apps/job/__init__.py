@@ -11,7 +11,7 @@ try:
     if apps.ready:
         from .diff import DiffResult, apply_diff, diff_costset
         from .mixins import JobLookupMixin, JobNumberLookupMixin
-        from .permissions import IsOfficeStaff
+        from .permissions import IsOfficeStaff, IsStaffUser
         from .scheduler_jobs import set_paid_flag_jobs
         from .utils import get_active_jobs, get_jobs_data
 except (ImportError, RuntimeError):
@@ -21,6 +21,7 @@ except (ImportError, RuntimeError):
 __all__ = [
     "DiffResult",
     "IsOfficeStaff",
+    "IsStaffUser",
     "JobConfig",
     "JobLookupMixin",
     "JobNumberLookupMixin",

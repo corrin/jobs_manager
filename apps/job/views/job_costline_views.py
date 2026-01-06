@@ -57,6 +57,11 @@ class CostLineCreateView(APIView):
 
     def post(self, request, job_id, kind="actual"):
         """Create a new cost line"""
+        if kind != "actual" and not getattr(request.user, "is_office_staff", False):
+            error_serializer = CostLineErrorResponseSerializer(
+                {"error": "Only office staff can manage non-actual cost sets"}
+            )
+            return Response(error_serializer.data, status=status.HTTP_403_FORBIDDEN)
         # Guard clause - validate job exists
         job = get_object_or_404(Job, id=job_id)
 
@@ -165,6 +170,14 @@ class CostLineUpdateView(APIView):
         """
         cost_line = get_object_or_404(CostLine, id=cost_line_id)
 
+        if cost_line.cost_set.kind != "actual" and not getattr(
+            request.user, "is_office_staff", False
+        ):
+            error_serializer = CostLineErrorResponseSerializer(
+                {"error": "Only office staff can modify non-actual cost lines"}
+            )
+            return Response(error_serializer.data, status=status.HTTP_403_FORBIDDEN)
+
         try:
             with transaction.atomic():
                 old_qty = cost_line.quantity or 0
@@ -237,6 +250,14 @@ class CostLineDeleteView(APIView):
         """Delete a cost line"""
         # Guard clause - validate cost line exists
         cost_line = get_object_or_404(CostLine, id=cost_line_id)
+
+        if cost_line.cost_set.kind != "actual" and not getattr(
+            request.user, "is_office_staff", False
+        ):
+            error_serializer = CostLineErrorResponseSerializer(
+                {"error": "Only office staff can delete non-actual cost lines"}
+            )
+            return Response(error_serializer.data, status=status.HTTP_403_FORBIDDEN)
 
         try:
             with transaction.atomic():

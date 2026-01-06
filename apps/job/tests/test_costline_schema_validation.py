@@ -39,7 +39,7 @@ class CostLineSchemaValidationTests(TestCase):
             "staff_id": str(uuid4()),
             "date": date.today().isoformat(),
             "is_billable": True,
-            "rate_multiplier": 1.5,
+            "wage_rate_multiplier": 1.5,
             "wage_rate": Decimal("45.00"),
             "charge_out_rate": Decimal("90.00"),
         }

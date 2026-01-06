@@ -240,8 +240,8 @@ class WeeklyTimesheetService:
                         (),
                         output_field=models.CharField(),
                     ),
-                    rate_multiplier=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.rate_multiplier'))",
+                    wage_rate_multiplier=RawSQL(
+                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.wage_rate_multiplier'))",
                         (),
                         output_field=models.DecimalField(),
                     ),
@@ -268,7 +268,7 @@ class WeeklyTimesheetService:
             daily_weighted_hours = Decimal(0)  # hours × rate_multiplier for cost calc
 
             for line in cost_lines:
-                multiplier = line.rate_multiplier or Decimal("1.0")
+                multiplier = line.wage_rate_multiplier or Decimal("1.0")
                 hours = line.quantity
 
                 # Accumulate weighted hours for cost (unpaid hours × 0 = 0)

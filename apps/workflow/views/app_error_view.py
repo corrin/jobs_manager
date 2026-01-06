@@ -4,10 +4,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status
 from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
+from apps.job.permissions import IsOfficeStaff
 from apps.workflow.api.pagination import FiftyPerPagePagination
 from apps.workflow.models import AppError
 from apps.workflow.serializers import AppErrorListResponseSerializer, AppErrorSerializer
@@ -32,6 +34,7 @@ class AppErrorListAPIView(ListAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ["app", "severity", "resolved", "job_id", "user_id"]
     search_fields = ["message", "function", "file"]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
 
 class AppErrorDetailAPIView(RetrieveAPIView):
@@ -47,6 +50,7 @@ class AppErrorDetailAPIView(RetrieveAPIView):
 
     queryset = AppError.objects.all()
     serializer_class = AppErrorSerializer
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
 
 class AppErrorRestListView(APIView):
@@ -61,6 +65,7 @@ class AppErrorRestListView(APIView):
     """
 
     serializer_class = AppErrorListResponseSerializer
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
     def get(self, request):
         try:
@@ -159,6 +164,7 @@ class AppErrorViewSet(ReadOnlyModelViewSet):
     search_fields = ["message", "function", "file", "app"]
     ordering_fields = ["timestamp", "severity", "app", "resolved"]
     ordering = ["-timestamp"]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
 
     @action(detail=True, methods=["post"])
     def mark_resolved(self, request, pk=None):

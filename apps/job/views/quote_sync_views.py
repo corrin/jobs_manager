@@ -17,6 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.costing_serializer import CostSetSerializer
 from apps.job.serializers.quote_sync_serializer import (
     ApplyQuoteErrorResponseSerializer,
@@ -38,7 +39,7 @@ class LinkQuoteSheetAPIView(APIView):
     POST /job/rest/jobs/<uuid:pk>/quote/link/
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = LinkQuoteSheetResponseSerializer
 
     def get_serializer_class(self):
@@ -159,7 +160,7 @@ class ApplyQuoteAPIView(APIView):
     POST /job/rest/jobs/<uuid:pk>/quote/apply/
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOfficeStaff]
     serializer_class = ApplyQuoteResponseSerializer
 
     def get_serializer_class(self):

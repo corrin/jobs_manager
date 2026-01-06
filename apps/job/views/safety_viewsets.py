@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job, SafetyDocument
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.safety_document_serializer import (
     SafetyDocumentListSerializer,
     SafetyDocumentSerializer,
@@ -54,6 +55,11 @@ class SafetyDocumentContentView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsOfficeStaff()]
 
     def _get_document(self, pk):
         doc = get_object_or_404(SafetyDocument, pk=pk)
@@ -124,6 +130,11 @@ class SafetyDocumentViewSet(
     serializer_class = SafetyDocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsOfficeStaff()]
+
     def get_serializer_class(self):
         if self.action == "list":
             return SafetyDocumentListSerializer
@@ -166,7 +177,7 @@ class JSAListView(APIView):
 class JSAGenerateView(APIView):
     """Generate a new JSA for a job."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(request=None, responses=SafetyDocumentSerializer)
     def post(self, request, job_id):
@@ -193,7 +204,7 @@ class SWPListView(APIView):
 class SWPGenerateView(APIView):
     """Generate a new Safe Work Procedure."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
         request=SWPGenerateRequestSerializer, responses=SafetyDocumentSerializer
@@ -232,7 +243,7 @@ class SOPGenerateRequestSerializer(serializers.Serializer):
 class SOPGenerateView(APIView):
     """Generate a new Standard Operating Procedure."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
         request=SOPGenerateRequestSerializer, responses=SafetyDocumentSerializer

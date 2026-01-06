@@ -12,11 +12,13 @@ from django.db.models import Case, IntegerField, Prefetch, Value, When
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.job.models.costing import CostLine, CostSet
+from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers import CostSetSerializer
 from apps.job.serializers.costing_serializer import (
     QuoteRevisionResponseSerializer,
@@ -46,6 +48,7 @@ class JobCostSetView(APIView):
     for the given job, or 404 if not found.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = CostSetSerializer
 
     def get(self, request, pk, kind):
@@ -114,7 +117,13 @@ class JobQuoteRevisionView(APIView):
     Only works with kind='quote' CostSets.
     """
 
+    permission_classes = [IsAuthenticated]
     serializer_class = QuoteRevisionSerializer
+
+    def get_permissions(self):
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsOfficeStaff()]
 
     @extend_schema(
         summary="List archived quote revisions",
