@@ -79,7 +79,6 @@ ls -la /tmp/prod_backup_*_complete.zip
 
 #### Step 2: Transfer Backup to Development
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -95,7 +94,6 @@ ls -la restore/*.zip
 
 #### Step 3: Extract Backup Files
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -113,7 +111,6 @@ ls -la restore/
 
 #### Step 4: Verify Environment Configuration
 
-**Run as:** Development system user
 **Check:**
 
 ```bash
@@ -159,7 +156,6 @@ export MYSQL_PWD="$DB_PASSWORD" && mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_
 
 #### Step 6: Apply Production Schema
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -179,7 +175,6 @@ MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "
 
 #### Step 7: Extract and Convert JSON to SQL
 
-**Run as:** Development system user
 **Commands:**
 
 ```bash
@@ -206,7 +201,6 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 
 #### Step 8: Load Production Data
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -241,7 +235,6 @@ UNION SELECT 'job_costline', COUNT(*) FROM job_costline;
 
 #### Step 9: Apply Django Migrations (CRITICAL: Do this BEFORE loading fixtures)
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -260,7 +253,6 @@ python manage.py showmigrations
 
 #### Step 10: Load Company Defaults Fixture
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -285,7 +277,6 @@ Company defaults loaded: Demo Company
 
 #### Step 11: Load AI Providers Fixture (Optional)
 
-**Run as:** Development system user
 
 **Prerequisite:** Copy `apps/workflow/fixtures/ai_providers.json.example` to `ai_providers.json` and add your real API keys.
 
@@ -343,7 +334,6 @@ Mistral: ✓ API key valid (X models available)
 
 #### Step 12: Verify Specific Data
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -359,7 +349,6 @@ LIMIT 5;
 
 #### Step 13: Test Django ORM
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -391,7 +380,6 @@ Contact: [Real Contact Name]
 
 #### Step 14: Create Admin User
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -416,7 +404,6 @@ Is superuser: True
 
 #### Step 15: Create Dummy Files for JobFile Instances
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -455,7 +442,6 @@ Missing files: 0
 
 #### Step 16: Fix Shop Client Name (Required after Production Restore)
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -494,7 +480,6 @@ Shop client: Demo Company Shop
 ```
 #### Step 17: Verify Test Client Exists or Create if Needed
 
-**Run as:** Development system user
 
 The test client is used by the test suite. Create it if missing:
 
@@ -528,8 +513,9 @@ Created test client: ABC Carpet Cleaning TEST IGNORE (ID: xxxxxxxx-xxxx-xxxx-xxx
 
 #### Step 18: Start ngrok Tunnels (skip for UAT)
 
-**Run as:** Development system user
 **Commands (run in separate terminals):**
+
+Note, these are often already running.  Check first.
 
 ```bash
 # Terminal 1: ngrok for backend (replace with your domain)
@@ -543,7 +529,6 @@ ngrok http 5173 --domain=your-frontend.ngrok-free.app
 
 #### Step 19: Start Development Server (skip for UAT)
 
-**Run as:** Development system user
 
 **Check if server is already running:**
 
@@ -561,7 +546,6 @@ In VS Code: Run menu > Start Debugging (F5)
 
 #### Step 20: Start Frontend (skip for UAT)
 
-**Run as:** Development system user
 
 **Check if frontend is already running:**
 
@@ -581,7 +565,6 @@ cd ../jobs_manager_front && npm run dev
 
 #### Step 21: Connect to Xero OAuth
 
-**Run as:** Development system user
 
 🚨 **MANDATORY - all future steps will fail without this.** 🚨
 
@@ -615,7 +598,6 @@ print('✅ Xero OAuth token found.')
 
 #### Step 22: Set Xero Tenant ID
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -638,7 +620,6 @@ Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaul
 
 #### Step 23: Sync Chart of Accounts from Xero
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -669,9 +650,18 @@ Sales account (200): Sales
 Purchases account (300): Purchases
 ```
 
-#### Step 24: Seed Database to Xero
+#### Step 24: Sync Pay Items from Xero
 
-**Run as:** Development system user
+**Command:**
+
+```bash
+python manage.py xero --configure-payroll
+```
+
+**Expected output:** `✓ XeroPayItem sync completed!`
+
+#### Step 25: Seed Database to Xero
+
 
 **WARNING:** This step takes 10+ minutes. Run in background.
 
@@ -719,9 +709,8 @@ print(f'Staff linked to Xero Payroll: {staff_with_xero}')
 
 **Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
 
-#### Step 25: Sync Xero
+#### Step 26: Sync Xero
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -732,9 +721,8 @@ python manage.py start_xero_sync
 
 Error and warning free sync between local and xero data.
 
-#### Step 26: Start Background Scheduler
+#### Step 27: Start Background Scheduler
 
-**Run as:** Development system user
 **Command (in separate terminal):**
 
 ```bash
@@ -743,9 +731,8 @@ python manage.py run_scheduler
 
 This keeps the Xero token refreshed automatically.
 
-#### Step 27: Test Serializers
+#### Step 28: Test Serializers
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -754,9 +741,8 @@ python scripts/test_serializers.py --verbose
 
 **Expected:** `✅ ALL SERIALIZERS PASSED!` or specific failure details if issues found.
 
-#### Step 28: Test Kanban HTTP API
+#### Step 29: Test Kanban HTTP API
 
-**Run as:** Development system user
 **Command:**
 
 ```bash
@@ -782,9 +768,8 @@ API response:
 
 **CRITICAL:** If you see "✗ ERROR" in the output, the restore has FAILED and you must fix the issues before proceeding.
 
-#### Step 29: Run Playwright Tests
+#### Step 30: Run Playwright Tests
 
-**Run as:** Development system user
 **Command:**
 
 ```bash

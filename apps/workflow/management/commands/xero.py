@@ -570,12 +570,12 @@ class Command(BaseCommand):
             result = sync_xero_pay_items()
 
             self.stdout.write(
-                f"Leave types: {result['leave_types_created']} created, "
-                f"{result['leave_types_updated']} updated"
+                f"Leave types: {result['leave_types']['created']} created, "
+                f"{result['leave_types']['updated']} updated"
             )
             self.stdout.write(
-                f"Earnings rates: {result['earnings_rates_created']} created, "
-                f"{result['earnings_rates_updated']} updated"
+                f"Earnings rates: {result['earnings_rates']['created']} created, "
+                f"{result['earnings_rates']['updated']} updated"
             )
             self.stdout.write(self.style.SUCCESS("\n✓ XeroPayItem sync completed!"))
 
