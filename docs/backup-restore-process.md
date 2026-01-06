@@ -262,18 +262,10 @@ python manage.py loaddata apps/workflow/fixtures/company_defaults.json
 **Check:**
 
 ```bash
-python manage.py shell -c "
-from apps.workflow.models import CompanyDefaults
-company = CompanyDefaults.get_instance()
-print(f'Company defaults loaded: {company.company_name}')
-"
+python scripts/restore_checks/check_company_defaults.py
 ```
 
-**Expected output:**
-
-```
-Company defaults loaded: Demo Company
-```
+**Expected output:** `Company defaults loaded: Demo Company`
 
 #### Step 11: Load AI Providers Fixture (Optional)
 
@@ -289,48 +281,10 @@ python manage.py loaddata apps/workflow/fixtures/ai_providers.json
 **Check (validates API keys actually work):**
 
 ```bash
-python manage.py shell -c "
-from apps.workflow.models import AIProvider
-from apps.workflow.services.llm_service import LLMService
-from apps.workflow.enums import AIProviderTypes
-from mistralai import Mistral
-
-results = []
-
-# Test Claude and Gemini via LLMService (chat)
-for ptype in [AIProviderTypes.ANTHROPIC, AIProviderTypes.GOOGLE]:
-    provider = AIProvider.objects.filter(provider_type=ptype).first()
-    if not provider or not provider.api_key:
-        print(f'{ptype}: ✗ Not configured')
-        continue
-    try:
-        svc = LLMService(provider_type=ptype)
-        resp = svc.get_text_response([{'role': 'user', 'content': 'Say hi in 2 words'}])
-        print(f'{provider.name}: ✓ {resp.strip()[:30]}')
-    except Exception as e:
-        print(f'{provider.name}: ✗ {str(e)[:50]}')
-
-# Test Mistral via SDK (OCR model - just validate key works)
-provider = AIProvider.objects.filter(provider_type=AIProviderTypes.MISTRAL).first()
-if provider and provider.api_key:
-    try:
-        client = Mistral(api_key=provider.api_key)
-        models = client.models.list()
-        print(f'Mistral: ✓ API key valid ({len(models.data)} models available)')
-    except Exception as e:
-        print(f'Mistral: ✗ {str(e)[:50]}')
-else:
-    print('Mistral: ✗ Not configured')
-"
+python scripts/restore_checks/check_ai_providers.py
 ```
 
-**Expected output:**
-
-```
-Claude: ✓ Hello there!
-Gemini: ✓ Hi there!
-Mistral: ✓ API key valid (X models available)
-```
+**Expected output:** Each provider shows a response or "API key valid".
 
 #### Step 12: Verify Specific Data
 
@@ -352,30 +306,17 @@ LIMIT 5;
 **Command:**
 
 ```bash
-python manage.py shell -c "
-from apps.job.models import Job
-from apps.accounts.models import Staff
-from apps.client.models import Client
-print(f'Jobs: {Job.objects.count()}')
-print(f'Staff: {Staff.objects.count()}')
-print(f'Clients: {Client.objects.count()}')
-job = Job.objects.first()
-if job:
-    print(f'Sample job: {job.name} (#{job.job_number})')
-    print(f'Contact: {job.contact.name if job.contact else "None"}')
-else:
-    print('ERROR: No jobs found')
-"
+python scripts/restore_checks/check_django_orm.py
 ```
 
 **Expected output:**
 
 ```
-Jobs: 620
-Staff: 17
-Clients: 3605
-Sample job: [Real Job Name] (#12345)
-Contact: [Real Contact Name]
+Jobs: ~1400
+Staff: ~22
+Clients: ~4800
+Sample job: [any real job name] (#XXXXX)
+Contact: [any real contact name]
 ```
 
 #### Step 14: Create Admin User
@@ -383,22 +324,21 @@ Contact: [Real Contact Name]
 **Command:**
 
 ```bash
-python manage.py shell -c "from apps.accounts.models import Staff; user = Staff.objects.create_user(email='defaultadmin@example.com', password='Default-admin-password', first_name='Default', last_name='Admin'); user.is_office_staff = True; user.is_superuser = True; user.save(); print(f'Created admin user: {user.email}')"
+python scripts/restore_checks/create_admin_user.py
 ```
 
 **Check:**
 
 ```bash
-python manage.py shell -c "from apps.accounts.models import Staff; user = Staff.objects.get(email='defaultadmin@example.com'); print(f'User exists: {user.email}'); print(f'Is active: {user.is_active}'); print(f'Is office staff: {user.is_office_staff}'); print(f'Is superuser: {user.is_superuser}')"
+python scripts/restore_checks/check_admin_user.py
 ```
 
 **Expected output:**
 
 ```
-Created admin user: defaultadmin@example.com
 User exists: defaultadmin@example.com
 Is active: True
-Is staff: True
+Is office staff: True
 Is superuser: True
 ```
 
@@ -413,30 +353,14 @@ python scripts/recreate_jobfiles.py
 **Check:**
 
 ```bash
-python manage.py shell -c "
-from apps.job.models import JobFile
-import os
-from django.conf import settings
-
-total_files = JobFile.objects.filter(file_path__isnull=False).exclude(file_path='').count()
-existing_files = 0
-for job_file in JobFile.objects.filter(file_path__isnull=False).exclude(file_path=''):
-    dummy_path = os.path.join(settings.DROPBOX_WORKFLOW_FOLDER, str(job_file.file_path))
-    if os.path.exists(dummy_path):
-        existing_files += 1
-
-print(f'Total JobFile records with file_path: {total_files}')
-print(f'Dummy files created: {existing_files}')
-print(f'Missing files: {total_files - existing_files}')
-"
+python scripts/restore_checks/check_jobfiles.py
 ```
 
 **Expected output:**
 
 ```
-Created X dummy files total
-Total JobFile records with file_path: X
-Dummy files created: X
+Total JobFile records with file_path: ~3000
+Dummy files created: ~3000
 Missing files: 0
 ```
 
@@ -445,71 +369,25 @@ Missing files: 0
 **Command:**
 
 ```bash
-python manage.py shell -c "
-from apps.client.models import Client
-
-# Find and rename the shop client (anonymized during backup)
-# The shop client typically has the special ID: 00000000-0000-0000-0000-000000000001
-shop_client = Client.objects.get(id='00000000-0000-0000-0000-000000000001')
-old_name = shop_client.name
-shop_client.name = 'Demo Company Shop'
-shop_client.save()
-
-print(f'Updated shop client:')
-print(f'  Old name: {old_name}')
-print(f'  New name: {shop_client.name}')
-print(f'  ID: {shop_client.id}')
-print(f'  Job count: {shop_client.jobs.count()}')
-"
+python scripts/restore_checks/fix_shop_client.py
 ```
 
 **Check:**
 
 ```bash
-python manage.py shell -c "
-from apps.client.models import Client
-shop = Client.objects.get(id='00000000-0000-0000-0000-000000000001')
-print(f'Shop client: {shop.name}')
-"
+python scripts/restore_checks/check_shop_client.py
 ```
 
-**Expected output:**
-
-```
-Shop client: Demo Company Shop
-```
+**Expected output:** `Shop client: Demo Company Shop`
 #### Step 17: Verify Test Client Exists or Create if Needed
-
 
 The test client is used by the test suite. Create it if missing:
 
 ```bash
-python manage.py shell -c "
-from apps.workflow.models import CompanyDefaults
-from apps.client.models import Client
-from django.utils import timezone
-
-cd = CompanyDefaults.get_instance()
-client = Client.objects.filter(name=cd.test_client_name).first()
-
-if client:
-    print(f'Test client already exists: {client.name} (ID: {client.id})')
-else:
-    client = Client(
-        name=cd.test_client_name,
-        is_account_customer=False,
-        xero_last_modified=timezone.now(),
-        xero_last_synced=timezone.now(),
-    )
-    client.save()
-    print(f'Created test client: {client.name} (ID: {client.id})')
-"
+python scripts/restore_checks/check_test_client.py
 ```
 
-**Expected output:**
-```
-Created test client: ABC Carpet Cleaning TEST IGNORE (ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-```
+**Expected output:** `Test client already exists: ABC Carpet Cleaning TEST IGNORE ...` or `Created test client: ...`
 
 #### Step 18: Start ngrok Tunnels (skip for UAT)
 
@@ -580,21 +458,10 @@ This script automates the Xero OAuth login flow using Playwright. It navigates t
 **Check:**
 
 ```bash
-python manage.py shell -c "
-from apps.workflow.models import XeroToken
-from django.utils import timezone
-
-token = XeroToken.objects.first()
-if not token:
-    print('❌ No Xero token found. Login script may have failed.')
-    exit(1)
-if token.expires_at and token.expires_at < timezone.now():
-    print('❌ Xero token is expired.')
-    exit(1)
-
-print('✅ Xero OAuth token found.')
-"
+python scripts/restore_checks/check_xero_token.py
 ```
+
+**Expected output:** `Xero OAuth token found.`
 
 #### Step 22: Set Xero Tenant ID
 
@@ -632,20 +499,13 @@ Fetches the chart of accounts from Xero and populates the XeroAccount table with
 **Check:**
 
 ```bash
-python manage.py shell -c "
-from apps.workflow.models import XeroAccount
-print(f'Total accounts synced: {XeroAccount.objects.count()}')
-sales = XeroAccount.objects.filter(account_code='200').first()
-purchases = XeroAccount.objects.filter(account_code='300').first()
-print(f'Sales account (200): {sales.account_name if sales else \"NOT FOUND\"}')
-print(f'Purchases account (300): {purchases.account_name if purchases else \"NOT FOUND\"}')
-"
+python scripts/restore_checks/check_xero_accounts.py
 ```
 
 **Expected output:**
 
 ```
-Total accounts synced: 50+ accounts
+Total accounts synced: ~62
 Sales account (200): Sales
 Purchases account (300): Purchases
 ```
@@ -689,25 +549,17 @@ tail -f logs/seed_xero_output.log
 **Check completion:**
 
 ```bash
-python manage.py shell -c "
-from apps.client.models import Client
-from apps.job.models import Job
-from apps.purchasing.models import Stock
-from apps.accounts.models import Staff
-
-clients_with_xero = Client.objects.filter(xero_contact_id__isnull=False).count()
-jobs_with_xero = Job.objects.filter(xero_project_id__isnull=False).count()
-stock_with_xero = Stock.objects.filter(xero_id__isnull=False, is_active=True).count()
-staff_with_xero = Staff.objects.filter(xero_user_id__isnull=False, date_left__isnull=True).count()
-
-print(f'Clients linked to Xero: {clients_with_xero}')
-print(f'Jobs linked to Xero: {jobs_with_xero}')
-print(f'Stock items synced to Xero: {stock_with_xero}')
-print(f'Staff linked to Xero Payroll: {staff_with_xero}')
-"
+python scripts/restore_checks/check_xero_seed.py
 ```
 
-**Expected:** Large numbers - clients (2500+), jobs (500+), stock items (hundreds to thousands), staff (all active staff).
+**Expected output:**
+
+```
+Clients linked to Xero: ~550
+Jobs linked to Xero: 0
+Stock items synced to Xero: ~440
+Staff linked to Xero Payroll: ~15
+```
 
 #### Step 26: Sync Xero
 
