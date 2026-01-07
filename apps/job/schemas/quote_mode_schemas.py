@@ -5,7 +5,9 @@ Defines structured input/output contracts for CALC, PRICE, and TABLE modes
 to ensure consistent data handling and validation.
 """
 
-CALC_SCHEMA = {
+from typing import Any, Dict, List
+
+CALC_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "required": ["inputs", "results", "questions"],
     "properties": {
@@ -243,7 +245,7 @@ TABLE_SCHEMA = {
 }
 
 
-def get_schema(mode: str) -> dict:
+def get_schema(mode: str) -> Dict[str, Any]:
     """
     Get the JSON schema for a specific mode.
 
@@ -264,7 +266,7 @@ def get_schema(mode: str) -> dict:
     return schemas[mode]
 
 
-def get_allowed_tools(mode: str) -> list:
+def get_allowed_tools(mode: str) -> List[str]:
     """
     Get the list of allowed MCP tools for a specific mode.
 
