@@ -451,27 +451,31 @@ python scripts/restore_checks/check_xero_token.py
 
 **Expected output:** `Xero OAuth token found.`
 
-#### Step 22: Set Xero Tenant ID
+#### Step 22: Configure Xero Connection
 
 **Command:**
 
 ```bash
-python manage.py xero --tenant
+python manage.py xero --setup
 ```
+
+**What this does:**
+Configures all required Xero settings in CompanyDefaults:
+1. Sets `xero_tenant_id` from connected organisation
+2. Sets `xero_shortcode` for deep linking
+3. Looks up payroll calendar by name and sets `xero_payroll_calendar_id`
 
 **Expected output:**
 
 ```
-Available Xero Organizations:
------------------------------
+Using organisation: [Tenant Name]
 Tenant ID: [tenant-id-uuid]
-Name: [Tenant Name]
------------------------------
-
-Automatically set tenant ID to [tenant-id-uuid] ([Tenant Name]) in CompanyDefaults
+Shortcode: [shortcode]
+Payroll Calendar: Weekly Testing ([calendar-uuid])
+Xero setup complete.
 ```
 
-**Note:** If multiple tenants are found, the command will display them but not auto-set. Use `--no-set` to prevent automatic setting.
+**Note:** Requires `xero_payroll_calendar_name` to be set in CompanyDefaults (loaded from fixture in Step 10).
 
 #### Step 23: Sync Chart of Accounts from Xero
 
