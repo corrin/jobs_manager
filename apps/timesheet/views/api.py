@@ -179,6 +179,7 @@ class JobsAPIView(APIView):
         """Get list of active jobs for timesheet entries using CostSet system."""
         try:
             # Get active jobs - exclude archived only
+            # Prefetch latest_actual and default_xero_pay_item to avoid N+1 in serializer
             jobs = (
                 Job.objects.filter(
                     status__in=[
@@ -191,8 +192,7 @@ class JobsAPIView(APIView):
                         "special",
                     ]
                 )
-                .select_related("client")
-                .prefetch_related("cost_sets")  # Prefetch cost sets for efficiency
+                .select_related("client", "latest_actual", "default_xero_pay_item")
                 .order_by("job_number")
             )
 
