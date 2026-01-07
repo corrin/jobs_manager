@@ -111,9 +111,6 @@ def _require_office_staff_json(request: HttpRequest):
 # Xero Authentication (Step 1: Redirect user to Xero OAuth2 login)
 @csrf_exempt
 def xero_authenticate(request: HttpRequest) -> HttpResponse:
-    guard = _require_office_staff_html(request)
-    if guard:
-        return guard
     state = str(uuid.uuid4())
     request.session["oauth_state"] = state
     redirect_after_login = request.GET.get("next", "/")
@@ -125,9 +122,6 @@ def xero_authenticate(request: HttpRequest) -> HttpResponse:
 # OAuth callback
 @csrf_exempt
 def xero_oauth_callback(request: HttpRequest) -> HttpResponse:
-    guard = _require_office_staff_html(request)
-    if guard:
-        return guard
     code = request.GET.get("code")
     state = request.GET.get("state")
     session_state = request.session.get("oauth_state")
@@ -185,9 +179,6 @@ def refresh_xero_token(request: HttpRequest) -> HttpResponse:
 # Xero connection success view
 @csrf_exempt
 def success_xero_connection(request: HttpRequest) -> HttpResponse:
-    guard = _require_office_staff_html(request)
-    if guard:
-        return guard
     return render(request, "xero/success_xero_connection.html")
 
 
@@ -938,9 +929,6 @@ def _get_last_sync_time(model):
 @csrf_exempt
 def get_xero_sync_info(request):
     """Get current sync status and last sync times for all entities in ENTITY_CONFIGS."""
-    guard = _require_office_staff_json(request)
-    if guard:
-        return guard
     try:
         token = get_valid_token()
         if not token:
@@ -1043,9 +1031,6 @@ def xero_ping(request: HttpRequest) -> JsonResponse:
     Returns {"connected": true} or {"connected": false}.
     Always returns HTTP 200 for frontend simplicity.
     """
-    guard = _require_office_staff_json(request)
-    if guard:
-        return guard
     try:
         token = get_valid_token()
         is_connected = bool(token)

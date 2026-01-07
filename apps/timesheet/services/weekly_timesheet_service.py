@@ -80,19 +80,58 @@ class WeeklyTimesheetService:
 
     @classmethod
     def _get_staff_data(cls, week_days: List[date]) -> List[Dict[str, Any]]:
-        """Get comprehensive staff data for the week with payroll fields."""
-        staff_members = get_displayable_staff(date_range=(week_days[0], week_days[-1]))
+        """Get comprehensive staff data for the week with payroll fields.
+
+        Optimized to bulk-fetch all CostLines for the week in ONE query,
+        then process in Python. This reduces ~100 queries to 1-2.
+        """
+        staff_members = list(
+            get_displayable_staff(date_range=(week_days[0], week_days[-1]))
+        )
+
+        # ONE query for ALL time entries for ALL staff for the entire week
+        all_cost_lines = list(
+            CostLine.objects.annotate(
+                staff_id_meta=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
+                    (),
+                    output_field=models.CharField(),
+                ),
+                wage_rate_multiplier=RawSQL(
+                    "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.wage_rate_multiplier'))",
+                    (),
+                    output_field=models.DecimalField(),
+                ),
+                is_billable=RawSQL(
+                    "JSON_EXTRACT(meta, '$.is_billable') = true",
+                    (),
+                    output_field=models.BooleanField(),
+                ),
+            )
+            .filter(
+                cost_set__kind="actual",
+                kind="time",
+                accounting_date__gte=week_days[0],
+                accounting_date__lte=week_days[-1],
+            )
+            .select_related("cost_set__job", "cost_set__job__default_xero_pay_item")
+        )
+
+        # Group by staff_id and day
+        lines_by_staff_day = {}
+        for line in all_cost_lines:
+            key = (line.staff_id_meta, line.accounting_date)
+            if key not in lines_by_staff_day:
+                lines_by_staff_day[key] = []
+            lines_by_staff_day[key].append(line)
 
         staff_data = []
-
         for staff_member in staff_members:
-            # Get daily data for each day
+            staff_id = str(staff_member.id)
             weekly_hours = []
             total_hours = 0
             total_billable_hours = 0
             total_scheduled_hours = 0
-
-            # Payroll totals
             total_billed_hours = 0
             total_unbilled_hours = 0
             total_overtime_1_5x_hours = 0
@@ -100,12 +139,12 @@ class WeeklyTimesheetService:
             total_sick_leave_hours = 0
             total_annual_leave_hours = 0
             total_bereavement_leave_hours = 0
-            total_weighted_hours = 0  # For cost calculation (hours × rate_multiplier)
+            total_weighted_hours = 0
 
             for day in week_days:
-                daily_data = cls._get_payroll_daily_data(staff_member, day)
+                cost_lines = lines_by_staff_day.get((staff_id, day), [])
+                daily_data = cls._process_daily_lines(staff_member, day, cost_lines)
 
-                # Calculate daily cost from weighted hours
                 daily_weighted = daily_data.get("daily_weighted_hours", 0)
                 daily_data["daily_cost"] = round(
                     float(staff_member.wage_rate) * daily_weighted, 2
@@ -115,7 +154,6 @@ class WeeklyTimesheetService:
                 total_hours += daily_data["hours"]
                 total_billable_hours += daily_data.get("billable_hours", 0)
                 total_scheduled_hours += daily_data.get("scheduled_hours", 0)
-
                 total_billed_hours += daily_data.get("billed_hours", 0)
                 total_unbilled_hours += daily_data.get("unbilled_hours", 0)
                 total_overtime_1_5x_hours += daily_data.get("overtime_1_5x_hours", 0)
@@ -127,14 +165,13 @@ class WeeklyTimesheetService:
                 )
                 total_weighted_hours += daily_data.get("daily_weighted_hours", 0)
 
-            # Calculate cost and percentages
             weekly_cost = float(staff_member.wage_rate) * total_weighted_hours
             billable_percentage = (
                 (total_billable_hours / total_hours * 100) if total_hours > 0 else 0
             )
 
             staff_entry = {
-                "staff_id": str(staff_member.id),
+                "staff_id": staff_id,
                 "name": staff_member.get_display_full_name(),
                 "weekly_hours": weekly_hours,
                 "total_hours": float(total_hours),
@@ -151,203 +188,101 @@ class WeeklyTimesheetService:
                 "total_bereavement_leave_hours": float(total_bereavement_leave_hours),
                 "weekly_cost": round(weekly_cost, 2),
             }
-
             staff_data.append(staff_entry)
 
         return staff_data
 
     @classmethod
-    def _get_daily_data(cls, staff_member: Staff, day: date) -> Dict[str, Any]:
-        """Get standard daily data for a staff member using CostLine."""
-        try:
-            scheduled_hours = staff_member.get_scheduled_hours(day)
+    def _process_daily_lines(
+        cls, staff_member: Staff, day: date, cost_lines: list
+    ) -> Dict[str, Any]:
+        """Process pre-fetched cost lines for a single staff/day."""
+        scheduled_hours = staff_member.get_scheduled_hours(day)
 
-            # Get cost lines for this staff and date from 'actual' cost sets
-            cost_lines = (
-                CostLine.objects.annotate(
-                    staff_id=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                    is_billable=RawSQL(
-                        "JSON_EXTRACT(meta, '$.is_billable') = true",
-                        (),
-                        output_field=models.BooleanField(),
-                    ),
-                )
-                .filter(
-                    cost_set__kind="actual",
-                    kind="time",
-                    staff_id=str(staff_member.id),
-                    accounting_date=day,
-                )
-                .select_related("cost_set__job")
+        # Split into work and leave
+        work_lines = []
+        leave_lines = []
+        for line in cost_lines:
+            job_name = (
+                line.cost_set.job.name if line.cost_set and line.cost_set.job else ""
             )
+            if "Leave" in job_name:
+                leave_lines.append(line)
+            else:
+                work_lines.append(line)
 
-            daily_hours = sum(Decimal(line.quantity) for line in cost_lines)
-            billable_hours = sum(
-                Decimal(line.quantity) for line in cost_lines if line.is_billable
+        daily_hours = sum(Decimal(line.quantity) for line in cost_lines)
+        billable_hours = sum(
+            Decimal(line.quantity) for line in cost_lines if line.is_billable
+        )
+        has_leave = len(leave_lines) > 0
+        leave_type = (
+            leave_lines[0].cost_set.job.name
+            if has_leave and leave_lines[0].cost_set and leave_lines[0].cost_set.job
+            else None
+        )
+
+        base_data = {
+            "day": day.strftime("%Y-%m-%d"),
+            "hours": float(daily_hours),
+            "billable_hours": float(billable_hours),
+            "scheduled_hours": float(scheduled_hours),
+            "status": cls._get_day_status(
+                float(daily_hours), scheduled_hours, has_leave
+            ),
+            "leave_type": leave_type,
+            "has_leave": has_leave,
+        }
+
+        billed_hours = unbilled_hours = overtime_1_5x_hours = overtime_2x_hours = 0
+        daily_weighted_hours = Decimal(0)
+
+        for line in work_lines:
+            multiplier = line.wage_rate_multiplier or Decimal("1.0")
+            hours = line.quantity
+            daily_weighted_hours += hours * multiplier
+            if multiplier == Decimal("0.0"):
+                continue
+            if line.is_billable:
+                billed_hours += hours
+            else:
+                unbilled_hours += hours
+            if multiplier == Decimal("1.5"):
+                overtime_1_5x_hours += hours
+            elif multiplier == Decimal("2.0"):
+                overtime_2x_hours += hours
+
+        sick_leave_hours = annual_leave_hours = bereavement_leave_hours = 0
+        for line in leave_lines:
+            pay_item = (
+                line.cost_set.job.default_xero_pay_item
+                if line.cost_set and line.cost_set.job
+                else None
             )
+            hours = line.quantity
+            if pay_item and pay_item.name == "Sick Leave":
+                sick_leave_hours += hours
+                daily_weighted_hours += hours
+            elif pay_item and pay_item.name == "Annual Leave":
+                annual_leave_hours += hours
+                daily_weighted_hours += hours
+            elif pay_item and pay_item.name == "Bereavement Leave":
+                bereavement_leave_hours += hours
+                daily_weighted_hours += hours
 
-            # Check for leave - look for jobs with "Leave" in name
-            leave_lines = [
-                line
-                for line in cost_lines
-                if line.cost_set
-                and line.cost_set.job
-                and "Leave" in line.cost_set.job.name
-            ]
-            has_leave = len(leave_lines) > 0
-            leave_type = leave_lines[0].cost_set.job.name if has_leave else None
-
-            # Determine status
-            status = cls._get_day_status(float(daily_hours), scheduled_hours, has_leave)
-
-            return {
-                "day": day.strftime("%Y-%m-%d"),
-                "hours": float(daily_hours),
-                "billable_hours": float(billable_hours),
-                "scheduled_hours": float(scheduled_hours),
-                "status": status,
-                "leave_type": leave_type,
-                "has_leave": has_leave,
+        base_data.update(
+            {
+                "billed_hours": float(billed_hours),
+                "unbilled_hours": float(unbilled_hours),
+                "overtime_1_5x_hours": float(overtime_1_5x_hours),
+                "overtime_2x_hours": float(overtime_2x_hours),
+                "sick_leave_hours": float(sick_leave_hours),
+                "annual_leave_hours": float(annual_leave_hours),
+                "bereavement_leave_hours": float(bereavement_leave_hours),
+                "daily_weighted_hours": float(daily_weighted_hours),
             }
-
-        except Exception as e:
-            logger.error(f"Error getting daily data for {staff_member} on {day}: {e}")
-            return {
-                "day": day.strftime("%Y-%m-%d"),
-                "hours": 0.0,
-                "billable_hours": 0.0,
-                "scheduled_hours": 0.0,
-                "status": "⚠",
-                "leave_type": None,
-                "has_leave": False,
-            }
-
-    @classmethod
-    def _get_payroll_daily_data(cls, staff_member: Staff, day: date) -> Dict[str, Any]:
-        """Get daily data with Xero posting categories using CostLine."""
-        try:
-            base_data = cls._get_daily_data(staff_member, day)
-
-            # Get work hours by rate and billability (excludes unpaid/leave)
-            cost_lines = (
-                CostLine.objects.annotate(
-                    staff_id=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                    wage_rate_multiplier=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.wage_rate_multiplier'))",
-                        (),
-                        output_field=models.DecimalField(),
-                    ),
-                    is_billable=RawSQL(
-                        "JSON_EXTRACT(meta, '$.is_billable') = true",
-                        (),
-                        output_field=models.BooleanField(),
-                    ),
-                )
-                .filter(
-                    cost_set__kind="actual",
-                    kind="time",
-                    staff_id=str(staff_member.id),
-                    accounting_date=day,
-                )
-                .exclude(cost_set__job__name__icontains="Leave")
-                .select_related("cost_set__job")
-            )
-
-            billed_hours = 0
-            unbilled_hours = 0
-            overtime_1_5x_hours = 0
-            overtime_2x_hours = 0
-            daily_weighted_hours = Decimal(0)  # hours × rate_multiplier for cost calc
-
-            for line in cost_lines:
-                multiplier = line.wage_rate_multiplier or Decimal("1.0")
-                hours = line.quantity
-
-                # Accumulate weighted hours for cost (unpaid hours × 0 = 0)
-                daily_weighted_hours += hours * multiplier
-
-                # Skip unpaid hours from billability/overtime categorization
-                if multiplier == Decimal("0.0"):
-                    continue
-
-                # Categorize by billability
-                if line.is_billable:
-                    billed_hours += hours
-                else:
-                    unbilled_hours += hours
-
-                # Categorize overtime
-                if multiplier == Decimal("1.5"):
-                    overtime_1_5x_hours += hours
-                elif multiplier == Decimal("2.0"):
-                    overtime_2x_hours += hours
-
-            # Get leave hours broken down by type
-            leave_lines = (
-                CostLine.objects.annotate(
-                    staff_id=RawSQL(
-                        "JSON_UNQUOTE(JSON_EXTRACT(meta, '$.staff_id'))",
-                        (),
-                        output_field=models.CharField(),
-                    ),
-                )
-                .filter(
-                    cost_set__kind="actual",
-                    kind="time",
-                    staff_id=str(staff_member.id),
-                    accounting_date=day,
-                    cost_set__job__name__icontains="Leave",
-                )
-                .select_related("cost_set__job")
-            )
-
-            sick_leave_hours = 0
-            annual_leave_hours = 0
-            bereavement_leave_hours = 0
-
-            for line in leave_lines:
-                pay_item = line.cost_set.job.default_xero_pay_item
-                hours = line.quantity
-
-                if pay_item is None:
-                    continue  # Not a leave job
-                elif pay_item.name == "Sick Leave":
-                    sick_leave_hours += hours
-                    daily_weighted_hours += hours  # Paid at 1.0x
-                elif pay_item.name == "Annual Leave":
-                    annual_leave_hours += hours
-                    daily_weighted_hours += hours  # Paid at 1.0x
-                elif pay_item.name == "Bereavement Leave":
-                    bereavement_leave_hours += hours
-                    daily_weighted_hours += hours  # Paid at 1.0x
-                # Skip Unpaid Leave (contributes $0 to cost)
-
-            base_data.update(
-                {
-                    "billed_hours": float(billed_hours),
-                    "unbilled_hours": float(unbilled_hours),
-                    "overtime_1_5x_hours": float(overtime_1_5x_hours),
-                    "overtime_2x_hours": float(overtime_2x_hours),
-                    "sick_leave_hours": float(sick_leave_hours),
-                    "annual_leave_hours": float(annual_leave_hours),
-                    "bereavement_leave_hours": float(bereavement_leave_hours),
-                    "daily_weighted_hours": float(daily_weighted_hours),
-                }
-            )
-
-            return base_data
-
-        except Exception as e:
-            logger.error(f"Error getting Payroll data for {staff_member} on {day}: {e}")
-            return cls._get_daily_data(staff_member, day)
+        )
+        return base_data
 
     @classmethod
     def _get_day_status(
@@ -408,11 +343,12 @@ class WeeklyTimesheetService:
             ).count()
 
             # Get all cost lines for the week (not just time)
+            # Prefetch latest_estimate to avoid N+1 when accessing job.latest_estimate
             cost_lines_week = CostLine.objects.filter(
                 cost_set__kind="actual",
                 accounting_date__gte=start_date,
                 accounting_date__lte=end_date,
-            ).select_related("cost_set__job")
+            ).select_related("cost_set__job", "cost_set__job__latest_estimate")
 
             jobs_with_entries = (
                 cost_lines_week.values("cost_set__job").distinct().count()
