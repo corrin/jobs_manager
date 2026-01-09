@@ -1,6 +1,4 @@
-from django.http import HttpResponse
 from django.urls import include, path
-from rest_framework import status
 from rest_framework.routers import DefaultRouter
 
 from apps.job.views.data_integrity_views import DataIntegrityReportView
@@ -257,31 +255,6 @@ rest_urlpatterns = [
         "rest/jobs/<uuid:pk>/quote/apply/",
         ApplyQuoteAPIView.as_view(),
         name="quote_apply",
-    ),
-    # Quote Import
-    path(
-        "rest/jobs/<uuid:job_id>/quote/import/preview/",
-        lambda request, *args, **kwargs: HttpResponse(
-            (
-                '{"error": "This endpoint has been deprecated. '
-                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
-            ),
-            status=status.HTTP_410_GONE,
-            content_type="application/json",
-        ),
-        name="quote_import_preview_deprecated",
-    ),
-    path(
-        "rest/jobs/<uuid:job_id>/quote/import/",
-        lambda request, *args, **kwargs: HttpResponse(
-            (
-                '{"error": "This endpoint has been deprecated. '
-                'Use /quote/link/, /quote/preview/, and /quote/apply/ instead."}'
-            ),
-            status=status.HTTP_410_GONE,
-            content_type="application/json",
-        ),
-        name="quote_import_deprecated",
     ),
     path(
         "rest/jobs/<uuid:job_id>/quote/status/",
