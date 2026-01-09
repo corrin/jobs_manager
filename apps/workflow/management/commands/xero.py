@@ -314,6 +314,11 @@ class Command(BaseCommand):
             )
             return
 
+        # Step 3b: Save tenant_id immediately so subsequent API calls can use it
+        if company.xero_tenant_id != tenant_id:
+            company.xero_tenant_id = tenant_id
+            company.save(update_fields=["xero_tenant_id"])
+
         # Step 4: Fetch organisation shortcode for deep linking
         accounting_api = AccountingApi(api_client)
         org_response = accounting_api.get_organisations(xero_tenant_id=tenant_id)
