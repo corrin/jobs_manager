@@ -253,16 +253,20 @@ class WorkshopTimesheetService:
         return cost_set
 
     def _calculate_rates(self, *, job, rate_multiplier: Decimal, is_billable: bool):
-        wage_rate = self._quantize_money(
+        wage_rate = self._to_decimal(
             getattr(self.staff, "wage_rate", None), default="0"
-        )
-        charge_out_rate = self._quantize_money(
+        ).quantize(Decimal("0.01"))
+        charge_out_rate = self._to_decimal(
             getattr(job, "charge_out_rate", None), default="0"
-        )
+        ).quantize(Decimal("0.01"))
         rate_multiplier = self._to_decimal(rate_multiplier, default="1.0")
-        unit_cost = self._quantize_money(wage_rate * rate_multiplier, default="0")
+        unit_cost = self._to_decimal(wage_rate * rate_multiplier, default="0").quantize(
+            Decimal("0.01")
+        )
         unit_rev = (
-            self._quantize_money(charge_out_rate * rate_multiplier, default="0")
+            self._to_decimal(charge_out_rate * rate_multiplier, default="0").quantize(
+                Decimal("0.01")
+            )
             if is_billable
             else Decimal("0.00")
         )
@@ -282,12 +286,6 @@ class WorkshopTimesheetService:
             return Decimal(str(value))
         except (InvalidOperation, TypeError):
             return Decimal(default)
-
-    @staticmethod
-    def _quantize_money(value, default: str) -> Decimal:
-        return WorkshopTimesheetService._to_decimal(value, default).quantize(
-            Decimal("0.01")
-        )
 
     @staticmethod
     def _format_time(value):

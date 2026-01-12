@@ -102,6 +102,12 @@ ls -la restore/*.zip
 cd restore && unzip prod_backup_YYYYMMDD_HHMMSS_complete.zip
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+Expand-Archive -Path restore\prod_backup_YYYYMMDD_HHMMSS_complete.zip -DestinationPath restore -Force
+```
+
 **Check:**
 
 ```bash
@@ -121,6 +127,12 @@ grep -E "^(MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)=" .env
 export DB_PASSWORD=$(grep DB_PASSWORD .env | cut -d= -f2)
 export MYSQL_DATABASE=$(grep MYSQL_DATABASE .env | cut -d= -f2)
 export MYSQL_DB_USER=$(grep MYSQL_DB_USER .env | cut -d= -f2)
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Select-String -Path .env -Pattern '^(MYSQL_DATABASE|MYSQL_DB_USER|DB_PASSWORD|DB_HOST|DB_PORT)='
 ```
 
 **Must show:**
@@ -144,6 +156,14 @@ Note. If you're using Claude or similar, you need to specify these explicitly on
 
 ```bash
 sudo mysql -u root --execute="source scripts/reset_database.sql"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:MYSQL_PWD = '<mysql_root_password_if_needed>'
+mysql.exe -u root --execute="source scripts/reset_database.sql"
+Remove-Item Env:MYSQL_PWD
 ```
 
 **Note:** Adjust for your MySQL setup - add password (`MYSQL_PWD=password`), host (`-h host`), or port (`-P port`) as needed.
@@ -189,6 +209,19 @@ gunzip restore/prod_backup_YYYYMMDD_HHMMSS.json.gz
 python scripts/json_to_mysql.py restore/prod_backup_YYYYMMDD_HHMMSS.json
 ```
 
+**Windows (PowerShell):**
+
+```powershell
+python - <<'PY'
+import gzip, shutil, pathlib
+src = pathlib.Path("restore/prod_backup_YYYYMMDD_HHMMSS.json.gz")
+dst = src.with_suffix("")
+with gzip.open(src, "rb") as f_in, open(dst, "wb") as f_out:
+    shutil.copyfileobj(f_in, f_out)
+PY
+python scripts/json_to_mysql.py restore\prod_backup_YYYYMMDD_HHMMSS.json
+```
+
 **Check:**
 
 ```bash
@@ -211,6 +244,14 @@ grep "INSERT INTO" restore/prod_backup_YYYYMMDD_HHMMSS.sql | wc -l
 
 ```bash
 MYSQL_PWD="$DB_PASSWORD" mysql -h "$DB_HOST" -P "$DB_PORT" -u "$MYSQL_DB_USER" "$MYSQL_DATABASE" --execute="source restore/prod_backup_YYYYMMDD_HHMMSS.sql"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:MYSQL_PWD = $env:DB_PASSWORD
+mysql.exe -h $env:DB_HOST -P $env:DB_PORT -u $env:MYSQL_DB_USER $env:MYSQL_DATABASE --execute="source restore\\prod_backup_YYYYMMDD_HHMMSS.sql"
+Remove-Item Env:MYSQL_PWD
 ```
 
 **Check:**
@@ -539,6 +580,8 @@ ngrok http 8000 --domain=your-backend.ngrok-free.app
 ngrok http 5173 --domain=your-frontend.ngrok-free.app
 ```
 
+**Windows (PowerShell):** same commands as above.
+
 **Check:** Both ngrok tunnels should show "Forwarding" status with public URLs.
 
 #### Step 19: Start Development Server (skip for UAT)
@@ -549,6 +592,12 @@ ngrok http 5173 --domain=your-frontend.ngrok-free.app
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8000
+```
+
+**Windows (PowerShell):**
+
+```powershell
+curl.exe -s -o $null -w "%{http_code}`n" http://localhost:8000
 ```
 
 If you get 302, **SKIP this step** - server is already running.
@@ -567,6 +616,12 @@ In VS Code: Run menu > Start Debugging (F5)
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:5173
+```
+
+**Windows (PowerShell):**
+
+```powershell
+curl.exe -s -o $null -w "%{http_code}`n" http://localhost:5173
 ```
 
 If you get 200, **SKIP this step** - frontend is already running.
@@ -680,6 +735,13 @@ Purchases account (300): Purchases
 ```bash
 nohup python manage.py seed_xero_from_database > logs/seed_xero_output.log 2>&1 &
 echo "Background process started, PID: $!"
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Start-Process -FilePath python -ArgumentList "manage.py", "seed_xero_from_database" -RedirectStandardOutput logs\seed_xero_output.log -RedirectStandardError logs\seed_xero_output.log
+Get-Content logs\seed_xero_output.log -Tail 50 -Wait
 ```
 
 **What this does:**
