@@ -91,8 +91,7 @@ class StaffListAPIView(generics.ListAPIView):
 
         if actual_users:
             excluded_ids = [
-                UUID(id_str)
-                for id_str in get_excluded_staff(target_date=target_date)
+                UUID(id_str) for id_str in get_excluded_staff(target_date=target_date)
             ]
             queryset = queryset.exclude(id__in=excluded_ids)
 
