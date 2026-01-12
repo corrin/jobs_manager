@@ -43,6 +43,7 @@ LITELLM_PROVIDER_PREFIXES = {
     AIProviderTypes.GOOGLE: "gemini/",
     AIProviderTypes.ANTHROPIC: "",  # Claude models don't need prefix
     AIProviderTypes.MISTRAL: "mistral/",
+    AIProviderTypes.OPENAI: "openai/",
 }
 
 

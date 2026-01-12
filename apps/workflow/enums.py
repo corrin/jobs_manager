@@ -5,3 +5,4 @@ class AIProviderTypes(models.TextChoices):
     ANTHROPIC = "Claude"
     GOOGLE = "Gemini"
     MISTRAL = "Mistral"
+    OPENAI = "OpenAI"
