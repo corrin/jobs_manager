@@ -13,7 +13,7 @@ from django.db import models, transaction
 from django.db.models.expressions import RawSQL
 from django.shortcuts import get_object_or_404
 from django.utils.dateparse import parse_date
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -66,6 +66,22 @@ class ModernTimesheetEntryView(APIView):
     @extend_schema(
         summary="Get timesheet entries for a staff member on a specific date",
         description="Fetches all timesheet entries (CostLines) for a specific staff member and date.",
+        parameters=[
+            OpenApiParameter(
+                name="staff_id",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="UUID of the staff member",
+            ),
+            OpenApiParameter(
+                name="date",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Date in YYYY-MM-DD format",
+            ),
+        ],
         responses={
             status.HTTP_200_OK: ModernTimesheetEntryGetResponseSerializer,
             status.HTTP_400_BAD_REQUEST: ModernTimesheetErrorResponseSerializer,

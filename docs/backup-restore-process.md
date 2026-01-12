@@ -1,5 +1,13 @@
 # Production Data Backup and Restore Process
 
+CRITICAL: audit
+
+The finished application will be audited against a log file you must write as you follow the steps.  Every command you run and its key output must be added to this log.
+
+e.g.  logs/restore_log_prod_backup_20260109_211941_complete.log
+
+
+
 ## MySQL Connection Pattern
 
 ALL MySQL commands must include: `-h "$DB_HOST" -P "$DB_PORT"`
@@ -476,6 +484,10 @@ Xero setup complete.
 ```
 
 **Note:** Requires `xero_payroll_calendar_name` to be set in CompanyDefaults (loaded from fixture in Step 10).
+
+Brand new install or reset Xero Dev? The payroll calendar won't be found here.
+ You must create the missing calendar in Xero (Payroll > Payroll Settings > Payroll Calendars).
+
 
 #### Step 23: Sync Chart of Accounts from Xero
 

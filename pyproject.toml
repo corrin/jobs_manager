@@ -96,6 +96,7 @@ toml = "^0.10.2"
 tabulate = "^0.9.0"
 google-api-python-client-stubs = "^1.29.0"
 google-auth-stubs = "^0.3.0"
+debugpy = "^1.8.19"
 
 [build-system]
 requires = ["poetry-core"]

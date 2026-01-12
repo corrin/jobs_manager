@@ -90,21 +90,11 @@ def _build_xero_error_payload(
 
 def _require_office_staff_html(request: HttpRequest):
     if not request.user.is_authenticated:
+        logger.warning(f"Guard rejected unauthenticated request to {request.path}")
         return redirect(getattr(settings, "LOGIN_URL", "/login/"))
     if not getattr(request.user, "is_office_staff", False):
+        logger.warning(f"Guard rejected non-office-staff request to {request.path}")
         return HttpResponseForbidden("Office staff only")
-    return None
-
-
-def _require_office_staff_json(request: HttpRequest):
-    if not request.user.is_authenticated:
-        return JsonResponse(
-            {"success": False, "error": "Authentication required"}, status=401
-        )
-    if not getattr(request.user, "is_office_staff", False):
-        return JsonResponse(
-            {"success": False, "error": "Office staff only"}, status=403
-        )
     return None
 
 
@@ -864,21 +854,28 @@ def delete_xero_purchase_order(
             return Response(error_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@csrf_exempt
+@extend_schema(
+    tags=["Xero"],
+    description="Disconnects from Xero by clearing the token from cache and database.",
+    request=None,
+    responses={200: XeroPingResponseSerializer},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def xero_disconnect(request):
     """Disconnects from Xero by clearing the token from cache and database."""
-    guard = _require_office_staff_html(request)
-    if guard:
-        return guard
-    try:  # Corrected indentation
+    try:
         cache.delete("xero_token")
-        cache.delete("xero_tenant_id")  # Use consistent cache key
+        cache.delete("xero_tenant_id")
         XeroToken.objects.all().delete()
-        messages.success(request, "Successfully disconnected from Xero")
-    except Exception as e:  # Corrected indentation
+        logger.info("Successfully disconnected from Xero")
+        return Response({"connected": False}, status=status.HTTP_200_OK)
+    except Exception as e:
         logger.error(f"Error disconnecting from Xero: {str(e)}")
-        messages.error(request, "Failed to disconnect from Xero")
-    return redirect("/")  # Corrected indentation
+        return Response(
+            {"error": "Failed to disconnect from Xero"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 class XeroIndexView(TemplateView):
@@ -926,20 +923,25 @@ def _get_last_sync_time(model):
     return latest.xero_last_synced if latest else None
 
 
-@csrf_exempt
+@extend_schema(
+    tags=["Xero"],
+    description="Get current sync status and last sync times for all entities.",
+    responses={200: XeroSyncInfoResponseSerializer},
+)
+@api_view(["GET"])
 def get_xero_sync_info(request):
     """Get current sync status and last sync times for all entities in ENTITY_CONFIGS."""
-    try:
-        token = get_valid_token()
-        if not token:
-            return JsonResponse(
-                {
-                    "error": "No valid Xero token. Please authenticate.",
-                    "redirect_to_auth": True,
-                },
-                status=401,
-            )
+    token = get_valid_token()
+    if not token:
+        return Response(
+            {
+                "error": "No valid Xero token. Please authenticate.",
+                "redirect_to_auth": True,
+            },
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
+    try:
         # Build last_syncs dynamically from ENTITY_CONFIGS
         last_syncs = {}
         for entity_key, config in ENTITY_CONFIGS.items():
@@ -954,23 +956,25 @@ def get_xero_sync_info(request):
             "sync_range": sync_range,
             "sync_in_progress": sync_in_progress,
         }
-
-        response_serializer = XeroSyncInfoResponseSerializer(response_data)
-        return JsonResponse(response_serializer.data)
+        return Response(response_data, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error getting sync info: {str(e)}")
         persist_app_error(e)
-        return JsonResponse({"error": str(e)}, status=500)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@csrf_exempt
+@extend_schema(
+    tags=["Xero"],
+    description="Start a Xero sync as a background task.",
+    request=None,
+    responses={200: XeroSyncStartResponseSerializer},
+)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsOfficeStaff])
 def start_xero_sync(request):
     """
     View function to start a Xero sync as a background task.
     """
-    guard = _require_office_staff_json(request)
-    if guard:
-        return guard
     try:
         token = get_valid_token()
         if not token:
@@ -1024,8 +1028,13 @@ def trigger_xero_sync(request):
     return JsonResponse(response_serializer.data)
 
 
-@csrf_exempt
-def xero_ping(request: HttpRequest) -> JsonResponse:
+@extend_schema(
+    tags=["Xero"],
+    description="Check if the user is authenticated with Xero.",
+    responses={200: XeroPingResponseSerializer},
+)
+@api_view(["GET"])
+def xero_ping(request):
     """
     Simple endpoint to check if the user is authenticated with Xero.
     Returns {"connected": true} or {"connected": false}.
@@ -1035,15 +1044,10 @@ def xero_ping(request: HttpRequest) -> JsonResponse:
         token = get_valid_token()
         is_connected = bool(token)
         logger.info(f"Xero ping: connected={is_connected}")
-
-        response_data = {"connected": is_connected}
-        response_serializer = XeroPingResponseSerializer(response_data)
-        return JsonResponse(response_serializer.data)
+        return Response({"connected": is_connected}, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error in xero_ping: {str(e)}")
-        error_response = {"connected": False}
-        error_serializer = XeroPingResponseSerializer(error_response)
-        return JsonResponse(error_serializer.data)
+        return Response({"connected": False}, status=status.HTTP_200_OK)
 
 
 class XeroErrorListAPIView(ListAPIView):
