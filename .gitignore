@@ -144,3 +144,4 @@ dropbox/
 
 # AI provider keys (copy from .example and add real keys)
 apps/workflow/fixtures/ai_providers.json
+apps/workflow/fixtures/ai_providers_uat.json
