@@ -255,18 +255,21 @@ class WorkshopTimesheetService:
     def _calculate_rates(self, *, job, rate_multiplier: Decimal, is_billable: bool):
         wage_rate = self._to_decimal(
             getattr(self.staff, "wage_rate", None), default="0"
-        )
+        ).quantize(Decimal("0.01"))
         charge_out_rate = self._to_decimal(
             getattr(job, "charge_out_rate", None), default="0"
+        ).quantize(Decimal("0.01"))
+        rate_multiplier = self._to_decimal(rate_multiplier, default="1.0")
+        unit_cost = self._to_decimal(wage_rate * rate_multiplier, default="0").quantize(
+            Decimal("0.01")
         )
-        unit_cost = (wage_rate * rate_multiplier).quantize(Decimal("0.01"))
         unit_rev = (
-            (charge_out_rate * rate_multiplier).quantize(Decimal("0.01"))
+            self._to_decimal(charge_out_rate * rate_multiplier, default="0").quantize(
+                Decimal("0.01")
+            )
             if is_billable
             else Decimal("0.00")
         )
-        wage_rate = wage_rate.quantize(Decimal("0.01"))
-        charge_out_rate = charge_out_rate.quantize(Decimal("0.01"))
         return unit_cost, unit_rev, wage_rate, charge_out_rate
 
     @staticmethod
