@@ -215,7 +215,7 @@ def _resolve_document_number(
             logger.error(f"Unknown document type for Xero sync: {doc_type}")
             return None
 
-    return str(primary) if primary else None
+    return str(primary) if primary is not None else None
 
 
 def _extract_required_fields_xero(doc_type, xero_obj, xero_id):
