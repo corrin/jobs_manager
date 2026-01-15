@@ -471,7 +471,7 @@ class JobCreateSerializer(serializers.Serializer):
         decimal_places=2,
         required=True,
         min_value=0,
-        help_text="Estimated material costs in dollars",
+        help_text="Estimated material costs in dollars (retail price - what you expect to charge the customer)",
     )
     estimated_time = serializers.DecimalField(
         max_digits=10,
