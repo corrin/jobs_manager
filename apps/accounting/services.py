@@ -1232,7 +1232,9 @@ class StaffPerformanceService:
                 staff_metrics = StaffPerformanceService._calculate_staff_metrics(
                     staff, staff_cost_lines, include_job_breakdown
                 )
-                staff_data.append(staff_metrics)
+                # Only include staff with recorded hours in the period
+                if staff_metrics["total_hours"] > 0:
+                    staff_data.append(staff_metrics)
 
             # Calculate team averages
             team_averages = StaffPerformanceService._calculate_team_averages(staff_data)
