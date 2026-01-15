@@ -340,19 +340,23 @@ class JobRestService:
 
             wage_rate = company_defaults.wage_rate.quantize(Decimal("0.01"))
             charge_out_rate = company_defaults.charge_out_rate.quantize(Decimal("0.01"))
-            materials_markup = company_defaults.materials_markup
+
+            # estimated_materials is entered as retail price (what customer pays)
+            # Convert to cost price using the standard 20% materials markup (retail = cost * 1.2)
+            MATERIALS_MARKUP_MULTIPLIER = Decimal("1.2")
+            materials_cost = (
+                estimated_materials / MATERIALS_MARKUP_MULTIPLIER
+            ).quantize(Decimal("0.01"))
 
             # Create material cost line
-            unit_rev_materials = (
-                estimated_materials * (Decimal("1") + materials_markup)
-            ).quantize(Decimal("0.01"))
+            # unit_cost is the cost price, unit_rev is the retail price (original input)
             CostLine.objects.create(
                 cost_set=estimate_costset,
                 kind="material",
                 desc="Estimated materials",
                 quantity=Decimal("1.000"),
-                unit_cost=estimated_materials,
-                unit_rev=unit_rev_materials,
+                unit_cost=materials_cost,
+                unit_rev=estimated_materials,
                 accounting_date=timezone.now().date(),
             )
 
