@@ -42,11 +42,11 @@ _BANK_ACCOUNTS = [
 
 def generate_ird_number(employee_num: int) -> str:
     """Generate a syntactically valid NZ IRD number with proper checksum."""
-    # Use 8-digit base to produce 9-digit IRDs (base + check digit)
-    # This ensures zfill(9) in setup_employee_tax doesn't corrupt the number
-    base = 10000000 + (employee_num * 100)
+    # Use base in range 04900000-14999999 to produce valid 9-digit IRDs
+    # The base must be zero-padded to 8 digits for proper checksum calculation
+    base = 4900000 + (employee_num * 100)
     while True:
-        base_str = str(base)
+        base_str = str(base).zfill(8)  # Zero-pad to 8 digits (e.g., "06300100")
         check_digit = nz_ird.calc_check_digit(base_str)
         if check_digit != "10":
             full_ird = base_str + check_digit

@@ -464,8 +464,10 @@ def _create_employee_tax(
     ESCT rate 17.5% is for income $16,801-$57,600 (reasonable default).
     KiwiSaver: 3% employee, 3% employer (standard rates).
     """
+    # Clean IRD: remove dashes and ensure 9 digits
+    ird_clean = ird_number.replace("-", "").zfill(9)
     employee_tax = EmployeeTax(
-        ird_number=ird_number,
+        ird_number=ird_clean,
         tax_code=tax_code,
         esct_rate_percentage=17.5,
         is_eligible_for_kiwi_saver=True,

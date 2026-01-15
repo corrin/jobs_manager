@@ -17,6 +17,8 @@ def get_excluded_staff(
 
     Note: date_left filtering is handled separately by Staff manager methods
     (active_on_date, currently_active, active_between_dates).
+
+    Staff must be linked to Xero payroll to appear in timesheets.
     """
     excluded = []
 
@@ -33,12 +35,6 @@ def get_excluded_staff(
         )
 
         staff_records = list(staff_queryset.values_list("id", "xero_user_id"))
-        has_valid_xero_id = any(
-            xero_user_id and is_valid_uuid(xero_user_id)
-            for _, xero_user_id in staff_records
-        )
-        if not has_valid_xero_id:
-            return []
 
         for staff_id, xero_user_id in staff_records:
             if not xero_user_id or not is_valid_uuid(xero_user_id):
