@@ -72,10 +72,12 @@ class DailyTimesheetService:
         staff_data = []
         excluded_staff_ids = get_excluded_staff(target_date=target_date)
 
-        # Exclude staff with invalid Xero payroll IDs (admin/system users).
-        # Do not drop staff based on date_left/date_joined (handled by scheduler checks instead).
-        active_staff = Staff.objects.exclude(id__in=excluded_staff_ids).order_by(
-            "first_name", "last_name"
+        # Filter to staff who were employed on target_date (date_joined <= date, date_left null or > date)
+        # Then exclude staff without valid Xero payroll IDs (admin/system users)
+        active_staff = (
+            Staff.objects.active_on_date(target_date)
+            .exclude(id__in=excluded_staff_ids)
+            .order_by("first_name", "last_name")
         )
 
         for staff in active_staff:
