@@ -77,6 +77,7 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
     supplier = serializers.SerializerMethodField()
     supplier_id = serializers.SerializerMethodField()
     supplier_has_xero_id = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
     lines = PurchaseOrderLineSerializer(source="po_lines", many=True)
     pickup_address = SupplierPickupAddressSerializer(read_only=True, allow_null=True)
 
@@ -85,6 +86,7 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
         fields = (
             PurchaseOrder.PURCHASEORDER_API_FIELDS
             + PurchaseOrder.PURCHASEORDER_API_PROPERTIES
+            + ["created_by_name"]
         )
 
     def get_supplier(self, obj) -> str:
@@ -95,6 +97,9 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
 
     def get_supplier_has_xero_id(self, obj) -> bool:
         return obj.supplier.xero_contact_id is not None if obj.supplier else False
+
+    def get_created_by_name(self, obj) -> str:
+        return obj.created_by.get_display_full_name() if obj.created_by else ""
 
 
 class AllJobsResponseSerializer(serializers.Serializer):

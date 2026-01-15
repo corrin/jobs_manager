@@ -57,9 +57,23 @@ class SerializerTester:
             print(f"  {message}")
 
     def _test_serializer_batch(
-        self, serializer_class, queryset, name: str, batch_size: int = 100
+        self,
+        serializer_class,
+        queryset,
+        name: str,
+        batch_size: int = 100,
+        transform_fn=None,
     ) -> Dict[str, Any]:
-        """Test a serializer against a queryset with progress reporting"""
+        """Test a serializer against a queryset with progress reporting.
+
+        Args:
+            serializer_class: The serializer class to test
+            queryset: QuerySet of items to serialize
+            name: Display name for this test
+            batch_size: How often to log progress in verbose mode
+            transform_fn: Optional function to transform each item before serialization.
+                         Use this for response serializers that expect service output.
+        """
 
         total_count = queryset.count()
         if total_count == 0:
@@ -81,7 +95,9 @@ class SerializerTester:
 
         for i, item in enumerate(queryset.iterator(chunk_size=100)):
             try:
-                serializer = serializer_class(item, context={"request": self.request})
+                # Transform item if transform function provided (for service-layer tests)
+                data = transform_fn(item) if transform_fn else item
+                serializer = serializer_class(data, context={"request": self.request})
                 _ = serializer.data  # Trigger serialization
                 success_count += 1
 
@@ -101,7 +117,7 @@ class SerializerTester:
         duration = time.time() - start_time
         failed_count = len(failed_items)
 
-        status = "✅ PASS" if failed_count == 0 else f"❌ FAIL ({failed_count} errors)"
+        status = "PASS" if failed_count == 0 else f"FAIL ({failed_count} errors)"
 
         result = {
             "name": name,
@@ -139,15 +155,27 @@ class SerializerTester:
         return self._test_serializer_batch(JobSerializer, queryset, "JobSerializer")
 
     def test_kanban_serializer(self) -> Dict[str, Any]:
-        """Test KanbanSerializer with active jobs"""
-        from apps.job.serializers.kanban_serializer import KanbanSerializer
+        """Test KanbanJobSerializer via service layer.
 
-        queryset = Job.objects.filter(
-            status__in=["quoting", "in_progress", "ready_for_delivery"]
-        ).select_related("contact", "assigned_to")
+        Tests the full data contract: Job model -> KanbanService -> KanbanJobSerializer.
+        This catches cases where fields required by the API are accidentally removed.
+        """
+        from apps.job.serializers.kanban_serializer import KanbanJobSerializer
+        from apps.job.services.kanban_service import KanbanService
+
+        queryset = (
+            Job.objects.filter(
+                status__in=["quoting", "in_progress", "ready_for_delivery"]
+            )
+            .select_related("contact", "client", "created_by")
+            .prefetch_related("people")
+        )
 
         return self._test_serializer_batch(
-            KanbanSerializer, queryset, "KanbanSerializer (Active Jobs)"
+            KanbanJobSerializer,
+            queryset,
+            "KanbanJobSerializer (via Service)",
+            transform_fn=KanbanService.serialize_job_for_api,
         )
 
     def test_costing_serializer(self) -> Dict[str, Any]:
@@ -155,7 +183,7 @@ class SerializerTester:
         from apps.job.serializers.costing_serializer import CostSetSerializer
 
         queryset = (
-            CostSet.objects.all().select_related("job").prefetch_related("costlines")
+            CostSet.objects.all().select_related("job").prefetch_related("cost_lines")
         )
 
         return self._test_serializer_batch(
@@ -182,31 +210,29 @@ class SerializerTester:
         return self._test_serializer_batch(StaffSerializer, queryset, "StaffSerializer")
 
     def test_purchase_order_serializer(self) -> Dict[str, Any]:
-        """Test PurchaseOrderSerializer with all purchase orders"""
-        from apps.purchasing.serializers import PurchaseOrderSerializer
+        """Test PurchaseOrderDetailSerializer with all purchase orders"""
+        from apps.purchasing.serializers import PurchaseOrderDetailSerializer
 
         queryset = (
             PurchaseOrder.objects.all()
-            .select_related("supplier", "created_by")
-            .prefetch_related("lines")
+            .select_related("supplier", "pickup_address", "created_by")
+            .prefetch_related("po_lines")
         )
 
         return self._test_serializer_batch(
-            PurchaseOrderSerializer, queryset, "PurchaseOrderSerializer"
+            PurchaseOrderDetailSerializer, queryset, "PurchaseOrderDetailSerializer"
         )
 
     def test_modern_timesheet_serializer(self) -> Dict[str, Any]:
-        """Test modern timesheet serializers with cost lines"""
-        from apps.timesheet.serializers.modern_timesheet_serializers import (
-            CostLineTimesheetSerializer,
-        )
+        """Test timesheet cost line serializer with time entries"""
+        from apps.job.serializers.costing_serializer import TimesheetCostLineSerializer
 
-        queryset = CostLine.objects.filter(kind="time").select_related("costset__job")
+        queryset = CostLine.objects.filter(kind="time").select_related("cost_set__job")
 
         return self._test_serializer_batch(
-            CostLineTimesheetSerializer,
+            TimesheetCostLineSerializer,
             queryset,
-            "CostLineTimesheetSerializer (Modern)",
+            "TimesheetCostLineSerializer",
         )
 
     def run_all_tests(self, specific_serializer: str = None) -> Dict[str, Any]:
@@ -224,38 +250,19 @@ class SerializerTester:
 
         if specific_serializer:
             if specific_serializer not in test_methods:
-                print(f"❌ Unknown serializer: {specific_serializer}")
+                print(f"Unknown serializer: {specific_serializer}")
                 print(f"Available serializers: {', '.join(test_methods.keys())}")
                 return {}
             test_methods = {specific_serializer: test_methods[specific_serializer]}
 
-        print("🚀 Starting Comprehensive Serializer Testing")
+        print("Starting Comprehensive Serializer Testing")
         print("=" * 60)
 
         total_start_time = time.time()
 
         for test_name, test_method in test_methods.items():
-            try:
-                result = test_method()
-                self.results[test_name] = result
-            except ImportError as e:
-                print(f"Skipping {test_name}: {e}")
-                self.results[test_name] = {
-                    "name": test_name,
-                    "status": f"SKIPPED - Import Error: {e}",
-                    "total": 0,
-                    "success": 0,
-                    "failed": 0,
-                }
-            except Exception as e:
-                print(f"Error testing {test_name}: {e}")
-                self.results[test_name] = {
-                    "name": test_name,
-                    "status": f"ERROR: {e}",
-                    "total": 0,
-                    "success": 0,
-                    "failed": 0,
-                }
+            result = test_method()
+            self.results[test_name] = result
 
         total_duration = time.time() - total_start_time
 
@@ -265,7 +272,7 @@ class SerializerTester:
     def _print_summary(self, total_duration: float):
         """Print comprehensive test summary"""
         print("=" * 60)
-        print("📊 SERIALIZER TEST SUMMARY")
+        print("SERIALIZER TEST SUMMARY")
         print("=" * 60)
 
         total_items = 0
@@ -293,15 +300,15 @@ class SerializerTester:
                         print(f"    {failure['item_str']}: {failure['error']}")
 
         print("-" * 60)
-        print(f"📈 TOTALS: {total_success}/{total_items} items serialized successfully")
-        print(f"⏱️  DURATION: {total_duration:.2f} seconds")
+        print(f"TOTALS: {total_success}/{total_items} items serialized successfully")
+        print(f"DURATION: {total_duration:.2f} seconds")
 
         if failed_serializers:
-            print(f"❌ FAILED SERIALIZERS: {', '.join(failed_serializers)}")
+            print(f"FAILED SERIALIZERS: {', '.join(failed_serializers)}")
             print("CRITICAL: Some serializers failed. Check data integrity!")
             return False
         else:
-            print("✅ ALL SERIALIZERS PASSED!")
+            print("ALL SERIALIZERS PASSED")
             return True
 
 
