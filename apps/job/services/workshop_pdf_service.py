@@ -354,13 +354,13 @@ def convert_html_to_reportlab(html_content):
     )
 
     replacements = [
-        (r"<strong>(.*?)</strong>", r"<b>\1</b>"),
-        (r"<b>(.*?)</b>", r"<b>\1</b>"),
-        (r"<em>(.*?)</em>", r"<i>\1</i>"),
-        (r"<i>(.*?)</i>", r"<i>\1</i>"),
-        (r"<u>(.*?)</u>", r"<u>\1</u>"),
-        (r"<s>(.*?)</s>", r"<strike>\1</strike>"),
-        (r"<strike>(.*?)</strike>", r"<strike>\1</strike>"),
+        (r"<strong[^>]*>(.*?)</strong>", r"<b>\1</b>"),
+        (r"<b[^>]*>(.*?)</b>", r"<b>\1</b>"),
+        (r"<em[^>]*>(.*?)</em>", r"<i>\1</i>"),
+        (r"<i[^>]*>(.*?)</i>", r"<i>\1</i>"),
+        (r"<u[^>]*>(.*?)</u>", r"<u>\1</u>"),
+        (r"<s[^>]*>(.*?)</s>", r"<strike>\1</strike>"),
+        (r"<strike[^>]*>(.*?)</strike>", r"<strike>\1</strike>"),
         (r'<a href="(.*?)">(.*?)</a>', r'<link href="\1">\2</link>'),
         (r"<p[^>]*>(.*?)</p>", r"\1<br/><br/>"),
         (r"<br[^>]*>", r"<br/>"),

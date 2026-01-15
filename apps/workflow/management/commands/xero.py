@@ -1,4 +1,5 @@
 import requests
+from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Q
 from xero_python.accounting import AccountingApi
@@ -318,6 +319,8 @@ class Command(BaseCommand):
         if company.xero_tenant_id != tenant_id:
             company.xero_tenant_id = tenant_id
             company.save(update_fields=["xero_tenant_id"])
+        # Always update cache to prevent stale tenant ID from being used
+        cache.set("xero_tenant_id", tenant_id)
 
         # Step 4: Fetch organisation shortcode for deep linking
         accounting_api = AccountingApi(api_client)
