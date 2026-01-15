@@ -6,6 +6,7 @@ from collections import defaultdict
 from io import BytesIO
 from typing import Callable, Optional
 
+from bs4 import BeautifulSoup, NavigableString
 from django.conf import settings
 from django.utils import timezone
 from PIL import Image, ImageFile
@@ -286,94 +287,121 @@ def get_image_dimensions(image_path):
 def convert_html_to_reportlab(html_content):
     """
     Convert Quill HTML to ReportLab-friendly inline markup, with list support.
+
+    Uses BeautifulSoup for proper HTML parsing instead of regex to avoid
+    edge cases like <br> being matched as <b> tags.
     """
     if not html_content:
         return "N/A"
 
-    html_content = re.sub(r'<span class="ql-ui"[^>]*>.*?</span>', "", html_content)
-    html_content = re.sub(r' data-list="[^"]*"', "", html_content)
-    html_content = re.sub(r' contenteditable="[^"]*"', "", html_content)
+    # Tags that ReportLab Paragraph supports (we keep these)
+    ALLOWED_TAGS = {"b", "i", "u", "strike", "link", "font", "br"}
 
-    html_content = re.sub(
-        r"<h1[^>]*>(.*?)</h1>",
-        r'<font size="18"><b>\1</b></font><br/><br/>',
-        html_content,
-        flags=re.DOTALL,
-    )
-    html_content = re.sub(
-        r"<h2[^>]*>(.*?)</h2>",
-        r'<font size="16"><b>\1</b></font><br/><br/>',
-        html_content,
-        flags=re.DOTALL,
-    )
-    html_content = re.sub(
-        r"<h3[^>]*>(.*?)</h3>",
-        r'<font size="14"><b>\1</b></font><br/><br/>',
-        html_content,
-        flags=re.DOTALL,
-    )
-    html_content = re.sub(
-        r"<h4[^>]*>(.*?)</h4>",
-        r'<font size="13"><b>\1</b></font><br/><br/>',
-        html_content,
-        flags=re.DOTALL,
-    )
-    html_content = re.sub(
-        r"<blockquote[^>]*>(.*?)</blockquote>",
-        r"<i>\1</i><br/><br/>",
-        html_content,
-        flags=re.DOTALL,
-    )
-    html_content = re.sub(
-        r"<pre[^>]*>(.*?)</pre>",
-        r'<font face="Courier">\1</font><br/><br/>',
-        html_content,
-        flags=re.DOTALL,
-    )
+    try:
+        # Use html.parser for forgiving parsing of user-pasted content
+        soup = BeautifulSoup(html_content, "html.parser")
 
-    def process_list(match, list_type):
-        list_content = match.group(1)
-        items = re.findall(r"<li[^>]*>(.*?)</li>", list_content, re.DOTALL)
-        result = "<br/>"
-        for i, item in enumerate(items):
-            prefix = f"{i + 1}. " if list_type == "ol" else "• "
-            result += f"{prefix}{item}<br/>"
-        return result
+        # Remove Quill UI elements entirely (including content)
+        for span in soup.find_all("span", class_="ql-ui"):
+            span.decompose()
 
-    html_content = re.sub(
-        r"<ol[^>]*>(.*?)</ol>",
-        lambda m: process_list(m, "ol"),
-        html_content,
-        flags=re.DOTALL,
-    )
-    html_content = re.sub(
-        r"<ul[^>]*>(.*?)</ul>",
-        lambda m: process_list(m, "ul"),
-        html_content,
-        flags=re.DOTALL,
-    )
+        # Process headings (h1-h4) -> font size + bold
+        heading_sizes = {"h1": 18, "h2": 16, "h3": 14, "h4": 13}
+        for heading, size in heading_sizes.items():
+            for tag in soup.find_all(heading):
+                new_content = soup.new_tag("font", size=str(size))
+                b_tag = soup.new_tag("b")
+                b_tag.extend(tag.contents[:])
+                new_content.append(b_tag)
+                tag.replace_with(new_content)
+                new_content.insert_after(NavigableString("\n"))
 
-    replacements = [
-        (r"<strong[^>]*>(.*?)</strong>", r"<b>\1</b>"),
-        (r"<b[^>]*>(.*?)</b>", r"<b>\1</b>"),
-        (r"<em[^>]*>(.*?)</em>", r"<i>\1</i>"),
-        (r"<i[^>]*>(.*?)</i>", r"<i>\1</i>"),
-        (r"<u[^>]*>(.*?)</u>", r"<u>\1</u>"),
-        (r"<s[^>]*>(.*?)</s>", r"<strike>\1</strike>"),
-        (r"<strike[^>]*>(.*?)</strike>", r"<strike>\1</strike>"),
-        (r'<a href="(.*?)">(.*?)</a>', r'<link href="\1">\2</link>'),
-        (r"<p[^>]*>(.*?)</p>", r"\1<br/><br/>"),
-        (r"<br[^>]*>", r"<br/>"),
-    ]
-    for pattern, replacement in replacements:
-        html_content = re.sub(pattern, replacement, html_content, flags=re.DOTALL)
+        # Process blockquotes -> italic
+        for tag in soup.find_all("blockquote"):
+            new_tag = soup.new_tag("i")
+            new_tag.extend(tag.contents[:])
+            tag.replace_with(new_tag)
+            new_tag.insert_after(NavigableString("\n"))
 
-    html_content = re.sub(
-        r"<(?!/?b|/?i|/?u|/?strike|/?link|br/)[^>]*>", "", html_content
-    )
-    html_content = re.sub(r"<br/><br/><br/>", r"<br/><br/>", html_content)
-    html_content = re.sub(r"<br/><br/>$", "", html_content)
-    return html_content
+        # Process pre -> Courier font
+        for tag in soup.find_all("pre"):
+            new_tag = soup.new_tag("font", face="Courier")
+            new_tag.extend(tag.contents[:])
+            tag.replace_with(new_tag)
+            new_tag.insert_after(NavigableString("\n"))
+
+        # Process lists (ol, ul) - must process before unwrapping other tags
+        for ol in soup.find_all("ol"):
+            items = ol.find_all("li", recursive=False)
+            replacement = NavigableString("\n")
+            for i, li in enumerate(items):
+                prefix = f"{i + 1}. "
+                li_content = "".join(str(c) for c in li.contents)
+                replacement = NavigableString(
+                    str(replacement) + prefix + li_content + "\n"
+                )
+            ol.replace_with(replacement)
+
+        for ul in soup.find_all("ul"):
+            items = ul.find_all("li", recursive=False)
+            replacement = NavigableString("\n")
+            for li in items:
+                li_content = "".join(str(c) for c in li.contents)
+                replacement = NavigableString(
+                    str(replacement) + "• " + li_content + "\n"
+                )
+            ul.replace_with(replacement)
+
+        # Convert inline formatting tags to ReportLab equivalents
+        for tag in soup.find_all("strong"):
+            tag.name = "b"
+        for tag in soup.find_all("em"):
+            tag.name = "i"
+        for tag in soup.find_all("s"):
+            tag.name = "strike"
+
+        # Convert <a href="..."> to <link href="...">
+        for tag in soup.find_all("a"):
+            href = tag.get("href", "")
+            tag.name = "link"
+            tag.attrs = {"href": href} if href else {}
+
+        # Strip all attributes from allowed tags (except link which keeps href)
+        for tag in soup.find_all(["b", "i", "u", "strike", "font", "br"]):
+            if tag.name == "font":
+                # Keep only size and face attributes for font
+                tag.attrs = {
+                    k: v for k, v in tag.attrs.items() if k in ("size", "face")
+                }
+            else:
+                tag.attrs = {}
+
+        # Unwrap (remove tag, keep content) any tags not in ALLOWED_TAGS
+        # Use list() to avoid modifying while iterating
+        for tag in list(soup.find_all(True)):
+            if tag.name not in ALLOWED_TAGS:
+                tag.unwrap()
+
+        # Convert to string - BeautifulSoup renders <br> as <br/>
+        result = str(soup)
+
+        # Clean up whitespace: convert multiple newlines to paragraph breaks
+        result = re.sub(r"\n\s*\n", "<br/><br/>", result)
+
+        # Collapse excessive line breaks
+        result = re.sub(r"(<br/>){3,}", "<br/><br/>", result)
+        result = re.sub(r"(<br/>)+$", "", result)
+        result = result.strip()
+
+        return result if result else "N/A"
+
+    except Exception as exc:
+        logger.error(
+            "Failed to convert HTML to ReportLab markup: %s. Input: %s",
+            exc,
+            html_content[:200] if html_content else "",
+        )
+        raise
 
 
 def create_workshop_pdf(job):
