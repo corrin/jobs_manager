@@ -41,6 +41,7 @@ class PurchaseOrder(models.Model):
         "online_url",
         "xero_id",
         "pickup_address_id",
+        "created_by_id",
     ]
 
     # Computed properties exposed via API serializers
@@ -88,6 +89,14 @@ class PurchaseOrder(models.Model):
         null=True,
         blank=True,
         help_text="Primary job this PO is for",
+    )
+    created_by = models.ForeignKey(
+        "accounts.Staff",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="created_purchase_orders",
+        help_text="Staff member who created this purchase order",
     )
     po_number = models.CharField(max_length=50, unique=True)
     reference = models.CharField(
