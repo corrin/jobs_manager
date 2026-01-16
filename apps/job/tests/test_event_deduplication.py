@@ -3,13 +3,14 @@ Tests for event deduplication functionality.
 """
 
 from django.contrib.auth import get_user_model
-from django.db import IntegrityError, transaction
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job, JobEvent
 from apps.job.services.job_rest_service import JobRestService
+from apps.workflow.models import XeroPayItem
 
 User = get_user_model()
 
@@ -17,16 +18,28 @@ User = get_user_model()
 class EventDeduplicationTest(TestCase):
     """Test event deduplication at model and service levels."""
 
+    fixtures = ["company_defaults"]
+
     def setUp(self):
         """Set up test data."""
         self.user = Staff.objects.create_user(
-            username="testuser", email="test@example.com", password="testpass123"
+            email="test@example.com",
+            password="testpass123",
+            first_name="Test",
+            last_name="User",
         )
         self.client_obj = Client.objects.create(
-            name="Test Client", email="client@example.com"
+            name="Test Client",
+            email="client@example.com",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
         self.job = Job.objects.create(
-            name="Test Job", client=self.client_obj, created_by=self.user
+            name="Test Job",
+            client=self.client_obj,
+            created_by=self.user,
+            default_xero_pay_item=self.xero_pay_item,
         )
 
     def test_model_prevents_duplicate_manual_events(self):
@@ -40,15 +53,14 @@ class EventDeduplicationTest(TestCase):
         )
         self.assertIsNotNone(event1.dedup_hash)
 
-        # Try to create duplicate - should raise IntegrityError
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                JobEvent.objects.create(
-                    job=self.job,
-                    staff=self.user,
-                    description="Test event",  # Same description
-                    event_type="manual_note",
-                )
+        # Try to create duplicate - should raise ValidationError (model validates before save)
+        with self.assertRaises(ValidationError):
+            JobEvent.objects.create(
+                job=self.job,
+                staff=self.user,
+                description="Test event",  # Same description
+                event_type="manual_note",
+            )
 
     def test_create_safe_method_prevents_duplicates(self):
         """Test that create_safe method handles duplicates gracefully."""
@@ -97,7 +109,10 @@ class EventDeduplicationTest(TestCase):
     def test_different_users_can_create_same_event(self):
         """Test that different users can create events with same description."""
         user2 = Staff.objects.create_user(
-            username="testuser2", email="test2@example.com", password="testpass123"
+            email="test2@example.com",
+            password="testpass123",
+            first_name="Test2",
+            last_name="User",
         )
 
         description = "Same description"

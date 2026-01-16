@@ -52,15 +52,19 @@ class SettingsSection:
 
 
 # Mapping from Django field types to UI input types
+# Note: Order matters! More specific types (subclasses) must come before their parent classes.
+# e.g., URLField and EmailField must come before CharField since they inherit from it.
 DJANGO_TO_UI_TYPE: dict[type["models.Field[Any, Any]"], str] = {
+    # Specific CharField subclasses first
+    models.EmailField: "email",
+    models.URLField: "url",
+    # Then the base CharField
     models.CharField: "text",
     models.TextField: "textarea",
     models.IntegerField: "number",
     models.DecimalField: "number",
     models.FloatField: "number",
     models.BooleanField: "boolean",
-    models.EmailField: "email",
-    models.URLField: "url",
     models.TimeField: "time",
     models.DateField: "date",
     models.DateTimeField: "datetime",

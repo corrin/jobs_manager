@@ -18,7 +18,7 @@ from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
 class ChatAPIEndpointTests(TestCase):
@@ -40,12 +40,16 @@ class ChatAPIEndpointTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client_obj,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.ai_provider = AIProvider.objects.create(
@@ -57,9 +61,10 @@ class ChatAPIEndpointTests(TestCase):
 
         # Create test user
         self.staff = Staff.objects.create_user(
-            username="testuser",
-            password="testpassword123",
             email="test@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
         )
 
         # URLs
@@ -330,25 +335,31 @@ class ChatAPIPermissionTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client_obj,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         # Create test users
         self.staff = Staff.objects.create_user(
-            username="testuser",
-            password="testpassword123",
             email="test@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
         )
 
         self.admin_staff = Staff.objects.create_user(
-            username="admin",
-            password="adminpassword123",
             email="admin@example.com",
+            password="adminpassword123",
+            first_name="Admin",
+            last_name="User",
             is_office_staff=True,
             is_superuser=True,
         )
@@ -410,12 +421,16 @@ class ChatAPIValidationTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client_obj,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.chat_history_url = reverse(
