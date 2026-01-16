@@ -69,11 +69,14 @@ class ChatAPIEndpointTests(TestCase):
 
         # URLs
         self.chat_history_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_history", kwargs={"job_id": str(self.job.id)}
         )
         self.chat_interaction_url = reverse(
-            "job-quote-chat-interaction", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_interaction", kwargs={"job_id": str(self.job.id)}
         )
+
+        # Authenticate for API requests
+        self.client_api.force_authenticate(user=self.staff)
 
     def test_chat_history_get_empty(self):
         """Test getting empty chat history"""
@@ -160,7 +163,7 @@ class ChatAPIEndpointTests(TestCase):
         )
 
         delete_url = reverse(
-            "job-quote-chat-detail",
+            "jobs:job_quote_chat_message",
             kwargs={"job_id": str(self.job.id), "message_id": message.message_id},
         )
 
@@ -174,7 +177,9 @@ class ChatAPIEndpointTests(TestCase):
     def test_chat_history_job_not_found(self):
         """Test accessing chat history for non-existent job"""
         non_existent_job_id = str(uuid.uuid4())
-        url = reverse("job-quote-chat-history", kwargs={"job_id": non_existent_job_id})
+        url = reverse(
+            "jobs:job_quote_chat_history", kwargs={"job_id": non_existent_job_id}
+        )
 
         response = self.client_api.get(url)
 
@@ -250,7 +255,7 @@ class ChatAPIEndpointTests(TestCase):
         """Test chat interaction with non-existent job"""
         non_existent_job_id = str(uuid.uuid4())
         url = reverse(
-            "job-quote-chat-interaction", kwargs={"job_id": non_existent_job_id}
+            "jobs:job_quote_chat_interaction", kwargs={"job_id": non_existent_job_id}
         )
 
         data = {
@@ -366,10 +371,10 @@ class ChatAPIPermissionTests(TestCase):
 
         # URLs
         self.chat_history_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_history", kwargs={"job_id": str(self.job.id)}
         )
         self.chat_interaction_url = reverse(
-            "job-quote-chat-interaction", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_interaction", kwargs={"job_id": str(self.job.id)}
         )
 
     def test_unauthenticated_access(self):
@@ -434,8 +439,17 @@ class ChatAPIValidationTests(TestCase):
         )
 
         self.chat_history_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_history", kwargs={"job_id": str(self.job.id)}
         )
+
+        # Create staff user and authenticate
+        self.staff = Staff.objects.create_user(
+            email="validation_test@example.com",
+            password="testpassword123",
+            first_name="Validation",
+            last_name="Tester",
+        )
+        self.client_api.force_authenticate(user=self.staff)
 
     def test_create_message_valid_roles(self):
         """Test creating messages with valid roles"""
@@ -525,7 +539,7 @@ class ChatAPIValidationTests(TestCase):
     def test_invalid_job_id_format(self):
         """Test API with invalid job ID format"""
         invalid_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": "invalid-uuid"}
+            "jobs:job_quote_chat_history", kwargs={"job_id": "invalid-uuid"}
         )
 
         response = self.client_api.get(invalid_url)
