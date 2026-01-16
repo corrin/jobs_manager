@@ -5,7 +5,6 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
-from rest_framework.permissions import IsAuthenticated
 
 # Import scopes from constants to ensure consistency
 from apps.workflow.api.xero.constants import XERO_SCOPES as DEFAULT_XERO_SCOPES_LIST
@@ -380,15 +379,6 @@ SIMPLE_JWT = {
     "REFRESH_COOKIE_HTTP_ONLY": True,
     "REFRESH_COOKIE_SAMESITE": get_auth_cookie_samesite(),
 }
-
-# Disable DRF authentication entirely when DEBUG=True for local development
-if DEBUG:
-    REST_FRAMEWORK["DEFAULT_PERMISSION_CLASSES"] = [
-        "rest_framework.permissions.AllowAny",
-    ]
-
-    IsAuthenticated.has_permission = lambda self, request, view: True
-    IsAuthenticated.has_object_permission = lambda self, request, view, obj: True
 
 # Session cookie settings
 SESSION_COOKIE_SECURE = not DEBUG  # Allow non-HTTPS session cookies in development
