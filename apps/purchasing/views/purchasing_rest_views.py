@@ -374,7 +374,9 @@ class PurchaseOrderListCreateRestView(APIView):
 
         try:
             # Create PO using service
-            po = PurchasingRestService.create_purchase_order(serializer.validated_data)
+            po = PurchasingRestService.create_purchase_order(
+                serializer.validated_data, created_by=request.user
+            )
 
             # Return response
             response_data = {

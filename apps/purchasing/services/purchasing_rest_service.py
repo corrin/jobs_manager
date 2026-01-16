@@ -289,7 +289,7 @@ class PurchasingRestService:
     @staticmethod
     def list_purchase_orders() -> List[Dict[str, Any]]:
         pos = (
-            PurchaseOrder.objects.select_related("supplier")
+            PurchaseOrder.objects.select_related("supplier", "created_by")
             .prefetch_related("po_lines__job__client")
             .order_by("-created_at")
         )
@@ -314,13 +314,19 @@ class PurchasingRestService:
                     "order_date": po.order_date.isoformat(),
                     "supplier": po.supplier.name if po.supplier else "",
                     "supplier_id": str(po.supplier.id) if po.supplier else None,
+                    "created_by_id": str(po.created_by.id) if po.created_by else None,
+                    "created_by_name": (
+                        po.created_by.get_display_full_name() if po.created_by else ""
+                    ),
                     "jobs": jobs,
                 }
             )
         return result
 
     @staticmethod
-    def create_purchase_order(data: Dict[str, Any]) -> PurchaseOrder:
+    def create_purchase_order(
+        data: Dict[str, Any], *, created_by=None
+    ) -> PurchaseOrder:
         supplier_id = data.get("supplier_id")
         supplier = (
             get_object_or_404(Supplier, id=data["supplier_id"]) if supplier_id else None
@@ -355,6 +361,7 @@ class PurchasingRestService:
             reference=data.get("reference", ""),
             order_date=order_date,
             expected_delivery=expected_delivery,
+            created_by=created_by,
         )
 
         for line in data.get("lines", []):

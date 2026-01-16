@@ -169,6 +169,8 @@ class PurchaseOrderListSerializer(serializers.Serializer):
     order_date = serializers.DateField()
     supplier = serializers.CharField()
     supplier_id = serializers.UUIDField(allow_null=True)
+    created_by_id = serializers.UUIDField(allow_null=True)
+    created_by_name = serializers.CharField(allow_blank=True)
     jobs = PurchaseOrderJobSerializer(many=True)
 
 
