@@ -416,6 +416,16 @@ class Job(models.Model):
             company_defaults = CompanyDefaults.objects.first()
             self.charge_out_rate = company_defaults.charge_out_rate
 
+        # Default to "Ordinary Time" pay item if not specified
+        if self.default_xero_pay_item_id is None:
+            ordinary_time = XeroPayItem.get_ordinary_time()
+            if not ordinary_time:
+                raise ValueError(
+                    "Cannot create Job: 'Ordinary Time' XeroPayItem not found. "
+                    "Run Xero sync or check database seed data."
+                )
+            self.default_xero_pay_item = ordinary_time
+
         if is_new:
             # Ensure job_number is generated for new instances before saving
             self.job_number = self.generate_job_number()

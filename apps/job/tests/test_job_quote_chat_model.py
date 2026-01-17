@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
-from apps.workflow.models import CompanyDefaults
+from apps.workflow.models import CompanyDefaults, XeroPayItem
 
 
 class JobQuoteChatModelTests(TestCase):
@@ -38,12 +38,16 @@ class JobQuoteChatModelTests(TestCase):
             xero_last_modified=timezone.now(),
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         # Create Job with minimal valid fields; job_number is auto-generated,
         # status defaults to 'draft', and charge_out_rate sourced from CompanyDefaults
         self.job = Job.objects.create(
             name="Test Job",
             description="Test job description",
             client=self.client,
+            default_xero_pay_item=self.xero_pay_item,
         )
 
     def test_create_basic_chat_message(self):
@@ -399,12 +403,16 @@ class JobQuoteChatQueryTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         # Create test messages

@@ -7,17 +7,30 @@ from uuid import uuid4
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
-from apps.job.models import CostLine, CostSet, Job
+from apps.client.models import Client
+from apps.job.models import CostLine, Job
+from apps.workflow.models import XeroPayItem
 
 
 class CostLineSchemaValidationTests(TestCase):
+    fixtures = ["company_defaults"]
+
     def setUp(self) -> None:
+        self.client = Client.objects.create(
+            name="Test Client",
+            email="test@example.com",
+            xero_last_modified="2024-01-01T00:00:00Z",
+        )
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
         self.job = Job.objects.create(
             job_number=1,
             name="CostLine Schema Test",
             charge_out_rate=Decimal("120.00"),
+            client=self.client,
+            default_xero_pay_item=self.xero_pay_item,
         )
-        self.cost_set = CostSet.objects.create(job=self.job, kind="actual", rev=1)
+        # Use the auto-created CostSet from Job.save()
+        self.cost_set = self.job.latest_actual
 
     def _build_cost_line(self, **overrides) -> CostLine:
         base_kwargs = {
