@@ -83,38 +83,36 @@ class ChatAPIEndpointTests(TestCase):
         response = self.client_api.get(self.chat_history_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 0)
-        self.assertEqual(response.data["results"], [])
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["messages"], [])
 
     def test_chat_history_get_with_messages(self):
         """Test getting chat history with existing messages"""
-
-        # Removed variable declaration since it was not used
-        [
-            JobQuoteChat.objects.create(
-                job=self.job,
-                message_id="user-1",
-                role="user",
-                content="Hello",
-            ),
-            JobQuoteChat.objects.create(
-                job=self.job,
-                message_id="assistant-1",
-                role="assistant",
-                content="Hi there!",
-            ),
-        ]
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="user-1",
+            role="user",
+            content="Hello",
+        )
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="assistant-1",
+            role="assistant",
+            content="Hi there!",
+        )
 
         response = self.client_api.get(self.chat_history_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 2)
-        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(response.data["success"], True)
+        self.assertEqual(response.data["data"]["job_id"], str(self.job.id))
 
-        # Check message content
-        result_messages = response.data["results"]
-        self.assertEqual(result_messages[0]["content"], "Hello")
-        self.assertEqual(result_messages[1]["content"], "Hi there!")
+        messages = response.data["data"]["messages"]
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(messages[0]["content"], "Hello")
+        self.assertEqual(messages[0]["role"], "user")
+        self.assertEqual(messages[1]["content"], "Hi there!")
+        self.assertEqual(messages[1]["role"], "assistant")
 
     def test_chat_history_post_create_message(self):
         """Test creating a new chat message"""
