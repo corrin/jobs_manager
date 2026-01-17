@@ -43,6 +43,7 @@ class CostLineSchemaValidationTests(TestCase):
             "accounting_date": date.today(),
             "meta": {},
             "ext_refs": {},
+            "xero_pay_item": self.xero_pay_item,
         }
         base_kwargs.update(overrides)
         return CostLine(**base_kwargs)

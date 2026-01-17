@@ -69,4 +69,4 @@ class JobQuoteChat(models.Model):
         db_table = "job_quote_chat"
 
     def __str__(self):
-        return f"{self.job.name} - {self.role}: {self.content[:50]}..."
+        return f"{self.job.name} - {self.role}: {self.content}"

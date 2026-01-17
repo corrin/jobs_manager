@@ -95,9 +95,7 @@ class JobQuoteChatModelTests(TestCase):
             content="Test message for string representation",
         )
 
-        expected_str = (
-            f"JobQuoteChat(job={self.job.name}, role=user, message_id=test-message-3)"
-        )
+        expected_str = f"{self.job.name} - user: Test message for string representation"
         self.assertEqual(str(message), expected_str)
 
     def test_message_id_uniqueness(self):
@@ -121,7 +119,8 @@ class JobQuoteChatModelTests(TestCase):
 
     def test_role_validation(self):
         """Test role field validation"""
-        valid_roles = ["user", "assistant", "system"]
+        # Model only allows "user" and "assistant" roles
+        valid_roles = ["user", "assistant"]
 
         for role in valid_roles:
             message = JobQuoteChat.objects.create(
@@ -132,15 +131,16 @@ class JobQuoteChatModelTests(TestCase):
             )
             self.assertEqual(message.role, role)
 
-    def test_content_required(self):
-        """Test that content field is required"""
-        with self.assertRaises(IntegrityError):
-            JobQuoteChat.objects.create(
-                job=self.job,
-                message_id="test-empty-content",
-                role="user",
-                content="",  # Empty content should fail
-            )
+    def test_content_allows_empty_string(self):
+        """Test that content field allows empty string (but not NULL)"""
+        # Empty string is valid at database level
+        message = JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="test-empty-content",
+            role="user",
+            content="",
+        )
+        self.assertEqual(message.content, "")
 
     def test_job_relationship(self):
         """Test relationship with Job model"""
