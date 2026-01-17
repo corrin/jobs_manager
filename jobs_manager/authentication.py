@@ -25,6 +25,13 @@ class JWTAuthentication(BaseJWTAuthentication):
         if hasattr(django_request, "user") and django_request.user.is_authenticated:
             return (django_request.user, None)
 
+        # Support DRF's force_authenticate for tests
+        if (
+            hasattr(request, "_force_auth_user")
+            and request._force_auth_user is not None
+        ):
+            return (request._force_auth_user, None)
+
         try:
             # Debug logging for client create endpoint
             if request.path_info == "/clients/create/":
