@@ -456,8 +456,26 @@ def transform_stock(xero_item, xero_id):
     else:
         defaults["unit_cost"] = Decimal(str(xero_item.purchase_details.unit_price))
 
-    stock, created = Stock.objects.get_or_create(xero_id=xero_id, defaults=defaults)
+    # Try to find existing stock by xero_id first, then by item_code
+    # (handles case where Stock was created locally without xero_id)
+    stock = Stock.objects.filter(xero_id=xero_id).first()
+    if not stock and item_code:
+        stock = Stock.objects.filter(item_code=item_code).first()
+
+    xero_id_updated = False
+    if stock:
+        created = False
+        # Ensure xero_id is linked (in case we found by item_code)
+        if stock.xero_id != xero_id:
+            stock.xero_id = xero_id
+            xero_id_updated = True
+    else:
+        stock = Stock.objects.create(xero_id=xero_id, **defaults)
+        created = True
+
     changed_fields = _track_and_apply_changes(stock, defaults)
+    if xero_id_updated:
+        changed_fields.append("xero_id")
     if changed_fields:
         stock.save()
     return stock, _build_sync_status(created, changed_fields)

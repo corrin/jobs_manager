@@ -18,7 +18,7 @@ from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.job.services.gemini_chat_service import GeminiChatService
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
 class GeminiChatServiceConfigurationTests(TestCase):
@@ -37,12 +37,16 @@ class GeminiChatServiceConfigurationTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.service = GeminiChatService()
@@ -215,12 +219,16 @@ class GeminiChatServiceResponseGenerationTests(TransactionTestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.ai_provider = AIProvider.objects.create(
@@ -397,12 +405,16 @@ class GeminiChatServiceIntegrationTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.ai_provider = AIProvider.objects.create(

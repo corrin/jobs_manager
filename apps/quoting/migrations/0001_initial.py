@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("workflow", "0151_remove_purchaseline_purchase_and_more"),
+        ("client", "0005_client_is_supplier"),
     ]
 
     operations = [
@@ -80,7 +80,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="scraped_products",
-                        to="workflow.client",
+                        to="client.client",
                     ),
                 ),
             ],

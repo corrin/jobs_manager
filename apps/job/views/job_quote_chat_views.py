@@ -12,13 +12,14 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
+from rest_framework.exceptions import ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.job.mixins import JobLookupMixin
 from apps.job.models import Job, JobQuoteChat
-from apps.job.permissions import IsOfficeStaff
+from apps.job.permissions import IsStaffUser
 from apps.job.serializers import (
     JobQuoteChatDeleteResponseSerializer,
     JobQuoteChatHistoryResponseSerializer,
@@ -42,7 +43,7 @@ class BaseJobQuoteChatView(APIView):
     def get_permissions(self):
         if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticated()]
-        return [IsAuthenticated(), IsOfficeStaff()]
+        return [IsAuthenticated(), IsStaffUser()]
 
     @method_decorator(csrf_exempt)
     def dispatch(self, request, *args, **kwargs):
@@ -59,6 +60,11 @@ class BaseJobQuoteChatView(APIView):
     def handle_error(self, error: Exception) -> Response:
         """Handle errors and return appropriate response using match-case."""
         match error:
+            case ParseError():
+                return Response(
+                    {"success": False, "error": str(error)},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             case ValueError():
                 return Response(
                     {"success": False, "error": str(error)},
@@ -191,21 +197,22 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             # Validate data using serializer
             serializer = JobQuoteChatCreateSerializer(data=request.data)
 
-            # Log validation result
-            if serializer.is_valid():
-                logger.info(
-                    f"Quote chat POST - Validated data: {serializer.validated_data}"
-                )
-                logger.info(
-                    f"Quote chat POST - Content field: '{serializer.validated_data.get('content', 'MISSING')}'"
-                )
-            else:
+            if not serializer.is_valid():
                 logger.error(
                     f"Quote chat POST - Validation errors: {serializer.errors}"
                 )
-                serializer.is_valid(
-                    raise_exception=True
-                )  # This will raise the validation error
+                return Response(
+                    {
+                        "success": False,
+                        "error": "Validation error",
+                        "details": serializer.errors,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            logger.info(
+                f"Quote chat POST - Validated data: {serializer.validated_data}"
+            )
 
             # Create the message with job relationship
             message = serializer.save(job=job)

@@ -18,7 +18,7 @@ from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
 class ChatAPIEndpointTests(TestCase):
@@ -40,12 +40,16 @@ class ChatAPIEndpointTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client_obj,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.ai_provider = AIProvider.objects.create(
@@ -57,56 +61,58 @@ class ChatAPIEndpointTests(TestCase):
 
         # Create test user
         self.staff = Staff.objects.create_user(
-            username="testuser",
-            password="testpassword123",
             email="test@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
         )
 
         # URLs
         self.chat_history_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_history", kwargs={"job_id": str(self.job.id)}
         )
         self.chat_interaction_url = reverse(
-            "job-quote-chat-interaction", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_interaction", kwargs={"job_id": str(self.job.id)}
         )
+
+        # Authenticate for API requests
+        self.client_api.force_authenticate(user=self.staff)
 
     def test_chat_history_get_empty(self):
         """Test getting empty chat history"""
         response = self.client_api.get(self.chat_history_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 0)
-        self.assertEqual(response.data["results"], [])
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["messages"], [])
 
     def test_chat_history_get_with_messages(self):
         """Test getting chat history with existing messages"""
-
-        # Removed variable declaration since it was not used
-        [
-            JobQuoteChat.objects.create(
-                job=self.job,
-                message_id="user-1",
-                role="user",
-                content="Hello",
-            ),
-            JobQuoteChat.objects.create(
-                job=self.job,
-                message_id="assistant-1",
-                role="assistant",
-                content="Hi there!",
-            ),
-        ]
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="user-1",
+            role="user",
+            content="Hello",
+        )
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="assistant-1",
+            role="assistant",
+            content="Hi there!",
+        )
 
         response = self.client_api.get(self.chat_history_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["count"], 2)
-        self.assertEqual(len(response.data["results"]), 2)
+        self.assertEqual(response.data["success"], True)
+        self.assertEqual(response.data["data"]["job_id"], str(self.job.id))
 
-        # Check message content
-        result_messages = response.data["results"]
-        self.assertEqual(result_messages[0]["content"], "Hello")
-        self.assertEqual(result_messages[1]["content"], "Hi there!")
+        messages = response.data["data"]["messages"]
+        self.assertEqual(len(messages), 2)
+        self.assertEqual(messages[0]["content"], "Hello")
+        self.assertEqual(messages[0]["role"], "user")
+        self.assertEqual(messages[1]["content"], "Hi there!")
+        self.assertEqual(messages[1]["role"], "assistant")
 
     def test_chat_history_post_create_message(self):
         """Test creating a new chat message"""
@@ -155,7 +161,7 @@ class ChatAPIEndpointTests(TestCase):
         )
 
         delete_url = reverse(
-            "job-quote-chat-detail",
+            "jobs:job_quote_chat_message",
             kwargs={"job_id": str(self.job.id), "message_id": message.message_id},
         )
 
@@ -169,7 +175,9 @@ class ChatAPIEndpointTests(TestCase):
     def test_chat_history_job_not_found(self):
         """Test accessing chat history for non-existent job"""
         non_existent_job_id = str(uuid.uuid4())
-        url = reverse("job-quote-chat-history", kwargs={"job_id": non_existent_job_id})
+        url = reverse(
+            "jobs:job_quote_chat_history", kwargs={"job_id": non_existent_job_id}
+        )
 
         response = self.client_api.get(url)
 
@@ -245,7 +253,7 @@ class ChatAPIEndpointTests(TestCase):
         """Test chat interaction with non-existent job"""
         non_existent_job_id = str(uuid.uuid4())
         url = reverse(
-            "job-quote-chat-interaction", kwargs={"job_id": non_existent_job_id}
+            "jobs:job_quote_chat_interaction", kwargs={"job_id": non_existent_job_id}
         )
 
         data = {
@@ -330,35 +338,41 @@ class ChatAPIPermissionTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client_obj,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         # Create test users
         self.staff = Staff.objects.create_user(
-            username="testuser",
-            password="testpassword123",
             email="test@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
         )
 
         self.admin_staff = Staff.objects.create_user(
-            username="admin",
-            password="adminpassword123",
             email="admin@example.com",
+            password="adminpassword123",
+            first_name="Admin",
+            last_name="User",
             is_office_staff=True,
             is_superuser=True,
         )
 
         # URLs
         self.chat_history_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_history", kwargs={"job_id": str(self.job.id)}
         )
         self.chat_interaction_url = reverse(
-            "job-quote-chat-interaction", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_interaction", kwargs={"job_id": str(self.job.id)}
         )
 
     def test_unauthenticated_access(self):
@@ -410,24 +424,39 @@ class ChatAPIValidationTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client_obj,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.chat_history_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": str(self.job.id)}
+            "jobs:job_quote_chat_history", kwargs={"job_id": str(self.job.id)}
         )
+
+        # Create staff user and authenticate (needs is_office_staff for POST)
+        self.staff = Staff.objects.create_user(
+            email="validation_test@example.com",
+            password="testpassword123",
+            first_name="Validation",
+            last_name="Tester",
+            is_office_staff=True,
+        )
+        self.client_api.force_authenticate(user=self.staff)
 
     def test_create_message_valid_roles(self):
         """Test creating messages with valid roles"""
         valid_roles = ["user", "assistant"]
 
-        for role in valid_roles:
+        for i, role in enumerate(valid_roles):
             data = {
+                "message_id": f"test-msg-{role}-{i}",
                 "role": role,
                 "content": f"Test message with {role} role",
             }
@@ -439,11 +468,12 @@ class ChatAPIValidationTests(TestCase):
             )
 
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-            self.assertEqual(response.data["role"], role)
+            self.assertEqual(response.data["data"]["role"], role)
 
     def test_create_message_invalid_role(self):
         """Test creating message with invalid role"""
         data = {
+            "message_id": "test-invalid-role",
             "role": "invalid_role",
             "content": "Test message",
         }
@@ -459,6 +489,7 @@ class ChatAPIValidationTests(TestCase):
     def test_create_message_missing_content(self):
         """Test creating message with missing content"""
         data = {
+            "message_id": "test-missing-content",
             "role": "user",
         }
 
@@ -473,6 +504,7 @@ class ChatAPIValidationTests(TestCase):
     def test_create_message_empty_content(self):
         """Test creating message with empty content"""
         data = {
+            "message_id": "test-empty-content",
             "role": "user",
             "content": "",
         }
@@ -488,6 +520,7 @@ class ChatAPIValidationTests(TestCase):
     def test_create_message_with_metadata(self):
         """Test creating message with metadata"""
         data = {
+            "message_id": "test-with-metadata",
             "role": "assistant",
             "content": "Test message with metadata",
             "metadata": {
@@ -504,16 +537,20 @@ class ChatAPIValidationTests(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data["metadata"]["model"], "gemini-pro")
-        self.assertEqual(response.data["metadata"]["custom_field"], "test_value")
-
-    def test_invalid_job_id_format(self):
-        """Test API with invalid job ID format"""
-        invalid_url = reverse(
-            "job-quote-chat-history", kwargs={"job_id": "invalid-uuid"}
+        self.assertEqual(response.data["data"]["metadata"]["model"], "gemini-pro")
+        self.assertEqual(
+            response.data["data"]["metadata"]["custom_field"], "test_value"
         )
 
-        response = self.client_api.get(invalid_url)
+    def test_nonexistent_job_id(self):
+        """Test API with non-existent job ID"""
+        # Use a valid UUID format that doesn't exist in the database
+        nonexistent_url = reverse(
+            "jobs:job_quote_chat_history",
+            kwargs={"job_id": "00000000-0000-0000-0000-000000000000"},
+        )
+
+        response = self.client_api.get(nonexistent_url)
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_malformed_json_request(self):

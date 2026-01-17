@@ -19,7 +19,7 @@ from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.job.services.gemini_chat_service import GeminiChatService
 from apps.workflow.enums import AIProviderTypes
-from apps.workflow.models import AIProvider, CompanyDefaults
+from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
 class ChatPerformanceTests(TransactionTestCase):
@@ -38,12 +38,16 @@ class ChatPerformanceTests(TransactionTestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
         self.job = Job.objects.create(
             name="Test Job",
             job_number="JOB001",
             description="Test job description",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         self.ai_provider = AIProvider.objects.create(
@@ -131,6 +135,7 @@ class ChatPerformanceTests(TransactionTestCase):
                 description=f"Concurrent test job {i}",
                 client=self.client,
                 status="quoting",
+                default_xero_pay_item=self.xero_pay_item,
             )
             jobs.append(job)
 
@@ -351,6 +356,7 @@ class ChatPerformanceTests(TransactionTestCase):
                 description=f"Database test job {i}",
                 client=self.client,
                 status="quoting",
+                default_xero_pay_item=self.xero_pay_item,
             )
             jobs.append(job)
 
@@ -467,6 +473,9 @@ class ChatLoadTests(TestCase):
             xero_last_modified="2024-01-01T00:00:00Z",
         )
 
+        # Get Ordinary Time pay item (created by migration)
+        self.xero_pay_item = XeroPayItem.get_ordinary_time()
+
     def test_multiple_jobs_chat_history(self):
         """Test performance with multiple jobs having chat history"""
         # Create multiple jobs with chat history
@@ -478,6 +487,7 @@ class ChatLoadTests(TestCase):
                 description=f"Load test job {i}",
                 client=self.client,
                 status="quoting",
+                default_xero_pay_item=self.xero_pay_item,
             )
             jobs.append(job)
 
@@ -511,6 +521,7 @@ class ChatLoadTests(TestCase):
             description="Pagination test job",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         # Create many messages
@@ -557,6 +568,7 @@ class ChatLoadTests(TestCase):
             description="Search test job",
             client=self.client,
             status="quoting",
+            default_xero_pay_item=self.xero_pay_item,
         )
 
         # Create messages with searchable content

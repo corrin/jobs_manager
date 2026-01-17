@@ -127,9 +127,10 @@ class CompanyDefaultsSchemaAPITests(TestCase):
     def setUp(self):
         self.client = APIClient()
         self.staff = Staff.objects.create_user(
-            username="testuser",
-            password="testpassword123",
             email="test@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
         )
 
     def test_schema_endpoint_returns_sections(self):
