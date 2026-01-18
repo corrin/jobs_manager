@@ -17,13 +17,12 @@ from django.test import TestCase
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.quoting.mcp import QuotingTool, SupplierProductQueryTool
+from apps.testing import BaseTestCase
 from apps.workflow.models import CompanyDefaults
 
 
-class QuotingToolTests(TestCase):
+class QuotingToolTests(BaseTestCase):
     """Test QuotingTool functionality"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""
@@ -277,10 +276,8 @@ class SupplierProductQueryToolTests(TestCase):
         self.assertIn("API error", result)
 
 
-class MCPToolIntegrationTests(TestCase):
+class MCPToolIntegrationTests(BaseTestCase):
     """Test MCP tool integration with chat service"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""

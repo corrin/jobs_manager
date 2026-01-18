@@ -3,14 +3,12 @@ import os
 import unittest
 from unittest.mock import Mock, patch
 
-from django.test import TestCase
-
 from apps.quoting.services.providers.mistral_provider import (
     MistralPriceExtractionProvider,
 )
 
 
-class TestOCRFixtures(TestCase):
+class TestOCRFixtures(unittest.TestCase):
     """Unit tests using real OCR JSON fixtures from /tmp output."""
 
     def setUp(self):

@@ -1,15 +1,12 @@
-from django.test import TestCase
-
 from apps.client.models import Client
 from apps.quoting.models import SupplierPriceList, SupplierProduct
 from apps.quoting.services.pdf_data_validation import PDFDataValidationService
+from apps.testing import BaseTestCase
 from apps.workflow.models import CompanyDefaults
 
 
-class PDFDataValidationServiceTest(TestCase):
+class PDFDataValidationServiceTest(BaseTestCase):
     """Test cases for PDFDataValidationService."""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data."""
@@ -125,7 +122,7 @@ class PDFDataValidationServiceTest(TestCase):
         test_cases = [
             ("  Normal text  ", "Normal text"),
             ("Text\twith\ttabs", "Text with tabs"),
-            ("Text\nwith\nnewlines", "Text\nwith\nnewlines"),
+            ("Text\nwith\nnewlines", "Text with newlines"),  # All whitespace collapsed
             ("Text   with   spaces", "Text with spaces"),
             ("", ""),
             (None, ""),

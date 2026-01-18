@@ -12,19 +12,18 @@ Tests cover:
 import uuid
 from unittest.mock import Mock, patch
 
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase
 
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.job.services.gemini_chat_service import GeminiChatService
+from apps.testing import BaseTestCase, BaseTransactionTestCase
 from apps.workflow.enums import AIProviderTypes
 from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
-class GeminiChatServiceConfigurationTests(TestCase):
+class GeminiChatServiceConfigurationTests(BaseTestCase):
     """Test service configuration and initialization"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""
@@ -203,10 +202,8 @@ class GeminiChatServiceToolExecutionTests(TestCase):
         self.assertIn("Tool error", result)
 
 
-class GeminiChatServiceResponseGenerationTests(TransactionTestCase):
+class GeminiChatServiceResponseGenerationTests(BaseTransactionTestCase):
     """Test AI response generation with database transactions"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""
@@ -389,10 +386,8 @@ class GeminiChatServiceResponseGenerationTests(TransactionTestCase):
         self.assertTrue(result.metadata.get("error", False))
 
 
-class GeminiChatServiceIntegrationTests(TestCase):
+class GeminiChatServiceIntegrationTests(BaseTestCase):
     """Integration tests for the complete chat flow"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""

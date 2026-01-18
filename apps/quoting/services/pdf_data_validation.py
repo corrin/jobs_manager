@@ -221,10 +221,10 @@ class PDFDataValidationService:
         # Convert to string and strip whitespace
         text = str(text).strip()
 
-        # Remove excessive whitespace
+        # Collapse all whitespace (spaces, tabs, newlines) to single space
         text = re.sub(r"\s+", " ", text)
 
-        # Remove control characters but keep newlines and tabs
+        # Remove control characters
         text = re.sub(r"[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]", "", text)
 
         return text

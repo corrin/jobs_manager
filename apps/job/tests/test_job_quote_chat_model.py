@@ -13,18 +13,16 @@ from datetime import datetime
 from datetime import timezone as dt_timezone
 
 from django.db import IntegrityError
-from django.test import TestCase
 from django.utils import timezone
 
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
+from apps.testing import BaseTestCase
 from apps.workflow.models import CompanyDefaults, XeroPayItem
 
 
-class JobQuoteChatModelTests(TestCase):
+class JobQuoteChatModelTests(BaseTestCase):
     """Test JobQuoteChat model functionality"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""
@@ -154,8 +152,8 @@ class JobQuoteChatModelTests(TestCase):
         # Test forward relationship
         self.assertEqual(message.job, self.job)
 
-        # Test reverse relationship
-        job_messages = self.job.jobquotechat_set.all()
+        # Test reverse relationship (related_name is quote_chat_messages)
+        job_messages = self.job.quote_chat_messages.all()
         self.assertIn(message, job_messages)
 
     def test_timestamp_auto_set(self):
@@ -387,10 +385,8 @@ class JobQuoteChatModelTests(TestCase):
         self.assertEqual(message.metadata["valid_field"], "valid_value")
 
 
-class JobQuoteChatQueryTests(TestCase):
+class JobQuoteChatQueryTests(BaseTestCase):
     """Test query operations on JobQuoteChat model"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""

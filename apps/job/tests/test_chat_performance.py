@@ -13,19 +13,16 @@ import threading
 import time
 from unittest.mock import Mock, patch
 
-from django.test import TestCase, TransactionTestCase
-
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
 from apps.job.services.gemini_chat_service import GeminiChatService
+from apps.testing import BaseTestCase, BaseTransactionTestCase
 from apps.workflow.enums import AIProviderTypes
 from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
-class ChatPerformanceTests(TransactionTestCase):
+class ChatPerformanceTests(BaseTransactionTestCase):
     """Test chat performance characteristics"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""
@@ -457,10 +454,8 @@ class ChatPerformanceTests(TransactionTestCase):
         self.assertEqual(len(retrieved_message.metadata["chat_history"]), 50)
 
 
-class ChatLoadTests(TestCase):
+class ChatLoadTests(BaseTestCase):
     """Test chat system under load"""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data"""

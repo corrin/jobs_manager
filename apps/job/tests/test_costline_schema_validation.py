@@ -5,15 +5,14 @@ from decimal import Decimal
 from uuid import uuid4
 
 from django.core.exceptions import ValidationError
-from django.test import TestCase
 
 from apps.client.models import Client
 from apps.job.models import CostLine, Job
+from apps.testing import BaseTestCase
 from apps.workflow.models import XeroPayItem
 
 
-class CostLineSchemaValidationTests(TestCase):
-    fixtures = ["company_defaults"]
+class CostLineSchemaValidationTests(BaseTestCase):
 
     def setUp(self) -> None:
         self.client = Client.objects.create(
@@ -54,8 +53,8 @@ class CostLineSchemaValidationTests(TestCase):
             "date": date.today().isoformat(),
             "is_billable": True,
             "wage_rate_multiplier": 1.5,
-            "wage_rate": Decimal("45.00"),
-            "charge_out_rate": Decimal("90.00"),
+            "wage_rate": 45.00,  # JSON requires float, not Decimal
+            "charge_out_rate": 90.00,
         }
         line = self._build_cost_line(meta=meta)
         # Should not raise ValidationError

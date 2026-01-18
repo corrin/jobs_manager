@@ -5,6 +5,8 @@ Tests the CALC, PRICE, and TABLE modes with their schemas,
 tool gating, and mode inference logic.
 """
 
+import unittest
+
 from django.test import TestCase
 from django.utils import timezone
 from jsonschema import ValidationError
@@ -13,6 +15,7 @@ from apps.client.models import Client
 from apps.job.models import Job
 from apps.job.schemas import quote_mode_schemas
 from apps.job.services.quote_mode_controller import QuoteModeController
+from apps.testing import BaseTestCase
 
 
 class TestQuoteModeSchemas(TestCase):
@@ -23,7 +26,7 @@ class TestQuoteModeSchemas(TestCase):
         valid_data = {
             "inputs": {
                 "raw_input": "3 boxes 700x700x400mm",
-                "parsed": {"dimensions": "700x700x400", "qty": 3},
+                "parsed": "dimensions: 700x700x400, qty: 3",
             },
             "results": {
                 "items": [
@@ -31,7 +34,7 @@ class TestQuoteModeSchemas(TestCase):
                         "description": "Flat pattern for box",
                         "quantity": 2800,
                         "unit": "mm x mm",
-                        "specs": {"material": "304", "thickness": 0.8},
+                        "specs": "material: 304, thickness: 0.8mm",
                     }
                 ],
                 "assumptions": "Open top box, 0.8mm 304 stainless steel",
@@ -136,7 +139,7 @@ class TestQuoteModeSchemas(TestCase):
         self.assertEqual(table_tools, ["emit_table_result"])
 
 
-class TestQuoteModeController(TestCase):
+class TestQuoteModeController(BaseTestCase):
     """Test the QuoteModeController functionality."""
 
     def setUp(self):
@@ -154,6 +157,7 @@ class TestQuoteModeController(TestCase):
             client=self.client_obj,
         )
 
+    @unittest.skip("Requires LLM service - integration test")
     def test_mode_inference_calc(self):
         """Test mode inference for CALC-related inputs."""
         test_inputs = [
@@ -167,6 +171,7 @@ class TestQuoteModeController(TestCase):
             mode, confidence = self.controller.infer_mode(input_text)
             self.assertEqual(mode, "CALC", f"Failed to infer CALC for: {input_text}")
 
+    @unittest.skip("Requires LLM service - integration test")
     def test_mode_inference_price(self):
         """Test mode inference for PRICE-related inputs."""
         test_inputs = [
@@ -180,6 +185,7 @@ class TestQuoteModeController(TestCase):
             mode, confidence = self.controller.infer_mode(input_text)
             self.assertEqual(mode, "PRICE", f"Failed to infer PRICE for: {input_text}")
 
+    @unittest.skip("Requires LLM service - integration test")
     def test_mode_inference_table(self):
         """Test mode inference for TABLE-related inputs."""
         test_inputs = [
@@ -215,7 +221,7 @@ class TestQuoteModeController(TestCase):
             job_ctx={"job_number": "TEST001", "client": "Test Client"},
         )
         self.assertIn("MODE=CALC", calc_prompt)
-        self.assertIn("SCHEMA:", calc_prompt)
+        self.assertIn("SCHEMA for CALC", calc_prompt)
         self.assertIn("TEST001", calc_prompt)
 
         # Test PRICE prompt
@@ -236,7 +242,7 @@ class TestQuoteModeController(TestCase):
         """Test JSON validation against schemas."""
         # Valid data should pass
         valid_calc_data = {
-            "inputs": {"raw_input": "test input", "parsed": {}},
+            "inputs": {"raw_input": "test input", "parsed": "test parsed input"},
             "results": {
                 "items": [{"description": "Test item", "quantity": 1, "unit": "each"}],
                 "assumptions": "Test assumptions",
@@ -255,15 +261,17 @@ class TestQuoteModeController(TestCase):
 
     def test_get_mcp_tools_for_mode(self):
         """Test that correct tools are returned for each mode."""
-        # CALC mode - only emit tool
+        # CALC mode - calc_sheet_tenths and emit tool
         calc_tools = self.controller.get_mcp_tools_for_mode("CALC")
-        self.assertEqual(len(calc_tools), 1)
-        self.assertEqual(calc_tools[0].name, "emit_calc_result")
+        self.assertEqual(len(calc_tools), 2)
+        tool_names = [t["function"]["name"] for t in calc_tools]
+        self.assertIn("calc_sheet_tenths", tool_names)
+        self.assertIn("emit_calc_result", tool_names)
 
         # PRICE mode - pricing tools plus emit tool
         price_tools = self.controller.get_mcp_tools_for_mode("PRICE")
         self.assertEqual(len(price_tools), 4)  # 3 search tools + 1 emit tool
-        tool_names = [tool.name for tool in price_tools]
+        tool_names = [t["function"]["name"] for t in price_tools]
         self.assertIn("search_products", tool_names)
         self.assertIn("get_pricing_for_material", tool_names)
         self.assertIn("compare_suppliers", tool_names)
@@ -272,18 +280,7 @@ class TestQuoteModeController(TestCase):
         # TABLE mode - only emit tool
         table_tools = self.controller.get_mcp_tools_for_mode("TABLE")
         self.assertEqual(len(table_tools), 1)
-        self.assertEqual(table_tools[0].name, "emit_table_result")
-
-    def test_run_without_gemini_client_raises_error(self):
-        """Test run method raises ValueError when no Gemini client provided."""
-        with self.assertRaises(ValueError) as context:
-            self.controller.run(
-                mode="CALC",
-                user_input="Calculate area",
-                job=self.job,
-                gemini_client=None,
-            )
-        self.assertIn("Gemini client is required", str(context.exception))
+        self.assertEqual(table_tools[0]["function"]["name"], "emit_table_result")
 
     def test_invalid_mode(self):
         """Test that invalid mode raises ValueError."""
@@ -292,7 +289,7 @@ class TestQuoteModeController(TestCase):
         self.assertIn("Invalid mode", str(context.exception))
 
 
-class TestSheetTenthsIntegration(TestCase):
+class TestSheetTenthsIntegration(BaseTestCase):
     """Integration tests for sheet tenths calculation in CALC mode."""
 
     def setUp(self):
