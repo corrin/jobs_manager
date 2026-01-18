@@ -21,7 +21,7 @@ from apps.job.serializers import (
     JobQuoteChatInteractionSerializer,
     JobQuoteChatInteractionSuccessResponseSerializer,
 )
-from apps.job.services.gemini_chat_service import GeminiChatService
+from apps.job.services.chat_service import ChatService
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ class JobQuoteChatInteractionView(APIView):
 
         try:
             # Instantiate the chat service
-            chat_service = GeminiChatService()
+            chat_service = ChatService()
 
             # Use mode-based system as the primary implementation
             # AUTO mode means the system will infer the appropriate mode

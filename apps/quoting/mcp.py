@@ -101,7 +101,7 @@ class QuotingTool(MCPToolset):
 
         # Create a basic quote structure
         quote_info = [
-            f"Quote Estimate for Job: {job.job_name}",
+            f"Quote Estimate for Job: {job.name}",
             f"Client: {job.client.name}",
             f"Materials requested: {materials}",
             "",

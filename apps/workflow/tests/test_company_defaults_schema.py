@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Staff
+from apps.testing import BaseTestCase
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.models.settings_metadata import (
     COMPANY_DEFAULTS_FIELD_SECTIONS,
@@ -119,10 +120,8 @@ class SettingsMetadataTests(TestCase):
         self.assertIsNone(info)
 
 
-class CompanyDefaultsSchemaAPITests(TestCase):
+class CompanyDefaultsSchemaAPITests(BaseTestCase):
     """Test the schema API endpoint."""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         self.client = APIClient()

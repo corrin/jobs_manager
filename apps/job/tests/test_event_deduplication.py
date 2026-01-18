@@ -4,21 +4,19 @@ Tests for event deduplication functionality.
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.test import TestCase
 
 from apps.accounts.models import Staff
 from apps.client.models import Client
 from apps.job.models import Job, JobEvent
 from apps.job.services.job_rest_service import JobRestService
+from apps.testing import BaseTestCase
 from apps.workflow.models import XeroPayItem
 
 User = get_user_model()
 
 
-class EventDeduplicationTest(TestCase):
+class EventDeduplicationTest(BaseTestCase):
     """Test event deduplication at model and service levels."""
-
-    fixtures = ["company_defaults"]
 
     def setUp(self):
         """Set up test data."""
