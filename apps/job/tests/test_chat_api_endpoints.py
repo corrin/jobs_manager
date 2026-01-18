@@ -44,7 +44,7 @@ class ChatAPIEndpointTests(BaseTestCase):
 
         self.job = Job.objects.create(
             name="Test Job",
-            job_number="JOB001",
+            job_number=1001,
             description="Test job description",
             client=self.client_obj,
             status="quoting",
@@ -187,9 +187,7 @@ class ChatAPIEndpointTests(BaseTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    @patch(
-        "apps.job.services.gemini_chat_service.GeminiChatService.generate_mode_response"
-    )
+    @patch("apps.job.services.chat_service.ChatService.generate_mode_response")
     def test_chat_interaction_success(self, mock_generate_response):
         """Test successful chat interaction"""
         # Mock the service response
@@ -274,9 +272,7 @@ class ChatAPIEndpointTests(BaseTestCase):
         self.assertFalse(response.data["success"])
         self.assertEqual(response.data["code"], "JOB_NOT_FOUND")
 
-    @patch(
-        "apps.job.services.gemini_chat_service.GeminiChatService.generate_mode_response"
-    )
+    @patch("apps.job.services.chat_service.ChatService.generate_mode_response")
     def test_chat_interaction_configuration_error(self, mock_generate_response):
         """Test chat interaction with configuration error"""
         mock_generate_response.side_effect = ValueError("No AI provider configured")
@@ -295,9 +291,7 @@ class ChatAPIEndpointTests(BaseTestCase):
         self.assertFalse(response.data["success"])
         self.assertIn("No AI provider configured", response.data["error"])
 
-    @patch(
-        "apps.job.services.gemini_chat_service.GeminiChatService.generate_mode_response"
-    )
+    @patch("apps.job.services.chat_service.ChatService.generate_mode_response")
     def test_chat_interaction_internal_error(self, mock_generate_response):
         """Test chat interaction with internal error"""
         mock_generate_response.side_effect = Exception("Internal server error")
@@ -347,7 +341,7 @@ class ChatAPIPermissionTests(BaseTestCase):
 
         self.job = Job.objects.create(
             name="Test Job",
-            job_number="JOB001",
+            job_number=1001,
             description="Test job description",
             client=self.client_obj,
             status="quoting",
@@ -431,7 +425,7 @@ class ChatAPIValidationTests(BaseTestCase):
 
         self.job = Job.objects.create(
             name="Test Job",
-            job_number="JOB001",
+            job_number=1001,
             description="Test job description",
             client=self.client_obj,
             status="quoting",

@@ -10,6 +10,7 @@ responses for quoting across multiple LLM providers.
 
 import json
 import logging
+import os
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -25,12 +26,9 @@ from apps.workflow.services.llm_service import LLMService
 logger = logging.getLogger(__name__)
 
 
-class GeminiChatService:
+class ChatService:
     """
     Service for handling AI chat responses using LiteLLM with tool integration.
-
-    Note: This class is named GeminiChatService for backwards compatibility,
-    but now uses LiteLLM for provider-agnostic LLM access.
     """
 
     def __init__(self) -> None:
@@ -272,6 +270,104 @@ pricing, and suppliers."""
 
         return enhanced
 
+    def _build_multimodal_content(
+        self,
+        text_content: str,
+        message_files: List[Any],
+        llm: LLMService,
+    ) -> Any:
+        """
+        Build multimodal content for a message with file attachments.
+
+        Args:
+            text_content: The text content of the message
+            message_files: List of JobFile instances attached to the message
+            llm: LLMService instance to check for vision support
+
+        Returns:
+            Either a string (text only) or a list of content parts (multimodal)
+        """
+        if not message_files or not llm.supports_vision():
+            # Fall back to text reference if no files or no vision support
+            if message_files:
+                file_names = [f.filename for f in message_files]
+                return text_content + f"\n\n[Attached files: {', '.join(file_names)}]"
+            return text_content
+
+        # Build multimodal content parts
+        content_parts = []
+
+        for f in message_files:
+            file_path = os.path.join(f.full_path, f.filename)
+            if not os.path.exists(file_path):
+                logger.warning(f"File not found for multimodal: {file_path}")
+                content_parts.append(
+                    {
+                        "type": "text",
+                        "text": f"[Attached file (not found): {f.filename}]",
+                    }
+                )
+                continue
+
+            mime_type = f.mime_type or ""
+
+            if mime_type.startswith("image/"):
+                # Create image content part
+                try:
+                    img_msg = LLMService.create_image_message(file_path, "")
+                    # Extract just the image_url part (not the text part)
+                    for part in img_msg["content"]:
+                        if part["type"] == "image_url":
+                            content_parts.append(part)
+                            break
+                    logger.info(f"Added image to multimodal content: {f.filename}")
+                except Exception as e:
+                    logger.error(f"Failed to load image {f.filename}: {e}")
+                    content_parts.append(
+                        {
+                            "type": "text",
+                            "text": f"[Image file (error loading): {f.filename}]",
+                        }
+                    )
+
+            elif mime_type == "application/pdf":
+                # Create PDF content part
+                try:
+                    pdf_msg = LLMService.create_pdf_message(file_path, "")
+                    # Extract just the pdf/image_url part (not the text part)
+                    for part in pdf_msg["content"]:
+                        if part["type"] == "image_url":
+                            content_parts.append(part)
+                            break
+                    logger.info(f"Added PDF to multimodal content: {f.filename}")
+                except Exception as e:
+                    logger.error(f"Failed to load PDF {f.filename}: {e}")
+                    content_parts.append(
+                        {
+                            "type": "text",
+                            "text": f"[PDF file (error loading): {f.filename}]",
+                        }
+                    )
+
+            else:
+                # Unsupported file type - just mention it
+                content_parts.append(
+                    {
+                        "type": "text",
+                        "text": f"[Attached file: {f.filename} ({mime_type})]",
+                    }
+                )
+
+        # Add the text content last
+        content_parts.append(
+            {
+                "type": "text",
+                "text": text_content,
+            }
+        )
+
+        return content_parts
+
     @transaction.atomic
     def generate_ai_response(
         self, job_id: str, user_message: str, mode: Optional[str] = None
@@ -474,8 +570,7 @@ pricing, and suppliers."""
                 list(recent_messages)
             )
 
-            # Note: File handling for vision models would need provider-specific
-            # handling. For now, we include file references as text.
+            # Fetch job files if there are any file references
             job_files_dict = {}
             if all_file_ids:
                 job_files = self.file_service.fetch_job_files(job_id, all_file_ids)
@@ -487,9 +582,9 @@ pricing, and suppliers."""
 
                 # Build content - start with text
                 content = msg.content
+                role = self._to_openai_role(msg.role)
 
-                # Note: File handling for multimodal would need to be handled
-                # differently for each provider. For now, just mention file names.
+                # Handle file attachments with multimodal support
                 if msg.metadata and "file_ids" in msg.metadata:
                     message_file_ids = msg.metadata["file_ids"]
                     message_files = [
@@ -498,12 +593,14 @@ pricing, and suppliers."""
                         if fid in job_files_dict
                     ]
                     if message_files:
-                        file_names = [f.filename for f in message_files]
-                        content += f"\n\n[Attached files: {', '.join(file_names)}]"
+                        # Build multimodal content if supported
+                        content = self._build_multimodal_content(
+                            content, message_files, llm
+                        )
 
                 chat_history.append(
                     {
-                        "role": self._to_openai_role(msg.role),
+                        "role": role,
                         "content": content,
                     }
                 )
@@ -613,3 +710,7 @@ pricing, and suppliers."""
                 metadata={"error": True, "error_message": str(e), "mode": mode},
             )
             return error_message
+
+
+# Backwards compatibility alias
+GeminiChatService = ChatService

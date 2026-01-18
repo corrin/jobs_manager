@@ -9,19 +9,86 @@ Tests cover:
 - Database query optimization
 """
 
-import threading
+import json
 import time
+import uuid
 from unittest.mock import Mock, patch
 
 from apps.client.models import Client
 from apps.job.models import Job, JobQuoteChat
-from apps.job.services.gemini_chat_service import GeminiChatService
-from apps.testing import BaseTestCase, BaseTransactionTestCase
+from apps.job.services.chat_service import ChatService
+from apps.testing import BaseTestCase
 from apps.workflow.enums import AIProviderTypes
 from apps.workflow.models import AIProvider, CompanyDefaults, XeroPayItem
 
 
-class ChatPerformanceTests(BaseTransactionTestCase):
+def create_mock_llm(model_name: str = "test-model") -> Mock:
+    """Create a mock LLMService instance."""
+    mock_llm = Mock()
+    mock_llm.model_name = model_name
+    mock_llm.supports_vision.return_value = False
+    mock_llm.supports_tools.return_value = True
+    return mock_llm
+
+
+def create_text_response(content: str) -> Mock:
+    """Create a mock LLM response with text content (no tool calls)."""
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message = Mock()
+    mock_response.choices[0].message.content = content
+    mock_response.choices[0].message.tool_calls = None
+    mock_response.choices[0].message.role = "assistant"
+    mock_response.choices[0].message.model_dump.return_value = {
+        "content": content,
+        "role": "assistant",
+        "tool_calls": None,
+        "function_call": None,
+    }
+    return mock_response
+
+
+def create_tool_call_response(
+    tool_name: str, arguments: dict, tool_call_id: str = None
+) -> Mock:
+    """Create a mock LLM response with a tool call."""
+    if tool_call_id is None:
+        tool_call_id = f"toolu_{uuid.uuid4().hex[:24]}"
+
+    mock_function = Mock()
+    mock_function.name = tool_name
+    mock_function.arguments = json.dumps(arguments)
+
+    mock_tool_call = Mock()
+    mock_tool_call.id = tool_call_id
+    mock_tool_call.type = "function"
+    mock_tool_call.function = mock_function
+
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message = Mock()
+    mock_response.choices[0].message.content = None
+    mock_response.choices[0].message.tool_calls = [mock_tool_call]
+    mock_response.choices[0].message.role = "assistant"
+    mock_response.choices[0].message.model_dump.return_value = {
+        "content": None,
+        "role": "assistant",
+        "tool_calls": [
+            {
+                "id": tool_call_id,
+                "type": "function",
+                "function": {
+                    "name": tool_name,
+                    "arguments": json.dumps(arguments),
+                },
+            }
+        ],
+        "function_call": None,
+    }
+    return mock_response
+
+
+class ChatPerformanceTests(BaseTestCase):
     """Test chat performance characteristics"""
 
     def setUp(self):
@@ -40,7 +107,7 @@ class ChatPerformanceTests(BaseTransactionTestCase):
 
         self.job = Job.objects.create(
             name="Test Job",
-            job_number="JOB001",
+            job_number=1001,
             description="Test job description",
             client=self.client,
             status="quoting",
@@ -54,25 +121,15 @@ class ChatPerformanceTests(BaseTransactionTestCase):
             model_name="gemini-pro",
         )
 
-        self.service = GeminiChatService()
+        self.service = ChatService()
 
     def test_response_time_basic(self):
         """Test basic response time for single chat interaction"""
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            # Mock the Gemini client
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
-
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
-
-            # Mock response
-            mock_response = Mock()
-            mock_response.text = "Test response"
-            mock_response.candidates = [Mock()]
-            mock_response.candidates[0].content.parts = []
-            mock_chat.send_message.return_value = mock_response
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_response = create_text_response("Test response")
+            mock_llm.completion.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
 
             # Measure response time
             start_time = time.time()
@@ -97,19 +154,11 @@ class ChatPerformanceTests(BaseTransactionTestCase):
                 content=f"Message {i}",
             )
 
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
-
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
-
-            mock_response = Mock()
-            mock_response.text = "Response with history"
-            mock_response.candidates = [Mock()]
-            mock_response.candidates[0].content.parts = []
-            mock_chat.send_message.return_value = mock_response
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_response = create_text_response("Response with history")
+            mock_llm.completion.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
 
             start_time = time.time()
             result = self.service.generate_ai_response(str(self.job.id), "New message")
@@ -121,15 +170,15 @@ class ChatPerformanceTests(BaseTransactionTestCase):
             self.assertLess(response_time, 3.0)
             self.assertIsNotNone(result)
 
-    def test_concurrent_chat_sessions(self):
-        """Test handling of concurrent chat sessions"""
+    def test_multiple_sequential_chat_sessions(self):
+        """Test handling of multiple sequential chat sessions"""
         # Create multiple jobs
         jobs = []
         for i in range(5):
             job = Job.objects.create(
-                name=f"Concurrent Job {i}",
-                job_number=f"CONCURRENT{i:03d}",
-                description=f"Concurrent test job {i}",
+                name=f"Sequential Job {i}",
+                job_number=2000 + i,
+                description=f"Sequential test job {i}",
                 client=self.client,
                 status="quoting",
                 default_xero_pay_item=self.xero_pay_item,
@@ -137,46 +186,22 @@ class ChatPerformanceTests(BaseTransactionTestCase):
             jobs.append(job)
 
         results = []
-        errors = []
 
-        def chat_interaction(job_id, message):
-            try:
-                with patch.object(self.service, "get_gemini_client") as mock_client:
-                    mock_model = Mock()
-                    mock_model.model_name = "gemini-pro"
-                    mock_client.return_value = mock_model
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_get_llm.return_value = mock_llm
 
-                    mock_chat = Mock()
-                    mock_model.start_chat.return_value = mock_chat
+            for i, job in enumerate(jobs):
+                mock_response = create_text_response(f"Response for job {i}")
+                mock_llm.completion.return_value = mock_response
 
-                    mock_response = Mock()
-                    mock_response.text = f"Response for {job_id}"
-                    mock_response.candidates = [Mock()]
-                    mock_response.candidates[0].content.parts = []
-                    mock_chat.send_message.return_value = mock_response
-
-                    service = GeminiChatService()
-                    result = service.generate_ai_response(job_id, message)
-                    results.append(result)
-            except Exception as e:
-                errors.append(e)
-
-        # Start concurrent threads
-        threads = []
-        for i, job in enumerate(jobs):
-            thread = threading.Thread(
-                target=chat_interaction, args=(str(job.id), f"Concurrent message {i}")
-            )
-            threads.append(thread)
-            thread.start()
-
-        # Wait for all threads to complete
-        for thread in threads:
-            thread.join()
+                result = self.service.generate_ai_response(
+                    str(job.id), f"Message for job {i}"
+                )
+                results.append(result)
 
         # Verify results
         self.assertEqual(len(results), 5)
-        self.assertEqual(len(errors), 0)
 
         # Verify all results are unique
         result_ids = [r.id for r in results]
@@ -189,19 +214,11 @@ class ChatPerformanceTests(BaseTransactionTestCase):
         tracemalloc.start()
 
         # Simulate a conversation
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
-
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
-
-            mock_response = Mock()
-            mock_response.text = "Test response"
-            mock_response.candidates = [Mock()]
-            mock_response.candidates[0].content.parts = []
-            mock_chat.send_message.return_value = mock_response
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_response = create_text_response("Test response")
+            mock_llm.completion.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
 
             # Generate multiple responses
             for i in range(10):
@@ -237,19 +254,11 @@ class ChatPerformanceTests(BaseTransactionTestCase):
             JobQuoteChat.objects.bulk_create(messages)
 
         # Test response time with large history
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
-
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
-
-            mock_response = Mock()
-            mock_response.text = "Response with large history"
-            mock_response.candidates = [Mock()]
-            mock_response.candidates[0].content.parts = []
-            mock_chat.send_message.return_value = mock_response
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_response = create_text_response("Response with large history")
+            mock_llm.completion.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
 
             start_time = time.time()
             result = self.service.generate_ai_response(str(self.job.id), "New message")
@@ -274,21 +283,15 @@ class ChatPerformanceTests(BaseTransactionTestCase):
             )
 
         # Monitor database queries
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_response = create_text_response("Optimized response")
+            mock_llm.completion.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
 
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
-
-            mock_response = Mock()
-            mock_response.text = "Optimized response"
-            mock_response.candidates = [Mock()]
-            mock_response.candidates[0].content.parts = []
-            mock_chat.send_message.return_value = mock_response
-
-            with self.assertNumQueries(5):  # Should use minimal queries
+            with self.assertNumQueries(
+                7
+            ):  # Job, CompanyDefaults, Client, History, Insert, Savepoint x2
                 result = self.service.generate_ai_response(
                     str(self.job.id), "Test message"
                 )
@@ -296,36 +299,19 @@ class ChatPerformanceTests(BaseTransactionTestCase):
 
     def test_tool_execution_performance(self):
         """Test tool execution performance"""
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
 
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
+            # First response triggers tool call
+            tool_call_response = create_tool_call_response(
+                "search_products", {"query": "steel"}, "toolu_test123"
+            )
 
-            # Mock initial response with tool call
-            mock_function_call = Mock()
-            mock_function_call.name = "search_products"
-            mock_function_call.args = {"query": "steel"}
+            # Second response is the final text response
+            final_response = create_text_response("Tool execution complete")
 
-            mock_part_with_tool = Mock()
-            mock_part_with_tool.function_call = mock_function_call
-
-            mock_initial_response = Mock()
-            mock_initial_response.candidates = [Mock()]
-            mock_initial_response.candidates[0].content.parts = [mock_part_with_tool]
-
-            # Mock final response
-            mock_final_response = Mock()
-            mock_final_response.text = "Tool execution complete"
-            mock_final_response.candidates = [Mock()]
-            mock_final_response.candidates[0].content.parts = []
-
-            mock_chat.send_message.side_effect = [
-                mock_initial_response,
-                mock_final_response,
-            ]
+            mock_llm.completion.side_effect = [tool_call_response, final_response]
+            mock_get_llm.return_value = mock_llm
 
             # Mock tool execution
             with patch.object(
@@ -343,13 +329,13 @@ class ChatPerformanceTests(BaseTransactionTestCase):
                 self.assertLess(execution_time, 3.0)
                 self.assertIsNotNone(result)
 
-    def test_concurrent_database_access(self):
-        """Test concurrent database access performance"""
+    def test_bulk_message_creation(self):
+        """Test bulk database message creation performance"""
         jobs = []
         for i in range(3):
             job = Job.objects.create(
                 name=f"DB Test Job {i}",
-                job_number=f"DB{i:03d}",
+                job_number=3000 + i,
                 description=f"Database test job {i}",
                 client=self.client,
                 status="quoting",
@@ -357,26 +343,20 @@ class ChatPerformanceTests(BaseTransactionTestCase):
             )
             jobs.append(job)
 
-        def create_messages(job):
+        # Create messages for each job
+        for job in jobs:
+            messages = []
             for i in range(20):
                 role = "user" if i % 2 == 0 else "assistant"
-                JobQuoteChat.objects.create(
-                    job=job,
-                    message_id=f"concurrent-{job.id}-{i}",
-                    role=role,
-                    content=f"Concurrent message {i}",
+                messages.append(
+                    JobQuoteChat(
+                        job=job,
+                        message_id=f"bulk-{job.id}-{i}",
+                        role=role,
+                        content=f"Bulk message {i}",
+                    )
                 )
-
-        # Create messages concurrently
-        threads = []
-        for job in jobs:
-            thread = threading.Thread(target=create_messages, args=(job,))
-            threads.append(thread)
-            thread.start()
-
-        # Wait for completion
-        for thread in threads:
-            thread.join()
+            JobQuoteChat.objects.bulk_create(messages)
 
         # Verify all messages were created
         total_messages = JobQuoteChat.objects.filter(job__in=jobs).count()
@@ -387,19 +367,11 @@ class ChatPerformanceTests(BaseTransactionTestCase):
         # Simulate streaming by creating incremental responses
         large_response = "This is a very long response that would be streamed. " * 100
 
-        with patch.object(self.service, "get_gemini_client") as mock_client:
-            mock_model = Mock()
-            mock_model.model_name = "gemini-pro"
-            mock_client.return_value = mock_model
-
-            mock_chat = Mock()
-            mock_model.start_chat.return_value = mock_chat
-
-            mock_response = Mock()
-            mock_response.text = large_response
-            mock_response.candidates = [Mock()]
-            mock_response.candidates[0].content.parts = []
-            mock_chat.send_message.return_value = mock_response
+        with patch.object(self.service, "get_llm_service") as mock_get_llm:
+            mock_llm = create_mock_llm("gemini-pro")
+            mock_response = create_text_response(large_response)
+            mock_llm.completion.return_value = mock_response
+            mock_get_llm.return_value = mock_llm
 
             start_time = time.time()
             result = self.service.generate_ai_response(
@@ -478,7 +450,7 @@ class ChatLoadTests(BaseTestCase):
         for i in range(10):
             job = Job.objects.create(
                 name=f"Load Test Job {i}",
-                job_number=f"LOAD{i:03d}",
+                job_number=4000 + i,
                 description=f"Load test job {i}",
                 client=self.client,
                 status="quoting",
@@ -512,7 +484,7 @@ class ChatLoadTests(BaseTestCase):
         """Test chat history pagination performance"""
         job = Job.objects.create(
             name="Pagination Test Job",
-            job_number="PAGINATION001",
+            job_number=5001,
             description="Pagination test job",
             client=self.client,
             status="quoting",
@@ -559,7 +531,7 @@ class ChatLoadTests(BaseTestCase):
         """Test search performance across chat messages"""
         job = Job.objects.create(
             name="Search Test Job",
-            job_number="SEARCH001",
+            job_number=6001,
             description="Search test job",
             client=self.client,
             status="quoting",

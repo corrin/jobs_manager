@@ -317,7 +317,7 @@ class TestSheetTenthsIntegration(BaseTestCase):
         Note: This is an integration test that requires a valid Gemini API key.
         Skip if API key is not configured.
         """
-        from apps.job.services.gemini_chat_service import GeminiChatService
+        from apps.job.services.chat_service import ChatService
         from apps.workflow.enums import AIProviderTypes
         from apps.workflow.models import AIProvider
 
@@ -332,7 +332,7 @@ class TestSheetTenthsIntegration(BaseTestCase):
             self.skipTest("Gemini API not configured")
 
         # Run the test
-        chat_service = GeminiChatService()
+        chat_service = ChatService()
         response = chat_service.generate_mode_response(
             job_id=str(self.job.id),
             user_message="Calculate sheet usage for 700x700mm part",

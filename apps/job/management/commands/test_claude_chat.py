@@ -12,7 +12,7 @@ import logging
 from django.core.management.base import BaseCommand, CommandError
 
 from apps.job.models import Job
-from apps.job.services.gemini_chat_service import GeminiChatService
+from apps.job.services.chat_service import ChatService
 
 # Configure basic logging
 logger = logging.getLogger(__name__)
@@ -66,8 +66,8 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Found Job: {job.name}"))
 
             # 2. Instantiate the chat service
-            self.stdout.write("Initializing GeminiChatService...")
-            chat_service = GeminiChatService()
+            self.stdout.write("Initializing ChatService...")
+            chat_service = ChatService()
             self.stdout.write(self.style.SUCCESS("Service initialized."))
 
             # 3. Generate the AI response

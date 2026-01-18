@@ -3,37 +3,54 @@ Unit tests for MCP Quoting Tools
 Run with: python manage.py test apps.quoting.tests_mcp
 """
 
-from django.test import TestCase
-
 from apps.client.models import Client
 from apps.job.models import Job
-from apps.quoting.models import SupplierProduct
+from apps.quoting.models import SupplierPriceList, SupplierProduct
+from apps.testing import BaseTestCase
 
 from .mcp import QuotingTool, SupplierProductQueryTool
 
 
-class QuotingToolTests(TestCase):
+class QuotingToolTests(BaseTestCase):
     def setUp(self):
         """Set up test data"""
         self.tool = QuotingTool()
 
         # Create test supplier
         self.supplier = Client.objects.create(
-            name="Test Steel Co", is_supplier=True, email="test@steelco.com"
+            name="Test Steel Co",
+            is_supplier=True,
+            email="test@steelco.com",
+            xero_last_modified="2024-01-01T00:00:00Z",
         )
 
         # Create test client and job
-        self.client = Client.objects.create(name="Test Client", email="client@test.com")
+        self.client_obj = Client.objects.create(
+            name="Test Client",
+            email="client@test.com",
+            xero_last_modified="2024-01-01T00:00:00Z",
+        )
 
         self.job = Job.objects.create(
-            job_name="Test Job", client=self.client, description="Test metal work"
+            name="Test Job",
+            client=self.client_obj,
+            description="Test metal work",
+        )
+
+        # Create price list
+        self.price_list = SupplierPriceList.objects.create(
+            supplier=self.supplier,
+            file_name="test.pdf",
         )
 
         # Create test product
         self.product = SupplierProduct.objects.create(
             supplier=self.supplier,
+            price_list=self.price_list,
             product_name="Steel Sheet 4x8",
             description="Cold rolled steel sheet",
+            item_no="SS-4x8",
+            variant_id="SS-4x8-V1",
             variant_price="125.50",
             price_unit="each",
             parsed_metal_type="steel",
@@ -82,7 +99,9 @@ class QuotingToolTests(TestCase):
         self.assertIn("Labor estimate: 10.0 hours", result)
 
         # Test invalid job ID
-        result = self.tool.create_quote_estimate("invalid-id", "steel")
+        result = self.tool.create_quote_estimate(
+            "00000000-0000-0000-0000-000000000000", "steel"
+        )
         self.assertIn("not found", result)
 
     def test_get_supplier_status(self):
@@ -106,17 +125,29 @@ class QuotingToolTests(TestCase):
         self.assertIn("No products found", result)
 
 
-class SupplierProductQueryToolTests(TestCase):
+class SupplierProductQueryToolTests(BaseTestCase):
     def setUp(self):
         self.tool = SupplierProductQueryTool()
 
         # Create test data
         self.supplier = Client.objects.create(
-            name="Query Test Supplier", is_supplier=True
+            name="Query Test Supplier",
+            is_supplier=True,
+            xero_last_modified="2024-01-01T00:00:00Z",
+        )
+
+        self.price_list = SupplierPriceList.objects.create(
+            supplier=self.supplier,
+            file_name="test.pdf",
         )
 
         self.product = SupplierProduct.objects.create(
-            supplier=self.supplier, product_name="Test Product", variant_price="99.99"
+            supplier=self.supplier,
+            price_list=self.price_list,
+            product_name="Test Product",
+            item_no="TP-001",
+            variant_id="TP-001-V1",
+            variant_price="99.99",
         )
 
     def test_get_queryset(self):

@@ -18,7 +18,7 @@ class JobQuoteChat(models.Model):
     #   3. JobQuoteChatCreateSerializer in apps/job/serializers/job_quote_chat_serializer.py (write)
     #   4. JobQuoteChatUpdateSerializer in apps/job/serializers/job_quote_chat_serializer.py (patch)
     #   5. JobQuoteChatViewSet in apps/job/views/job_quote_chat_views.py (CRUD operations)
-    #   6. GeminiChatService in apps/job/services/gemini_chat_service.py (AI chat logic)
+    #   6. ChatService in apps/job/services/chat_service.py (AI chat logic)
     #
     # Database fields exposed via API serializers
     JOBQUOTECHAT_API_FIELDS = [

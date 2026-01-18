@@ -6,6 +6,7 @@ try:
 
     if apps.ready:
         from .chat_file_service import ChatFileService
+        from .chat_service import ChatService
         from .data_integrity_service import DataIntegrityService
         from .data_quality_report import ArchivedJobsComplianceService
         from .delivery_docket_service import generate_delivery_docket
@@ -19,7 +20,6 @@ try:
             get_thumbnail_folder,
             sync_job_folder,
         )
-        from .gemini_chat_service import GeminiChatService
         from .google_docs_service import (
             GoogleDocResult,
             GoogleDocsService,
@@ -91,10 +91,10 @@ except (ImportError, RuntimeError):
 __all__ = [
     "ArchivedJobsComplianceService",
     "ChatFileService",
+    "ChatService",
     "ChecksumInput",
     "DataIntegrityService",
     "DeltaValidationError",
-    "GeminiChatService",
     "GoogleDocResult",
     "GoogleDocsService",
     "JobDeltaPayload",
