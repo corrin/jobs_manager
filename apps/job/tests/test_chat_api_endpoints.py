@@ -152,7 +152,7 @@ class ChatAPIEndpointTests(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_chat_history_delete_message(self):
-        """Test deleting a chat message"""
+        """Test deleting a single chat message"""
         message = JobQuoteChat.objects.create(
             job=self.job,
             message_id="test-message-1",
@@ -171,6 +171,41 @@ class ChatAPIEndpointTests(BaseTestCase):
 
         # Verify message was deleted
         self.assertFalse(JobQuoteChat.objects.filter(id=message.id).exists())
+
+    def test_chat_history_delete_all(self):
+        """Test deleting all chat messages for a job"""
+        # Create multiple messages
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="msg-1",
+            role="user",
+            content="First message",
+        )
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="msg-2",
+            role="assistant",
+            content="Second message",
+        )
+        JobQuoteChat.objects.create(
+            job=self.job,
+            message_id="msg-3",
+            role="user",
+            content="Third message",
+        )
+
+        # Verify messages exist
+        self.assertEqual(JobQuoteChat.objects.filter(job=self.job).count(), 3)
+
+        # Delete all messages
+        response = self.client_api.delete(self.chat_history_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["data"]["deleted_count"], 3)
+
+        # Verify all messages were deleted
+        self.assertEqual(JobQuoteChat.objects.filter(job=self.job).count(), 0)
 
     def test_chat_history_job_not_found(self):
         """Test accessing chat history for non-existent job"""

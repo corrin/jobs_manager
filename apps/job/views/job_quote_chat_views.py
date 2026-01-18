@@ -256,6 +256,7 @@ class JobQuoteChatHistoryView(JobLookupMixin, BaseJobQuoteChatView):
             logger.error(f"Quote chat POST - Traceback: {traceback.format_exc()}")
             return self.handle_error(e)
 
+    @extend_schema(operation_id="quote_chat_delete_all")
     def delete(self, request, job_id):
         """
         Delete all chat messages for a job (start fresh).
@@ -336,6 +337,7 @@ class JobQuoteChatMessageView(JobLookupMixin, BaseJobQuoteChatView):
         except Exception as e:
             return self.handle_error(e)
 
+    @extend_schema(operation_id="quote_chat_delete_one")
     def delete(self, request, job_id, message_id):
         """
         Delete an individual chat message.
