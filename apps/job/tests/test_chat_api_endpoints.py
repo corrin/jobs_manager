@@ -6,7 +6,6 @@ including authentication, validation, and error handling.
 """
 
 import json
-import unittest
 import uuid
 from unittest.mock import patch
 
@@ -152,9 +151,6 @@ class ChatAPIEndpointTests(BaseTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @unittest.skip(
-        "Individual message deletion not implemented - view only supports PATCH"
-    )
     def test_chat_history_delete_message(self):
         """Test deleting a chat message"""
         message = JobQuoteChat.objects.create(
