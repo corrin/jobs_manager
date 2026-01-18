@@ -335,3 +335,25 @@ class JobQuoteChatMessageView(JobLookupMixin, BaseJobQuoteChatView):
 
         except Exception as e:
             return self.handle_error(e)
+
+    def delete(self, request, job_id, message_id):
+        """
+        Delete an individual chat message.
+        """
+        try:
+            # Get job and message using utility methods
+            job = self.get_job_or_404(job_id)
+            message = self.get_message_or_404(job, message_id)
+
+            # Check if job exists
+            job, error_response = self.get_job_or_404_response(error_format="api")
+            if error_response:
+                return error_response
+
+            # Delete the message
+            message.delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except Exception as e:
+            return self.handle_error(e)
