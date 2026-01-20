@@ -13,6 +13,7 @@ from apps.purchasing.models import Stock
 from apps.timesheet.services.payroll_employee_sync import PayrollEmployeeSyncService
 from apps.workflow.api.xero.stock_sync import sync_all_local_stock_to_xero
 from apps.workflow.api.xero.sync import seed_clients_to_xero, seed_jobs_to_xero
+from apps.workflow.models import CompanyDefaults
 
 load_dotenv()
 
@@ -112,11 +113,34 @@ class Command(BaseCommand):
             self.stdout.write("Xero seeding complete!")
 
     def process_contacts(self, dry_run):
-        """Phase 1: Link/Create contacts for all clients with jobs"""
+        """Phase 1: Link/Create contacts for all clients with jobs + test client"""
+        # Validate test client exists - required for testing Xero flows
+        cd = CompanyDefaults.get_instance()
+        if not cd.test_client_name:
+            raise ValueError(
+                "CompanyDefaults.test_client_name is not set. "
+                "This is required for Xero sync testing."
+            )
+        test_client = Client.objects.filter(name=cd.test_client_name).first()
+        if not test_client:
+            raise ValueError(
+                f"Test client '{cd.test_client_name}' not found in database. "
+                "Ensure the test client is created before running Xero sync."
+            )
+
         # Find clients with jobs that need xero_contact_id
-        clients_needing_sync = Client.objects.filter(
-            jobs__isnull=False, xero_contact_id__isnull=True
-        ).distinct()
+        client_ids_needing_sync = set(
+            Client.objects.filter(
+                jobs__isnull=False, xero_contact_id__isnull=True
+            ).values_list("id", flat=True)
+        )
+
+        # Also include test client if it needs syncing
+        if not test_client.xero_contact_id:
+            client_ids_needing_sync.add(test_client.id)
+            self.stdout.write(f"Including test client: {cd.test_client_name}")
+
+        clients_needing_sync = Client.objects.filter(id__in=client_ids_needing_sync)
 
         self.stdout.write(
             f"Found {clients_needing_sync.count()} clients needing Xero contact IDs"
