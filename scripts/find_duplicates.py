@@ -75,7 +75,7 @@ class DuplicateFinder(ast.NodeVisitor):
 
     def _check_dict_keys(self, node):
         keys = defaultdict(list)
-        for i, key in enumerate(node.keys):
+        for key in node.keys:
             if key is None:
                 continue
             if isinstance(key, ast.Constant):
