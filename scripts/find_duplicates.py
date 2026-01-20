@@ -19,6 +19,8 @@ class DuplicateFinder(ast.NodeVisitor):
 
         # Check for duplicate class-level attributes
         attrs = defaultdict(list)
+        methods = defaultdict(list)
+
         for item in node.body:
             if isinstance(item, ast.Assign):
                 for target in item.targets:
@@ -26,11 +28,35 @@ class DuplicateFinder(ast.NodeVisitor):
                         attrs[target.id].append(item.lineno)
             elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                 attrs[item.target.id].append(item.lineno)
+            elif isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                methods[item.name].append(item.lineno)
 
         for name, lines in attrs.items():
             if len(lines) > 1:
                 self.issues.append(
                     f"{self.filename}:{lines[0]}: Duplicate attribute '{name}' in class '{node.name}' "
+                    f"(also at lines {lines[1:]})"
+                )
+
+        # Check for duplicate methods, but exclude property getter/setter pairs
+        property_names = set()
+        for item in node.body:
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for decorator in item.decorator_list:
+                    if isinstance(decorator, ast.Name) and decorator.id == "property":
+                        property_names.add(item.name)
+                    elif (
+                        isinstance(decorator, ast.Attribute)
+                        and decorator.attr == "setter"
+                    ):
+                        # This is a setter, mark the property name
+                        if isinstance(decorator.value, ast.Name):
+                            property_names.add(decorator.value.id)
+
+        for name, lines in methods.items():
+            if len(lines) > 1 and name not in property_names:
+                self.issues.append(
+                    f"{self.filename}:{lines[0]}: Duplicate method '{name}' in class '{node.name}' "
                     f"(also at lines {lines[1:]})"
                 )
 
@@ -54,8 +80,6 @@ class DuplicateFinder(ast.NodeVisitor):
                 continue
             if isinstance(key, ast.Constant):
                 keys[key.value].append(key.lineno)
-            elif isinstance(key, ast.Str):  # Python < 3.8
-                keys[key.s].append(key.lineno)
 
         for name, lines in keys.items():
             if len(lines) > 1:
