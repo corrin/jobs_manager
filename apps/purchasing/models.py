@@ -51,11 +51,13 @@ class PurchaseOrder(models.Model):
         "supplier_has_xero_id",
         "lines",
         "pickup_address",
+        "created_by_name",
     ]
 
     # Internal fields not exposed in API
     PURCHASEORDER_INTERNAL_FIELDS = [
         "job",
+        "created_by",
         "xero_tenant_id",
         "created_at",
         "updated_at",
@@ -132,6 +134,11 @@ class PurchaseOrder(models.Model):
         blank=True,
         help_text="Raw JSON data from Xero for this purchase order",
     )
+
+    @property
+    def created_by_name(self) -> str | None:
+        """Return the display name of the staff member who created this PO."""
+        return self.created_by.get_display_full_name() if self.created_by else None
 
     def generate_po_number(self):
         """Generate the next sequential PO number based on the configured prefix."""

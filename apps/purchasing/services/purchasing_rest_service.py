@@ -315,9 +315,7 @@ class PurchasingRestService:
                     "supplier": po.supplier.name if po.supplier else "",
                     "supplier_id": str(po.supplier.id) if po.supplier else None,
                     "created_by_id": str(po.created_by.id) if po.created_by else None,
-                    "created_by_name": (
-                        po.created_by.get_display_full_name() if po.created_by else ""
-                    ),
+                    "created_by_name": po.created_by_name or "",
                     "jobs": jobs,
                 }
             )

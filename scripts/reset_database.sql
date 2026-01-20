@@ -24,18 +24,16 @@ SHOW DATABASES LIKE 'msm_workflow';
 
 -- Create the django_user (drop first if exists)
 SELECT 'Creating database user...' as status;
-DROP USER IF EXISTS 'django_user'@'localhost';
 DROP USER IF EXISTS 'django_user'@'%';
-CREATE USER 'django_user'@'localhost' IDENTIFIED BY 'hRjATdbwGhTtsR8e';
-CREATE USER 'django_user'@'%' IDENTIFIED BY 'hRjATdbwGhTtsR8e';
+CREATE USER 'django_user'@'%' IDENTIFIED BY 'cur-fiasco-pectin';
+-- NOTE: Password should match the one in the .env file
+-- Obviously this is insecure.  This file is in git!
+-- It does not matter as it's a dev-only password
 
--- Grant privileges to django_user@localhost
+-- Grant privileges to django_user@'%' (wildcard matches all hosts including 127.0.0.1)
 SELECT 'Granting privileges...' as status;
-GRANT ALL PRIVILEGES ON msm_workflow.* TO 'django_user'@'localhost';
-GRANT ALL PRIVILEGES ON test_msm_workflow.* TO 'django_user'@'localhost';
-
--- Grant privileges to django_user@'%'
 GRANT ALL PRIVILEGES ON msm_workflow.* TO 'django_user'@'%';
+GRANT ALL PRIVILEGES ON test_msm_workflow.* TO 'django_user'@'%';
 
 -- Flush privileges to ensure changes take effect
 FLUSH PRIVILEGES;

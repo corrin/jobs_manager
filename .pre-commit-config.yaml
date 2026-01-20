@@ -69,3 +69,28 @@ repos:
         language: system
         files: '^(?:apps/|jobs_manager/|scripts/).+\.py$|^[^/]+\.py$'
         types: [python]
+
+      # ruff - fast linter for redefinitions and duplicate dict keys
+      - id: ruff
+        name: Check for redefinitions with ruff
+        entry: poetry run ruff check --select=F811,F601
+        language: system
+        files: '^(?:apps/|jobs_manager/|scripts/).+\.py$|^[^/]+\.py$'
+        types: [python]
+        exclude: '.*/migrations/.*\.py$'
+
+      # pylint - check for duplicate method definitions
+      - id: pylint-duplicates
+        name: Check for duplicate methods with pylint
+        entry: poetry run python -m pylint --disable=all --enable=E0102 --ignore-patterns='migrations/.*\.py'
+        language: system
+        files: '^apps/.+\.py$'
+        types: [python]
+
+      # Custom duplicate finder - catches class attribute duplicates that other tools miss
+      - id: find-duplicates
+        name: Check for duplicate definitions from bad merges
+        entry: poetry run python scripts/find_duplicates.py
+        language: system
+        pass_filenames: false
+        always_run: true

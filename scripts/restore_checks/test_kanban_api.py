@@ -1,33 +1,48 @@
 #!/usr/bin/env python
 """Test the Kanban API endpoint to verify it's working correctly."""
 
-import json
+import os
 import sys
-import urllib.error
-import urllib.request
+
+# Setup Django environment
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "jobs_manager.settings")
+os.environ.setdefault("HTTP_HOST", "localhost:8000")
+
+import django
+
+django.setup()
+
+from django.test import Client
+
+from apps.accounts.models import Staff
 
 
-def test_kanban_api(host_port: str = "localhost:8000") -> bool:
-    """Test the Kanban API endpoint.
+def test_kanban_api() -> bool:
+    """Test the Kanban API endpoint using Django's test client.
 
     Returns True if successful, False otherwise.
     """
-    url = f"http://{host_port}/job/api/jobs/fetch-all/"
+    # Get admin user for authentication
+    admin_user = Staff.objects.filter(email="defaultadmin@example.com").first()
+    if not admin_user:
+        print("✗ ERROR: Admin user defaultadmin@example.com not found")
+        print("  Run scripts/restore_checks/create_admin_user.py first")
+        return False
 
-    try:
-        with urllib.request.urlopen(url, timeout=30) as response:
-            data = json.loads(response.read().decode())
-    except urllib.error.URLError as e:
-        print(f"✗ ERROR: Cannot connect to server at {host_port}")
-        print(f"  {e}")
+    # Create test client and authenticate
+    client = Client()
+    client.force_login(admin_user)
+
+    # Make authenticated request to Kanban API
+    response = client.get("/job/api/jobs/fetch-all/", HTTP_HOST="localhost:8000")
+
+    if response.status_code != 200:
+        print(f"✗ ERROR: API returned status {response.status_code}")
+        if hasattr(response, "content"):
+            print(f"  Response: {response.content[:500]}")
         return False
-    except json.JSONDecodeError as e:
-        print("✗ ERROR: Invalid JSON response")
-        print(f"  {e}")
-        return False
-    except Exception as e:
-        print(f"✗ ERROR: {e}")
-        return False
+
+    data = response.json()
 
     # Check API response structure
     if not data.get("success"):
@@ -48,7 +63,6 @@ def test_kanban_api(host_port: str = "localhost:8000") -> bool:
 
 
 if __name__ == "__main__":
-    host_port = sys.argv[1] if len(sys.argv) > 1 else "localhost:8000"
-    print(f"Testing Kanban API at {host_port}...")
-    success = test_kanban_api(host_port)
+    print("Testing Kanban API...")
+    success = test_kanban_api()
     sys.exit(0 if success else 1)
