@@ -134,14 +134,6 @@ class PurchaseOrder(models.Model):
         blank=True,
         help_text="Raw JSON data from Xero for this purchase order",
     )
-    created_by = models.ForeignKey(
-        "accounts.Staff",
-        on_delete=models.PROTECT,
-        related_name="created_purchase_orders",
-        null=True,
-        blank=True,
-        help_text="Staff member who created this purchase order",
-    )
 
     @property
     def created_by_name(self) -> str | None:

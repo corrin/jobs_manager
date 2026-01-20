@@ -12,7 +12,6 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from apps.accounts.models import Staff
 from apps.client.models import Supplier, SupplierPickupAddress
 from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
@@ -316,11 +315,8 @@ class PurchasingRestService:
                     "supplier": po.supplier.name if po.supplier else "",
                     "supplier_id": str(po.supplier.id) if po.supplier else None,
                     "created_by_id": str(po.created_by.id) if po.created_by else None,
-                    "created_by_name": (
-                        po.created_by.get_display_full_name() if po.created_by else ""
-                    ),
+                    "created_by_name": po.created_by_name or "",
                     "jobs": jobs,
-                    "created_by_name": po.created_by_name,
                 }
             )
         return result

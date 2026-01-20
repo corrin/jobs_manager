@@ -80,7 +80,6 @@ class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     lines = PurchaseOrderLineSerializer(source="po_lines", many=True)
     pickup_address = SupplierPickupAddressSerializer(read_only=True, allow_null=True)
-    created_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = PurchaseOrder
@@ -173,7 +172,6 @@ class PurchaseOrderListSerializer(serializers.Serializer):
     created_by_id = serializers.UUIDField(allow_null=True)
     created_by_name = serializers.CharField(allow_blank=True)
     jobs = PurchaseOrderJobSerializer(many=True)
-    created_by_name = serializers.CharField(allow_null=True)
 
 
 class PurchaseOrderLineCreateSerializer(serializers.Serializer):
