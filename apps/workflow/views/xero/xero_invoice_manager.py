@@ -148,14 +148,14 @@ class XeroInvoiceManager(XeroDocumentManager):
             )
         ]
 
-    def get_xero_document(self, type):
+    def get_xero_document(self, operation):
         """
         Creates an invoice object for Xero management or deletion.
         """
         if not self.job:
             raise ValueError("Job is required to get Xero document for an invoice.")
 
-        match type:
+        match operation:
             case "create":
                 contact = self.get_xero_contact()
                 line_items = self.get_line_items()
@@ -193,7 +193,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                     # date=format_date(timezone.now()), # Likely not needed
                 )
             case _:
-                raise ValueError(f"Unknown document type for Invoice: {type}")
+                raise ValueError(f"Unknown document operation for Invoice: {operation}")
 
     def create_document(self):
         """Creates an invoice, processes response, and stores it in the database."""
