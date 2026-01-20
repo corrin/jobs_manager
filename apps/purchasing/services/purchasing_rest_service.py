@@ -12,6 +12,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from apps.accounts.models import Staff
 from apps.client.models import Supplier, SupplierPickupAddress
 from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
@@ -319,6 +320,7 @@ class PurchasingRestService:
                         po.created_by.get_display_full_name() if po.created_by else ""
                     ),
                     "jobs": jobs,
+                    "created_by_name": po.created_by_name,
                 }
             )
         return result
