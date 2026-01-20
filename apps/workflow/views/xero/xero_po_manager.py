@@ -395,9 +395,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
         )
         return xero_line_items
 
-    def get_xero_document(self, type="create") -> XeroPurchaseOrder:
+    def get_xero_document(self, operation="create") -> XeroPurchaseOrder:
         """
-        Returns a xero_python PurchaseOrder object based on the specified type.
+        Returns a xero_python PurchaseOrder object based on the specified operation.
         """
         if not self.purchase_order:
             raise ValueError("PurchaseOrder object is missing.")
@@ -410,13 +410,13 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
             "deleted": "DELETED",
         }
 
-        if type == "delete":
+        if operation == "delete":
             xero_id = self.get_xero_id()
             if not xero_id:
                 raise ValueError("Cannot delete a purchase order without a Xero ID.")
             # Deletion via API usually means setting status to DELETED via update
             return XeroPurchaseOrder(purchase_order_id=xero_id, status="DELETED")
-        elif type in ["create", "update"]:
+        elif operation in ["create", "update"]:
             # Build the common document data dictionary using snake_case keys
             order_date = self.purchase_order.order_date
             if isinstance(order_date, str):
@@ -439,7 +439,7 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 document_data["reference"] = self.purchase_order.reference
 
             # Add the Xero PurchaseOrderID only for updates
-            if type == "update":
+            if operation == "update":
                 xero_id = self.get_xero_id()
                 if not xero_id:
                     raise ValueError(
@@ -458,7 +458,9 @@ class XeroPurchaseOrderManager(XeroDocumentManager):
                 )
                 raise  # Re-raise the error
         else:
-            raise ValueError(f"Unknown document type for Purchase Order: {type}")
+            raise ValueError(
+                f"Unknown document operation for Purchase Order: {operation}"
+            )
 
     def sync_to_xero(self) -> dict:
         """Sync current PO state to Xero and update local model with Xero data.

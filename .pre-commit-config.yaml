@@ -79,10 +79,17 @@ repos:
         types: [python]
         exclude: '.*/migrations/.*\.py$'
 
-      # pylint - check for duplicate method definitions
-      - id: pylint-duplicates
-        name: Check for duplicate methods with pylint
-        entry: poetry run python -m pylint --disable=all --enable=E0102 --ignore-patterns='migrations/.*\.py'
+      # pylint - check for common bugs and merge issues
+      # E0102: function-redefined (duplicate methods)
+      # E0108: duplicate-argument-name
+      # E0118: used-prior-to-assignment
+      # W0104: pointless-statement (no effect)
+      # W0199: assert-on-tuple (always true)
+      # W0221: arguments-differ (override signature mismatch)
+      # W0622: redefined-builtin (redefining id, type, etc)
+      - id: pylint-bugs
+        name: Check for common bugs with pylint
+        entry: poetry run python -m pylint --disable=all --enable=E0102,E0108,E0118,W0104,W0199,W0221,W0622 --ignore-patterns='migrations/.*\.py'
         language: system
         files: '^apps/.+\.py$'
         types: [python]
