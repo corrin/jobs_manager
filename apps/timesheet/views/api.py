@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.core.cache import cache
-from django.http import StreamingHttpResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
@@ -55,6 +55,20 @@ from apps.workflow.services.error_persistence import persist_app_error
 from apps.workflow.utils import build_xero_payroll_url
 
 logger = logging.getLogger(__name__)
+
+
+def _require_authenticated_api(request) -> JsonResponse | None:
+    """
+    Authentication guard for API endpoints.
+    Returns 401 JSON if not authenticated, None if OK.
+    """
+    if not request.user.is_authenticated:
+        logger.warning(f"API guard rejected unauthenticated request to {request.path}")
+        return JsonResponse(
+            {"detail": "Authentication credentials were not provided."},
+            status=401,
+        )
+    return None
 
 
 def build_internal_error_response(
@@ -716,6 +730,11 @@ def stream_payroll_post(request, task_id):
 
     Connect with: new EventSource('/timesheets/api/payroll/post-staff-week/stream/{task_id}/')
     """
+    # Check authentication - return 401 JSON instead of redirect for API endpoints
+    guard = _require_authenticated_api(request)
+    if guard:
+        return guard
+
     # Retrieve task data from cache
     task_data = cache.get(f"payroll_task_{task_id}")
 
