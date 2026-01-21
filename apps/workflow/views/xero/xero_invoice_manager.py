@@ -293,7 +293,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                     elif hasattr(first_element, "message"):
                         error_msg = first_element.message
 
-                return {"success": False, "message": error_msg, "status": 400}
+                return {"success": False, "error": error_msg, "status": 400}
         except AccountingBadRequestException as e:
 
             logger.error(
@@ -314,7 +314,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                 exception_body=e.body,
                 default_message=default_message,
             )
-            return {"success": False, "message": error_message, "status": e.status}
+            return {"success": False, "error": error_message, "status": e.status}
         except ApiException as e:
 
             job_id = self.job.id if self.job else "Unknown"
@@ -328,7 +328,11 @@ class XeroInvoiceManager(XeroDocumentManager):
 
             # MANDATORY: Persist error to database
 
-            return {"success": False, "message": error_message, "status": e.status}
+            return {
+                "success": False,
+                "error": f"Xero API Error: {e.reason}",
+                "status": e.status,
+            }
         except Exception as e:
 
             job_id = self.job.id if self.job else "Unknown"
@@ -340,7 +344,7 @@ class XeroInvoiceManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"""
+                "error": f"""
                     An unexpected error occurred ({str(e)}) while creating the invoice
                     with Xero. Please contact support to check the data sent.
                 """.strip(),
@@ -392,13 +396,13 @@ class XeroInvoiceManager(XeroDocumentManager):
                 else:
                     error_msg = f"Invoice deletion failed or status not DELETED. Status: {status}, Xero ID: {xero_invoice_id}"
                     logger.error(error_msg)
-                    return {"success": False, "message": error_msg, "status": 400}
+                    return {"success": False, "error": error_msg, "status": 400}
             else:
                 error_msg = """
                 No invoices found in the Xero response or failed to delete invoice.
                 """.strip()
                 logger.error(error_msg)
-                return {"success": False, "message": error_msg, "status": 400}
+                return {"success": False, "error": error_msg, "status": 400}
         except AccountingBadRequestException as e:
 
             job_id = self.job.id if self.job else "Unknown"
@@ -419,7 +423,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                 Please contact support to check the data sent during invoice deletion.
                 """.strip(),
             )
-            return {"success": False, "message": error_message, "status": e.status}
+            return {"success": False, "error": error_message, "status": e.status}
         except ApiException as e:
 
             job_id = self.job.id if self.job else "Unknown"
@@ -435,7 +439,7 @@ class XeroInvoiceManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"Xero API Error: {e.reason}",
+                "error": f"Xero API Error: {e.reason}",
                 "status": e.status,
             }
         except Exception as e:
@@ -449,7 +453,7 @@ class XeroInvoiceManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"""
+                "error": f"""
                         An unexpected error occurred ({str(e)}) while deleting the invoice
                         with Xero. Please contact support to check the data sent.
                 """.strip(),

@@ -143,12 +143,12 @@ class XeroQuoteManager(XeroDocumentManager):
                 )
             ]
 
-    def get_xero_document(self, type: str) -> XeroQuote:
+    def get_xero_document(self, operation: str) -> XeroQuote:
         """
         Creates a quote object for Xero creation or deletion.
 
         Args:
-            type: Either "create" or "delete"
+            operation: Either "create" or "delete"
 
         Note:
             The breakdown parameter is read from self._breakdown which is set
@@ -158,7 +158,7 @@ class XeroQuoteManager(XeroDocumentManager):
         if not self.job:
             raise ValueError("Job is required to get Xero document for a quote.")
 
-        match type:
+        match operation:
             case "create":
                 # Use job.client which is guaranteed by __init__
                 contact = self.get_xero_contact()
@@ -191,7 +191,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     date=format_date(timezone.now()),  # Date is needed.
                 )
             case _:
-                raise ValueError(f"Unknown document type for Quote: {type}")
+                raise ValueError(f"Unknown document operation for Quote: {operation}")
 
     def create_document(self, breakdown: bool = True):
         """
@@ -281,7 +281,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     elif hasattr(first_element, "message"):
                         error_msg = first_element.message
 
-                return {"success": False, "message": error_msg, "status": 400}
+                return {"success": False, "error": error_msg, "status": 400}
         except AccountingBadRequestException as e:
             logger.error(
                 (
@@ -301,7 +301,7 @@ class XeroQuoteManager(XeroDocumentManager):
                 ),
             )
             return JsonResponse(
-                {"success": False, "message": error_message}, status=e.status
+                {"success": False, "error": error_message}, status=e.status
             )
         except ApiException as e:
             logger.error(
@@ -313,7 +313,7 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"Xero API Error: {e.reason}",
+                "error": f"Xero API Error: {e.reason}",
                 "status": e.status,
             }
         except Exception as e:
@@ -325,7 +325,7 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"An unexpected error occurred ({str(e)}) while creating the quote with Xero. Please contact support.",
+                "error": f"An unexpected error occurred ({str(e)}) while creating the quote with Xero. Please contact support.",
                 "status": 500,
             }
 
@@ -340,7 +340,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     "No quotes found in the Xero response or failed to delete quote."
                 )
                 logger.error(error_msg)
-                return {"success": False, "message": error_msg, "status": 400}
+                return {"success": False, "error": error_msg, "status": 400}
 
             xero_quote_data = response.quotes[0]
             status = getattr(xero_quote_data, "status", None)
@@ -354,7 +354,7 @@ class XeroQuoteManager(XeroDocumentManager):
             if not is_deleted:
                 error_msg = "Xero response did not confirm quote deletion."
                 logger.error(f"{error_msg} Status: {status}")
-                return {"success": False, "message": error_msg, "status": 400}
+                return {"success": False, "error": error_msg, "status": 400}
 
             if not hasattr(self.job, "quote") or not self.job.quote:
                 logger.warning(f"No local quote found for job {self.job.id} to delete.")
@@ -407,7 +407,7 @@ class XeroQuoteManager(XeroDocumentManager):
                 exception_body=e.body,
                 default_message=f"Xero validation error ({e.status}): {e.reason} during quote deletion. Please contact support.",
             )
-            return {"success": False, "message": error_message, "status": e.status}
+            return {"success": False, "error": error_message, "status": e.status}
         except ApiException as e:
             logger.error(
                 f"Xero API Exception during quote deletion for job {self.job.id if self.job else 'Unknown'}: {e.status} - {e.reason}",
@@ -418,7 +418,7 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"Xero API Error: {e.reason}",
+                "error": f"Xero API Error: {e.reason}",
                 "status": e.status,
             }
         except Exception as e:
@@ -430,6 +430,6 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return {
                 "success": False,
-                "message": f"An unexpected error occurred ({str(e)}) while deleting the quote with Xero. Please contact support.",
+                "error": f"An unexpected error occurred ({str(e)}) while deleting the quote with Xero. Please contact support.",
                 "status": 500,
             }
