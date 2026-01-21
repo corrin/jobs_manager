@@ -47,7 +47,7 @@ class Command(BaseCommand):
         delay = options["delay"]
         max_products = options["max_products"]
         dry_run = options["dry_run"]
-        options["resume"]
+        # TODO: implement resume functionality (--resume flag defined but not used)
 
         self.stdout.write(
             self.style.SUCCESS("Starting ProductParsingMapping population")

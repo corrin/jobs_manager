@@ -73,7 +73,7 @@ class XeroDocumentManager(ABC):
         """
 
     @abstractmethod
-    def get_xero_document(self, type: str) -> Any:
+    def get_xero_document(self, operation: str) -> Any:
         """
         Returns a xero_python document model object (e.g., XeroInvoice, XeroQuote).
         """
@@ -133,8 +133,8 @@ class XeroDocumentManager(ABC):
         if not self.state_valid_for_xero():
             raise ValueError("Document is not in a valid state for Xero submission.")
 
-        # Use 'create' type for initial creation attempt
-        xero_document = self.get_xero_document(type="create")
+        # Use 'create' operation for initial creation attempt
+        xero_document = self.get_xero_document(operation="create")
 
         try:
             # Convert to PascalCase to match XeroAPI required format and clean payload
@@ -212,7 +212,7 @@ class XeroDocumentManager(ABC):
         """
         self.validate_client()
         # Get the document representation needed for deletion (usually includes ID and status=DELETED)
-        xero_document = self.get_xero_document(type="delete")
+        xero_document = self.get_xero_document(operation="delete")
 
         try:
             payload = convert_to_pascal_case(clean_payload(xero_document.to_dict()))

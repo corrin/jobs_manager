@@ -318,9 +318,10 @@ def stream_xero_sync(request: HttpRequest) -> StreamingHttpResponse:
     """
     HTTP endpoint to serve an EventSource stream of Xero sync events.
     """
-    guard = _require_office_staff_html(request)
-    if guard:
-        return guard
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"detail": "Authentication credentials were not provided."}, status=401
+        )
     response = StreamingHttpResponse(
         generate_xero_sync_events(), content_type="text/event-stream"
     )
