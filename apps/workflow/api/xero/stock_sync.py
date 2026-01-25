@@ -398,17 +398,26 @@ def sync_all_local_stock_to_xero(limit: Optional[int] = None) -> Dict[str, Any]:
             )
             logger.error(f"Exception syncing stock item {stock_item.id}: {str(e)}")
 
+    # Clamp success_rate to 0-100 range for valid progress bar display
+    raw_rate = (synced_count / total_items * 100) if total_items > 0 else 0
+    success_rate = max(0, min(100, raw_rate))
+
     result = {
         "total_items": total_items,
         "synced_count": synced_count,
         "failed_count": failed_count,
         "failed_items": failed_items,
-        "success_rate": (synced_count / total_items * 100) if total_items > 0 else 0,
+        "success_rate": success_rate,
     }
 
-    logger.info(
-        f"Completed stock sync: {synced_count}/{total_items} successful ({result['success_rate']:.1f}%)"
-    )
+    if total_items == 0:
+        logger.info(
+            "No stock items needed syncing to Xero (all items already have xero_id)"
+        )
+    else:
+        logger.info(
+            f"Completed stock sync: {synced_count}/{total_items} successful ({result['success_rate']:.1f}%)"
+        )
 
     return result
 
