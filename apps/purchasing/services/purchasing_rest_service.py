@@ -24,7 +24,7 @@ from apps.purchasing.services.delivery_receipt_service import (
     _create_costline_from_allocation,
     _create_stock_from_allocation,
 )
-from apps.quoting.services.stock_parser import auto_parse_stock_item
+from apps.purchasing.services.stock_service import upsert_stock_entry
 from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
@@ -484,8 +484,7 @@ class PurchasingRestService:
         if not all(k in data for k in required):
             raise ValueError("Missing required fields")
 
-        stock_item = Stock.objects.create(
-            job=Stock.get_stock_holding_job(),
+        stock_item, _ = upsert_stock_entry(
             description=data["description"],
             quantity=Decimal(str(data["quantity"])),
             unit_cost=Decimal(str(data["unit_cost"])),
@@ -494,12 +493,12 @@ class PurchasingRestService:
             alloy=data.get("alloy", ""),
             specifics=data.get("specifics", ""),
             location=data.get("location", ""),
-            is_active=True,
+            unit_revenue=(
+                Decimal(str(data["unit_revenue"]))
+                if data.get("unit_revenue") is not None
+                else None
+            ),
         )
-
-        # Parse the stock item to extract additional metadata
-
-        auto_parse_stock_item(stock_item)
 
         return stock_item
 

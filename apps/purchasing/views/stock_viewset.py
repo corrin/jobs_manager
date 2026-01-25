@@ -16,9 +16,10 @@ from apps.purchasing.models import Stock
 from apps.purchasing.serializers import (
     StockConsumeResponseSerializer,
     StockConsumeSerializer,
+    StockCreateSerializer,
     StockItemSerializer,
 )
-from apps.purchasing.services.stock_service import consume_stock
+from apps.purchasing.services.stock_service import consume_stock, upsert_stock_entry
 
 
 class StockViewSet(viewsets.ModelViewSet):
@@ -41,6 +42,11 @@ class StockViewSet(viewsets.ModelViewSet):
     serializer_class = StockItemSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_serializer_class(self):
+        if getattr(self, "action", None) == "create":
+            return StockCreateSerializer
+        return super().get_serializer_class()
+
     def get_queryset(self):
         """
         Filter to only active stock items.
@@ -53,6 +59,30 @@ class StockViewSet(viewsets.ModelViewSet):
         """
         instance.is_active = False
         instance.save(update_fields=["is_active"])
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+        try:
+            stock_item, created = upsert_stock_entry(
+                description=data["description"],
+                quantity=data["quantity"],
+                unit_cost=data["unit_cost"],
+                source=data["source"],
+                metal_type=data.get("metal_type"),
+                alloy=data.get("alloy"),
+                specifics=data.get("specifics"),
+                location=data.get("location"),
+                unit_revenue=data.get("unit_revenue"),
+            )
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        output = StockItemSerializer(stock_item, context=self.get_serializer_context())
+        status_code = status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        return Response(output.data, status=status_code)
 
     @extend_schema(
         request=StockConsumeSerializer,

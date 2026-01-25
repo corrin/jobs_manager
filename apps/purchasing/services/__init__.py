@@ -36,7 +36,7 @@ try:
             safe_float,
             save_quote_file,
         )
-        from .stock_service import consume_stock, merge_stock_into
+        from .stock_service import consume_stock, merge_stock_into, upsert_stock_entry
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -67,4 +67,5 @@ __all__ = [
     "read_file_content",
     "safe_float",
     "save_quote_file",
+    "upsert_stock_entry",
 ]

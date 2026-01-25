@@ -319,6 +319,9 @@ class StockCreateSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=255)
     quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
     unit_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_revenue = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
     source = serializers.CharField(max_length=100)
     metal_type = serializers.CharField(max_length=100, required=False, allow_blank=True)
     alloy = serializers.CharField(max_length=100, required=False, allow_blank=True)
