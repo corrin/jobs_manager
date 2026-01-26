@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "frontend": {
+      "command": "claude-code-mcp",
+      "args": ["/home/corrin/src/jobs_manager_front"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PERSONAL_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
