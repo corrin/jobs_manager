@@ -85,7 +85,10 @@ def consume_stock(
         if unit_cost is None:
             unit_cost = item.unit_cost
 
-        if unit_rev is None:
+        # Shop jobs don't bill customers, so revenue must be zero
+        if job.shop_job:
+            unit_rev = Decimal("0.00")
+        elif unit_rev is None:
             materials_markup = CompanyDefaults.get_instance().materials_markup
             unit_rev = item.unit_cost * (1 + materials_markup)
 

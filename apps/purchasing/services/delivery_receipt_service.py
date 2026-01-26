@@ -230,6 +230,11 @@ def _create_costline_from_allocation(
             f"Price not confirmed for line {line.id}; cannot create material cost."
         )
 
+    # Shop jobs don't bill customers, so revenue must be zero.
+    # Stock consumed on customer jobs calculates revenue via consume_stock().
+    if job.shop_job:
+        unit_revenue = Decimal("0.00")
+
     logger.info(
         "Creating cost line allocation for PO %s line %s (job=%s, qty=%s, unit_cost=%s, markup_pct=%s) -> unit_rev=%s",
         purchase_order.po_number,
