@@ -25,11 +25,6 @@ Django-based job/project management system for custom metal fabrication business
 - **`accounting`** - KPIs, financial reporting, invoice generation
 - **`quoting`** - Quote generation, supplier pricing, AI price extraction (Gemini)
 
-### Frontend
-
-- Django templates with Bootstrap 5, jQuery, ag-Grid
-- Separate Vue.js frontend in development (`../jobs_manager_front/`) - **managed by separate Claude Code instance**
-
 ### Database Design Patterns
 
 **Core Relationships:**
@@ -79,7 +74,6 @@ ADJUSTMENT entries (kind='adjust'):
 ### Code Style and Quality
 
 - **Black** (line length 88) and **isort** for Python formatting
-- **Prettier** for JavaScript formatting with pre-commit hooks
 - **MyPy** with strict configuration for type safety
 - **Flake8** and **Pylint** for linting with Django-specific rules
 - **NEVER run `tox -e format`** - use pre-commit instead (different settings, different results)
