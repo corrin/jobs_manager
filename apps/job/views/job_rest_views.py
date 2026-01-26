@@ -833,10 +833,17 @@ class JobHeaderRestView(BaseJobRestView):
         Fetch essential job header data for fast initial loading.
         """
         try:
-            # Query fields derived from JOB_DIRECT_FIELDS, plus id and client for joins
-            query_fields = ["id", "updated_at", "client_id"] + Job.JOB_DIRECT_FIELDS
+            # Query fields derived from JOB_DIRECT_FIELDS, plus id and client/contact for joins
+            query_fields = [
+                "id",
+                "updated_at",
+                "client_id",
+                "contact_id",
+            ] + Job.JOB_DIRECT_FIELDS
             job = (
-                Job.objects.select_related("client").only(*query_fields).get(id=job_id)
+                Job.objects.select_related("client", "contact")
+                .only(*query_fields)
+                .get(id=job_id)
             )
 
             current_etag = self._gen_job_etag(job)

@@ -751,6 +751,12 @@ class JobHeaderResponseSerializer(serializers.ModelSerializer):
 
     job_id = serializers.UUIDField(source="id")
     client = JobClientHeaderSerializer()
+    contact_id = serializers.UUIDField(
+        source="contact.id", read_only=True, allow_null=True
+    )
+    contact_name = serializers.CharField(
+        source="contact.name", read_only=True, allow_null=True
+    )
     quoted = serializers.BooleanField()
     default_xero_pay_item_id = serializers.UUIDField(
         source="default_xero_pay_item.id", read_only=True, allow_null=True
@@ -765,6 +771,8 @@ class JobHeaderResponseSerializer(serializers.ModelSerializer):
         fields = [
             "job_id",
             "client",
+            "contact_id",
+            "contact_name",
             "quoted",
             "default_xero_pay_item_id",
             "default_xero_pay_item_name",
