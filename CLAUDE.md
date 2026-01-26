@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Frontend Communication
+
+MCP server `frontend` connects to frontend Claude Code. **Delegate tasks** via `mcp__frontend__claude_code` tool.
+
+---
+
 ## Architecture Overview
 
 ### Core Application Purpose
@@ -30,9 +36,8 @@ Django-based job/project management system for custom metal fabrication business
 
 ```
 Job → CostSet (1:many) → CostLine (1:many)
-CostLine → external references via ext_refs JSON field
-PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
-Staff → CostLine (time entries via meta.staff_id)
+PurchaseOrder → PurchaseOrderLine → Stock → CostLine
+Staff → CostLine (time entries)
 Client → Job (1:many)
 ```
 
