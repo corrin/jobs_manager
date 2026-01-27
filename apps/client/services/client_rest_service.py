@@ -721,79 +721,39 @@ class ClientRestService:
             "isCustomer": is_account_customer,
         }
 
-        try:
-            # Update contact in Xero
-            response = accounting_api.update_contact(
-                xero_tenant_id,
-                contact_id=client.xero_contact_id,
-                contacts={"contacts": [contact_data]},
+        # Update contact in Xero - fail fast if Xero update fails (no local fallback)
+        response = accounting_api.update_contact(
+            xero_tenant_id,
+            contact_id=client.xero_contact_id,
+            contacts={"contacts": [contact_data]},
+        )
+
+        if not response or not hasattr(response, "contacts") or not response.contacts:
+            raise ValueError("No contact data in Xero update response")
+
+        if len(response.contacts) != 1:
+            raise ValueError(
+                f"Expected 1 contact in update response, got {len(response.contacts)}"
             )
 
-            if (
-                not response
-                or not hasattr(response, "contacts")
-                or not response.contacts
-            ):
-                raise ValueError("No contact data in Xero update response")
+        # Sync updated data locally
+        client_instances = sync_clients(response.contacts)
+        if not client_instances:
+            raise ValueError("Failed to sync updated client from Xero")
 
-            if len(response.contacts) != 1:
-                raise ValueError(
-                    f"Expected 1 contact in update response, got {len(response.contacts)}"
-                )
+        updated_client = client_instances[0]
 
-            # Sync updated data locally
-            client_instances = sync_clients(response.contacts)
-            if not client_instances:
-                raise ValueError("Failed to sync updated client from Xero")
+        logger.info(
+            f"Client {updated_client.id} updated in Xero and synced locally",
+            extra={
+                "client_id": str(updated_client.id),
+                "client_name": updated_client.name,
+                "xero_contact_id": updated_client.xero_contact_id,
+                "operation": "_update_client_in_xero",
+            },
+        )
 
-            updated_client = client_instances[0]
-
-            logger.info(
-                f"Client {updated_client.id} updated in Xero and synced locally",
-                extra={
-                    "client_id": str(updated_client.id),
-                    "client_name": updated_client.name,
-                    "xero_contact_id": updated_client.xero_contact_id,
-                    "operation": "_update_client_in_xero",
-                },
-            )
-
-            return updated_client
-
-        except Exception as e:
-            logger.error(f"Error updating client in Xero: {str(e)}")
-            # If Xero update fails, fall back to local update with warning
-            logger.warning(
-                f"Xero update failed for client {client.id}, performing local update only"
-            )
-
-            # Perform local update as fallback (Xero fields preserved since we only update allowed fields)
-            with transaction.atomic():
-                # Update allowed fields from data
-                allowed_fields = [
-                    "name",
-                    "email",
-                    "phone",
-                    "address",
-                    "is_account_customer",
-                ]
-                for field in allowed_fields:
-                    if field in data:
-                        setattr(client, field, data[field])
-                client.xero_last_modified = timezone.now()
-                client.save()
-
-                logger.info(
-                    f"Client {client.id} updated locally as fallback",
-                    extra={
-                        "client_id": str(client.id),
-                        "client_name": client.name,
-                        "operation": "_update_client_in_xero_fallback",
-                        "xero_error": str(e),
-                    },
-                )
-
-            return client
+        return updated_client
 
     @staticmethod
     def get_client_jobs(client_id: UUID) -> List[Dict[str, Any]]:
