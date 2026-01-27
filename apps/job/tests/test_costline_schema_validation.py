@@ -80,3 +80,33 @@ class CostLineSchemaValidationTests(BaseTestCase):
         )
         with self.assertRaises(ValidationError):
             line.save()
+
+    def test_time_entry_without_xero_pay_item_fails_for_actual(self) -> None:
+        """Actual CostSet time entries MUST have xero_pay_item."""
+        # self.cost_set is already an actual CostSet from setUp
+        self.assertEqual(self.cost_set.kind, "actual")
+        line = self._build_cost_line(xero_pay_item=None)
+        with self.assertRaises(ValidationError) as exc:
+            line.full_clean()
+        self.assertIn(
+            "Actual time entries must have xero_pay_item set.",
+            str(exc.exception),
+        )
+
+    def test_time_entry_without_xero_pay_item_ok_for_estimate(self) -> None:
+        """Estimate CostSet time entries do NOT require xero_pay_item."""
+        # Job.save() auto-creates estimate, quote, and actual CostSets
+        estimate_cost_set = self.job.latest_estimate
+        self.assertEqual(estimate_cost_set.kind, "estimate")
+        line = self._build_cost_line(cost_set=estimate_cost_set, xero_pay_item=None)
+        # Should not raise ValidationError
+        line.full_clean()
+
+    def test_time_entry_without_xero_pay_item_ok_for_quote(self) -> None:
+        """Quote CostSet time entries do NOT require xero_pay_item."""
+        # Job.save() auto-creates estimate, quote, and actual CostSets
+        quote_cost_set = self.job.latest_quote
+        self.assertEqual(quote_cost_set.kind, "quote")
+        line = self._build_cost_line(cost_set=quote_cost_set, xero_pay_item=None)
+        # Should not raise ValidationError
+        line.full_clean()
