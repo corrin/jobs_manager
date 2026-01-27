@@ -177,17 +177,13 @@ AUTH_USER_MODEL = "accounts.Staff"
 # Application definition
 INSTALLED_APPS = [
     "corsheaders",
-    "crispy_forms",
-    "crispy_bootstrap5",
     "django_apscheduler",
-    "django_node_assets",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.sites",
     "django.contrib.humanize",
-    "django_tables2",
     "rest_framework",
     "simple_history",
     "apps.workflow.apps.WorkflowConfig",
@@ -202,12 +198,6 @@ INSTALLED_APPS = [
     "mcp_server",
     "drf_spectacular",
 ]
-
-# Add debug toolbar in development
-if DEBUG:
-    INSTALLED_APPS += ["debug_toolbar"]
-
-CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -226,12 +216,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "simple_history.middleware.HistoryRequestMiddleware",
 ]
-
-# Add debug toolbar middleware in development
-if DEBUG:
-    MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
-
-INTERNAL_IPS = ["127.0.0.1"]
 
 # CSRF settings - Load from environment variables
 csrf_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
@@ -851,16 +835,6 @@ PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds
 # Used for UAT, staging, and production environments
 
 if PRODUCTION_LIKE:
-    # Remove debug toolbar from installed apps
-    INSTALLED_APPS = [app for app in INSTALLED_APPS if app != "debug_toolbar"]
-
-    # Remove debug toolbar middleware
-    MIDDLEWARE = [
-        mw
-        for mw in MIDDLEWARE
-        if mw != "debug_toolbar.middleware.DebugToolbarMiddleware"
-    ]
-
     # Override media path from environment if provided
     MEDIA_ROOT = os.getenv("MEDIA_ROOT", MEDIA_ROOT)
 
