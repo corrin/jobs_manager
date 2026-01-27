@@ -36,7 +36,6 @@ URL Structure Patterns:
 Follow these patterns when adding new URLs to maintain consistency.
 """
 
-import debug_toolbar
 from django.urls import include, path
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
@@ -200,6 +199,5 @@ urlpatterns = [
     ),
     # AI Provider CRUD & custom actions
     path("api/workflow/", include(router.urls)),
-    path("__debug__/", include(debug_toolbar.urls)),
     # End of URL patterns
 ]

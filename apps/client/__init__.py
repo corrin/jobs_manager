@@ -8,7 +8,6 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .forms import ClientForm
         from .models import Client, ClientContact, Supplier, SupplierPickupAddress
         from .serializers import (
             ClientContactSerializer,
@@ -45,7 +44,6 @@ __all__ = [
     "ClientDetailResponseSerializer",
     "ClientDuplicateErrorResponseSerializer",
     "ClientErrorResponseSerializer",
-    "ClientForm",
     "ClientJobHeaderSerializer",
     "ClientJobsResponseSerializer",
     "ClientListResponseSerializer",
