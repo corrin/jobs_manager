@@ -174,6 +174,12 @@ class PurchaseOrderListSerializer(serializers.Serializer):
     jobs = PurchaseOrderJobSerializer(many=True)
 
 
+class PurchaseOrderLastNumberResponseSerializer(serializers.Serializer):
+    """Serializer for last purchase order number response."""
+
+    last_po_number = serializers.CharField(allow_null=True, required=False)
+
+
 class PurchaseOrderLineCreateSerializer(serializers.Serializer):
     """Serializer for creating purchase order lines."""
 

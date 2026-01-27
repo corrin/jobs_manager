@@ -36,6 +36,7 @@ from apps.purchasing.serializers import (
     PurchaseOrderEventCreateResponseSerializer,
     PurchaseOrderEventCreateSerializer,
     PurchaseOrderEventsResponseSerializer,
+    PurchaseOrderLastNumberResponseSerializer,
     PurchaseOrderListSerializer,
     PurchaseOrderPDFResponseSerializer,
     PurchaseOrderUpdateResponseSerializer,
@@ -322,6 +323,32 @@ class XeroItemList(APIView):
             logger.error("Error fetching Xero items: %s", e)
             return Response(
                 {"error": "Failed to fetch Xero items"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PurchaseOrderLastNumberAPIView(APIView):
+    """Return the most recent purchase order number."""
+
+    serializer_class = PurchaseOrderLastNumberResponseSerializer
+
+    @extend_schema(
+        operation_id="getLastPurchaseOrderNumber",
+        responses={
+            status.HTTP_200_OK: PurchaseOrderLastNumberResponseSerializer,
+            status.HTTP_500_INTERNAL_SERVER_ERROR: PurchasingErrorResponseSerializer,
+        },
+    )
+    def get(self, request):
+        try:
+            last_po_number = PurchasingRestService.get_last_purchase_order_number()
+            serializer = self.serializer_class({"last_po_number": last_po_number})
+            return Response(serializer.data)
+        except Exception as exc:
+            persist_app_error(exc)
+            logger.error("Error fetching last purchase order number: %s", exc)
+            return Response(
+                {"error": "Failed to fetch last purchase order number"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

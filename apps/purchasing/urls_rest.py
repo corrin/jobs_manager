@@ -12,6 +12,7 @@ from apps.purchasing.views.purchasing_rest_views import (
     PurchaseOrderDetailRestView,
     PurchaseOrderEmailView,
     PurchaseOrderEventListCreateView,
+    PurchaseOrderLastNumberAPIView,
     PurchaseOrderListCreateRestView,
     PurchaseOrderPDFView,
     PurchasingJobsAPIView,
@@ -37,6 +38,11 @@ urlpatterns = [
         "purchase-orders/",
         PurchaseOrderListCreateRestView.as_view(),
         name="purchase_orders_rest",
+    ),
+    path(
+        "purchase-orders/last-number/",
+        PurchaseOrderLastNumberAPIView.as_view(),
+        name="purchase_orders_last_number_rest",
     ),
     path(
         "delivery-receipts/",

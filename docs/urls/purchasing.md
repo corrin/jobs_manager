@@ -34,6 +34,7 @@
 | `/purchase-orders/<uuid:po_id>/events/` | `purchasing_rest_views.PurchaseOrderEventListCreateView` | `purchasing:purchase_order_events_rest` | REST API view for listing and creating purchase order events/comments. |
 | `/purchase-orders/<uuid:po_id>/lines/<uuid:line_id>/allocations/delete/` | `purchasing_rest_views.AllocationDeleteAPIView` | `purchasing:allocation_delete_rest` | API endpoint to delete specific allocations from a purchase order. |
 | `/purchase-orders/<uuid:po_id>/pdf/` | `purchasing_rest_views.PurchaseOrderPDFView` | `purchasing:purchase_order_pdf_rest` | REST API view for generating and downloading purchase order PDFs. |
+| `/purchase-orders/last-number/` | `purchasing_rest_views.PurchaseOrderLastNumberAPIView` | `purchasing:purchase_orders_last_number_rest` | Return the most recent purchase order number. |
 
 ### Supplier-Price-Status Management
 | URL Pattern | View | Name | Description |
