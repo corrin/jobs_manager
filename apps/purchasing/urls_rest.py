@@ -50,7 +50,7 @@ urlpatterns = [
         name="delivery_receipts_rest",
     ),
     path(
-        "purchase-orders/<uuid:id>/",
+        "purchase-orders/<uuid:po_id>/",
         PurchaseOrderDetailRestView.as_view(),
         name="purchase_order_detail_rest",
     ),

@@ -150,7 +150,7 @@ class Command(BaseCommand):
             help="DEV ONLY: Use the RAW API workaround for demo company with invalid contractor data",
         )
 
-    def handle(self, **options):
+    def handle(self, *args, **options):
         # First check we have a valid token
         token = get_valid_token()
         if not token:

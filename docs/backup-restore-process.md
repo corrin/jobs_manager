@@ -359,13 +359,17 @@ Sample job: [any real job name] (#XXXXX)
 Contact: [any real contact name]
 ```
 
-#### Step 14: Create Admin User
+#### Step 14: Set Up Development Logins
 
 **Command:**
 
 ```bash
-python scripts/restore_checks/create_admin_user.py
+python scripts/setup_dev_logins.py
 ```
+
+**What this does:**
+1. Creates a default admin user (defaultadmin@example.com) if it doesn't exist
+2. Resets ALL staff passwords to a default value for development testing
 
 **Check:**
 
@@ -381,6 +385,10 @@ Is active: True
 Is office staff: True
 Is superuser: True
 ```
+
+**Login credentials after restore:**
+- Admin: `defaultadmin@example.com` / `Default-admin-password`
+- All other staff: their email / `Default-staff-password`
 
 #### Step 15: Create Dummy Files for JobFile Instances
 

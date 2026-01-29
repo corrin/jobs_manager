@@ -17,8 +17,8 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from xero_python.accounting import AccountingApi
 
-from apps.client.forms import ClientForm
 from apps.client.models import Client, ClientContact
+from apps.client.serializers import ClientCreateSerializer, ClientUpdateSerializer
 from apps.client.utils import date_to_datetime
 from apps.workflow.api.xero.sync import sync_clients
 from apps.workflow.api.xero.xero import api_client, get_tenant_id, get_valid_token
@@ -220,16 +220,12 @@ class ClientRestService:
             ValueError: If validation fails or Xero sync fails
         """
         try:
-            # Guard clause - validate required fields
-            if not data.get("name"):
-                raise ValueError("Client name is required")
-
-            # Validate using Django form
-            form = ClientForm(data)
-            if not form.is_valid():
+            # Validate using DRF serializer
+            serializer = ClientCreateSerializer(data=data)
+            if not serializer.is_valid():
                 error_messages = []
-                for field, errors in form.errors.items():
-                    error_messages.extend([f"{field}: {error}" for error in errors])
+                for field, errors in serializer.errors.items():
+                    error_messages.extend([f"{field}: {e}" for e in errors])
                 raise ValueError("; ".join(error_messages))
 
             # Check Xero authentication
@@ -238,7 +234,7 @@ class ClientRestService:
                 raise ValueError("Xero authentication required")
 
             # Create in Xero first
-            client = ClientRestService._create_client_in_xero(form.cleaned_data)
+            client = ClientRestService._create_client_in_xero(serializer.validated_data)
             return client
 
         except AlreadyLoggedException:
@@ -271,28 +267,30 @@ class ClientRestService:
         try:
             client = get_object_or_404(Client, id=client_id)
 
-            # Guard clause - validate required fields
-            if not data.get("name") and not client.name:
-                raise ValueError("Client name is required")
-
-            # Store xero_contact_id before form validation
+            # Store xero_contact_id before validation
             original_xero_contact_id = client.xero_contact_id
 
-            # Validate using Django form for basic validation (without modifying instance)
-            form = ClientForm(data)  # Don't pass instance to avoid modification
-            if not form.is_valid():
+            # Validate using DRF serializer
+            serializer = ClientUpdateSerializer(data=data)
+            if not serializer.is_valid():
                 error_messages = []
-                for field, errors in form.errors.items():
-                    error_messages.extend([f"{field}: {error}" for error in errors])
+                for field, errors in serializer.errors.items():
+                    error_messages.extend([f"{field}: {e}" for e in errors])
                 raise ValueError("; ".join(error_messages))
 
-            # DEBUG: Log client state after form validation
+            validated_data = serializer.validated_data
+
+            # Guard clause - validate required fields
+            if not validated_data.get("name") and not client.name:
+                raise ValueError("Client name is required")
+
+            # DEBUG: Log client state after validation
             logger.info(
-                f"Client data after form validation: xero_contact_id={original_xero_contact_id}",
+                f"Client data after validation: xero_contact_id={original_xero_contact_id}",
                 extra={
                     "client_id": str(client.id),
                     "original_xero_contact_id": original_xero_contact_id,
-                    "operation": "update_client_debug_after_form",
+                    "operation": "update_client_debug_after_validation",
                 },
             )
 
@@ -313,7 +311,8 @@ class ClientRestService:
             else:
                 # Local-only update for clients not synced with Xero
                 with transaction.atomic():
-                    client = form.save(commit=False)
+                    for field, value in validated_data.items():
+                        setattr(client, field, value)
                     client.xero_last_modified = timezone.now()
                     client.save()
 
@@ -722,91 +721,39 @@ class ClientRestService:
             "isCustomer": is_account_customer,
         }
 
-        try:
-            # Update contact in Xero
-            response = accounting_api.update_contact(
-                xero_tenant_id,
-                contact_id=client.xero_contact_id,
-                contacts={"contacts": [contact_data]},
+        # Update contact in Xero - fail fast if Xero update fails (no local fallback)
+        response = accounting_api.update_contact(
+            xero_tenant_id,
+            contact_id=client.xero_contact_id,
+            contacts={"contacts": [contact_data]},
+        )
+
+        if not response or not hasattr(response, "contacts") or not response.contacts:
+            raise ValueError("No contact data in Xero update response")
+
+        if len(response.contacts) != 1:
+            raise ValueError(
+                f"Expected 1 contact in update response, got {len(response.contacts)}"
             )
 
-            if (
-                not response
-                or not hasattr(response, "contacts")
-                or not response.contacts
-            ):
-                raise ValueError("No contact data in Xero update response")
+        # Sync updated data locally
+        client_instances = sync_clients(response.contacts)
+        if not client_instances:
+            raise ValueError("Failed to sync updated client from Xero")
 
-            if len(response.contacts) != 1:
-                raise ValueError(
-                    f"Expected 1 contact in update response, got {len(response.contacts)}"
-                )
+        updated_client = client_instances[0]
 
-            # Sync updated data locally
-            client_instances = sync_clients(response.contacts)
-            if not client_instances:
-                raise ValueError("Failed to sync updated client from Xero")
+        logger.info(
+            f"Client {updated_client.id} updated in Xero and synced locally",
+            extra={
+                "client_id": str(updated_client.id),
+                "client_name": updated_client.name,
+                "xero_contact_id": updated_client.xero_contact_id,
+                "operation": "_update_client_in_xero",
+            },
+        )
 
-            updated_client = client_instances[0]
-
-            logger.info(
-                f"Client {updated_client.id} updated in Xero and synced locally",
-                extra={
-                    "client_id": str(updated_client.id),
-                    "client_name": updated_client.name,
-                    "xero_contact_id": updated_client.xero_contact_id,
-                    "operation": "_update_client_in_xero",
-                },
-            )
-
-            return updated_client
-
-        except Exception as e:
-            logger.error(f"Error updating client in Xero: {str(e)}")
-            # If Xero update fails, fall back to local update with warning
-            logger.warning(
-                f"Xero update failed for client {client.id}, performing local update only"
-            )
-
-            # Preserve Xero fields during local fallback update
-            xero_fields = {
-                "xero_contact_id": client.xero_contact_id,
-                "xero_tenant_id": client.xero_tenant_id,
-                "raw_json": client.raw_json,
-                "xero_last_synced": client.xero_last_synced,
-                "xero_archived": client.xero_archived,
-                "xero_merged_into_id": client.xero_merged_into_id,
-                "merged_into": client.merged_into,
-            }
-
-            # Add preserved Xero fields to update data
-            update_data = data.copy()
-            for field, value in xero_fields.items():
-                if field not in update_data:
-                    update_data[field] = value
-
-            # Perform local update as fallback
-            form = ClientForm(update_data, instance=client)
-            if form.is_valid():
-                with transaction.atomic():
-                    client = form.save(commit=False)
-                    client.xero_last_modified = timezone.now()
-                    client.save()
-
-                    logger.info(
-                        f"Client {client.id} updated locally as fallback",
-                        extra={
-                            "client_id": str(client.id),
-                            "client_name": client.name,
-                            "operation": "_update_client_in_xero_fallback",
-                            "xero_error": str(e),
-                        },
-                    )
-
-                return client
-            else:
-                # If both Xero and local update fail, raise the original Xero error
-                raise ValueError(f"Xero update failed: {str(e)}")
+        return updated_client
 
     @staticmethod
     def get_client_jobs(client_id: UUID) -> List[Dict[str, Any]]:

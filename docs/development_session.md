@@ -8,32 +8,29 @@ This document uses my real development URLs (msm-workflow.ngrok-free.app and msm
 
 Each development session requires starting these services:
 
-1. **Backend ngrok tunnel** (terminal 1)
-2. **Frontend ngrok tunnel** (terminal 2)
-3. **Django server** (VS Code debugger or terminal 3)
-4. **Frontend dev server** (terminal 4, in frontend repo)
-5. **Connect to Xero** (in browser, if token expired)
-6. **Background scheduler** (terminal 5) - keeps Xero token alive
+1. **Ngrok tunnels** (terminal 1) - both backend and frontend
+2. **Django server** (VS Code debugger or terminal 2)
+3. **Frontend dev server** (terminal 3, in frontend repo)
+4. **Connect to Xero** (in browser, if token expired)
+5. **Background scheduler** (terminal 4) - keeps Xero token alive
 
 ## Detailed Steps
 
-### 1. Start Backend Ngrok Tunnel
+### 1. Start Ngrok Tunnels
+
+Start both backend and frontend tunnels with a single command:
 
 ```bash
-ngrok http 8000 --domain=msm-workflow.ngrok-free.app
+ngrok start --all
 ```
 
-### 2. Start Frontend Ngrok Tunnel
+This requires tunnels to be configured in your ngrok config file (`~/.config/ngrok/ngrok.yml`). See [initial_install.md](initial_install.md) for setup instructions.
 
-```bash
-ngrok http 5173 --domain=msm-workflow-front.ngrok-free.app
-```
-
-### 3. Start Django Server
+### 2. Start Django Server
 
 VS Code: Run menu > Start Debugging (F5)
 
-### 4. Start Frontend Dev Server
+### 3. Start Frontend Dev Server
 
 In the frontend repository:
 
@@ -41,11 +38,11 @@ In the frontend repository:
 npm run dev
 ```
 
-### 5. Connect to Xero
+### 4. Connect to Xero
 
 Visit https://msm-workflow-front.ngrok-free.app/xero and click "Login with Xero" if token has expired.
 
-### 6. Start Background Scheduler
+### 5. Start Background Scheduler
 
 ```bash
 python manage.py run_scheduler
@@ -55,7 +52,7 @@ python manage.py run_scheduler
 
 - **Backend**: Visit https://msm-workflow.ngrok-free.app - should show the Django app
 - **Frontend**: Visit https://msm-workflow-front.ngrok-free.app - should show the Vue app
-- **ngrok tunnels**: Both ngrok terminals should show active connections
+- **ngrok tunnels**: The ngrok terminal should show both tunnels active
 
 ## Troubleshooting
 

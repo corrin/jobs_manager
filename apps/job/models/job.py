@@ -407,7 +407,6 @@ class Job(models.Model):
         # Track original values for change detection
         if not is_new:
             original_job = Job.objects.get(pk=self.pk)
-            original_job.status
 
         if (staff and is_new) or (not self.created_by and staff):
             self.created_by = staff

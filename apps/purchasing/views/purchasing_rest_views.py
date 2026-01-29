@@ -434,7 +434,7 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
         return PurchaseOrderDetailSerializer
 
     @extend_schema(operation_id="retrievePurchaseOrder")
-    def get(self, request, id):
+    def get(self, request, po_id):
         """Get purchase order details including lines."""
         # Allow fetching PO details regardless of status (including deleted)
         # to match the list endpoint behavior and allow viewing deleted POs
@@ -443,7 +443,7 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
             .select_related("supplier")
             .prefetch_related("po_lines")
         )
-        po = get_object_or_404(queryset, id=id)
+        po = get_object_or_404(queryset, id=po_id)
         serializer = PurchaseOrderDetailSerializer(po)
         etag = generate_po_etag(po)
         if_none_match = self._get_if_none_match(request)
@@ -453,7 +453,7 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
         self._set_etag(response, etag)
         return response
 
-    def patch(self, request, id):
+    def patch(self, request, po_id):
         """Update purchase order.
 
         Concurrency is controlled in this endpoint (ETag/If-Match).
@@ -473,7 +473,7 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
 
             # Update PO using service with optimistic concurrency
             po = PurchasingRestService.update_purchase_order(
-                id,
+                po_id,
                 serializer.validated_data,
                 expected_etag=if_match,
             )
@@ -489,7 +489,9 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
             return response
 
         except PreconditionFailedError as exc:
-            logger.warning("ETag mismatch updating purchase order %s: %s", id, str(exc))
+            logger.warning(
+                "ETag mismatch updating purchase order %s: %s", po_id, str(exc)
+            )
             return Response(
                 {"error": "Precondition failed (ETag mismatch). Reload and retry."},
                 status=status.HTTP_412_PRECONDITION_FAILED,
@@ -498,7 +500,7 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
         except ValidationError as exc:
             persist_app_error(exc)
             logger.warning(
-                "Validation error updating purchase order %s: %s", id, str(exc)
+                "Validation error updating purchase order %s: %s", po_id, str(exc)
             )
             return Response(
                 {"error": "Validation error", "details": str(exc)},

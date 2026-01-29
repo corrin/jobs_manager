@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Frontend Communication
+
+MCP server `frontend` connects to frontend Claude Code. **Delegate tasks** via `mcp__frontend__claude_code` tool.
+
+---
+
 ## Architecture Overview
 
 ### Core Application Purpose
@@ -19,20 +25,14 @@ Django-based job/project management system for custom metal fabrication business
 - **`accounting`** - KPIs, financial reporting, invoice generation
 - **`quoting`** - Quote generation, supplier pricing, AI price extraction (Gemini)
 
-### Frontend
-
-- Django templates with Bootstrap 5, jQuery, ag-Grid
-- Separate Vue.js frontend in development (`../jobs_manager_front/`) - **managed by separate Claude Code instance**
-
 ### Database Design Patterns
 
 **Core Relationships:**
 
 ```
 Job → CostSet (1:many) → CostLine (1:many)
-CostLine → external references via ext_refs JSON field
-PurchaseOrder → PurchaseOrderLine → Stock → CostLine (via ext_refs)
-Staff → CostLine (time entries via meta.staff_id)
+PurchaseOrder → PurchaseOrderLine → Stock → CostLine
+Staff → CostLine (time entries)
 Client → Job (1:many)
 ```
 
@@ -74,7 +74,6 @@ ADJUSTMENT entries (kind='adjust'):
 ### Code Style and Quality
 
 - **Black** (line length 88) and **isort** for Python formatting
-- **Prettier** for JavaScript formatting with pre-commit hooks
 - **MyPy** with strict configuration for type safety
 - **Flake8** and **Pylint** for linting with Django-specific rules
 - **NEVER run `tox -e format`** - use pre-commit instead (different settings, different results)

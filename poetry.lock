@@ -837,25 +837,6 @@ test = ["Pillow", "contourpy[test-no-images]", "matplotlib"]
 test-no-images = ["pytest", "pytest-cov", "pytest-rerunfailures", "pytest-xdist", "wurlitzer"]
 
 [[package]]
-name = "crispy-bootstrap5"
-version = "2025.6"
-description = "Bootstrap5 template pack for django-crispy-forms"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "crispy_bootstrap5-2025.6-py3-none-any.whl", hash = "sha256:a343aa128b4383f35f00295b94de2b10862f2a4f24eda21fa6ead45234c07050"},
-    {file = "crispy_bootstrap5-2025.6.tar.gz", hash = "sha256:f1bde7cac074c650fc82f31777d4a4cfd0df2512c68bc4128f259c75d3daada4"},
-]
-
-[package.dependencies]
-django = ">=4.2"
-django-crispy-forms = ">=2.3"
-
-[package.extras]
-test = ["pytest", "pytest-django"]
-
-[[package]]
 name = "cryptography"
 version = "44.0.0"
 description = "cryptography is a package which provides cryptographic recipes and primitives to Python developers."
@@ -1081,37 +1062,6 @@ asgiref = ">=3.6"
 django = ">=4.2"
 
 [[package]]
-name = "django-crispy-forms"
-version = "2.4"
-description = "Best way to have Django DRY forms"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "django_crispy_forms-2.4-py3-none-any.whl", hash = "sha256:5a4b99876cfb1bdd3e47727731b6d4197c51c0da502befbfbec6a93010b02030"},
-    {file = "django_crispy_forms-2.4.tar.gz", hash = "sha256:915e1ffdeb2987d78b33fabfeff8e5203c8776aa910a3a659a2c514ca125f3bd"},
-]
-
-[package.dependencies]
-django = ">=4.2"
-
-[[package]]
-name = "django-debug-toolbar"
-version = "4.4.6"
-description = "A configurable set of panels that display various debug information about the current request/response."
-optional = false
-python-versions = ">=3.8"
-groups = ["main", "dev"]
-files = [
-    {file = "django_debug_toolbar-4.4.6-py3-none-any.whl", hash = "sha256:3beb671c9ec44ffb817fad2780667f172bd1c067dbcabad6268ce39a81335f45"},
-    {file = "django_debug_toolbar-4.4.6.tar.gz", hash = "sha256:36e421cb908c2f0675e07f9f41e3d1d8618dc386392ec82d23bcfcd5d29c7044"},
-]
-
-[package.dependencies]
-django = ">=4.2.9"
-sqlparse = ">=0.2"
-
-[[package]]
 name = "django-encrypted-model-fields"
 version = "0.6.5"
 description = "A set of fields that wrap standard Django fields with encryption provided by the python cryptography library."
@@ -1162,21 +1112,6 @@ mcp = ">=1.8.0"
 uritemplate = ">=4.1.1,<5.0.0"
 
 [[package]]
-name = "django-node-assets"
-version = "0.9.15"
-description = "The Django application that allows to install and serve assets via Node.js package manager infrastructure."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "django_node_assets-0.9.15-py3-none-any.whl", hash = "sha256:a5f8105ffe947bd049ddc2aca40694f86837a0ffbd627686252704b2b330ddcc"},
-    {file = "django_node_assets-0.9.15.tar.gz", hash = "sha256:60a52dbfc43add1b58a9134e7b761cc25abc553be43af1325261ececb397e403"},
-]
-
-[package.extras]
-dev = ["build", "ruff", "twine"]
-
-[[package]]
 name = "django-simple-history"
 version = "3.11.0"
 description = "Store model history and view/revert changes from admin site."
@@ -1190,17 +1125,6 @@ files = [
 
 [package.dependencies]
 django = ">=4.2"
-
-[[package]]
-name = "django-sortable"
-version = "0.3.1"
-description = "Flexible sorting for Django applications"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "django-sortable-0.3.1.tar.gz", hash = "sha256:ba0ca0f0f3ab89ae1d3211da4890d9f31c42020cdda0d3315dc8e4efb43c586b"},
-]
 
 [[package]]
 name = "django-stubs"
@@ -1240,24 +1164,6 @@ files = [
 [package.dependencies]
 django = "*"
 typing-extensions = "*"
-
-[[package]]
-name = "django-tables2"
-version = "2.7.5"
-description = "Table/data-grid framework for Django"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "django_tables2-2.7.5-py3-none-any.whl", hash = "sha256:d9338937797207ffb6f481be2125c5ec3a0bb1858d409c672cc25fc5d654cb22"},
-    {file = "django_tables2-2.7.5.tar.gz", hash = "sha256:fb5dcaa09379cf3947598ec7e1bd5f26ed63aafdee3b23963446763bbeac37bf"},
-]
-
-[package.dependencies]
-django = ">=4.2"
-
-[package.extras]
-tablib = ["tablib"]
 
 [[package]]
 name = "djangorestframework"
@@ -6171,4 +6077,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "07d4634a6df48dc45d138ff785799866b3953fec8d9d147dceb300b6589604e0"
+content-hash = "7ee20df0d448b36e598e7b140d1fed54dc45f6fa3c7d7de4cccb9c94628eaa12"

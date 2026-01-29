@@ -27,7 +27,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/purchase-orders/` | `purchasing_rest_views.PurchaseOrderListCreateRestView` | `purchasing:purchase_orders_rest` | REST API view for listing and creating purchase orders. |
-| `/purchase-orders/<uuid:id>/` | `purchasing_rest_views.PurchaseOrderDetailRestView` | `purchasing:purchase_order_detail_rest` | Returns a full PO (including lines). |
+| `/purchase-orders/<uuid:po_id>/` | `purchasing_rest_views.PurchaseOrderDetailRestView` | `purchasing:purchase_order_detail_rest` | Returns a full PO (including lines). |
 | `/purchase-orders/<uuid:po_id>/allocations/` | `purchasing_rest_views.PurchaseOrderAllocationsAPIView` | `purchasing:purchase_order_allocations_rest` | API endpoint to get existing allocations for a purchase order. |
 | `/purchase-orders/<uuid:po_id>/allocations/<str:allocation_type>/<uuid:allocation_id>/details/` | `purchasing_rest_views.AllocationDetailsAPIView` | `purchasing:allocation_details_rest` | API endpoint to get details about a specific allocation before deletion. |
 | `/purchase-orders/<uuid:po_id>/email/` | `purchasing_rest_views.PurchaseOrderEmailView` | `purchasing:purchase_order_email_rest` | REST API view for generating purchase order emails. |

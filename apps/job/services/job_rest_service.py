@@ -933,18 +933,39 @@ class JobRestService:
 
                 job = serializer.save(staff=user)
 
-                # Additional guard to prevent cross-client contact leakage:
-                # If client changed and current contact belongs to a different client, clear it.
+                # When client changes, auto-set contact to new client's primary contact.
+                # This eliminates the need for frontend to make a separate API call.
+                # Only do this if contact_id was NOT explicitly provided in the update.
+                original_client_id = original_values.get("client_id")
+                contact_explicitly_updated = "contact_id" in delta_payload.fields
                 try:
-                    contact_client_id = job.contact.client_id if job.contact else None
                     if (
+                        job.client
+                        and original_client_id != job.client_id
+                        and not contact_explicitly_updated
+                    ):
+                        # Client changed - set contact to new client's primary contact
+                        primary_contact = ClientContact.objects.filter(
+                            client_id=job.client_id,
+                            is_primary=True,
+                            is_active=True,
+                        ).first()
+                        job.contact = primary_contact  # May be None if no primary
+                        job.save(staff=user)
+                        logger.info(
+                            f"Auto-set contact to primary contact after client change: "
+                            f"job.client_id={job.client_id}, "
+                            f"contact={'None' if not primary_contact else primary_contact.id}"
+                        )
+                    elif (
                         job.contact
                         and job.client
-                        and contact_client_id != job.client_id
+                        and job.contact.client_id != job.client_id
                     ):
+                        # Fallback guard: if contact doesn't belong to client, clear it
                         logger.warning(
                             "Clearing mismatched contact after client change: "
-                            f"contact.client_id={contact_client_id} != job.client_id={job.client_id}"
+                            f"contact.client_id={job.contact.client_id} != job.client_id={job.client_id}"
                         )
                         job.contact = None
                         job.save(staff=user)

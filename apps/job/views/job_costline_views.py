@@ -10,6 +10,7 @@ REST views for CostLine CRUD operations following clean code principles:
 
 import logging
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.shortcuts import get_object_or_404
@@ -34,6 +35,7 @@ from apps.job.serializers.costing_serializer import (
 from apps.purchasing.models import Stock
 from apps.purchasing.serializers import StockConsumeResponseSerializer
 from apps.purchasing.services.stock_service import consume_stock
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +111,15 @@ class CostLineCreateView(APIView):
                     response_serializer.data, status=status.HTTP_201_CREATED
                 )
 
+        except ValidationError as e:
+            logger.warning(f"Validation error creating cost line for job {job_id}: {e}")
+            error_message = e.message if hasattr(e, "message") else str(e)
+            error_response = {"error": error_message}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
+            persist_app_error(e)
             logger.error(f"Error creating cost line for job {job_id}: {e}")
             error_response = {"error": "Failed to create cost line"}
             error_serializer = CostLineErrorResponseSerializer(error_response)
@@ -206,7 +216,15 @@ class CostLineUpdateView(APIView):
                 response_serializer = CostLineSerializer(updated_cost_line)
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
 
+        except ValidationError as e:
+            logger.warning(f"Validation error updating cost line {cost_line_id}: {e}")
+            error_message = e.message if hasattr(e, "message") else str(e)
+            error_response = {"error": error_message}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
+            persist_app_error(e)
             logger.error(f"Error updating cost line {cost_line_id}: {e}")
             error_response = {"error": "Failed to update cost line"}
             error_serializer = CostLineErrorResponseSerializer(error_response)
@@ -272,7 +290,15 @@ class CostLineDeleteView(APIView):
                 logger.info(f"Deleted cost line {cost_line_id}")
                 return Response(status=status.HTTP_204_NO_CONTENT)
 
+        except ValidationError as e:
+            logger.warning(f"Validation error deleting cost line {cost_line_id}: {e}")
+            error_message = e.message if hasattr(e, "message") else str(e)
+            error_response = {"error": error_message}
+            error_serializer = CostLineErrorResponseSerializer(error_response)
+            return Response(error_serializer.data, status=status.HTTP_400_BAD_REQUEST)
+
         except Exception as e:
+            persist_app_error(e)
             logger.error(f"Error deleting cost line {cost_line_id}: {e}")
             error_response = {"error": "Failed to delete cost line"}
             error_serializer = CostLineErrorResponseSerializer(error_response)
