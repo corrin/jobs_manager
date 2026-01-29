@@ -19,7 +19,10 @@ from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
 from apps.purchasing.exceptions import PreconditionFailedError
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock, StockMovement
+from apps.purchasing.services.stock_item_code_service import (
+    ensure_item_code_for_stock_payload,
+)
 from apps.purchasing.services.delivery_receipt_service import (
     _create_costline_from_allocation,
     _create_stock_from_allocation,
@@ -183,8 +186,10 @@ class PurchasingRestService:
 
         # Handle stock allocation first
         if str(line.job_id) == str(stock_job.id) or line.job_id is None:
-            has_stock = Stock.objects.filter(
-                source="purchase_order", source_purchase_order_line=line
+            has_stock = StockMovement.objects.filter(
+                movement_type="receipt",
+                source="purchase_order",
+                source_purchase_order_line=line,
             ).exists()
 
             logger.info(f"Preparing to allocate to stock - has stock? {has_stock}")
@@ -482,18 +487,59 @@ class PurchasingRestService:
         if not all(k in data for k in required):
             raise ValueError("Missing required fields")
 
-        stock_item = Stock.objects.create(
-            job=Stock.get_stock_holding_job(),
-            description=data["description"],
-            quantity=Decimal(str(data["quantity"])),
-            unit_cost=Decimal(str(data["unit_cost"])),
-            source=data["source"],
-            metal_type=data.get("metal_type", ""),
-            alloy=data.get("alloy", ""),
-            specifics=data.get("specifics", ""),
-            location=data.get("location", ""),
-            is_active=True,
-        )
+        item_code = ensure_item_code_for_stock_payload(data)
+        qty = Decimal(str(data["quantity"]))
+        unit_cost = Decimal(str(data["unit_cost"]))
+
+        with transaction.atomic():
+            stock_item = (
+                Stock.objects.select_for_update().filter(item_code=item_code).first()
+            )
+            if stock_item:
+                stock_item.quantity += qty
+                update_fields = ["quantity"]
+                if not stock_item.description and data.get("description"):
+                    stock_item.description = data["description"]
+                    update_fields.append("description")
+                if not stock_item.metal_type and data.get("metal_type"):
+                    stock_item.metal_type = data.get("metal_type")
+                    update_fields.append("metal_type")
+                if not stock_item.alloy and data.get("alloy"):
+                    stock_item.alloy = data.get("alloy")
+                    update_fields.append("alloy")
+                if not stock_item.specifics and data.get("specifics"):
+                    stock_item.specifics = data.get("specifics")
+                    update_fields.append("specifics")
+                if not stock_item.location and data.get("location"):
+                    stock_item.location = data.get("location")
+                    update_fields.append("location")
+                stock_item.save(update_fields=update_fields)
+            else:
+                stock_item = Stock.objects.create(
+                    job=Stock.get_stock_holding_job(),
+                    item_code=item_code,
+                    description=data["description"],
+                    quantity=qty,
+                    unit_cost=unit_cost,
+                    source=data["source"],
+                    metal_type=data.get("metal_type", ""),
+                    alloy=data.get("alloy", ""),
+                    specifics=data.get("specifics", ""),
+                    location=data.get("location", ""),
+                    is_active=True,
+                )
+
+            StockMovement.objects.create(
+                stock=stock_item,
+                movement_type="adjust",
+                quantity_delta=qty,
+                unit_cost=unit_cost,
+                unit_revenue=stock_item.unit_revenue,
+                source=data["source"],
+                metadata={
+                    "created_from": "manual_create",
+                },
+            )
 
         # Parse the stock item to extract additional metadata
 

@@ -1,0 +1,193 @@
+import uuid
+
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+def _dedupe_stock_item_codes(apps, schema_editor):
+    Stock = apps.get_model("purchasing", "Stock")
+    StockMovement = apps.get_model("purchasing", "StockMovement")
+
+    duplicates = (
+        Stock.objects.exclude(item_code__isnull=True)
+        .exclude(item_code="")
+        .values("item_code")
+        .annotate(count=models.Count("id"))
+        .filter(count__gt=1)
+    )
+
+    for dup in duplicates:
+        item_code = dup["item_code"]
+        stocks = list(
+            Stock.objects.filter(item_code=item_code).order_by("date", "id")
+        )
+        if len(stocks) < 2:
+            continue
+
+        primary = stocks[0]
+        for other in stocks[1:]:
+            # Move child stock splits to the primary
+            Stock.objects.filter(source_parent_stock_id=other.id).update(
+                source_parent_stock_id=primary.id
+            )
+
+            # Update CostLine ext_refs JSON where stock_id matches the duplicate
+            with schema_editor.connection.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE job_costline
+                    SET ext_refs = JSON_SET(ext_refs, '$.stock_id', %s)
+                    WHERE JSON_EXTRACT(ext_refs, '$.stock_id') = %s
+                    """,
+                    [str(primary.id), str(other.id)],
+                )
+
+            # Add quantity to primary (do not change unit_cost)
+            if other.quantity:
+                primary.quantity += other.quantity
+                primary.save(update_fields=["quantity"])
+
+            StockMovement.objects.create(
+                stock=primary,
+                movement_type="merge",
+                quantity_delta=other.quantity,
+                unit_cost=other.unit_cost,
+                unit_revenue=other.unit_revenue,
+                source=other.source,
+                source_parent_stock=other,
+                metadata={"source_stock_id": str(other.id)},
+            )
+
+            other.delete()
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("job", "0067_normalize_wage_rate_multiplier"),
+        ("purchasing", "0028_update_created_by_from_events"),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="StockMovement",
+            fields=[
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "movement_type",
+                    models.CharField(
+                        choices=[
+                            ("receipt", "Receipt"),
+                            ("consume", "Consume"),
+                            ("adjust", "Adjust"),
+                            ("split", "Split"),
+                            ("merge", "Merge"),
+                        ],
+                        max_length=20,
+                    ),
+                ),
+                ("quantity_delta", models.DecimalField(decimal_places=2, max_digits=10)),
+                (
+                    "unit_cost",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=10, null=True
+                    ),
+                ),
+                (
+                    "unit_revenue",
+                    models.DecimalField(
+                        blank=True, decimal_places=2, max_digits=10, null=True
+                    ),
+                ),
+                (
+                    "source",
+                    models.CharField(
+                        choices=[
+                            ("purchase_order", "Purchase Order Receipt"),
+                            ("split_from_stock", "Split/Offcut from Stock"),
+                            ("manual", "Manual Adjustment/Stocktake"),
+                            ("product_catalog", "Product Catalog"),
+                            ("costline_consume", "CostLine Consumption"),
+                        ],
+                        max_length=50,
+                    ),
+                ),
+                ("metadata", models.JSONField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "source_cost_line",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="stock_movements",
+                        to="job.costline",
+                    ),
+                ),
+                (
+                    "source_parent_stock",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="child_movements",
+                        to="purchasing.stock",
+                    ),
+                ),
+                (
+                    "source_purchase_order_line",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="stock_movements",
+                        to="purchasing.purchaseorderline",
+                    ),
+                ),
+                (
+                    "stock",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="movements",
+                        to="purchasing.stock",
+                    ),
+                ),
+            ],
+            options={
+                "db_table": "workflow_stockmovement",
+            },
+        ),
+        migrations.RunPython(
+            code=_dedupe_stock_item_codes, reverse_code=migrations.RunPython.noop
+        ),
+        migrations.AddConstraint(
+            model_name="stockmovement",
+            constraint=models.CheckConstraint(
+                check=(
+                    models.Q(
+                        movement_type="receipt",
+                        source_purchase_order_line__isnull=False,
+                    )
+                    | ~models.Q(movement_type="receipt")
+                ),
+                name="stockmovement_receipt_requires_po_line",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="stockmovement",
+            index=models.Index(fields=["stock", "created_at"], name="stockmove_stock_dt"),
+        ),
+        migrations.AddIndex(
+            model_name="stockmovement",
+            index=models.Index(
+                fields=["movement_type", "created_at"], name="stockmove_type_dt"
+            ),
+        ),
+    ]

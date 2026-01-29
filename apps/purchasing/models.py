@@ -682,6 +682,82 @@ class Stock(models.Model):
         ]
 
 
+class StockMovement(models.Model):
+    """Immutable ledger of stock movements (receipts, consumption, adjustments)."""
+
+    MOVEMENT_TYPES = [
+        ("receipt", "Receipt"),
+        ("consume", "Consume"),
+        ("adjust", "Adjust"),
+        ("split", "Split"),
+        ("merge", "Merge"),
+    ]
+
+    SOURCE_CHOICES = [
+        ("purchase_order", "Purchase Order Receipt"),
+        ("split_from_stock", "Split/Offcut from Stock"),
+        ("manual", "Manual Adjustment/Stocktake"),
+        ("product_catalog", "Product Catalog"),
+        ("costline_consume", "CostLine Consumption"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    stock = models.ForeignKey(
+        Stock, on_delete=models.CASCADE, related_name="movements"
+    )
+    movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPES)
+    quantity_delta = models.DecimalField(max_digits=10, decimal_places=2)
+    unit_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    unit_revenue = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
+    source = models.CharField(max_length=50, choices=SOURCE_CHOICES)
+    source_purchase_order_line = models.ForeignKey(
+        "purchasing.PurchaseOrderLine",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    source_cost_line = models.ForeignKey(
+        "job.CostLine",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="stock_movements",
+    )
+    source_parent_stock = models.ForeignKey(
+        Stock,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="child_movements",
+    )
+    metadata = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "workflow_stockmovement"
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(movement_type="receipt")
+                    & models.Q(source_purchase_order_line__isnull=False)
+                )
+                | ~models.Q(movement_type="receipt"),
+                name="stockmovement_receipt_requires_po_line",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["stock", "created_at"], name="stockmove_stock_dt"),
+            models.Index(
+                fields=["movement_type", "created_at"], name="stockmove_type_dt"
+            ),
+        ]
+
+
 class PurchaseOrderEvent(models.Model):
     """A manual note/comment on a purchase order.
 

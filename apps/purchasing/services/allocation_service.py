@@ -8,7 +8,12 @@ from django.db.models import F, Func, Sum, Value
 from django.db.models.functions import Coalesce, Greatest
 
 from apps.job.models import CostLine
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.purchasing.models import (
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Stock,
+    StockMovement,
+)
 from apps.workflow.exceptions import AlreadyLoggedException
 from apps.workflow.services.error_persistence import persist_and_raise
 
@@ -83,8 +88,10 @@ class AllocationService:
                 )
 
                 if allocation_type == "stock":
-                    obj = Stock.objects.select_for_update().get(id=obj.id)
-                    result = AllocationService._delete_stock_allocation(po_line, obj)  # type: ignore[arg-type]
+                    obj = StockMovement.objects.select_for_update().get(id=obj.id)
+                    result = AllocationService._delete_stock_allocation(
+                        po_line, obj
+                    )  # type: ignore[arg-type]
                 else:
                     obj = CostLine.objects.select_for_update().get(id=obj.id)
                     result = AllocationService._delete_job_allocation(po_line, obj)  # type: ignore[arg-type]
@@ -122,7 +129,10 @@ class AllocationService:
             po = AllocationService._get_po_or_error(po_id)
 
             if allocation_type == "stock":
-                stock_item = AllocationService._get_stock_or_error(po, allocation_id)
+                movement = AllocationService._get_stock_movement_or_error(
+                    po, allocation_id
+                )
+                stock_item = movement.stock
 
                 consuming_qs = CostLine.objects.annotate(
                     stock_id=Func(
@@ -136,9 +146,9 @@ class AllocationService:
 
                 return {
                     "type": "stock",
-                    "id": str(stock_item.id),
+                    "id": str(movement.id),
                     "description": stock_item.description,
-                    "quantity": float(stock_item.quantity),
+                    "quantity": float(movement.quantity_delta),
                     "job_name": stock_item.job.name,
                     "can_delete": not consuming_qs.exists(),
                     "consumed_by_jobs": consuming_qs.count(),
@@ -178,16 +188,21 @@ class AllocationService:
             raise AllocationDeletionError(f"Purchase Order {po_id} not found")
 
     @staticmethod
-    def _get_stock_or_error(po: PurchaseOrder, stock_id: str) -> Stock:
+    def _get_stock_movement_or_error(
+        po: PurchaseOrder, movement_id: str
+    ) -> StockMovement:
         try:
-            return Stock.objects.select_related("source_purchase_order_line").get(
-                id=stock_id,
+            return StockMovement.objects.select_related(
+                "stock", "source_purchase_order_line"
+            ).get(
+                id=movement_id,
+                movement_type="receipt",
                 source="purchase_order",
                 source_purchase_order_line__purchase_order=po,
             )
-        except Stock.DoesNotExist:
+        except StockMovement.DoesNotExist:
             raise AllocationDeletionError(
-                f"Stock allocation {stock_id} not found or not from PO {po.id}"
+                f"Stock allocation {movement_id} not found or not from PO {po.id}"
             )
 
     @staticmethod
@@ -238,10 +253,12 @@ class AllocationService:
         po: PurchaseOrder,
         allocation_type: AllocationType,
         allocation_id: str,
-    ) -> Tuple[PurchaseOrderLine, Union[Stock, CostLine]]:
+    ) -> Tuple[PurchaseOrderLine, Union[StockMovement, CostLine]]:
         if allocation_type == "stock":
-            stock = AllocationService._get_stock_or_error(po, allocation_id)
-            return stock.source_purchase_order_line, stock
+            movement = AllocationService._get_stock_movement_or_error(
+                po, allocation_id
+            )
+            return movement.source_purchase_order_line, movement
 
         line = AllocationService._get_costline_or_error(po, allocation_id)
         try:
@@ -257,8 +274,9 @@ class AllocationService:
     @staticmethod
     def _delete_stock_allocation(
         po_line: PurchaseOrderLine,
-        stock_item: Stock,
+        movement: StockMovement,
     ) -> DeletionResult:
+        stock_item = Stock.objects.select_for_update().get(id=movement.stock_id)
         stock_id = Func(
             Func(F("ext_refs"), Value("$.stock_id"), function="JSON_EXTRACT"),
             function="JSON_UNQUOTE",
@@ -276,7 +294,7 @@ class AllocationService:
                 f"{consumed_count} job(s)"
             )
 
-        deleted_qty = Decimal(stock_item.quantity or 0)
+        deleted_qty = Decimal(movement.quantity_delta or 0)
         desc = stock_item.description
 
         # decrement received_quantity atomically and clamp to 0 in DB
@@ -289,7 +307,9 @@ class AllocationService:
         )
         po_line.refresh_from_db(fields=["received_quantity"])
 
-        stock_item.delete()
+        stock_item.quantity -= deleted_qty
+        stock_item.save(update_fields=["quantity"])
+        movement.delete()
 
         logger.info(
             "Deleted stock allocation: %s, qty=%s, PO line received now=%ss",

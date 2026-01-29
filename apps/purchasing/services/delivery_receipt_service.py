@@ -11,7 +11,8 @@ from django.utils import timezone
 from apps.job.models import CostLine, CostSet, Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
 from apps.purchasing.exceptions import PreconditionFailedError
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock
+from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock, StockMovement
+from apps.purchasing.services.stock_item_code_service import ensure_item_code_for_po_line
 from apps.workflow.models.company_defaults import CompanyDefaults
 
 logger = logging.getLogger(__name__)
@@ -144,21 +145,29 @@ def _validate_and_prepare_allocations(
 
 
 def _delete_previous_stock_for_line(line: PurchaseOrderLine, *, run_id: str) -> None:
-    existing = Stock.objects.filter(
-        source="purchase_order", source_purchase_order_line=line
-    )
+    existing = StockMovement.objects.filter(
+        movement_type="receipt",
+        source_purchase_order_line=line,
+        source="purchase_order",
+    ).select_related("stock")
     pre_count = existing.count()
     if pre_count:
         logger.warning(
-            "delivery_receipt run [%s]: line %s has %s existing stock entries before delete",
+            "delivery_receipt run [%s]: line %s has %s existing stock receipt movements before delete",
             run_id,
             line.id,
             pre_count,
         )
+
+    for movement in existing:
+        stock = movement.stock
+        stock.quantity -= movement.quantity_delta
+        stock.save(update_fields=["quantity"])
+
     deleted_count, _ = existing.delete()
     if deleted_count:
         logger.debug(
-            "delivery_receipt run [%s]: deleted %s existing stock entries for line %s.",
+            "delivery_receipt run [%s]: deleted %s existing stock receipt movements for line %s.",
             run_id,
             deleted_count,
             line.id,
@@ -183,32 +192,96 @@ def _create_stock_from_allocation(
     metadata: dict,
     retail_rate_pct: Decimal,
 ) -> Stock:
+    item_code = ensure_item_code_for_po_line(line, metadata)
+    if not line.item_code or not line.item_code.strip():
+        line.item_code = item_code
+        line.save(update_fields=["item_code"])
     retail_rate = (Decimal(str(retail_rate_pct)) / Decimal("100")).quantize(
         Decimal("0.0001")
     )
-
-    stock = Stock.objects.create(
-        job=job,
-        description=line.description,
-        quantity=qty,
-        unit_cost=line.unit_cost or Decimal("0.00"),
-        retail_rate=retail_rate,
-        metal_type=metadata.get("metal_type", line.metal_type or "unspecified"),
-        alloy=metadata.get("alloy", line.alloy or ""),
-        specifics=metadata.get("specifics", line.specifics or ""),
-        location=metadata.get("location", line.location or ""),
-        date=timezone.now(),
-        source="purchase_order",
-        source_purchase_order_line=line,
+    stock = (
+        Stock.objects.select_for_update().filter(item_code=item_code).first()
     )
 
-    # Parse extra metadata
-    from apps.quoting.services.stock_parser import auto_parse_stock_item
+    metadata = metadata or {}
+    metal_type = metadata.get("metal_type", line.metal_type or "unspecified")
+    alloy = metadata.get("alloy", line.alloy or "")
+    specifics = metadata.get("specifics", line.specifics or "")
+    location = metadata.get("location", line.location or "")
 
-    auto_parse_stock_item(stock)
+    created = False
+    if stock:
+        stock.quantity += qty
+        update_fields = ["quantity"]
+        if not stock.description and line.description:
+            stock.description = line.description
+            update_fields.append("description")
+        if not stock.metal_type and metal_type:
+            stock.metal_type = metal_type
+            update_fields.append("metal_type")
+        if not stock.alloy and alloy:
+            stock.alloy = alloy
+            update_fields.append("alloy")
+        if not stock.specifics and specifics:
+            stock.specifics = specifics
+            update_fields.append("specifics")
+        if not stock.location and location:
+            stock.location = location
+            update_fields.append("location")
+        stock.save(update_fields=update_fields)
+    else:
+        stock = Stock(
+            job=job,
+            item_code=item_code,
+            description=line.description,
+            quantity=qty,
+            unit_cost=line.unit_cost or Decimal("0.00"),
+            metal_type=metal_type,
+            alloy=alloy,
+            specifics=specifics,
+            location=location,
+            date=timezone.now(),
+            source="purchase_order",
+            source_purchase_order_line=line,
+        )
+        stock.retail_rate = retail_rate
+        stock.save()
+        created = True
+
+        from apps.quoting.services.stock_parser import auto_parse_stock_item
+
+        auto_parse_stock_item(stock)
+
+    unit_cost = line.unit_cost or Decimal("0.00")
+    unit_revenue = (unit_cost * (Decimal("1") + retail_rate)).quantize(
+        Decimal("0.01")
+    )
+    StockMovement.objects.create(
+        stock=stock,
+        movement_type="receipt",
+        quantity_delta=qty,
+        unit_cost=unit_cost,
+        unit_revenue=unit_revenue,
+        source="purchase_order",
+        source_purchase_order_line=line,
+        metadata={
+            "purchase_order_id": str(purchase_order.id),
+            "purchase_order_number": purchase_order.po_number,
+            "created_stock": created,
+            "metal_type": metal_type,
+            "alloy": alloy,
+            "specifics": specifics,
+            "location": location,
+        },
+    )
 
     logger.info(
-        "Created Stock %s for line %s, job %s, qty %s.", stock.id, line.id, job.id, qty
+        "%s Stock %s for line %s, job %s, qty %s.",
+        "Created" if created else "Updated",
+        stock.id,
+        line.id,
+        job.id,
+        qty,
     )
     return stock
 

@@ -15,7 +15,12 @@ from rest_framework.views import APIView
 
 from apps.job.models import Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderEvent, Stock
+from apps.purchasing.models import (
+    PurchaseOrder,
+    PurchaseOrderEvent,
+    Stock,
+    StockMovement,
+)
 from apps.purchasing.serializers import (
     AllJobsResponseSerializer,
     AllocationDeleteResponseSerializer,
@@ -626,14 +631,15 @@ class PurchaseOrderAllocationsAPIView(APIView):
                 .select_related("cost_set__job")
             )
 
-            # Find all Stock items that reference this PO
-            stock_items = Stock.objects.filter(
+            # Find all Stock movements that reference this PO
+            stock_movements = StockMovement.objects.filter(
+                movement_type="receipt",
                 source="purchase_order",
                 source_purchase_order_line__purchase_order_id=po_id,
-            ).select_related("job", "source_purchase_order_line")
+            ).select_related("stock", "stock__job", "source_purchase_order_line")
 
             logger.info(
-                f"Found {cost_lines.count()} CostLines and {stock_items.count()} Stock items for PO {po_id}"
+                f"Found {cost_lines.count()} CostLines and {stock_movements.count()} Stock movements for PO {po_id}"
             )
 
             # Let's also debug what CostLines we have in total that might be related
@@ -691,11 +697,17 @@ class PurchaseOrderAllocationsAPIView(APIView):
                         f"CostLine {cost_line.id} has no purchase_order_line_id in ext_refs: {cost_line.ext_refs}"
                     )
 
-            # Process Stock items (stock allocations)
-            for stock_item in stock_items:
-                line_id = str(stock_item.source_purchase_order_line.id)
+            # Process Stock movements (stock allocations)
+            for movement in stock_movements:
+                stock_item = movement.stock
+                line_id = str(movement.source_purchase_order_line.id)
                 if line_id not in allocations_by_line:
                     allocations_by_line[line_id] = []
+
+                unit_cost = movement.unit_cost or 0
+                retail_rate = 0
+                if unit_cost and movement.unit_revenue is not None:
+                    retail_rate = float((movement.unit_revenue - unit_cost) / unit_cost)
 
                 allocations_by_line[line_id].append(
                     {
@@ -706,23 +718,19 @@ class PurchaseOrderAllocationsAPIView(APIView):
                             if stock_item.job.name == "Worker Admin"
                             else stock_item.job.name
                         ),
-                        "quantity": float(stock_item.quantity),
-                        "retail_rate": (
-                            float(stock_item.retail_rate * 100)
-                            if stock_item.retail_rate
-                            else 0
-                        ),
-                        "allocation_date": stock_item.date.isoformat(),
+                        "quantity": float(movement.quantity_delta),
+                        "retail_rate": retail_rate * 100,
+                        "allocation_date": movement.created_at.isoformat(),
                         "description": stock_item.description,
                         "stock_location": stock_item.location or "Not specified",
                         "metal_type": stock_item.metal_type or "unspecified",
                         "alloy": stock_item.alloy or "",
                         "specifics": stock_item.specifics or "",
-                        "allocation_id": str(stock_item.id),
+                        "allocation_id": str(movement.id),
                     }
                 )
                 logger.debug(
-                    f"Added Stock allocation for line {line_id}: {stock_item.quantity} units to stock"
+                    f"Added Stock allocation for line {line_id}: {movement.quantity_delta} units to stock"
                 )
 
             logger.info(
