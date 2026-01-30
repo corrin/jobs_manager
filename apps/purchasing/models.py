@@ -702,9 +702,7 @@ class StockMovement(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    stock = models.ForeignKey(
-        Stock, on_delete=models.CASCADE, related_name="movements"
-    )
+    stock = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name="movements")
     movement_type = models.CharField(max_length=20, choices=MOVEMENT_TYPES)
     quantity_delta = models.DecimalField(max_digits=10, decimal_places=2)
     unit_cost = models.DecimalField(

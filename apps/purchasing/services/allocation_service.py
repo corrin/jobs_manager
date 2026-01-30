@@ -134,15 +134,9 @@ class AllocationService:
                 )
                 stock_item = movement.stock
 
-                consuming_qs = CostLine.objects.annotate(
-                    stock_id=Func(
-                        F("ext_refs"),
-                        Value("$.stock_id"),
-                        function="JSON_UNQUOTE",
-                        template="JSON_UNQUOTE(JSON_EXTRACT(%(expressions)s))",
-                        output_field=models.CharField(),
-                    )
-                ).filter(stock_id=str(stock_item.id))
+                consuming_qs = StockMovement.objects.filter(
+                    stock=stock_item, movement_type="consume"
+                )
 
                 return {
                     "type": "stock",
@@ -255,9 +249,7 @@ class AllocationService:
         allocation_id: str,
     ) -> Tuple[PurchaseOrderLine, Union[StockMovement, CostLine]]:
         if allocation_type == "stock":
-            movement = AllocationService._get_stock_movement_or_error(
-                po, allocation_id
-            )
+            movement = AllocationService._get_stock_movement_or_error(po, allocation_id)
             return movement.source_purchase_order_line, movement
 
         line = AllocationService._get_costline_or_error(po, allocation_id)
@@ -277,17 +269,9 @@ class AllocationService:
         movement: StockMovement,
     ) -> DeletionResult:
         stock_item = Stock.objects.select_for_update().get(id=movement.stock_id)
-        stock_id = Func(
-            Func(F("ext_refs"), Value("$.stock_id"), function="JSON_EXTRACT"),
-            function="JSON_UNQUOTE",
-            output_field=models.CharField(),
-        )
-
-        consuming_qs = CostLine.objects.annotate(stock_id=stock_id).filter(
-            stock_id=str(stock_item.id)
-        )
-
-        consumed_count = consuming_qs.count()
+        consumed_count = StockMovement.objects.filter(
+            stock=stock_item, movement_type="consume"
+        ).count()
         if consumed_count:
             raise AllocationDeletionError(
                 "Cannot delete stock allocation - stock has been consumed by "

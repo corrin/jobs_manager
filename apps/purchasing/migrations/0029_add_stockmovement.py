@@ -1,7 +1,7 @@
 import uuid
 
-from django.db import migrations, models
 import django.db.models.deletion
+from django.db import migrations, models
 
 
 def _dedupe_stock_item_codes(apps, schema_editor):
@@ -18,9 +18,7 @@ def _dedupe_stock_item_codes(apps, schema_editor):
 
     for dup in duplicates:
         item_code = dup["item_code"]
-        stocks = list(
-            Stock.objects.filter(item_code=item_code).order_by("date", "id")
-        )
+        stocks = list(Stock.objects.filter(item_code=item_code).order_by("date", "id"))
         if len(stocks) < 2:
             continue
 
@@ -61,6 +59,50 @@ def _dedupe_stock_item_codes(apps, schema_editor):
             other.delete()
 
 
+def _backfill_costline_stock_movements(apps, schema_editor):
+    Stock = apps.get_model("purchasing", "Stock")
+    StockMovement = apps.get_model("purchasing", "StockMovement")
+    CostLine = apps.get_model("job", "CostLine")
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id, JSON_UNQUOTE(JSON_EXTRACT(ext_refs, '$.stock_id'))
+            FROM job_costline
+            WHERE JSON_EXTRACT(ext_refs, '$.stock_id') IS NOT NULL
+            """
+        )
+        rows = cursor.fetchall()
+
+    for costline_id, stock_id in rows:
+        if not stock_id:
+            continue
+        try:
+            stock = Stock.objects.get(id=stock_id)
+        except Stock.DoesNotExist:
+            continue
+
+        costline = CostLine.objects.get(id=costline_id)
+        qty = costline.quantity or 0
+
+        movement = StockMovement.objects.create(
+            stock=stock,
+            movement_type="consume",
+            quantity_delta=-qty,
+            unit_cost=costline.unit_cost,
+            unit_revenue=costline.unit_rev,
+            source="costline_consume",
+            source_cost_line=costline,
+            metadata={"backfilled": True},
+        )
+
+        ext_refs = costline.ext_refs or {}
+        ext_refs.pop("stock_id", None)
+        ext_refs["stock_movement_id"] = str(movement.id)
+        costline.ext_refs = ext_refs
+        costline.save(update_fields=["ext_refs"])
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("job", "0067_normalize_wage_rate_multiplier"),
@@ -93,7 +135,10 @@ class Migration(migrations.Migration):
                         max_length=20,
                     ),
                 ),
-                ("quantity_delta", models.DecimalField(decimal_places=2, max_digits=10)),
+                (
+                    "quantity_delta",
+                    models.DecimalField(decimal_places=2, max_digits=10),
+                ),
                 (
                     "unit_cost",
                     models.DecimalField(
@@ -167,6 +212,10 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             code=_dedupe_stock_item_codes, reverse_code=migrations.RunPython.noop
         ),
+        migrations.RunPython(
+            code=_backfill_costline_stock_movements,
+            reverse_code=migrations.RunPython.noop,
+        ),
         migrations.AddConstraint(
             model_name="stockmovement",
             constraint=models.CheckConstraint(
@@ -182,7 +231,9 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name="stockmovement",
-            index=models.Index(fields=["stock", "created_at"], name="stockmove_stock_dt"),
+            index=models.Index(
+                fields=["stock", "created_at"], name="stockmove_stock_dt"
+            ),
         ),
         migrations.AddIndex(
             model_name="stockmovement",

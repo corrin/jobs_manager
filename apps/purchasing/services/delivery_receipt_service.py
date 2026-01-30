@@ -11,8 +11,15 @@ from django.utils import timezone
 from apps.job.models import CostLine, CostSet, Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
 from apps.purchasing.exceptions import PreconditionFailedError
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock, StockMovement
-from apps.purchasing.services.stock_item_code_service import ensure_item_code_for_po_line
+from apps.purchasing.models import (
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Stock,
+    StockMovement,
+)
+from apps.purchasing.services.stock_item_code_service import (
+    ensure_item_code_for_po_line,
+)
 from apps.workflow.models.company_defaults import CompanyDefaults
 
 logger = logging.getLogger(__name__)
@@ -199,9 +206,7 @@ def _create_stock_from_allocation(
     retail_rate = (Decimal(str(retail_rate_pct)) / Decimal("100")).quantize(
         Decimal("0.0001")
     )
-    stock = (
-        Stock.objects.select_for_update().filter(item_code=item_code).first()
-    )
+    stock = Stock.objects.select_for_update().filter(item_code=item_code).first()
 
     metadata = metadata or {}
     metal_type = metadata.get("metal_type", line.metal_type or "unspecified")
@@ -253,9 +258,7 @@ def _create_stock_from_allocation(
         auto_parse_stock_item(stock)
 
     unit_cost = line.unit_cost or Decimal("0.00")
-    unit_revenue = (unit_cost * (Decimal("1") + retail_rate)).quantize(
-        Decimal("0.01")
-    )
+    unit_revenue = (unit_cost * (Decimal("1") + retail_rate)).quantize(Decimal("0.01"))
     StockMovement.objects.create(
         stock=stock,
         movement_type="receipt",

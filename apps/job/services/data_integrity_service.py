@@ -32,6 +32,7 @@ from apps.purchasing.models import (
     PurchaseOrderLine,
     PurchaseOrderSupplierQuote,
     Stock,
+    StockMovement,
 )
 from apps.quoting.models import (
     ProductParsingMapping,
@@ -890,8 +891,8 @@ class DataIntegrityService:
         valid_staff_ids = set(
             str(sid) for sid in Staff.objects.values_list("id", flat=True)
         )
-        valid_stock_ids = set(
-            str(sid) for sid in Stock.objects.values_list("id", flat=True)
+        valid_stock_movement_ids = set(
+            str(sid) for sid in StockMovement.objects.values_list("id", flat=True)
         )
         valid_poline_ids = set(
             str(pid) for pid in PurchaseOrderLine.objects.values_list("id", flat=True)
@@ -932,15 +933,15 @@ class DataIntegrityService:
                 continue
 
             # Check stock references
-            if "stock_id" in costline.ext_refs:
-                stock_id = str(costline.ext_refs["stock_id"])
-                if stock_id not in valid_stock_ids:
+            if "stock_movement_id" in costline.ext_refs:
+                stock_movement_id = str(costline.ext_refs["stock_movement_id"])
+                if stock_movement_id not in valid_stock_movement_ids:
                     issues.append(
                         {
                             "model": "CostLine",
                             "record_id": str(costline.id),
-                            "field": "ext_refs.stock_id",
-                            "stock_id": stock_id,
+                            "field": "ext_refs.stock_movement_id",
+                            "stock_movement_id": stock_movement_id,
                         }
                     )
 

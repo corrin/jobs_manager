@@ -19,13 +19,18 @@ from apps.job.models.costing import CostLine
 from apps.job.models.job import Job
 from apps.purchasing.etag import generate_po_etag, normalize_etag
 from apps.purchasing.exceptions import PreconditionFailedError
-from apps.purchasing.models import PurchaseOrder, PurchaseOrderLine, Stock, StockMovement
-from apps.purchasing.services.stock_item_code_service import (
-    ensure_item_code_for_stock_payload,
+from apps.purchasing.models import (
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Stock,
+    StockMovement,
 )
 from apps.purchasing.services.delivery_receipt_service import (
     _create_costline_from_allocation,
     _create_stock_from_allocation,
+)
+from apps.purchasing.services.stock_item_code_service import (
+    ensure_item_code_for_stock_payload,
 )
 from apps.quoting.services.stock_parser import auto_parse_stock_item
 from apps.workflow.models import CompanyDefaults
