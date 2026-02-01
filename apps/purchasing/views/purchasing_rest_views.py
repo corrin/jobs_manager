@@ -658,6 +658,12 @@ class PurchaseOrderAllocationsAPIView(APIView):
 
             # Process CostLines (direct job allocations)
             for cost_line in cost_lines:
+                if not cost_line.cost_set or not cost_line.cost_set.job:
+                    raise ValueError(
+                        "CostLine missing cost_set or job for PO allocations. "
+                        f"cost_line_id={cost_line.id} ext_refs={cost_line.ext_refs}"
+                    )
+
                 # Extract purchase_order_line_id from ext_refs JSON field
                 line_id = None
                 if cost_line.ext_refs and isinstance(cost_line.ext_refs, dict):
@@ -699,10 +705,28 @@ class PurchaseOrderAllocationsAPIView(APIView):
 
             # Process Stock movements (stock allocations)
             for movement in stock_movements:
+                if movement.stock is None:
+                    raise ValueError(
+                        "StockMovement missing stock for PO allocations. "
+                        f"movement_id={movement.id}"
+                    )
+                if movement.source_purchase_order_line is None:
+                    raise ValueError(
+                        "StockMovement missing source_purchase_order_line for PO allocations. "
+                        f"movement_id={movement.id}"
+                    )
+
                 stock_item = movement.stock
                 line_id = str(movement.source_purchase_order_line.id)
                 if line_id not in allocations_by_line:
                     allocations_by_line[line_id] = []
+
+                line_job = movement.source_purchase_order_line.job
+                if line_job is None:
+                    raise ValueError(
+                        "PurchaseOrderLine missing job for PO allocations. "
+                        f"movement_id={movement.id} line_id={movement.source_purchase_order_line_id}"
+                    )
 
                 unit_cost = movement.unit_cost or 0
                 retail_rate = 0
@@ -712,11 +736,11 @@ class PurchaseOrderAllocationsAPIView(APIView):
                 allocations_by_line[line_id].append(
                     {
                         "type": "stock",
-                        "job_id": str(stock_item.job.id),
+                        "job_id": str(line_job.id),
                         "job_name": (
                             "Stock"
-                            if stock_item.job.name == "Worker Admin"
-                            else stock_item.job.name
+                            if line_job.name == "Worker Admin"
+                            else line_job.name
                         ),
                         "quantity": float(movement.quantity_delta),
                         "retail_rate": retail_rate * 100,
@@ -744,6 +768,13 @@ class PurchaseOrderAllocationsAPIView(APIView):
             return Response(serializer.data)
 
         except Exception as e:
+            persist_app_error(
+                e,
+                additional_context={
+                    "operation": "purchase_order_allocations_get",
+                    "purchase_order_id": str(po_id),
+                },
+            )
             logger.error(f"Error fetching allocations for PO {po_id}: {e}")
             return Response(
                 {"error": f"Failed to fetch allocations: {str(e)}"},

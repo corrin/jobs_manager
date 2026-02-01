@@ -59,6 +59,73 @@ def _dedupe_stock_item_codes(apps, schema_editor):
             other.delete()
 
 
+def _align_stock_uuid_columns(apps, schema_editor):
+    if schema_editor.connection.vendor != "mysql":
+        return
+
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT DATA_TYPE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'workflow_stock'
+              AND COLUMN_NAME = 'id'
+            """
+        )
+        row = cursor.fetchone()
+        if not row:
+            return
+
+        id_type = row[0]
+
+        cursor.execute(
+            """
+            SELECT DATA_TYPE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'workflow_stock'
+              AND COLUMN_NAME = 'source_parent_stock_id'
+            """
+        )
+        parent_row = cursor.fetchone()
+        parent_type = parent_row[0] if parent_row else None
+
+        if id_type == "uuid" and parent_type == "uuid":
+            return
+
+        cursor.execute(
+            """
+            SELECT CONSTRAINT_NAME
+            FROM information_schema.KEY_COLUMN_USAGE
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'workflow_stock'
+              AND COLUMN_NAME = 'source_parent_stock_id'
+              AND REFERENCED_TABLE_NAME = 'workflow_stock'
+            """
+        )
+        fk_names = [row[0] for row in cursor.fetchall() if row[0]]
+
+        for fk_name in fk_names:
+            cursor.execute(f"ALTER TABLE workflow_stock DROP FOREIGN KEY {fk_name}")
+
+        cursor.execute("ALTER TABLE workflow_stock MODIFY COLUMN id UUID NOT NULL")
+        cursor.execute(
+            "ALTER TABLE workflow_stock MODIFY COLUMN source_parent_stock_id UUID NULL"
+        )
+
+        constraint_name = (
+            fk_names[0]
+            if fk_names
+            else "workflow_stock_source_parent_stock__7633cf27_fk_workflow_"
+        )
+        cursor.execute(
+            "ALTER TABLE workflow_stock "
+            f"ADD CONSTRAINT {constraint_name} "
+            "FOREIGN KEY (source_parent_stock_id) REFERENCES workflow_stock(id)"
+        )
+
+
 def _backfill_costline_stock_movements(apps, schema_editor):
     Stock = apps.get_model("purchasing", "Stock")
     StockMovement = apps.get_model("purchasing", "StockMovement")
@@ -110,6 +177,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(
+            code=_align_stock_uuid_columns, reverse_code=migrations.RunPython.noop
+        ),
         migrations.CreateModel(
             name="StockMovement",
             fields=[
