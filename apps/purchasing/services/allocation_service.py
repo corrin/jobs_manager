@@ -138,12 +138,13 @@ class AllocationService:
                     stock=stock_item, movement_type="consume"
                 )
 
+                stock_job = stock_item.job or Stock.get_stock_holding_job()
                 return {
                     "type": "stock",
                     "id": str(movement.id),
                     "description": stock_item.description,
                     "quantity": float(movement.quantity_delta),
-                    "job_name": stock_item.job.name,
+                    "job_name": stock_job.name,
                     "can_delete": not consuming_qs.exists(),
                     "consumed_by_jobs": consuming_qs.count(),
                     # Location is not mandatory so that's the reason for the fallback

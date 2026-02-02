@@ -721,12 +721,10 @@ class PurchaseOrderAllocationsAPIView(APIView):
                 if line_id not in allocations_by_line:
                     allocations_by_line[line_id] = []
 
-                line_job = movement.source_purchase_order_line.job
-                if line_job is None:
-                    raise ValueError(
-                        "PurchaseOrderLine missing job for PO allocations. "
-                        f"movement_id={movement.id} line_id={movement.source_purchase_order_line_id}"
-                    )
+                line_job = (
+                    movement.source_purchase_order_line.job
+                    or Stock.get_stock_holding_job()
+                )
 
                 unit_cost = movement.unit_cost or 0
                 retail_rate = 0
