@@ -7,7 +7,9 @@ from typing import Any, Dict, List
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models import IntegerField
 from django.db.models.expressions import RawSQL
+from django.db.models.functions import Cast, Substr
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -320,6 +322,20 @@ class PurchasingRestService:
                 }
             )
         return result
+
+    @staticmethod
+    def get_last_purchase_order_number() -> str | None:
+        defaults = CompanyDefaults.get_instance()
+        po_prefix = defaults.po_prefix or ""
+        prefix_len = len(po_prefix)
+
+        return (
+            PurchaseOrder.objects.filter(po_number__regex=rf"^{po_prefix}\d+$")
+            .annotate(num=Cast(Substr("po_number", prefix_len + 1), IntegerField()))
+            .order_by("-num", "-created_at")
+            .values_list("po_number", flat=True)
+            .first()
+        )
 
     @staticmethod
     def create_purchase_order(
