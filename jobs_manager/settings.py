@@ -339,6 +339,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "COERCE_DECIMAL_TO_STRING": False,
+    "EXCEPTION_HANDLER": "jobs_manager.exception_handlers.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -761,9 +762,14 @@ LOGGING = {
             "level": "INFO",
             "propagate": True,
         },
+        "auth": {
+            "handlers": ["auth_file", "console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
     "root": {
-        "handlers": ["console", "app_file", "mail_admins"],
+        "handlers": ["console", "app_file"],
         "level": "DEBUG",
     },
 }
