@@ -352,6 +352,11 @@ def convert_html_to_reportlab(html_content):
                 )
             ul.replace_with(replacement)
 
+        # Process paragraph tags - insert newline after each <p> before unwrapping
+        # Quill editor uses <p> tags for each line, so we need to preserve line breaks
+        for tag in soup.find_all("p"):
+            tag.insert_after(NavigableString("\n"))
+
         # Convert inline formatting tags to ReportLab equivalents
         for tag in soup.find_all("strong"):
             tag.name = "b"
@@ -385,10 +390,10 @@ def convert_html_to_reportlab(html_content):
         # Convert to string - BeautifulSoup renders <br> as <br/>
         result = str(soup)
 
-        # Clean up whitespace: convert multiple newlines to paragraph breaks
-        result = re.sub(r"\n\s*\n", "<br/><br/>", result)
+        # Convert all newlines to line breaks (preserves paragraph structure from <p> tags)
+        result = result.replace("\n", "<br/>")
 
-        # Collapse excessive line breaks
+        # Collapse excessive line breaks (3+ becomes 2 for paragraph spacing)
         result = re.sub(r"(<br/>){3,}", "<br/><br/>", result)
         result = re.sub(r"(<br/>)+$", "", result)
         result = result.strip()
