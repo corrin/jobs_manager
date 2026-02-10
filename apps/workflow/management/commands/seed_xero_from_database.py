@@ -312,22 +312,21 @@ class Command(BaseCommand):
                 "would_process": len(staff_to_sync),
             }
 
-        # Clear the prod xero_user_id values - they're for the wrong Xero tenant
-        # We need to clear them so PayrollEmployeeSyncService will process these staff
-        staff_ids = [s.id for s in staff_to_sync]
+        # Clear prod xero_user_id in memory only (not DB) so sync_staff
+        # will process them. DB keeps prod IDs as crash recovery — if the
+        # process dies mid-way, re-running will still find unprocessed staff.
+        # sync_staff's _link_staff() saves the new dev ID to DB on success.
         self.stdout.write(
-            f"Clearing {len(staff_ids)} prod xero_user_id values before re-linking..."
+            f"Clearing {len(staff_to_sync)} prod xero_user_id values in memory before re-linking..."
         )
-        Staff.objects.filter(id__in=staff_ids).update(xero_user_id=None)
-
-        # Refetch the staff (now without xero_user_id)
-        staff_queryset = Staff.objects.filter(id__in=staff_ids)
+        for staff in staff_to_sync:
+            staff.xero_user_id = None
 
         # Use PayrollEmployeeSyncService to link (by job_title UUID, email, or name)
         # and create missing employees in dev's Xero
         self.stdout.write("Syncing staff with Xero Payroll...")
         summary = PayrollEmployeeSyncService.sync_staff(
-            staff_queryset=staff_queryset,
+            staff_queryset=staff_to_sync,
             dry_run=False,
             allow_create=True,  # Create if not found in dev's Xero
         )
