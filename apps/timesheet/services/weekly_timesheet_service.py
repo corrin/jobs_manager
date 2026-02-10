@@ -139,15 +139,13 @@ class WeeklyTimesheetService:
             total_sick_leave_hours = 0
             total_annual_leave_hours = 0
             total_bereavement_leave_hours = 0
-            total_weighted_hours = 0
 
             for day in week_days:
                 cost_lines = lines_by_staff_day.get((staff_id, day), [])
                 daily_data = cls._process_daily_lines(staff_member, day, cost_lines)
 
-                daily_weighted = daily_data.get("daily_weighted_hours", 0)
                 daily_data["daily_cost"] = round(
-                    float(staff_member.wage_rate) * daily_weighted, 2
+                    sum(float(line.total_cost) for line in cost_lines), 2
                 )
 
                 weekly_hours.append(daily_data)
@@ -163,9 +161,8 @@ class WeeklyTimesheetService:
                 total_bereavement_leave_hours += daily_data.get(
                     "bereavement_leave_hours", 0
                 )
-                total_weighted_hours += daily_data.get("daily_weighted_hours", 0)
 
-            weekly_cost = float(staff_member.wage_rate) * total_weighted_hours
+            weekly_cost = sum(day["daily_cost"] for day in weekly_hours)
             billable_percentage = (
                 (total_billable_hours / total_hours * 100) if total_hours > 0 else 0
             )
