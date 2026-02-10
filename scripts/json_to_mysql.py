@@ -107,6 +107,7 @@ class JSONToMySQLConverter:
                 "latest_estimate": "latest_estimate_id",
                 "latest_quote": "latest_quote_id",
                 "latest_actual": "latest_actual_id",
+                "default_xero_pay_item": "default_xero_pay_item_id",
             },
             "workflow_jobpricing": {
                 "job": "job_id",
@@ -158,10 +159,13 @@ class JSONToMySQLConverter:
             },
             "job_costline": {
                 "cost_set": "cost_set_id",
+                "xero_pay_item": "xero_pay_item_id",
             },
             "workflow_purchaseorder": {
                 "supplier": "supplier_id",
                 "job": "job_id",
+                "created_by": "created_by_id",
+                "pickup_address": "pickup_address_id",
             },
             "workflow_purchaseorderline": {
                 "purchase_order": "purchase_order_id",
