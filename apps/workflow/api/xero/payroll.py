@@ -1943,13 +1943,19 @@ def sync_xero_pay_items() -> Dict[str, Any]:
     # Sync Leave Types
     logger.info(f"Syncing {len(leave_types)} leave types to XeroPayItem")
     for lt in leave_types:
+        # Infer multiplier from leave type name: unpaid leave → 0, others → 1
+        if "unpaid" in lt["name"].lower():
+            leave_multiplier = Decimal("0.00")
+        else:
+            leave_multiplier = Decimal("1.00")
+
         pay_item, created = XeroPayItem.objects.update_or_create(
             name=lt["name"],
             uses_leave_api=True,
             defaults={
                 "xero_id": str(lt["id"]),
                 "xero_tenant_id": tenant_id,
-                "multiplier": None,
+                "multiplier": leave_multiplier,
                 "xero_last_synced": timezone.now(),
             },
         )

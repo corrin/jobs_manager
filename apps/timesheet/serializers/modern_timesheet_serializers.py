@@ -264,7 +264,7 @@ class WorkshopTimesheetEntryRequestSerializer(serializers.Serializer):
         max_digits=4,
         decimal_places=2,
         required=False,
-        min_value=Decimal("0.1"),
+        min_value=Decimal("0.0"),
         default=Decimal("1.0"),
     )
 
@@ -288,7 +288,7 @@ class WorkshopTimesheetEntryUpdateSerializer(serializers.Serializer):
     end_time = serializers.TimeField(required=False, allow_null=True)
     is_billable = serializers.BooleanField(required=False)
     wage_rate_multiplier = serializers.DecimalField(
-        max_digits=4, decimal_places=2, required=False, min_value=Decimal("0.1")
+        max_digits=4, decimal_places=2, required=False, min_value=Decimal("0.0")
     )
 
     def validate(self, attrs):
