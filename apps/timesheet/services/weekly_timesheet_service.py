@@ -235,7 +235,11 @@ class WeeklyTimesheetService:
         daily_weighted_hours = Decimal(0)
 
         for line in work_lines:
-            multiplier = line.wage_rate_multiplier or Decimal("1.0")
+            multiplier = (
+                line.wage_rate_multiplier
+                if line.wage_rate_multiplier is not None
+                else Decimal("1.0")
+            )
             hours = line.quantity
             daily_weighted_hours += hours * multiplier
             if multiplier == Decimal("0.0"):
