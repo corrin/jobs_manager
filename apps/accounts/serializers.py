@@ -77,7 +77,7 @@ class GenericStaffMethodsMixin:
 
     ARRAY_FIELDS = ["groups", "user_permissions"]
     DECIMAL_FIELDS = [
-        "wage_rate",
+        "base_wage_rate",
         "hours_mon",
         "hours_tue",
         "hours_wed",
@@ -140,6 +140,7 @@ class StaffSerializer(BaseStaffSerializer):
         )
         read_only_fields = [
             "id",
+            "wage_rate",
             "last_login",
             "date_joined",
             "created_at",
@@ -188,6 +189,7 @@ class StaffCreateSerializer(BaseStaffSerializer):
             + Staff.STAFF_API_PROPERTIES
         )
 
+        read_only_fields = ["wage_rate"]
         extra_kwargs = {
             "password": {"required": True, "write_only": True},
             "groups": {"required": False},

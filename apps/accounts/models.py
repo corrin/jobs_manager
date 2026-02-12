@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, ClassVar, List, Optional
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
@@ -30,6 +31,7 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         "first_name",
         "last_name",
         "preferred_name",
+        "base_wage_rate",
         "wage_rate",
         "xero_user_id",
         "date_left",
@@ -73,6 +75,12 @@ class Staff(AbstractBaseUser, PermissionsMixin):
     last_name: str = models.CharField(max_length=30)
     preferred_name: Optional[str] = models.CharField(
         max_length=30, blank=True, null=True
+    )
+    base_wage_rate = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        help_text="Actual hourly pay rate. wage_rate is auto-computed with leave loading.",
     )
     wage_rate: float = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     xero_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
@@ -151,7 +159,31 @@ class Staff(AbstractBaseUser, PermissionsMixin):
         # We have to do this because fixtures don't have updated_at,
         # so auto_now_add doesn't work
         self.updated_at = timezone_now()
+
+        # Auto-compute wage_rate from base_wage_rate + annual leave loading
+        # Skip if update_fields is specified and doesn't include base_wage_rate
+        # (avoids circular recompute when CompanyDefaults bulk-updates wage_rate)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is None or "base_wage_rate" in update_fields:
+            self._compute_wage_rate()
+
         super().save(*args, **kwargs)
+
+    def _compute_wage_rate(self) -> None:
+        """Set wage_rate = base_wage_rate * (1 + annual_leave_loading/100)."""
+        if not self.base_wage_rate:
+            self.wage_rate = Decimal("0")
+            return
+        from apps.workflow.models import CompanyDefaults
+
+        try:
+            loading = CompanyDefaults.get_instance().annual_leave_loading
+        except CompanyDefaults.DoesNotExist:
+            loading = Decimal("8.00")
+        multiplier = Decimal("1") + loading / Decimal("100")
+        self.wage_rate = (Decimal(str(self.base_wage_rate)) * multiplier).quantize(
+            Decimal("0.01")
+        )
 
     def __str__(self) -> str:
         return f"{self.first_name} {self.last_name}"

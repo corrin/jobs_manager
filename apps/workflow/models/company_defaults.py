@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 
@@ -19,6 +21,12 @@ class CompanyDefaults(models.Model):
     wage_rate = models.DecimalField(
         max_digits=6, decimal_places=2, default=32.00
     )  # rate per hour
+    annual_leave_loading = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=8.00,
+        help_text="Percentage added to base_wage_rate to get costing wage_rate (8.00 = 8%)",
+    )
 
     starting_job_number = models.IntegerField(
         default=1,
@@ -210,7 +218,33 @@ class CompanyDefaults(models.Model):
         if not self.pk and CompanyDefaults.objects.exists():
             raise ValidationError("There can be only one CompanyDefaults instance")
         self.is_primary = True
-        return super().save(*args, **kwargs)
+
+        # Check if annual_leave_loading changed - if so, recompute all staff wage_rates
+        loading_changed = False
+        if self.pk:
+            try:
+                old = CompanyDefaults.objects.get(pk=self.pk)
+                loading_changed = old.annual_leave_loading != self.annual_leave_loading
+            except CompanyDefaults.DoesNotExist:
+                pass
+
+        result = super().save(*args, **kwargs)
+
+        if loading_changed:
+            self._recompute_all_staff_wage_rates()
+
+        return result
+
+    def _recompute_all_staff_wage_rates(self):
+        """Bulk-recompute wage_rate for all staff based on current annual_leave_loading."""
+        from apps.accounts.models import Staff
+
+        loading_multiplier = Decimal("1") + self.annual_leave_loading / Decimal("100")
+        for staff in Staff.objects.filter(base_wage_rate__gt=0):
+            staff.wage_rate = (staff.base_wage_rate * loading_multiplier).quantize(
+                Decimal("0.01")
+            )
+            staff.save(update_fields=["wage_rate", "updated_at"])
 
     @classmethod
     def get_instance(cls) -> "CompanyDefaults":
