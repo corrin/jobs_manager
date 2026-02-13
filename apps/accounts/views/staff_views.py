@@ -118,7 +118,7 @@ def get_staff_rates(request, staff_id):
         return JsonResponse({"error": "Unauthorized"}, status=403)
     staff = get_object_or_404(Staff, id=staff_id)
     rates = {
+        "base_wage_rate": float(staff.base_wage_rate),
         "wage_rate": float(staff.wage_rate),
-        # "charge_out_rate": float(staff.charge_out_rate),
     }
     return JsonResponse(rates)

@@ -1943,8 +1943,13 @@ def sync_xero_pay_items() -> Dict[str, Any]:
     # Sync Leave Types
     logger.info(f"Syncing {len(leave_types)} leave types to XeroPayItem")
     for lt in leave_types:
-        # Infer multiplier from leave type name: unpaid leave → 0, others → 1
-        if "unpaid" in lt["name"].lower():
+        # Infer multiplier from leave type name: unpaid/annual leave → 0, others → 1
+        name_lower = lt["name"].lower()
+        if "unpaid" in name_lower:  # Unpaid is 0 because we don't have to pay them!
+            leave_multiplier = Decimal("0.00")
+        elif (
+            "annual" in name_lower
+        ):  # Annual is 0 because we use accrual so we've already set aside money
             leave_multiplier = Decimal("0.00")
         else:
             leave_multiplier = Decimal("1.00")

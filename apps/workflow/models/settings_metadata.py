@@ -105,6 +105,7 @@ COMPANY_DEFAULTS_FIELD_SECTIONS: dict[str, str] = {
     "materials_markup": "finances",
     "charge_out_rate": "finances",
     "wage_rate": "finances",
+    "annual_leave_loading": "finances",
     # KPI thresholds
     "billable_threshold_green": "kpi",
     "billable_threshold_amber": "kpi",
