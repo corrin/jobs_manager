@@ -7,6 +7,7 @@ XERO_SCOPES = [
     "email",
     "accounting.contacts",
     "accounting.transactions",
+    "accounting.attachments",
     "accounting.reports.read",
     "accounting.settings",
     "accounting.journals.read",
