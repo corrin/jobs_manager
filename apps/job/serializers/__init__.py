@@ -41,6 +41,14 @@ try:
             JobFileUploadViewResponseSerializer,
             UploadedFileSerializer,
         )
+        from .job_profitability_report_serializers import (
+            CostSetMetricsSerializer,
+            FiltersAppliedSerializer,
+            JobProfitabilityItemSerializer,
+            JobProfitabilityQuerySerializer,
+            JobProfitabilityReportResponseSerializer,
+            JobProfitabilitySummarySerializer,
+        )
         from .job_quote_chat_serializer import (
             JobQuoteChatCreateResponseSerializer,
             JobQuoteChatCreateSerializer,
@@ -169,6 +177,7 @@ __all__ = [
     "CostLineCreateUpdateSerializer",
     "CostLineErrorResponseSerializer",
     "CostLineSerializer",
+    "CostSetMetricsSerializer",
     "CostSetSerializer",
     "CostSetSummarySerializer",
     "DataIntegrityResponseSerializer",
@@ -179,6 +188,7 @@ __all__ = [
     "FetchJobsByColumnResponseSerializer",
     "FetchJobsResponseSerializer",
     "FetchStatusValuesResponseSerializer",
+    "FiltersAppliedSerializer",
     "InvoiceSerializer",
     "JobBasicInformationResponseSerializer",
     "JobClientHeaderSerializer",
@@ -207,6 +217,10 @@ __all__ = [
     "JobHeaderResponseSerializer",
     "JobInvoicesResponseSerializer",
     "JobPatchSerializer",
+    "JobProfitabilityItemSerializer",
+    "JobProfitabilityQuerySerializer",
+    "JobProfitabilityReportResponseSerializer",
+    "JobProfitabilitySummarySerializer",
     "JobQuoteAcceptanceSerializer",
     "JobQuoteChatCreateResponseSerializer",
     "JobQuoteChatCreateSerializer",

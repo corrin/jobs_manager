@@ -89,6 +89,7 @@
 | `/rest/jobs/status-choices/` | `job_rest_views.JobStatusChoicesRestView` | `jobs:job_status_choices_rest` | REST view for Job status choices. |
 | `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
+| `/rest/reports/job-profitability/` | `job_profitability_report_views.JobProfitabilityReportView` | `jobs:job_profitability_report` | API view for job profitability reporting. |
 | `/rest/safety-ai/generate-controls/` | `safety_viewsets.AIGenerateControlsView` | `jobs:ai_generate_controls` | Generate controls for hazards using AI. |
 | `/rest/safety-ai/generate-hazards/` | `safety_viewsets.AIGenerateHazardsView` | `jobs:ai_generate_hazards` | Generate hazards for a task description using AI. |
 | `/rest/safety-ai/improve-document/` | `safety_viewsets.AIImproveDocumentView` | `jobs:ai_improve_document` | Improve an entire document using AI. |

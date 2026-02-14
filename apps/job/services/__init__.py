@@ -35,6 +35,7 @@ try:
             serialize_draft_lines,
             serialize_validation_report,
         )
+        from .job_profitability_report import JobProfitabilityReportService
         from .job_rest_service import (
             DeltaValidationError,
             JobDeltaPayload,
@@ -98,6 +99,7 @@ __all__ = [
     "GoogleDocResult",
     "GoogleDocsService",
     "JobDeltaPayload",
+    "JobProfitabilityReportService",
     "JobRestService",
     "JobStaffService",
     "KanbanCategorizationService",

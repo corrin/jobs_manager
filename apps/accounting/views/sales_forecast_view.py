@@ -369,7 +369,7 @@ class SalesForecastMonthDetailAPIView(APIView):
                 return "Shop job"
             if job:
                 start = job.start_date
-                end = job.completion_date
+                end = job.last_financial_activity_date
                 if start and end and (start.year, start.month) != (end.year, end.month):
                     return "Multi-month"
             if match_type == "xero_only":
@@ -428,7 +428,7 @@ class SalesForecastMonthDetailAPIView(APIView):
             job = Job.objects.select_related("client").get(id=job_id)
             monthly_revenue = float(jobs_with_revenue[job_id])
             start_date = job.start_date
-            completion = job.completion_date
+            completion = job.last_financial_activity_date
             # All-time totals for job
             total_xero = self._get_total_invoiced_for_job(job)
             total_jm = float(job.latest_actual.total_revenue)
