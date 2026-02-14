@@ -37,11 +37,13 @@
       "last_xero_deep_sync": null,
       "shop_client_name": "Demo Company Shop",
       "test_client_name": "ABC Carpet Cleaning TEST IGNORE",
-      "billable_threshold_green": "45.00",
-      "billable_threshold_amber": "30.00",
-      "daily_gp_target": "1250.00",
-      "shop_hours_target_percentage": "20.00",
-      "job_gp_target_percentage": "50.00",
+      "kpi_daily_billable_hours_green": "45.00",
+      "kpi_daily_billable_hours_amber": "35.00",
+      "kpi_daily_gp_target": "1250.00",
+      "kpi_daily_shop_hours_percentage": "20.00",
+      "kpi_job_gp_target_percentage": "50.00",
+      "kpi_daily_profit_green": "1000.00",
+      "kpi_daily_profit_amber": "0.00",
       "xero_payroll_calendar_name": "Weekly Testing"
     }
   }

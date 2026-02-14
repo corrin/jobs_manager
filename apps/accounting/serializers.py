@@ -23,9 +23,12 @@ class KPIJobBreakdownSerializer(serializers.Serializer[Any]):
     job_name = serializers.CharField()  # Changed from job_display_name
     client_name = serializers.CharField()  # Added client_name field
     billable_hours = serializers.FloatField()  # Added billable_hours field
-    revenue = serializers.FloatField()  # Added revenue field
-    cost = serializers.FloatField()  # Added cost field
-    profit = serializers.FloatField()  # Changed from total_profit
+    revenue = serializers.FloatField()
+    cost = serializers.FloatField()
+    profit = serializers.FloatField()
+    labour_profit = serializers.FloatField()
+    material_profit = serializers.FloatField()
+    adjustment_profit = serializers.FloatField()
 
 
 class KPIProfitBreakdownSerializer(serializers.Serializer[Any]):
@@ -86,6 +89,7 @@ class KPIMonthlyTotalsSerializer(serializers.Serializer[Any]):
     profit_red_days = serializers.IntegerField()
     working_days = serializers.IntegerField()
     elapsed_workdays = serializers.IntegerField()
+    active_workdays = serializers.IntegerField()
     remaining_workdays = serializers.IntegerField()
     time_revenue = serializers.FloatField()
     material_revenue = serializers.FloatField()
@@ -112,10 +116,12 @@ class KPIMonthlyTotalsSerializer(serializers.Serializer[Any]):
 class KPIThresholdsSerializer(serializers.Serializer[Any]):
     """Serializer for KPI thresholds"""
 
-    billable_threshold_green = serializers.FloatField()
-    billable_threshold_amber = serializers.FloatField()
-    daily_gp_target = serializers.FloatField()
-    shop_hours_target = serializers.FloatField()
+    kpi_daily_billable_hours_green = serializers.FloatField()
+    kpi_daily_billable_hours_amber = serializers.FloatField()
+    kpi_daily_gp_target = serializers.FloatField()
+    kpi_daily_shop_hours_percentage = serializers.FloatField()
+    kpi_daily_profit_green = serializers.FloatField()
+    kpi_daily_profit_amber = serializers.FloatField()
 
 
 class KPICalendarDataSerializer(serializers.Serializer[Any]):
