@@ -26,6 +26,9 @@ class KPIJobBreakdownSerializer(serializers.Serializer[Any]):
     revenue = serializers.FloatField()  # Added revenue field
     cost = serializers.FloatField()  # Added cost field
     profit = serializers.FloatField()  # Changed from total_profit
+    labour_profit = serializers.FloatField()
+    material_profit = serializers.FloatField()
+    adjustment_profit = serializers.FloatField()
 
 
 class KPIProfitBreakdownSerializer(serializers.Serializer[Any]):

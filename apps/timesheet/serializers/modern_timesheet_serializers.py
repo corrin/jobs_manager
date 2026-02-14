@@ -139,6 +139,7 @@ class WeeklyStaffDataSerializer(serializers.Serializer):
     # Xero Payroll posting categories (weekly totals, excludes unpaid hours)
     total_billed_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_unbilled_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_overtime_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_overtime_1_5x_hours = serializers.DecimalField(
         max_digits=10, decimal_places=2
     )

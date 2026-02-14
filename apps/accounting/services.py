@@ -305,6 +305,9 @@ class KPIService:
                     "revenue": total_revenue,  # Add revenue field
                     "cost": total_cost,  # Add cost field
                     "profit": total_profit,  # Add profit field
+                    "labour_profit": labour_profit,
+                    "material_profit": material_profit,
+                    "adjustment_profit": adjustment_profit,
                 }
             )
 

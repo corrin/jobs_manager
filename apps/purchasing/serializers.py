@@ -71,6 +71,7 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(
         source="job.client.name", read_only=True, allow_null=True
     )
+    job_name = serializers.CharField(source="job.name", read_only=True, allow_null=True)
 
     class Meta:
         model = PurchaseOrderLine
@@ -78,6 +79,7 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
             "job_id",
             "job_number",
             "client_name",
+            "job_name",
         ]
 
 
