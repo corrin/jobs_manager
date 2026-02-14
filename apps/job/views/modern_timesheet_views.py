@@ -252,6 +252,7 @@ class ModernTimesheetEntryView(APIView):
                     "total_cost": float(total_cost),
                     "total_revenue": float(total_revenue),
                     "entry_count": len(cost_lines),
+                    "scheduled_hours": float(staff.get_scheduled_hours(parsed_date)),
                 },
             }
 
