@@ -316,6 +316,14 @@ class Job(models.Model):
         status_display = self.get_status_display()
         return f"[Job {self.job_number}] {self.name} ({status_display})"
 
+    def get_absolute_url(self) -> str:
+        """Front-end URL for this job."""
+        from django.conf import settings
+
+        if not getattr(settings, "FRONT_END_URL", ""):
+            raise ValueError("FRONT_END_URL is not configured")
+        return f"{settings.FRONT_END_URL.rstrip('/')}/jobs/{self.id}"
+
     def get_latest(self, kind: str) -> Optional["CostSet"]:
         """
         Returns the respective CostSet or None.

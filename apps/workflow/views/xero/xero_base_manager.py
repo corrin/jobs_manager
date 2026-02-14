@@ -6,13 +6,14 @@ from typing import Any
 
 from django.utils import timezone
 from xero_python.accounting import AccountingApi
-from xero_python.accounting.models import Contact
+from xero_python.accounting.models import Contact, HistoryRecord, HistoryRecords
 
 from apps.client.models import Client
 
 # Import models used in type hints or logic
 from apps.job.models import Job
 from apps.workflow.api.xero.xero import api_client, get_tenant_id
+from apps.workflow.services.error_persistence import persist_app_error
 
 from .xero_helpers import clean_payload, convert_to_pascal_case  # Import helpers
 
@@ -90,6 +91,46 @@ class XeroDocumentManager(ABC):
         Returns the appropriate Xero API method for updating/creating the document
         (e.g., self.xero_api.update_or_create_invoices).
         """
+
+    def _create_history_record(
+        self, xero_document_id: str, history_records: HistoryRecords
+    ) -> None:
+        """
+        Calls the Xero API to attach a history note to the document.
+        Subclasses must override to call the correct endpoint
+        (e.g. create_invoice_history, create_quote_history).
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} must override _create_history_record"
+        )
+
+    def _add_xero_history_note(self, xero_document_id: str) -> None:
+        """
+        Adds a history note to a Xero document linking back to the job.
+        Best-effort: failures are logged and persisted but do not break
+        the invoice/quote creation flow.
+        """
+        if not self.job:
+            return
+
+        try:
+            job_url = self.job.get_absolute_url()
+            note = f"Job #{self.job.job_number} — {job_url}"
+
+            history_records = HistoryRecords(
+                history_records=[HistoryRecord(details=note)]
+            )
+            self._create_history_record(xero_document_id, history_records)
+            logger.info(
+                f"Added Xero history note for job {self.job.job_number} "
+                f"on document {xero_document_id}"
+            )
+        except Exception as exc:
+            persist_app_error(exc)
+            logger.warning(
+                f"Failed to add Xero history note for document "
+                f"{xero_document_id}: {exc}"
+            )
 
     def _get_account_code(self) -> str:
         """

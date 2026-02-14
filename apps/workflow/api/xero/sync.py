@@ -501,6 +501,7 @@ def transform_quote(xero_quote, xero_id):
     defaults = {
         "client": client,
         "date": raw_json.get("_date"),
+        "number": getattr(xero_quote, "quote_number", None),
         "status": status,
         "total_excl_tax": Decimal(str(raw_json.get("_sub_total", 0))),
         "total_incl_tax": Decimal(str(raw_json.get("_total", 0))),

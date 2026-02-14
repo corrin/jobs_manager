@@ -59,6 +59,11 @@ class XeroQuoteManager(XeroDocumentManager):
             else None
         )
 
+    def _create_history_record(self, xero_document_id, history_records):
+        self.xero_api.create_quote_history(
+            self.xero_tenant_id, xero_document_id, history_records
+        )
+
     def _get_xero_update_method(self):
         # For quotes, update/create might be the same endpoint or specific ones
         # Assuming update_or_create_quotes exists and handles setting status to DELETED
@@ -222,6 +227,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     client=self.client,
                     date=timezone.now().date(),
                     status=QuoteStatus.DRAFT,  # Set local status
+                    number=getattr(xero_quote_data, "quote_number", None),
                     total_excl_tax=Decimal(getattr(xero_quote_data, "sub_total", 0)),
                     total_incl_tax=Decimal(getattr(xero_quote_data, "total", 0)),
                     xero_last_modified=timezone.now(),  # Use current time as approximation
@@ -237,6 +243,8 @@ class XeroQuoteManager(XeroDocumentManager):
                 logger.info(
                     f"Quote {quote.id} created successfully for job {self.job.id}"
                 )
+
+                self._add_xero_history_note(str(xero_quote_id))
 
                 # Create a job event for quote creation
                 from apps.job.models import JobEvent
