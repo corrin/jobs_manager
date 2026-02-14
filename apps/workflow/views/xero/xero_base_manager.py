@@ -115,12 +115,6 @@ class XeroDocumentManager(ABC):
 
         try:
             job_url = self.job.get_absolute_url()
-            if not job_url:
-                logger.warning(
-                    "FRONT_END_URL not configured — skipping Xero history note"
-                )
-                return
-
             note = f"Job #{self.job.job_number} — {job_url}"
 
             history_records = HistoryRecords(

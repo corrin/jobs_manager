@@ -209,9 +209,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                     base_data["reference"] = self.job.order_number
 
                 # "Go to [appName]" link shown in Xero
-                job_url = self.job.get_absolute_url()
-                if job_url:
-                    base_data["url"] = job_url
+                base_data["url"] = self.job.get_absolute_url()
 
                 return XeroInvoice(**base_data)
 
