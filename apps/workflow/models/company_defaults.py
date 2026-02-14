@@ -27,6 +27,10 @@ class CompanyDefaults(models.Model):
         default=8.00,
         help_text="Percentage added to base_wage_rate to get costing wage_rate (8.00 = 8%)",
     )
+    financial_year_start_month = models.IntegerField(
+        default=4,
+        help_text="Month the financial year starts (1=January, 4=April, 7=July, etc.)",
+    )
 
     starting_job_number = models.IntegerField(
         default=1,
