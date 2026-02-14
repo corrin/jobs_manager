@@ -42,7 +42,11 @@ class Job(models.Model):
     JOB_DIRECT_FIELDS = [
         "job_number",
         "name",
+        "description",
         "status",
+        "order_number",
+        "delivery_date",
+        "notes",
         "pricing_methodology",
         "price_cap",
         "speed_quality_tradeoff",
