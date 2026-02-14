@@ -187,6 +187,15 @@ class Command(BaseCommand):
             preserved_names.add(company_defaults.shop_client_name)
         if company_defaults.test_client_name:
             preserved_names.add(company_defaults.test_client_name)
+
+        # Preserve names of scraper suppliers (declared on each scraper class)
+        from apps.quoting.management.commands.run_scrapers import Command as ScraperCmd
+
+        for scraper_info in ScraperCmd().get_available_scrapers():
+            supplier_name = getattr(scraper_info["class_obj"], "SUPPLIER_NAME", None)
+            if supplier_name:
+                preserved_names.add(supplier_name)
+
         return preserved_names
 
     def anonymize_item(self, item, fake, preserved_client_names=None):
