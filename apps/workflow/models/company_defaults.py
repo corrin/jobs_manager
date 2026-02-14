@@ -213,6 +213,12 @@ class CompanyDefaults(models.Model):
         verbose_name="Hours percentage goal in Shop Jobs",
         help_text="Target percentage of hours worked in shop jobs",
     )
+    job_gp_target_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        verbose_name="Target GP % per Job",
+        help_text="Target gross profit percentage for jobs",
+    )
 
     class Meta:
         verbose_name = "Company Defaults"

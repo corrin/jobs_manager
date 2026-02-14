@@ -88,14 +88,14 @@ class JobProfitabilityReportService:
         rows: List[Dict[str, Any]] = []
 
         for job in jobs_qs:
-            job_value = get_job_total_value(job).quantize(Decimal("0.01"))
+            revenue = get_job_total_value(job).quantize(Decimal("0.01"))
 
-            if self.min_value is not None and job_value < self.min_value:
+            if self.min_value is not None and revenue < self.min_value:
                 continue
-            if self.max_value is not None and job_value > self.max_value:
+            if self.max_value is not None and revenue > self.max_value:
                 continue
 
-            row = self._compute_job_row(job, job_value)
+            row = self._compute_job_row(job, revenue)
             rows.append(row)
 
         return rows
@@ -120,7 +120,7 @@ class JobProfitabilityReportService:
     def _metrics_to_str(m: Dict[str, Decimal]) -> Dict[str, str]:
         return {k: str(v) for k, v in m.items()}
 
-    def _compute_job_row(self, job: Job, job_value: Decimal) -> Dict[str, Any]:
+    def _compute_job_row(self, job: Job, revenue: Decimal) -> Dict[str, Any]:
         """Compute profitability metrics for a single job."""
         est_summary = (
             job.latest_estimate.summary
@@ -141,6 +141,13 @@ class JobProfitabilityReportService:
         estimate = self._extract_metrics(est_summary)
         quote = self._extract_metrics(quote_summary)
         actual = self._extract_metrics(act_summary)
+
+        # Override actual revenue with invoice-based revenue
+        actual["revenue"] = revenue
+        actual["profit"] = (revenue - actual["cost"]).quantize(Decimal("0.01"))
+        actual["margin"] = (
+            (actual["profit"] / revenue * 100) if revenue != 0 else _ZERO
+        ).quantize(Decimal("0.01"))
 
         # Variance is against the relevant baseline: quote for FP, estimate for T&M
         if job.pricing_methodology == "fixed_price":
@@ -165,7 +172,7 @@ class JobProfitabilityReportService:
             "completion_date": (
                 job.completed_at.date().isoformat() if job.completed_at else None
             ),
-            "job_value": str(job_value),
+            "revenue": str(revenue),
             "estimate": self._metrics_to_str(estimate),
             "quote": self._metrics_to_str(quote),
             "actual": self._metrics_to_str(actual),
@@ -185,7 +192,6 @@ class JobProfitabilityReportService:
                 "overall_margin": "0.00",
                 "avg_profit_per_job": "0.00",
                 "total_baseline_profit": "0.00",
-                "total_actual_profit": "0.00",
                 "total_variance": "0.00",
                 "tm_jobs": 0,
                 "fp_jobs": 0,
@@ -193,7 +199,7 @@ class JobProfitabilityReportService:
                 "unprofitable_jobs": 0,
             }
 
-        total_revenue = sum(Decimal(r["actual"]["revenue"]) for r in job_rows)
+        total_revenue = sum(Decimal(r["revenue"]) for r in job_rows)
         total_cost = sum(Decimal(r["actual"]["cost"]) for r in job_rows)
         total_profit = total_revenue - total_cost
         overall_margin = (
@@ -210,8 +216,7 @@ class JobProfitabilityReportService:
             )
             for r in job_rows
         )
-        total_act_profit = total_profit
-        total_variance = total_act_profit - total_baseline_profit
+        total_variance = total_profit - total_baseline_profit
 
         tm_jobs = sum(1 for r in job_rows if r["pricing_type"] == "time_materials")
         fp_jobs = sum(1 for r in job_rows if r["pricing_type"] == "fixed_price")
@@ -228,7 +233,6 @@ class JobProfitabilityReportService:
             "total_baseline_profit": str(
                 total_baseline_profit.quantize(Decimal("0.01"))
             ),
-            "total_actual_profit": str(total_act_profit.quantize(Decimal("0.01"))),
             "total_variance": str(total_variance.quantize(Decimal("0.01"))),
             "tm_jobs": tm_jobs,
             "fp_jobs": fp_jobs,

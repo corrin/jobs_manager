@@ -65,7 +65,7 @@ class JobProfitabilityItemSerializer(serializers.Serializer):
     completion_date = serializers.CharField(
         allow_null=True, help_text="Date job was completed (ISO format)"
     )
-    job_value = serializers.CharField(help_text="Total job value")
+    revenue = serializers.CharField(help_text="Job revenue (from invoices)")
     estimate = CostSetMetricsSerializer(help_text="Estimate cost set metrics")
     quote = CostSetMetricsSerializer(help_text="Quote cost set metrics")
     actual = CostSetMetricsSerializer(help_text="Actual cost set metrics")
@@ -79,7 +79,9 @@ class JobProfitabilitySummarySerializer(serializers.Serializer):
     """Aggregate profitability statistics."""
 
     total_jobs = serializers.IntegerField(help_text="Total number of jobs in report")
-    total_revenue = serializers.CharField(help_text="Sum of actual revenue")
+    total_revenue = serializers.CharField(
+        help_text="Sum of job revenue (from invoices)"
+    )
     total_cost = serializers.CharField(help_text="Sum of actual cost")
     total_profit = serializers.CharField(help_text="Sum of actual profit")
     overall_margin = serializers.CharField(help_text="Overall profit margin %")
@@ -87,7 +89,6 @@ class JobProfitabilitySummarySerializer(serializers.Serializer):
     total_baseline_profit = serializers.CharField(
         help_text="Sum of baseline profit (quote for FP, estimate for T&M)"
     )
-    total_actual_profit = serializers.CharField(help_text="Sum of actual profit")
     total_variance = serializers.CharField(help_text="Total profit variance")
     tm_jobs = serializers.IntegerField(help_text="Number of T&M jobs")
     fp_jobs = serializers.IntegerField(help_text="Number of fixed price jobs")

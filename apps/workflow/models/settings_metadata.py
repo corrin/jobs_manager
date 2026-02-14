@@ -112,6 +112,7 @@ COMPANY_DEFAULTS_FIELD_SECTIONS: dict[str, str] = {
     "billable_threshold_amber": "kpi",
     "daily_gp_target": "kpi",
     "shop_hours_target_percentage": "kpi",
+    "job_gp_target_percentage": "kpi",
     # Setup (initial configuration)
     "master_quote_template_url": "setup",
     "master_quote_template_id": "setup",
