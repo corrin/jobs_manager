@@ -137,7 +137,7 @@ class DailyTimesheetService:
             total_revenue = sum(Decimal(line.total_rev) for line in cost_lines)
             total_cost = sum(Decimal(line.total_cost) for line in cost_lines)
 
-            # Get scheduled hours (8 hours default for weekdays)
+            # Get scheduled hours from staff's per-day settings
             scheduled_hours = cls._get_scheduled_hours(staff, target_date)
 
             # Determine status
