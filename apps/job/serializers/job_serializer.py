@@ -651,6 +651,7 @@ class ModernTimesheetSummarySerializer(serializers.Serializer):
     total_cost = serializers.FloatField()
     total_revenue = serializers.FloatField()
     entry_count = serializers.IntegerField()
+    scheduled_hours = serializers.FloatField()
 
 
 class ModernTimesheetEntryGetResponseSerializer(serializers.Serializer):
