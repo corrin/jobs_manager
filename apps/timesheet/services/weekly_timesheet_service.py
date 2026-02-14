@@ -22,6 +22,7 @@ from apps.accounts.models import Staff
 from apps.accounts.utils import get_displayable_staff
 from apps.job.models import Job
 from apps.job.models.costing import CostLine
+from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,10 @@ class WeeklyTimesheetService:
             get_displayable_staff(date_range=(week_days[0], week_days[-1]))
         )
 
+        # Get annual leave loading multiplier for base cost calculation
+        loading = CompanyDefaults.get_instance().annual_leave_loading
+        loading_multiplier = Decimal("1") + loading / Decimal("100")
+
         # ONE query for ALL time entries for ALL staff for the entire week
         all_cost_lines = list(
             CostLine.objects.annotate(
@@ -144,8 +149,12 @@ class WeeklyTimesheetService:
                 cost_lines = lines_by_staff_day.get((staff_id, day), [])
                 daily_data = cls._process_daily_lines(staff_member, day, cost_lines)
 
-                daily_data["daily_cost"] = round(
+                daily_cost = round(
                     sum(float(line.total_cost) for line in cost_lines), 2
+                )
+                daily_data["daily_cost"] = daily_cost
+                daily_data["daily_base_cost"] = round(
+                    daily_cost / float(loading_multiplier), 2
                 )
 
                 weekly_hours.append(daily_data)
@@ -163,6 +172,7 @@ class WeeklyTimesheetService:
                 )
 
             weekly_cost = sum(day["daily_cost"] for day in weekly_hours)
+            weekly_base_cost = sum(day["daily_base_cost"] for day in weekly_hours)
             billable_percentage = (
                 (total_billable_hours / total_hours * 100) if total_hours > 0 else 0
             )
@@ -184,6 +194,7 @@ class WeeklyTimesheetService:
                 "total_annual_leave_hours": float(total_annual_leave_hours),
                 "total_bereavement_leave_hours": float(total_bereavement_leave_hours),
                 "weekly_cost": round(weekly_cost, 2),
+                "weekly_base_cost": round(weekly_base_cost, 2),
             }
             staff_data.append(staff_entry)
 
