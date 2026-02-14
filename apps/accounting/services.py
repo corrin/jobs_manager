@@ -294,17 +294,16 @@ class KPIService:
             result.append(
                 {
                     "job_id": data["job_id"],
-                    "job_number": str(
-                        job_number
-                    ),  # Convert to string for frontend schema
-                    "job_name": data[
-                        "job_display_name"
-                    ],  # Use job_name instead of job_display_name
-                    "client_name": data["client_name"],  # Add client_name field
-                    "billable_hours": billable_hours,  # Add billable_hours field
-                    "revenue": total_revenue,  # Add revenue field
-                    "cost": total_cost,  # Add cost field
-                    "profit": total_profit,  # Add profit field
+                    "job_number": str(job_number),
+                    "job_name": data["job_display_name"],
+                    "client_name": data["client_name"],
+                    "billable_hours": billable_hours,
+                    "revenue": total_revenue,
+                    "cost": total_cost,
+                    "profit": total_profit,
+                    "labour_profit": labour_profit,
+                    "material_profit": material_profit,
+                    "adjustment_profit": adjustment_profit,
                 }
             )
 

@@ -23,9 +23,12 @@ class KPIJobBreakdownSerializer(serializers.Serializer[Any]):
     job_name = serializers.CharField()  # Changed from job_display_name
     client_name = serializers.CharField()  # Added client_name field
     billable_hours = serializers.FloatField()  # Added billable_hours field
-    revenue = serializers.FloatField()  # Added revenue field
-    cost = serializers.FloatField()  # Added cost field
-    profit = serializers.FloatField()  # Changed from total_profit
+    revenue = serializers.FloatField()
+    cost = serializers.FloatField()
+    profit = serializers.FloatField()
+    labour_profit = serializers.FloatField()
+    material_profit = serializers.FloatField()
+    adjustment_profit = serializers.FloatField()
 
 
 class KPIProfitBreakdownSerializer(serializers.Serializer[Any]):
