@@ -20,6 +20,8 @@ from apps.accounting.models import Invoice
 from apps.client.models import Client
 from apps.job.models import Job
 from apps.job.models.costing import CostSet
+from apps.job.services.workshop_pdf_service import create_workshop_pdf
+from apps.workflow.services.error_persistence import persist_app_error
 
 # Import base class and helpers
 from .xero_base_manager import XeroDocumentManager
@@ -78,6 +80,27 @@ class XeroInvoiceManager(XeroDocumentManager):
         self.xero_api.create_invoice_history(
             self.xero_tenant_id, xero_document_id, history_records
         )
+
+    def _attach_workshop_pdf(self, xero_invoice_id: str) -> None:
+        """Best-effort: attach workshop PDF to Xero invoice."""
+        if not self.job:
+            return
+        try:
+            pdf_buffer = create_workshop_pdf(self.job)
+            file_name = f"workshop_{self.job.job_number}.pdf"
+            self.xero_api.create_invoice_attachment_by_file_name(
+                self.xero_tenant_id,
+                xero_invoice_id,
+                file_name,
+                pdf_buffer.read(),
+                include_online=False,
+            )
+            logger.info(f"Attached workshop PDF to invoice {xero_invoice_id}")
+        except Exception as exc:
+            persist_app_error(exc)
+            logger.warning(
+                f"Failed to attach workshop PDF to invoice {xero_invoice_id}: {exc}"
+            )
 
     def _get_xero_update_method(self):
         # Returns the Xero API method for creating/updating invoices
@@ -180,6 +203,11 @@ class XeroInvoiceManager(XeroDocumentManager):
                 if hasattr(self.job, "order_number") and self.job.order_number:
                     base_data["reference"] = self.job.order_number
 
+                # "Go to [appName]" link shown in Xero
+                job_url = self.job.get_absolute_url()
+                if job_url:
+                    base_data["url"] = job_url
+
                 return XeroInvoice(**base_data)
 
             case "delete":
@@ -252,6 +280,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                 )
 
                 self._add_xero_history_note(str(xero_invoice_id))
+                self._attach_workshop_pdf(str(xero_invoice_id))
 
                 # Create a job event for invoice creation
                 from apps.job.models import JobEvent

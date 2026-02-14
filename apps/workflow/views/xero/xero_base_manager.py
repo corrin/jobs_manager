@@ -4,7 +4,6 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-from django.conf import settings
 from django.utils import timezone
 from xero_python.accounting import AccountingApi
 from xero_python.accounting.models import Contact, HistoryRecord, HistoryRecords
@@ -115,14 +114,13 @@ class XeroDocumentManager(ABC):
             return
 
         try:
-            front_end_url = getattr(settings, "FRONT_END_URL", "")
-            if not front_end_url:
+            job_url = self.job.get_absolute_url()
+            if not job_url:
                 logger.warning(
                     "FRONT_END_URL not configured — skipping Xero history note"
                 )
                 return
 
-            job_url = f"{front_end_url.rstrip('/')}/jobs/{self.job.id}"
             note = f"Job #{self.job.job_number} — {job_url}"
 
             history_records = HistoryRecords(
