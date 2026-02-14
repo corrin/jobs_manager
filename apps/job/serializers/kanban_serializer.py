@@ -108,6 +108,9 @@ class KanbanJobSerializer(serializers.Serializer):
     # Priority
     priority = serializers.FloatField()
 
+    # Shop job flag
+    shop_job = serializers.BooleanField()
+
 
 class FetchAllJobsResponseSerializer(serializers.Serializer):
     """Serializer for fetch_all_jobs response."""
@@ -187,6 +190,9 @@ class KanbanColumnJobSerializer(serializers.Serializer):
     # Priority
     priority = serializers.FloatField()
 
+    # Shop job flag
+    shop_job = serializers.BooleanField()
+
     # Badge information (specific to column view)
     badge_label = serializers.CharField()
     badge_color = serializers.CharField()
@@ -199,6 +205,7 @@ class FetchJobsByColumnResponseSerializer(serializers.Serializer):
     jobs = KanbanColumnJobSerializer(many=True, required=False)
     total = serializers.IntegerField(required=False)
     filtered_count = serializers.IntegerField(required=False)
+    has_more = serializers.BooleanField(required=False)
     error = serializers.CharField(required=False)
 
 
