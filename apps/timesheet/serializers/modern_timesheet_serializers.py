@@ -135,6 +135,7 @@ class WeeklyStaffDataSerializer(serializers.Serializer):
         max_digits=10, decimal_places=2
     )
     weekly_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
+    weekly_base_cost = serializers.DecimalField(max_digits=10, decimal_places=2)
 
 
 @extend_schema_serializer(component_name="WeeklyTimesheetData")
