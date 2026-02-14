@@ -81,10 +81,13 @@ class XeroInvoiceManager(XeroDocumentManager):
             self.xero_tenant_id, xero_document_id, history_records
         )
 
-    def _attach_workshop_pdf(self, xero_invoice_id: str) -> None:
-        """Best-effort: attach workshop PDF to Xero invoice."""
+    def _attach_workshop_pdf(self, xero_invoice_id: str) -> str | None:
+        """Best-effort: attach workshop PDF to Xero invoice.
+
+        Returns a warning message on failure, or None on success.
+        """
         if not self.job:
-            return
+            return None
         try:
             pdf_buffer = create_workshop_pdf(self.job)
             file_name = f"workshop_{self.job.job_number}.pdf"
@@ -96,11 +99,13 @@ class XeroInvoiceManager(XeroDocumentManager):
                 include_online=False,
             )
             logger.info(f"Attached workshop PDF to invoice {xero_invoice_id}")
+            return None
         except Exception as exc:
             persist_app_error(exc)
             logger.warning(
                 f"Failed to attach workshop PDF to invoice {xero_invoice_id}: {exc}"
             )
+            return "Workshop PDF could not be attached to the invoice"
 
     def _get_xero_update_method(self):
         # Returns the Xero API method for creating/updating invoices
@@ -280,7 +285,11 @@ class XeroInvoiceManager(XeroDocumentManager):
                 )
 
                 self._add_xero_history_note(str(xero_invoice_id))
-                self._attach_workshop_pdf(str(xero_invoice_id))
+
+                messages = []
+                pdf_warning = self._attach_workshop_pdf(str(xero_invoice_id))
+                if pdf_warning:
+                    messages.append(pdf_warning)
 
                 # Create a job event for invoice creation
                 from apps.job.models import JobEvent
@@ -297,7 +306,7 @@ class XeroInvoiceManager(XeroDocumentManager):
                     )
 
                 # Return success details for the view
-                return {
+                result = {
                     "success": True,
                     "invoice_id": str(invoice.id),  # Return local ID
                     "xero_id": str(xero_invoice_id),
@@ -306,6 +315,9 @@ class XeroInvoiceManager(XeroDocumentManager):
                     "total_incl_tax": str(invoice.total_incl_tax),
                     "online_url": invoice_url,
                 }
+                if messages:
+                    result["messages"] = messages
+                return result
             else:
                 # Handle non-exception API failures (e.g., empty response)
                 error_msg = """
