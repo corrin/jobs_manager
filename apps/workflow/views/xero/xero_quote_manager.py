@@ -227,6 +227,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     client=self.client,
                     date=timezone.now().date(),
                     status=QuoteStatus.DRAFT,  # Set local status
+                    number=getattr(xero_quote_data, "quote_number", None),
                     total_excl_tax=Decimal(getattr(xero_quote_data, "sub_total", 0)),
                     total_incl_tax=Decimal(getattr(xero_quote_data, "total", 0)),
                     xero_last_modified=timezone.now(),  # Use current time as approximation

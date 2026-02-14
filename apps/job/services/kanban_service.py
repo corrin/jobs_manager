@@ -359,6 +359,8 @@ class KanbanService:
                 | Q(job_number__icontains=q)
                 | Q(description__icontains=q)
                 | Q(client__name__icontains=q)
+                | Q(invoices__number__icontains=q)
+                | Q(quote__number__icontains=q)
             )
 
         # Apply filters with early returns for invalid data
@@ -412,7 +414,7 @@ class KanbanService:
             case "false":
                 jobs_query = jobs_query.filter(rejected_flag=False)
 
-        return jobs_query.order_by("-created_at")
+        return jobs_query.distinct().order_by("-created_at")
 
     @staticmethod
     def get_jobs_by_kanban_column(
