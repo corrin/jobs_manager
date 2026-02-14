@@ -16,8 +16,10 @@ from apps.purchasing.models import Stock
 from apps.purchasing.serializers import (
     StockConsumeResponseSerializer,
     StockConsumeSerializer,
+    StockCreateSerializer,
     StockItemSerializer,
 )
+from apps.purchasing.services.purchasing_rest_service import PurchasingRestService
 from apps.purchasing.services.stock_service import consume_stock
 
 
@@ -53,6 +55,15 @@ class StockViewSet(viewsets.ModelViewSet):
         """
         instance.is_active = False
         instance.save(update_fields=["is_active"])
+
+    def create(self, request, *args, **kwargs):
+        """Create or update stock by item_code."""
+        serializer = StockCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        stock_item = PurchasingRestService.create_stock(serializer.validated_data)
+        response_serializer = StockItemSerializer(stock_item)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(
         request=StockConsumeSerializer,

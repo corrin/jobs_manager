@@ -100,7 +100,7 @@ COSTLINE_EXTREFS_SCHEMA: dict[str, Any] = {
         "time_entry_id": STRING_OR_NULL,
         "material_entry_id": STRING_OR_NULL,
         "adjustment_entry_id": STRING_OR_NULL,
-        "stock_id": STRING_OR_NULL,
+        "stock_movement_id": STRING_OR_NULL,
         "purchase_order_id": STRING_OR_NULL,
         "purchase_order_line_id": STRING_OR_NULL,
         "source_row": STRING_OR_NULL,
