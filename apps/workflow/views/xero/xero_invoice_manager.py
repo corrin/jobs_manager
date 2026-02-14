@@ -74,6 +74,11 @@ class XeroInvoiceManager(XeroDocumentManager):
         except Invoice.DoesNotExist:
             return None
 
+    def _create_history_record(self, xero_document_id, history_records):
+        self.xero_api.create_invoice_history(
+            self.xero_tenant_id, xero_document_id, history_records
+        )
+
     def _get_xero_update_method(self):
         # Returns the Xero API method for creating/updating invoices
         return self.xero_api.update_or_create_invoices
@@ -245,6 +250,8 @@ class XeroInvoiceManager(XeroDocumentManager):
                 logger.info(
                     f"Invoice {invoice.id} created successfully for job {self.job.id}"
                 )
+
+                self._add_xero_history_note(str(xero_invoice_id))
 
                 # Create a job event for invoice creation
                 from apps.job.models import JobEvent
