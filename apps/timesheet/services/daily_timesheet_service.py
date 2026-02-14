@@ -188,18 +188,9 @@ class DailyTimesheetService:
     @classmethod
     def _get_scheduled_hours(cls, staff: Staff, target_date: date) -> Decimal:
         """Get scheduled hours for staff on given date"""
-        # Check weekend feature flag
-        weekend_enabled = cls._is_weekend_enabled()
-
-        # Skip weekends only if feature flag is disabled
-        if not weekend_enabled and target_date.weekday() >= 5:  # Saturday=5, Sunday=6
+        if not cls._is_weekend_enabled() and target_date.weekday() >= 5:
             return Decimal("0.0")
-
-        # Default 8 hours for weekdays, 0 for weekends when enabled
-        if target_date.weekday() >= 5:  # Weekend
-            return Decimal("0.0")  # No default scheduled hours for weekends
-        else:
-            return Decimal("8.0")  # Default 8 hours for weekdays
+        return Decimal(str(staff.get_scheduled_hours(target_date)))
 
     @classmethod
     def _determine_status(
