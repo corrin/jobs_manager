@@ -89,6 +89,7 @@ class KPIMonthlyTotalsSerializer(serializers.Serializer[Any]):
     profit_red_days = serializers.IntegerField()
     working_days = serializers.IntegerField()
     elapsed_workdays = serializers.IntegerField()
+    active_workdays = serializers.IntegerField()
     remaining_workdays = serializers.IntegerField()
     time_revenue = serializers.FloatField()
     material_revenue = serializers.FloatField()

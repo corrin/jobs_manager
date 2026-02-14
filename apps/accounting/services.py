@@ -355,6 +355,7 @@ class KPIService:
             "profit_red_days": 0,
             "working_days": 0,
             "elapsed_workdays": 0,
+            "active_workdays": 0,
             "remaining_workdays": 0,
             # The following are internal
             "time_revenue": 0,
@@ -630,6 +631,8 @@ class KPIService:
             )
             calendar_data[date_key] = full_data
 
+            if current_date <= current_date_system and total_hours > 0:
+                monthly_totals["active_workdays"] += 1
             monthly_totals["billable_hours"] += billable_hours
             monthly_totals["total_hours"] += total_hours
             monthly_totals["shop_hours"] += shop_hours
@@ -768,17 +771,17 @@ class KPIService:
         else:
             logger.warning("No working days found for month - average GP will be zero")
 
-        # Calculate average daily gross profit and billable hours so far
-        # based on elapsed days
-        if monthly_totals["elapsed_workdays"] > 0:
+        # Calculate averages based on days that actually have hours logged,
+        # so days with no timesheets don't dilute the average
+        if monthly_totals["active_workdays"] > 0:
             monthly_totals["avg_daily_gp_so_far"] = round(
                 Decimal(monthly_totals["gross_profit"])
-                / Decimal(monthly_totals["elapsed_workdays"]),
+                / Decimal(monthly_totals["active_workdays"]),
                 2,
             )
             monthly_totals["avg_billable_hours_so_far"] = round(
                 Decimal(monthly_totals["billable_hours"])
-                / Decimal(monthly_totals["elapsed_workdays"]),
+                / Decimal(monthly_totals["active_workdays"]),
                 1,
             )
 
