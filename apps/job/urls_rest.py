@@ -14,6 +14,7 @@ from apps.job.views.job_costline_views import (
 from apps.job.views.job_file_detail_view import JobFileDetailView
 from apps.job.views.job_file_thumbnail_view import JobFileThumbnailView
 from apps.job.views.job_files_collection_view import JobFilesCollectionView
+from apps.job.views.job_profitability_report_views import JobProfitabilityReportView
 from apps.job.views.job_quote_chat_api import JobQuoteChatInteractionView
 from apps.job.views.job_quote_chat_views import (
     JobQuoteChatHistoryView,
@@ -285,6 +286,12 @@ rest_urlpatterns = [
         "api/jobs/<uuid:job_id>/quote-chat/<str:message_id>/",
         JobQuoteChatMessageView.as_view(),
         name="job_quote_chat_message",
+    ),
+    # Reports
+    path(
+        "rest/reports/job-profitability/",
+        JobProfitabilityReportView.as_view(),
+        name="job_profitability_report",
     ),
     # Data Quality Reports
     path(
