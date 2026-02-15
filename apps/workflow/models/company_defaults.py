@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import models
 
 
 class CompanyDefaults(models.Model):
@@ -277,8 +277,7 @@ class CompanyDefaults(models.Model):
         Get the singleton instance.
         This is the preferred way to get the CompanyDefaults instance.
         """
-        with transaction.atomic():
-            return cls.objects.get()
+        return cls.objects.get()
 
     @property
     def llm_api_key(self):
