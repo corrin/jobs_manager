@@ -34,3 +34,27 @@ def set_paid_flag_jobs():
 
         logger.error(f"Error during set_paid_flag_jobs: {exc}", exc_info=True)
         persist_and_raise(exc)
+
+
+def auto_archive_completed_jobs():
+    """Auto-archive recently completed, paid jobs that are 6+ days old."""
+    logger.info(f"Running auto_archive_completed_jobs at {datetime.now()}.")
+    try:
+        close_old_connections()
+
+        # Import here to avoid Django startup issues
+        from apps.job.services.auto_archive_service import AutoArchiveService
+
+        result = AutoArchiveService.auto_archive_completed_jobs(
+            dry_run=False, verbose=True
+        )
+
+        logger.info(
+            f"Auto-archived {result.jobs_archived} jobs. "
+            f"Operation completed in {result.duration_seconds:.2f} seconds."
+        )
+    except AlreadyLoggedException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error during auto_archive_completed_jobs: {exc}", exc_info=True)
+        persist_and_raise(exc)

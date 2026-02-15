@@ -18,7 +18,10 @@ class JobConfig(AppConfig):
 
     def _register_job_jobs(self) -> None:
         # Import here to avoid AppRegistryNotReady during Django startup
-        from apps.job.scheduler_jobs import set_paid_flag_jobs
+        from apps.job.scheduler_jobs import (
+            auto_archive_completed_jobs,
+            set_paid_flag_jobs,
+        )
 
         scheduler = get_scheduler()
 
@@ -36,3 +39,19 @@ class JobConfig(AppConfig):
             coalesce=True,
         )
         logger.info("Added 'set_paid_flag_jobs' to shared scheduler.")
+
+        # Auto-archive paid recently_completed jobs - nightly at 3 AM NZT
+        # Runs after paid-flag job so freshly-paid jobs are eligible
+        scheduler.add_job(
+            auto_archive_completed_jobs,
+            trigger="cron",
+            hour=3,
+            minute=0,
+            timezone="Pacific/Auckland",
+            id="auto_archive_completed_jobs",
+            max_instances=1,
+            replace_existing=True,
+            misfire_grace_time=60 * 60,  # 1 hour grace time
+            coalesce=True,
+        )
+        logger.info("Added 'auto_archive_completed_jobs' to shared scheduler.")
