@@ -5,6 +5,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .auto_archive_service import AutoArchiveResult, AutoArchiveService
         from .chat_file_service import ChatFileService
         from .chat_service import ChatService
         from .data_integrity_service import DataIntegrityService
@@ -91,6 +92,8 @@ except (ImportError, RuntimeError):
 
 __all__ = [
     "ArchivedJobsComplianceService",
+    "AutoArchiveResult",
+    "AutoArchiveService",
     "ChatFileService",
     "ChatService",
     "ChecksumInput",
