@@ -1,4 +1,4 @@
-"""Service for auto-archiving recently completed jobs that are paid."""
+"""Service for auto-archiving recently completed jobs that are paid or rejected."""
 
 import logging
 from dataclasses import dataclass, field
@@ -23,15 +23,15 @@ class AutoArchiveResult:
 
 
 class AutoArchiveService:
-    """Service for auto-archiving recently completed, paid jobs."""
+    """Service for auto-archiving recently completed jobs that are paid or rejected."""
 
     @staticmethod
     def auto_archive_completed_jobs(
         dry_run: bool = False, verbose: bool = False
     ) -> AutoArchiveResult:
         """
-        Archive recently_completed jobs that are paid and have been
-        in that status for 6+ days.
+        Archive recently_completed jobs that have been in that status for 6+ days
+        and are either paid or rejected.
 
         Args:
             dry_run: If True, don't make any changes
@@ -43,16 +43,23 @@ class AutoArchiveService:
         start_time = timezone.now()
         threshold = timezone.now() - timedelta(days=6)
 
-        eligible_jobs = Job.objects.filter(
-            status="recently_completed",
-            paid=True,
-            completed_at__lte=threshold,
-        )
+        base_filter = dict(status="recently_completed", completed_at__lte=threshold)
+
+        paid_jobs = list(Job.objects.filter(**base_filter, paid=True))
+        rejected_jobs = list(Job.objects.filter(**base_filter, rejected_flag=True))
+
+        # Combine and deduplicate (a job could be both paid and rejected)
+        seen_ids = set()
+        eligible_jobs = []
+        for job in paid_jobs + rejected_jobs:
+            if job.pk not in seen_ids:
+                seen_ids.add(job.pk)
+                eligible_jobs.append(job)
 
         if verbose:
             logger.info(
-                f"Found {eligible_jobs.count()} recently completed, paid jobs "
-                f"older than 6 days"
+                f"Found {len(eligible_jobs)} recently completed jobs "
+                f"(paid or rejected) older than 6 days"
             )
 
         archived_jobs = []
@@ -61,7 +68,8 @@ class AutoArchiveService:
             if verbose:
                 logger.info(
                     f"Job {job.job_number} - {job.name}: "
-                    f"completed_at={job.completed_at}, paid={job.paid}"
+                    f"completed_at={job.completed_at}, paid={job.paid}, "
+                    f"rejected={job.rejected_flag}"
                 )
             if dry_run:
                 logger.info(f"Would archive job {job.job_number} - {job.name}")
@@ -73,12 +81,17 @@ class AutoArchiveService:
                     job.status = "archived"
                     job.save(update_fields=["status"])
 
+                    if job.rejected_flag:
+                        reason = "rejected"
+                    else:
+                        reason = "paid"
+
                     JobEvent.objects.create(
                         job=job,
                         event_type="status_changed",
                         description=(
-                            "Auto-archived: job was recently completed, paid, "
-                            "and 6+ days old."
+                            f"Auto-archived: job was recently completed, {reason}, "
+                            f"and 6+ days old."
                         ),
                         staff=None,
                     )
