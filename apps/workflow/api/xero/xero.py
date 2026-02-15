@@ -66,7 +66,7 @@ def get_token() -> Optional[Dict[str, Any]]:
         "refresh_token": db_token.refresh_token,
         "token_type": db_token.token_type,
         "expires_at": db_token.expires_at.timestamp(),
-        "scope": db_token.scope,
+        "scope": db_token.scope.split(),
         "expires_in": int(
             (db_token.expires_at - datetime.now(timezone.utc)).total_seconds()
         ),
@@ -94,7 +94,7 @@ def store_token(token: Dict[str, Any]) -> None:
         "refresh_token": token.get("refresh_token"),
         "expires_in": token.get("expires_in"),
         "token_type": token.get("token_type"),
-        "scope": token.get("scope"),  # Use scope from token response
+        "scope": token.get("scope", "").split(),
     }
 
     # Get expiry time from Xero's response
@@ -132,7 +132,7 @@ def store_token(token: Dict[str, Any]) -> None:
         xero_token.access_token = str(token_data["access_token"])
         xero_token.token_type = str(token_data["token_type"])
         xero_token.expires_at = expires_at
-        xero_token.scope = str(token_data["scope"])
+        xero_token.scope = " ".join(token_data["scope"])
         if tenant_id:
             xero_token.tenant_id = tenant_id
         xero_token.save()
