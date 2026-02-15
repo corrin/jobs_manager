@@ -30,6 +30,7 @@ from apps.job.serializers.job_serializer import (
     CompanyDefaultsJobDetailSerializer,
     InvoiceSerializer,
     JobEventSerializer,
+    JobSummarySerializer,
     QuoteSerializer,
 )
 from apps.job.services.delta_checksum import compute_job_delta_checksum, normalise_value
@@ -671,6 +672,42 @@ class JobRestService:
         return {
             "job": job_data,
             "events": events_data,
+            "company_defaults": company_data,
+        }
+
+    @staticmethod
+    def get_job_summary(job_id: UUID, request) -> Dict[str, Any]:
+        """
+        Fetches Job data with cost set summaries only (no cost lines or events).
+
+        Returns the same response shape as get_job_for_edit but with
+        cost_lines: [] in each cost set and events: [].
+
+        Args:
+            job_id: Job UUID
+            request: HTTP request (for serializer context)
+
+        Returns:
+            Dict with job summary data
+
+        Raises:
+            ValueError: If job is not found.
+        """
+        try:
+            job = Job.objects.select_related("client").get(id=job_id)
+        except Job.DoesNotExist:
+            raise ValueError(f"Job with id {job_id} not found")
+
+        job_data = JobSummarySerializer(job, context={"request": request}).data
+
+        company_defaults = JobRestService._get_company_defaults()
+        company_data = CompanyDefaultsJobDetailSerializer(
+            company_defaults, context={"request": request}
+        ).data
+
+        return {
+            "job": job_data,
+            "events": [],
             "company_defaults": company_data,
         }
 

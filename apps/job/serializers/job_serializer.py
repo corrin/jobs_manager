@@ -12,7 +12,11 @@ from apps.client.models import Client, ClientContact
 from apps.job.models import Job, JobEvent, JobFile
 from apps.workflow.models import XeroPayItem
 
-from .costing_serializer import CostSetSerializer, TimesheetCostLineSerializer
+from .costing_serializer import (
+    CostSetSerializer,
+    CostSetSummaryOnlySerializer,
+    TimesheetCostLineSerializer,
+)
 from .job_file_serializer import JobFileSerializer
 from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
 
@@ -443,6 +447,36 @@ class JobDataSerializer(serializers.Serializer):
     job = JobSerializer()
     events = JobEventSerializer(many=True, read_only=True)
     company_defaults = CompanyDefaultsJobDetailSerializer(read_only=True)
+
+
+class JobSummarySerializer(JobSerializer):
+    """Job serializer with cost set summaries only (no cost lines)."""
+
+    @extend_schema_field(CostSetSummaryOnlySerializer)
+    def get_latest_estimate(self, obj) -> dict | None:
+        cost_set = obj.get_latest("estimate")
+        return CostSetSummaryOnlySerializer(cost_set).data if cost_set else None
+
+    @extend_schema_field(CostSetSummaryOnlySerializer)
+    def get_latest_quote(self, obj) -> dict | None:
+        cost_set = obj.get_latest("quote")
+        return CostSetSummaryOnlySerializer(cost_set).data if cost_set else None
+
+    @extend_schema_field(CostSetSummaryOnlySerializer)
+    def get_latest_actual(self, obj) -> dict | None:
+        cost_set = obj.get_latest("actual")
+        return CostSetSummaryOnlySerializer(cost_set).data if cost_set else None
+
+
+class JobSummaryDataSerializer(serializers.Serializer):
+    job = JobSummarySerializer()
+    events = JobEventSerializer(many=True, read_only=True)
+    company_defaults = CompanyDefaultsJobDetailSerializer(read_only=True)
+
+
+class JobSummaryResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField(default=True)
+    data = JobSummaryDataSerializer()
 
 
 class CompleteJobSerializer(serializers.ModelSerializer):

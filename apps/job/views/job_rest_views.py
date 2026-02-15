@@ -46,6 +46,7 @@ from apps.job.serializers.job_serializer import (
     JobQuoteAcceptanceSerializer,
     JobRestErrorResponseSerializer,
     JobStatusChoicesResponseSerializer,
+    JobSummaryResponseSerializer,
     JobTimelineResponseSerializer,
     JobUndoSerializer,
     QuoteSerializer,
@@ -564,6 +565,61 @@ class JobDetailRestView(BaseJobRestView):
                 JobRestErrorResponseSerializer(error).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        except Exception as e:
+            return self.handle_service_error(e)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class JobSummaryRestView(BaseJobRestView):
+    """
+    REST view for Job summary data (no cost lines or events).
+    Returns the same response shape as JobDetailRestView but with
+    cost_lines: [] and events: [] for lightweight fetching.
+    """
+
+    serializer_class = JobSummaryResponseSerializer
+
+    @extend_schema(
+        responses={
+            200: JobSummaryResponseSerializer,
+            400: JobRestErrorResponseSerializer,
+        },
+        description="Fetch job summary with cost set totals but no individual cost lines or events.",
+        tags=["Jobs"],
+        operation_id="getJobSummary",
+    )
+    def get(self, request, job_id):
+        try:
+            # Conditional GET using ETag
+            try:
+                job_for_etag = Job.objects.only("id", "updated_at").get(id=job_id)
+                current_etag = self._gen_job_etag(job_for_etag)
+            except Job.DoesNotExist:
+                current_etag = None
+
+            if_none_match = self._get_if_none_match(request)
+            if (
+                if_none_match
+                and current_etag
+                and self._normalize_etag(current_etag) == if_none_match
+            ):
+                resp = Response(status=status.HTTP_304_NOT_MODIFIED)
+                return self._set_etag(resp, current_etag)
+
+            job_data = JobRestService.get_job_summary(job_id, request)
+
+            response_data = {"success": True, "data": job_data}
+            resp = Response(response_data, status=status.HTTP_200_OK)
+
+            try:
+                job_for_etag = Job.objects.only("id", "updated_at").get(id=job_id)
+                current_etag = self._gen_job_etag(job_for_etag)
+                resp = self._set_etag(resp, current_etag)
+            except Job.DoesNotExist:
+                pass
+
+            return resp
 
         except Exception as e:
             return self.handle_service_error(e)

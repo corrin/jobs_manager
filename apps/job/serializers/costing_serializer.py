@@ -313,6 +313,20 @@ class CostSetSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CostSetSummaryOnlySerializer(CostSetSerializer):
+    """CostSet serializer that includes summary but omits cost lines.
+
+    Subclasses CostSetSerializer so the schema reuses the same component
+    (no duplicate enum for the ``kind`` field). Only overrides cost_lines
+    to return an empty list.
+    """
+
+    cost_lines = serializers.SerializerMethodField()
+
+    def get_cost_lines(self, obj) -> list:
+        return []
+
+
 class CostLineErrorResponseSerializer(serializers.Serializer):
     """Serializer for cost line error responses."""
 
