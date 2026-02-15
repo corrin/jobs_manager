@@ -185,39 +185,47 @@ class CompanyDefaults(models.Model):
     )
 
     # KPI thresholds
-    billable_threshold_green = models.DecimalField(
+    kpi_daily_billable_hours_green = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=45.0,
         verbose_name="Green Threshold of Billable Hours",
         help_text="Daily billable hours above this threshold are marked in green",
     )
-    billable_threshold_amber = models.DecimalField(
+    kpi_daily_billable_hours_amber = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=30.0,
         verbose_name="Amber Threshold of Billable Hours",
         help_text="Daily billable hours between this threshold and the green threshold are marked in amber",
     )
-    daily_gp_target = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        default=1250.0,
-        verbose_name="Daily Goal of Gross Profit",
-        help_text="Daily gross profit goal in dolars",
-    )
-    shop_hours_target_percentage = models.DecimalField(
+    kpi_daily_shop_hours_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
         default=20.0,
         verbose_name="Hours percentage goal in Shop Jobs",
         help_text="Target percentage of hours worked in shop jobs",
     )
-    job_gp_target_percentage = models.DecimalField(
+    kpi_daily_gp_green = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=1500.0,
+        verbose_name="Green Threshold of Daily GP",
+        help_text="Daily gross profit above this threshold is marked in green",
+    )
+    kpi_daily_gp_amber = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0.0,
+        verbose_name="Amber Threshold of Daily GP",
+        help_text="Daily gross profit between this threshold and the green threshold is marked in amber",
+    )
+    kpi_job_gp_target_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        verbose_name="Target GP % per Job",
-        help_text="Target gross profit percentage for jobs",
+        default=50.0,
+        verbose_name="Job GP Target Percentage",
+        help_text="Target gross profit margin percentage for jobs (used for color coding).  Set by looking at a year's history",
     )
 
     class Meta:

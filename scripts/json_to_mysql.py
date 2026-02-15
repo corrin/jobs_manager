@@ -81,6 +81,7 @@ class JSONToMySQLConverter:
             "accounts.staff": "workflow_staff",
             "client.client": "workflow_client",
             "client.clientcontact": "client_contact",
+            "client.supplierpickupaddress": "client_supplier_pickup_address",
             "quoting.supplierpricelist": "quoting_supplierpricelist",
             "quoting.supplierproduct": "quoting_supplierproduct",
             "quoting.scrapejob": "quoting_scrapejob",
@@ -141,6 +142,9 @@ class JSONToMySQLConverter:
                 "job_pricing": "job_pricing_id",
             },
             "client_contact": {
+                "client": "client_id",
+            },
+            "client_supplier_pickup_address": {
                 "client": "client_id",
             },
             "quoting_supplierproduct": {

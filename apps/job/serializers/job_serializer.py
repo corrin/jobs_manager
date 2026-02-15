@@ -740,18 +740,16 @@ class WeeklyMetricsSerializer(serializers.Serializer):
 # JobView Enhancement Serializers
 
 
-class JobClientHeaderSerializer(serializers.Serializer):
-    """Serializer for client data in job header response"""
-
-    id = serializers.UUIDField()
-    name = serializers.CharField()
-
-
 class JobHeaderResponseSerializer(serializers.ModelSerializer):
     """Serializer for job header response - essential job data for fast loading."""
 
     job_id = serializers.UUIDField(source="id")
-    client = JobClientHeaderSerializer()
+    client_id = serializers.UUIDField(
+        source="client.id", read_only=True, allow_null=True
+    )
+    client_name = serializers.CharField(
+        source="client.name", read_only=True, allow_null=True
+    )
     contact_id = serializers.UUIDField(
         source="contact.id", read_only=True, allow_null=True
     )
@@ -771,7 +769,8 @@ class JobHeaderResponseSerializer(serializers.ModelSerializer):
         # Derive fields from Job.JOB_DIRECT_FIELDS, plus special fields
         fields = [
             "job_id",
-            "client",
+            "client_id",
+            "client_name",
             "contact_id",
             "contact_name",
             "quoted",

@@ -1,3 +1,5 @@
+"""Add number field to Quote and backfill from raw_json."""
+
 import json
 
 from django.db import migrations, models

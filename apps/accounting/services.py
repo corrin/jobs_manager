@@ -59,15 +59,16 @@ class KPIService:
             if not company_defaults:
                 raise ValueError("No company defaults found")
             thresholds = {
-                "billable_threshold_green": float(
-                    company_defaults.billable_threshold_green
+                "kpi_daily_billable_hours_green": float(
+                    company_defaults.kpi_daily_billable_hours_green
                 ),
-                "billable_threshold_amber": float(
-                    company_defaults.billable_threshold_amber
+                "kpi_daily_billable_hours_amber": float(
+                    company_defaults.kpi_daily_billable_hours_amber
                 ),
-                "daily_gp_target": float(company_defaults.daily_gp_target),
-                "shop_hours_target": float(
-                    company_defaults.shop_hours_target_percentage
+                "kpi_daily_gp_green": float(company_defaults.kpi_daily_gp_green),
+                "kpi_daily_gp_amber": float(company_defaults.kpi_daily_gp_amber),
+                "kpi_daily_shop_hours_percentage": float(
+                    company_defaults.kpi_daily_shop_hours_percentage
                 ),
             }
             logger.debug(f"Retrieved thresholds: {thresholds}")
@@ -333,8 +334,8 @@ class KPIService:
         cls._ensure_shop_client_id()
         thresholds = cls.get_company_thresholds()
         logger.debug(
-            f"Using thresholds: green={thresholds['billable_threshold_green']}, "
-            f"amber={thresholds['billable_threshold_amber']}"
+            f"Using thresholds: green={thresholds['kpi_daily_billable_hours_green']}, "
+            f"amber={thresholds['kpi_daily_billable_hours_amber']}"
         )
 
         start_date, end_date, _ = cls.get_month_days_range(year, month)
@@ -554,8 +555,8 @@ class KPIService:
             # Increment status counters
             color = cls._get_color(
                 billable_hours,
-                thresholds["billable_threshold_green"],
-                thresholds["billable_threshold_amber"],
+                thresholds["kpi_daily_billable_hours_green"],
+                thresholds["kpi_daily_billable_hours_amber"],
             )
 
             match color:
@@ -602,10 +603,10 @@ class KPIService:
                     "gp_target_achievement": float(
                         (
                             Decimal(gross_profit)
-                            / Decimal(thresholds["daily_gp_target"])
+                            / Decimal(thresholds["kpi_daily_gp_green"])
                             * 100
                         )
-                        if thresholds["daily_gp_target"] > 0
+                        if thresholds["kpi_daily_gp_green"] > 0
                         else 0
                     ),
                     "details": {
@@ -668,7 +669,7 @@ class KPIService:
 
         # Calculate net profit: Gross Profit - (Daily Target × Elapsed Working Days)
         # This approximates operating expenses using daily GP target for elapsed days
-        daily_target = Decimal(str(thresholds["daily_gp_target"]))
+        daily_target = Decimal(str(thresholds["kpi_daily_gp_green"]))
         elapsed_days = Decimal(str(monthly_totals["elapsed_workdays"]))
         elapsed_target = daily_target * elapsed_days
         monthly_totals["elapsed_target"] = float(elapsed_target)
@@ -682,15 +683,15 @@ class KPIService:
         billable_daily_avg = monthly_totals["avg_billable_hours_so_far"]
         monthly_totals["color_hours"] = cls._get_color(
             billable_daily_avg,
-            thresholds["billable_threshold_green"],
-            thresholds["billable_threshold_amber"],
+            thresholds["kpi_daily_billable_hours_green"],
+            thresholds["kpi_daily_billable_hours_amber"],
         )
 
         gp_daily_avg = monthly_totals["avg_daily_gp_so_far"]
         monthly_totals["color_gp"] = cls._get_color(
             gp_daily_avg,
-            thresholds["daily_gp_target"],
-            (thresholds["daily_gp_target"] / 2),
+            thresholds["kpi_daily_gp_green"],
+            thresholds["kpi_daily_gp_amber"],
         )
 
         shop_percentage = monthly_totals["shop_percentage"]
