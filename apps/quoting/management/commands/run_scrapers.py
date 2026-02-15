@@ -141,7 +141,7 @@ class Command(BaseCommand):
         logger.info(f"Starting scraper: {class_name}")
 
         # Find the supplier for this scraper
-        supplier = self.find_supplier_for_scraper(class_name, supplier_name)
+        supplier = self.find_supplier_for_scraper(scraper_info, supplier_name)
         if not supplier:
             logger.error(f"No suitable supplier found for scraper {class_name}")
             return
@@ -160,8 +160,9 @@ class Command(BaseCommand):
             logger.error(f"Error running scraper {class_name}: {e}")
             raise
 
-    def find_supplier_for_scraper(self, scraper_class_name, supplier_name_filter=None):
+    def find_supplier_for_scraper(self, scraper_info, supplier_name_filter=None):
         """Find the supplier that should use this scraper"""
+        scraper_class = scraper_info["class_obj"]
 
         # If specific supplier name provided, find it
         if supplier_name_filter:
@@ -173,43 +174,23 @@ class Command(BaseCommand):
                 return None
             except Supplier.MultipleObjectsReturned:
                 logger.error(
-                    f"Multiple suppliers found matching '{supplier_name_filter}' - be more specific"
+                    f"Multiple suppliers found matching '{supplier_name_filter}'"
+                    " - be more specific"
                 )
                 return None
 
-        # Hardcoded supplier mappings
-        if scraper_class_name == "SteelAndTubeScraper":
-            try:
-                supplier = Supplier.objects.get(
-                    xero_contact_id="92bd100c-b0e5-45e7-84d9-1ed883050353"
-                )
-                logger.info(f"Found supplier by hardcoded Xero ID: {supplier.name}")
-                return supplier
-            except Supplier.DoesNotExist:
-                logger.error(
-                    "S&T Stainless Limited supplier not found with Xero ID 92bd100c-b0e5-45e7-84d9-1ed883050353"
-                )
-                return None
+        # Use the scraper's declared SUPPLIER_NAME
+        supplier_name = getattr(scraper_class, "SUPPLIER_NAME", None)
+        if not supplier_name:
+            logger.error(f"{scraper_class.__name__} has no SUPPLIER_NAME defined")
+            return None
 
-        # Otherwise, try to match by scraper name to supplier name
-        # SteelAndTubeScraper -> Steel & Tube
-        scraper_supplier_name = scraper_class_name.replace("Scraper", "").replace(
-            "And", " & "
-        )
         try:
-            supplier = Supplier.objects.get(name__icontains=scraper_supplier_name)
-            logger.info(f"Found supplier by name matching: {supplier.name}")
+            supplier = Supplier.objects.get(name=supplier_name)
+            logger.info(f"Found supplier: {supplier.name}")
             return supplier
         except Supplier.DoesNotExist:
-            logger.error(
-                f"No supplier found matching scraper name pattern '{scraper_supplier_name}'"
-            )
-            return None
-        except Supplier.MultipleObjectsReturned:
-            suppliers = Supplier.objects.filter(name__icontains=scraper_supplier_name)
-            logger.error(
-                f"Multiple suppliers found for pattern '{scraper_supplier_name}': {[s.name for s in suppliers]}"
-            )
+            logger.error(f"Supplier '{supplier_name}' not found")
             return None
 
 

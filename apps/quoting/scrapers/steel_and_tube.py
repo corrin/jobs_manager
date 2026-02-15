@@ -14,8 +14,7 @@ from .base import BaseScraper
 class SteelAndTubeScraper(BaseScraper):
     """Steel & Tube specific scraper implementation with comprehensive variant extraction"""
 
-    # Hardcoded supplier - S&T Stainless Limited
-    SUPPLIER_XERO_ID = "92bd100c-b0e5-45e7-84d9-1ed883050353"
+    SUPPLIER_NAME = "S&T Stainless Limited"
 
     def get_credentials(self):
         """Get Steel & Tube credentials from environment variables"""
@@ -148,26 +147,20 @@ class SteelAndTubeScraper(BaseScraper):
                 )
 
         try:
-            # Check for page not found - save these as 404 entries
+            # Check for page not found - mark existing records as discontinued
             if "The requested page cannot be found" in self.driver.page_source:
-                self.logger.warning(f"Page not found for URL: {url}")
-                # Create a 404 product entry
-                return [
-                    {
-                        "product_name": "Page Not Found",
-                        # Use last 7 chars of URL as item number
-                        "item_no": f"404-{url.split('/')[-1][-7:]}",
-                        "description": "Page not found (404)",
-                        "specifications": "N/A",
-                        "variant_id": f"404-{url.split('/')[-1]}",
-                        "variant_width": None,
-                        "variant_length": None,
-                        "variant_price": None,
-                        "price_unit": "N/A",
-                        "variant_available_stock": 0,
-                        "url": url,
-                    }
-                ]
+                from apps.quoting.models import SupplierProduct
+
+                marked = SupplierProduct.objects.filter(
+                    supplier=self.supplier,
+                    url=url,
+                    is_discontinued=False,
+                ).update(is_discontinued=True)
+                self.logger.warning(
+                    f"Page not found for URL: {url} "
+                    f"(marked {marked} products as discontinued)"
+                )
+                return []
 
             # Extract basic product info
             product_name = self.extract_text_by_selector(

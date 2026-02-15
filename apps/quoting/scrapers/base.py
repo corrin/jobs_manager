@@ -128,16 +128,38 @@ class BaseScraper(ABC):
 
             # Filter URLs based on refresh_old flag
             if not self.force:
-                if self.refresh_old:
-                    # Get all URLs from sitemap
-                    sitemap_urls = set(product_urls)
+                sitemap_urls = set(product_urls)
 
-                    # Get existing URLs we have
-                    existing_urls = set(
-                        SupplierProduct.objects.filter(
-                            supplier=self.supplier
-                        ).values_list("url", flat=True)
-                    )
+                # Get existing URLs we have (with discontinued status)
+                existing_qs = SupplierProduct.objects.filter(
+                    supplier=self.supplier
+                ).values_list("url", flat=True)
+                existing_urls = set(existing_qs)
+
+                if self.refresh_old:
+                    # Mark products not in sitemap as discontinued
+                    disappeared_urls = existing_urls - sitemap_urls
+                    if disappeared_urls:
+                        marked = SupplierProduct.objects.filter(
+                            supplier=self.supplier,
+                            url__in=disappeared_urls,
+                            is_discontinued=False,
+                        ).update(is_discontinued=True)
+                        self.logger.info(
+                            f"Marked {marked} products as discontinued "
+                            f"({len(disappeared_urls)} URLs not in sitemap)"
+                        )
+
+                    # Unmark products that reappeared in sitemap
+                    reappeared = SupplierProduct.objects.filter(
+                        supplier=self.supplier,
+                        url__in=sitemap_urls,
+                        is_discontinued=True,
+                    ).update(is_discontinued=False)
+                    if reappeared:
+                        self.logger.info(
+                            f"Unmarked {reappeared} products as no longer discontinued"
+                        )
 
                     # New products (in sitemap, not in our DB)
                     new_urls = sitemap_urls - existing_urls
@@ -145,22 +167,10 @@ class BaseScraper(ABC):
                     # Changed products (in both sitemap and our DB)
                     changed_urls = sitemap_urls & existing_urls
 
-                    # Oldest N products we have (whether in sitemap or not)
-                    refresh_limit = self.limit or self.DEFAULT_REFRESH_LIMIT
-                    oldest_products = SupplierProduct.objects.filter(
-                        supplier=self.supplier
-                    ).order_by("last_scraped")[:refresh_limit]
-                    oldest_urls = set(p.url for p in oldest_products)
-
-                    # Final URL list: new + changed + oldest
-                    product_urls = list(new_urls | changed_urls | oldest_urls)
+                    # Final URL list: new + changed (no oldest_urls rotation)
+                    product_urls = list(new_urls | changed_urls)
                 else:
                     # Original behavior: only scrape new products
-                    existing_urls = set(
-                        SupplierProduct.objects.filter(
-                            supplier=self.supplier
-                        ).values_list("url", flat=True)
-                    )
                     product_urls = [
                         url for url in product_urls if url not in existing_urls
                     ]
