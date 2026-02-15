@@ -45,24 +45,24 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterField(
             model_name="companydefaults",
-            name="kpi_daily_profit_amber",
+            name="kpi_daily_gp_amber",
             field=models.DecimalField(
                 decimal_places=2,
                 default=0,
                 help_text="Daily gross profit above which the day is amber",
                 max_digits=10,
-                verbose_name="Daily profit (amber)",
+                verbose_name="Daily GP (amber)",
             ),
         ),
         migrations.AlterField(
             model_name="companydefaults",
-            name="kpi_daily_profit_green",
+            name="kpi_daily_gp_green",
             field=models.DecimalField(
                 decimal_places=2,
                 default=0,
                 help_text="Daily gross profit above which the day is green",
                 max_digits=10,
-                verbose_name="Daily profit (green)",
+                verbose_name="Daily GP (green)",
             ),
         ),
         migrations.AlterField(

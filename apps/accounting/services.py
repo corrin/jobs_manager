@@ -69,12 +69,8 @@ class KPIService:
                 "kpi_daily_shop_hours_percentage": float(
                     company_defaults.kpi_daily_shop_hours_percentage
                 ),
-                "kpi_daily_profit_green": float(
-                    company_defaults.kpi_daily_profit_green
-                ),
-                "kpi_daily_profit_amber": float(
-                    company_defaults.kpi_daily_profit_amber
-                ),
+                "kpi_daily_gp_green": float(company_defaults.kpi_daily_gp_green),
+                "kpi_daily_gp_amber": float(company_defaults.kpi_daily_gp_amber),
             }
             logger.debug(f"Retrieved thresholds: {thresholds}")
             return thresholds
@@ -582,7 +578,7 @@ class KPIService:
                 # Separate profit performance counting
                 if gross_profit >= thresholds["kpi_daily_gp_target"]:
                     monthly_totals["profit_green_days"] += 1
-                elif gross_profit >= thresholds["kpi_daily_profit_green"]:
+                elif gross_profit >= thresholds["kpi_daily_gp_green"]:
                     monthly_totals["profit_amber_days"] += 1
                 else:
                     monthly_totals["profit_red_days"] += 1

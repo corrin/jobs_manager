@@ -120,8 +120,8 @@ class KPIThresholdsSerializer(serializers.Serializer[Any]):
     kpi_daily_billable_hours_amber = serializers.FloatField()
     kpi_daily_gp_target = serializers.FloatField()
     kpi_daily_shop_hours_percentage = serializers.FloatField()
-    kpi_daily_profit_green = serializers.FloatField()
-    kpi_daily_profit_amber = serializers.FloatField()
+    kpi_daily_gp_green = serializers.FloatField()
+    kpi_daily_gp_amber = serializers.FloatField()
 
 
 class KPICalendarDataSerializer(serializers.Serializer[Any]):

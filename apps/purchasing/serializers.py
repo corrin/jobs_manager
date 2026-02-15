@@ -65,10 +65,22 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
     """Serializer for PurchaseOrderLine model."""
 
     job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
+    job_number = serializers.IntegerField(
+        source="job.job_number", read_only=True, allow_null=True
+    )
+    client_name = serializers.CharField(
+        source="job.client.name", read_only=True, allow_null=True
+    )
+    job_name = serializers.CharField(source="job.name", read_only=True, allow_null=True)
 
     class Meta:
         model = PurchaseOrderLine
-        fields = PurchaseOrderLine.PURCHASEORDERLINE_API_FIELDS + ["job_id"]
+        fields = PurchaseOrderLine.PURCHASEORDERLINE_API_FIELDS + [
+            "job_id",
+            "job_number",
+            "client_name",
+            "job_name",
+        ]
 
 
 class PurchaseOrderDetailSerializer(serializers.ModelSerializer):

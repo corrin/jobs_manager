@@ -42,8 +42,10 @@
       "kpi_daily_gp_target": "1250.00",
       "kpi_daily_shop_hours_percentage": "20.00",
       "kpi_job_gp_target_percentage": "50.00",
-      "kpi_daily_profit_green": "1000.00",
-      "kpi_daily_profit_amber": "0.00",
+      "kpi_daily_gp_green": "1000.00",
+      "kpi_daily_gp_amber": "0.00",
+      "annual_leave_loading": "8.00",
+      "financial_year_start_month": 4,
       "xero_payroll_calendar_name": "Weekly Testing"
     }
   }

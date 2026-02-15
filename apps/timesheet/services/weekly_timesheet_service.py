@@ -188,6 +188,9 @@ class WeeklyTimesheetService:
                 "status": cls._get_staff_status(total_hours, staff_member),
                 "total_billed_hours": float(total_billed_hours),
                 "total_unbilled_hours": float(total_unbilled_hours),
+                "total_overtime_hours": float(
+                    total_overtime_1_5x_hours + total_overtime_2x_hours
+                ),
                 "total_overtime_1_5x_hours": float(total_overtime_1_5x_hours),
                 "total_overtime_2x_hours": float(total_overtime_2x_hours),
                 "total_sick_leave_hours": float(total_sick_leave_hours),

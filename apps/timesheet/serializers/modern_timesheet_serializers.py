@@ -6,7 +6,7 @@ DRF serializers for modern timesheet API endpoints using CostSet/CostLine system
 
 from decimal import Decimal, InvalidOperation
 
-from drf_spectacular.utils import extend_schema_serializer
+from drf_spectacular.utils import extend_schema_field, extend_schema_serializer
 from rest_framework import serializers
 
 from apps.job.models import Job
@@ -23,6 +23,7 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
     )
     has_actual_costset = serializers.SerializerMethodField()
     leave_type = serializers.SerializerMethodField()
+    estimated_hours = serializers.SerializerMethodField()
     default_xero_pay_item_id = serializers.UUIDField(
         source="default_xero_pay_item.id", read_only=True
     )
@@ -41,18 +42,30 @@ class ModernTimesheetJobSerializer(serializers.ModelSerializer):
             "charge_out_rate",
             "has_actual_costset",
             "leave_type",
+            "estimated_hours",
             "default_xero_pay_item_id",
             "default_xero_pay_item_name",
         ]
 
+    @extend_schema_field(serializers.BooleanField)
     def get_has_actual_costset(self, obj) -> bool:
         """Check if job has an actual cost set"""
         return obj.get_latest("actual") is not None
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_leave_type(self, obj) -> str | None:
         """Get leave type if this is a payroll leave job"""
         pay_item = obj.default_xero_pay_item
         return pay_item.name if pay_item else None
+
+    @extend_schema_field(serializers.FloatField(allow_null=True))
+    def get_estimated_hours(self, obj) -> float | None:
+        """Get estimated hours from the latest estimate cost set"""
+        estimate = obj.get_latest("estimate")
+        if not estimate:
+            return None
+        summary = estimate.summary
+        return summary.get("hours") if summary else None
 
 
 class ModernStaffSerializer(serializers.Serializer):
@@ -126,6 +139,7 @@ class WeeklyStaffDataSerializer(serializers.Serializer):
     # Xero Payroll posting categories (weekly totals, excludes unpaid hours)
     total_billed_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_unbilled_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_overtime_hours = serializers.DecimalField(max_digits=10, decimal_places=2)
     total_overtime_1_5x_hours = serializers.DecimalField(
         max_digits=10, decimal_places=2
     )

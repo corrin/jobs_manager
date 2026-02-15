@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import models
 
 
 class CompanyDefaults(models.Model):
@@ -220,18 +220,18 @@ class CompanyDefaults(models.Model):
         verbose_name="Target GP % per job",
         help_text="Target gross profit percentage for individual jobs",
     )
-    kpi_daily_profit_green = models.DecimalField(
+    kpi_daily_gp_green = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=0,
-        verbose_name="Daily profit (green)",
+        verbose_name="Daily GP (green)",
         help_text="Daily gross profit above which the day is green",
     )
-    kpi_daily_profit_amber = models.DecimalField(
+    kpi_daily_gp_amber = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         default=0,
-        verbose_name="Daily profit (amber)",
+        verbose_name="Daily GP (amber)",
         help_text="Daily gross profit above which the day is amber",
     )
 
@@ -277,8 +277,7 @@ class CompanyDefaults(models.Model):
         Get the singleton instance.
         This is the preferred way to get the CompanyDefaults instance.
         """
-        with transaction.atomic():
-            return cls.objects.get()
+        return cls.objects.get()
 
     @property
     def llm_api_key(self):
