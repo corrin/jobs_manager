@@ -113,8 +113,8 @@ COMPANY_DEFAULTS_FIELD_SECTIONS: dict[str, str] = {
     "kpi_daily_gp_target": "kpi",
     "kpi_daily_shop_hours_percentage": "kpi",
     "kpi_job_gp_target_percentage": "kpi",
-    "kpi_daily_profit_green": "kpi",
-    "kpi_daily_profit_amber": "kpi",
+    "kpi_daily_gp_green": "kpi",
+    "kpi_daily_gp_amber": "kpi",
     # Setup (initial configuration)
     "master_quote_template_url": "setup",
     "master_quote_template_id": "setup",

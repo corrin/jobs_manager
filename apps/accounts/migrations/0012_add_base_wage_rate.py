@@ -73,7 +73,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("accounts", "0011_remove_ims_payroll_fields"),
-        ("workflow", "0191_rename_kpi_fields_and_add_new"),
+        ("workflow", "0191_add_annual_leave_loading"),
     ]
 
     operations = [

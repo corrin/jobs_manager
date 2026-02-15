@@ -36,11 +36,11 @@ class Migration(migrations.Migration):
         migrations.RenameField(
             model_name="companydefaults",
             old_name="profit_threshold_green",
-            new_name="kpi_daily_profit_green",
+            new_name="kpi_daily_gp_green",
         ),
         migrations.RenameField(
             model_name="companydefaults",
             old_name="profit_threshold_amber",
-            new_name="kpi_daily_profit_amber",
+            new_name="kpi_daily_gp_amber",
         ),
     ]
