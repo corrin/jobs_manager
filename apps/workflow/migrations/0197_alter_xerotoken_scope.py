@@ -6,7 +6,10 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("workflow", "0196_alter_companydefaults_kpi_daily_billable_hours_amber_and_more"),
+        (
+            "workflow",
+            "0196_alter_companydefaults_kpi_daily_billable_hours_amber_and_more",
+        ),
     ]
 
     operations = [
