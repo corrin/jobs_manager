@@ -78,6 +78,7 @@
 | `/rest/jobs/<uuid:job_id>/quote/` | `job_rest_views.JobQuoteRestView` | `jobs:job_quote_rest` | REST view for Job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/accept/` | `job_rest_views.JobQuoteAcceptRestView` | `jobs:job_quote_accept_rest` | REST view for accepting job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/status/` | `quote_import_views.QuoteImportStatusView` | `jobs:quote_import_status` | Get current quote import status and latest quote information. |
+| `/rest/jobs/<uuid:job_id>/summary/` | `job_rest_views.JobSummaryRestView` | `jobs:job_summary_rest` | REST view for Job summary data (no cost lines or events). |
 | `/rest/jobs/<uuid:job_id>/timeline/` | `job_rest_views.JobTimelineRestView` | `jobs:job_timeline_rest` | REST view for unified Job timeline. |
 | `/rest/jobs/<uuid:job_id>/undo-change/` | `job_rest_views.JobUndoChangeRestView` | `jobs:job_undo_change_rest` | Undo a previously applied job delta. |
 | `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_pdf_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
