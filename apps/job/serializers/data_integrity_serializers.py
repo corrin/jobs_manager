@@ -22,8 +22,8 @@ class BrokenJSONReferenceSerializer(serializers.Serializer):
     staff_id = serializers.CharField(
         required=False, allow_null=True, help_text="Invalid staff UUID"
     )
-    stock_id = serializers.CharField(
-        required=False, allow_null=True, help_text="Invalid stock UUID"
+    stock_movement_id = serializers.CharField(
+        required=False, allow_null=True, help_text="Invalid stock movement UUID"
     )
     purchase_order_line_id = serializers.CharField(
         required=False, allow_null=True, help_text="Invalid PO line UUID"

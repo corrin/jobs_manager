@@ -9,6 +9,7 @@ REST views for CostLine CRUD operations following clean code principles:
 """
 
 import logging
+from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -32,7 +33,7 @@ from apps.job.serializers.costing_serializer import (
     CostLineErrorResponseSerializer,
     CostLineSerializer,
 )
-from apps.purchasing.models import Stock
+from apps.purchasing.models import Stock, StockMovement
 from apps.purchasing.serializers import StockConsumeResponseSerializer
 from apps.purchasing.services.stock_service import consume_stock
 from apps.workflow.services.error_persistence import persist_app_error
@@ -221,13 +222,14 @@ class CostLineUpdateView(APIView):
 
                 updated_cost_line = serializer.save()
 
-                stock_id = (updated_cost_line.ext_refs or {}).get("stock_id")
+                ext_refs = updated_cost_line.ext_refs or {}
+                stock_movement_id = ext_refs.get("stock_movement_id")
 
                 new_qty = updated_cost_line.quantity or 0
                 diff = new_qty - old_qty
 
-                if stock_id and diff:
-                    self._update_stock(stock_id, diff)
+                if stock_movement_id and diff:
+                    self._update_stock(stock_movement_id, diff, updated_cost_line)
 
                 response_serializer = CostLineSerializer(updated_cost_line)
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
@@ -248,10 +250,32 @@ class CostLineUpdateView(APIView):
                 error_serializer.data, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    def _update_stock(self, stock_id: str, diff) -> None:
-        """Atomic decrement/increment via F() to avoid races"""
+    def _update_stock(
+        self, stock_movement_id: str, diff: Decimal, cost_line: CostLine
+    ) -> None:
+        """Atomic decrement/increment via F() to avoid races."""
         with transaction.atomic():
-            Stock.objects.filter(pk=stock_id).update(quantity=F("quantity") - diff)
+            movement = (
+                StockMovement.objects.select_for_update()
+                .select_related("stock")
+                .get(id=stock_movement_id)
+            )
+            Stock.objects.filter(pk=movement.stock_id).update(
+                quantity=F("quantity") - diff
+            )
+            StockMovement.objects.create(
+                stock=movement.stock,
+                movement_type="adjust",
+                quantity_delta=-diff,
+                unit_cost=cost_line.unit_cost,
+                unit_revenue=cost_line.unit_rev,
+                source="costline_consume",
+                source_cost_line=cost_line,
+                metadata={
+                    "reason": "costline_update",
+                    "previous_movement_id": str(movement.id),
+                },
+            )
 
 
 class CostLineDeleteView(APIView):
@@ -295,11 +319,27 @@ class CostLineDeleteView(APIView):
 
         try:
             with transaction.atomic():
-                stock_id = (cost_line.ext_refs or {}).get("stock_id")
-                if stock_id and cost_line.quantity:
-                    # quantity = quantity + cost_line.quantity
-                    Stock.objects.filter(pk=stock_id).update(
+                ext_refs = cost_line.ext_refs or {}
+                stock_movement_id = ext_refs.get("stock_movement_id")
+                if stock_movement_id and cost_line.quantity:
+                    movement = StockMovement.objects.select_for_update().get(
+                        id=stock_movement_id
+                    )
+                    Stock.objects.filter(pk=movement.stock_id).update(
                         quantity=F("quantity") + cost_line.quantity
+                    )
+                    StockMovement.objects.create(
+                        stock_id=movement.stock_id,
+                        movement_type="adjust",
+                        quantity_delta=cost_line.quantity,
+                        unit_cost=cost_line.unit_cost,
+                        unit_revenue=cost_line.unit_rev,
+                        source="costline_consume",
+                        source_cost_line=cost_line,
+                        metadata={
+                            "reason": "costline_delete",
+                            "previous_movement_id": str(movement.id),
+                        },
                     )
 
                 cost_line.delete()
@@ -379,21 +419,22 @@ class CostLineApprovalView(APIView):
         return self._approve_non_material_line(line=line)
 
     def _approve_material_line(self, line: CostLine, request):
-        stock_id = (line.ext_refs or {}).get("stock_id")
+        ext_refs = line.ext_refs or {}
+        stock_movement_id = ext_refs.get("stock_movement_id")
 
-        if not stock_id:
+        if not stock_movement_id:
             logger.error(
-                "Error when trying to approve cost line %s - missing stock id",
+                "Error when trying to approve cost line %s - missing stock movement reference",
                 line.id,
             )
             return Response(
                 CostLineErrorResponseSerializer(
-                    {"error": "Line is missing item code"}
+                    {"error": "Line is missing stock movement reference"}
                 ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        item = get_object_or_404(Stock, id=stock_id)
+        movement = get_object_or_404(StockMovement, id=stock_movement_id)
+        item = movement.stock
 
         try:
             line = consume_stock(

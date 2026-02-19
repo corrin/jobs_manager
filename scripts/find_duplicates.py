@@ -92,7 +92,7 @@ class DuplicateFinder(ast.NodeVisitor):
 
 def scan_file(filepath):
     try:
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             source = f.read()
         tree = ast.parse(source, filename=str(filepath))
         finder = DuplicateFinder(str(filepath))

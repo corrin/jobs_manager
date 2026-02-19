@@ -36,6 +36,11 @@ try:
             safe_float,
             save_quote_file,
         )
+        from .stock_item_code_service import (
+            ensure_item_code_for_po_line,
+            ensure_item_code_for_stock,
+            ensure_item_code_for_stock_payload,
+        )
         from .stock_service import consume_stock, merge_stock_into
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -56,6 +61,9 @@ __all__ = [
     "create_po_line_from_quote_item",
     "create_purchase_order_email",
     "create_purchase_order_pdf",
+    "ensure_item_code_for_po_line",
+    "ensure_item_code_for_stock",
+    "ensure_item_code_for_stock_payload",
     "extract_data_from_supplier_quote",
     "extract_data_from_supplier_quote_gemini",
     "fuzzy_find_supplier",
