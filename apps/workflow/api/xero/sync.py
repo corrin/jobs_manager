@@ -1494,8 +1494,11 @@ def sync_job_to_xero(job):
 
     # Prepare project data
     # Include job number in name to ensure uniqueness (multiple jobs can have same name)
+    sanitized_name = job.name.replace("<", "(").replace(">", ")") if job.name else ""
     project_name = (
-        f"Job {job.job_number}: {job.name}" if job.name else f"Job {job.job_number}"
+        f"Job {job.job_number}: {sanitized_name}"
+        if sanitized_name
+        else f"Job {job.job_number}"
     )
     project_data = {
         "name": project_name,
