@@ -5,6 +5,7 @@ from .xero_helpers import (
     convert_to_pascal_case,
     format_date,
     parse_xero_api_error_message,
+    sanitize_for_xero,
 )
 from .xero_view import (
     XeroErrorDetailAPIView,
@@ -68,6 +69,7 @@ __all__ = [
     "parse_xero_api_error_message",
     "refresh_xero_data",
     "refresh_xero_token",
+    "sanitize_for_xero",
     "start_xero_sync",
     "stream_xero_sync",
     "success_xero_connection",

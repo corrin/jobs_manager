@@ -41,6 +41,11 @@ class SupplierProduct(models.Model):
         max_length=1000, help_text="Direct URL to this product on supplier's website"
     )
 
+    is_discontinued = models.BooleanField(
+        default=False,
+        help_text="Product URL no longer in supplier sitemap; skip future scrapes",
+    )
+
     # Standard audit fields
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

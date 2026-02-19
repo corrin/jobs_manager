@@ -14,6 +14,7 @@ from apps.timesheet.services.payroll_employee_sync import PayrollEmployeeSyncSer
 from apps.workflow.api.xero.stock_sync import sync_all_local_stock_to_xero
 from apps.workflow.api.xero.sync import seed_clients_to_xero, seed_jobs_to_xero
 from apps.workflow.models import CompanyDefaults
+from apps.workflow.models.xero_pay_item import XeroPayItem
 
 load_dotenv()
 
@@ -32,7 +33,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--only",
             type=str,
-            help="Sync specific entities only. Comma-separated: contacts,projects,stock,employees",
+            help="Sync specific entities only. Comma-separated: pay_items,contacts,projects,stock,employees",
         )
         parser.add_argument(
             "--skip-clear",
@@ -40,7 +41,7 @@ class Command(BaseCommand):
             help="Skip clearing production Xero IDs (useful for re-running after partial failure)",
         )
 
-    VALID_ENTITIES = {"contacts", "projects", "stock", "employees"}
+    VALID_ENTITIES = {"contacts", "projects", "stock", "employees", "pay_items"}
 
     def handle(self, *args, **options):
         dry_run = options["dry_run"]
@@ -66,12 +67,18 @@ class Command(BaseCommand):
         contacts_processed = 0
         projects_processed = 0
         stock_processed = 0
+        pay_items_result = {"remapped_jobs": 0, "remapped_costlines": 0}
         employees_result = {"linked": 0, "created": 0, "already_linked": 0}
 
         # Clear production Xero IDs (unless skipped)
         if not skip_clear:
             self.stdout.write("Clearing Production Xero IDs...")
             self.clear_production_xero_ids(dry_run)
+
+        # Remap pay item FK references (must run after sync_xero_pay_items)
+        if "pay_items" in entities_to_sync:
+            self.stdout.write("Remapping XeroPayItem FK references...")
+            pay_items_result = self.process_pay_items(dry_run)
 
         # Sync contacts
         if "contacts" in entities_to_sync:
@@ -98,6 +105,10 @@ class Command(BaseCommand):
 
         # Summary
         self.stdout.write("COMPLETED")
+        self.stdout.write(
+            f"Pay items remapped: {pay_items_result['remapped_jobs']} jobs, "
+            f"{pay_items_result['remapped_costlines']} costlines"
+        )
         self.stdout.write(f"Contacts processed: {contacts_processed}")
         self.stdout.write(f"Projects processed: {projects_processed}")
         self.stdout.write(f"Stock items processed: {stock_processed}")
@@ -111,6 +122,134 @@ class Command(BaseCommand):
             self.stdout.write("Dry run complete - no changes made")
         else:
             self.stdout.write("Xero seeding complete!")
+
+    def process_pay_items(self, dry_run):
+        """Remap orphaned XeroPayItem FK references from prod to dev.
+
+        After restoring a prod backup, Job.default_xero_pay_item and
+        CostLine.xero_pay_item reference prod XeroPayItem UUIDs that no
+        longer exist (pay items are synced from Xero, not in the backup).
+        This remaps them to the dev XeroPayItem records by matching names.
+
+        Strategy:
+        - Leave-type jobs (Annual Leave, Sick Leave, etc.) are matched
+          by their job name to the corresponding XeroPayItem name.
+        - All other jobs default to "Ordinary Time".
+        - CostLines are remapped using the same old_id → new_id mapping.
+        """
+        from apps.job.models import CostLine
+
+        existing_pay_item_ids = set(XeroPayItem.objects.values_list("id", flat=True))
+
+        if not existing_pay_item_ids:
+            self.stdout.write(
+                self.style.ERROR(
+                    "No XeroPayItems in database. Run 'manage.py xero --sync-pay-items' first."
+                )
+            )
+            return {"remapped_jobs": 0, "remapped_costlines": 0}
+
+        # Find orphaned Job FK references
+        orphaned_jobs = Job.objects.filter(
+            default_xero_pay_item_id__isnull=False
+        ).exclude(default_xero_pay_item_id__in=existing_pay_item_ids)
+
+        # Find orphaned CostLine FK references
+        orphaned_costlines = CostLine.objects.filter(
+            xero_pay_item_id__isnull=False
+        ).exclude(xero_pay_item_id__in=existing_pay_item_ids)
+
+        orphaned_job_count = orphaned_jobs.count()
+        orphaned_costline_count = orphaned_costlines.count()
+
+        if orphaned_job_count == 0 and orphaned_costline_count == 0:
+            self.stdout.write("No orphaned XeroPayItem references found")
+            return {"remapped_jobs": 0, "remapped_costlines": 0}
+
+        self.stdout.write(
+            f"Found {orphaned_job_count} jobs and {orphaned_costline_count} costlines "
+            f"with orphaned XeroPayItem references"
+        )
+
+        # Build name → dev XeroPayItem lookup
+        pay_items_by_name = {}
+        for pi in XeroPayItem.objects.all():
+            pay_items_by_name[pi.name] = pi
+
+        ordinary_time = pay_items_by_name.get("Ordinary Time")
+        if not ordinary_time:
+            raise ValueError(
+                "XeroPayItem 'Ordinary Time' not found. "
+                "Cannot remap default pay items without it."
+            )
+
+        # Job names that don't exactly match an XeroPayItem name
+        JOB_NAME_TO_PAY_ITEM = {
+            "Statutory holiday": "Public Holiday Worked",
+            "Unpaid Leave": "Ordinary Time",
+        }
+
+        # Collect distinct orphaned IDs and determine what they should map to.
+        # For each orphaned ID, check what jobs reference it — if it's a leave
+        # job (name matches a pay item), map to that pay item. Otherwise map
+        # to Ordinary Time.
+        orphaned_ids = set(
+            orphaned_jobs.values_list("default_xero_pay_item_id", flat=True)
+        ) | set(orphaned_costlines.values_list("xero_pay_item_id", flat=True))
+
+        id_to_new_pay_item = {}
+        for old_id in orphaned_ids:
+            # Check if any job with this old_id has a name matching a pay item
+            job_with_old_id = Job.objects.filter(
+                default_xero_pay_item_id=old_id
+            ).first()
+            matched_pay_item = None
+            if job_with_old_id:
+                # Try exact match first, then known aliases
+                pay_item_name = JOB_NAME_TO_PAY_ITEM.get(
+                    job_with_old_id.name, job_with_old_id.name
+                )
+                matched_pay_item = pay_items_by_name.get(pay_item_name)
+
+            if matched_pay_item:
+                id_to_new_pay_item[old_id] = matched_pay_item
+                self.stdout.write(
+                    f"  {old_id} → {matched_pay_item.name} (matched by job name)"
+                )
+            else:
+                id_to_new_pay_item[old_id] = ordinary_time
+                self.stdout.write(f"  {old_id} → Ordinary Time (default)")
+
+        if dry_run:
+            return {
+                "remapped_jobs": orphaned_job_count,
+                "remapped_costlines": orphaned_costline_count,
+            }
+
+        # Apply remapping
+        total_jobs_remapped = 0
+        total_costlines_remapped = 0
+
+        for old_id, new_pay_item in id_to_new_pay_item.items():
+            job_count = Job.objects.filter(default_xero_pay_item_id=old_id).update(
+                default_xero_pay_item_id=new_pay_item.id
+            )
+            total_jobs_remapped += job_count
+
+            costline_count = CostLine.objects.filter(xero_pay_item_id=old_id).update(
+                xero_pay_item_id=new_pay_item.id
+            )
+            total_costlines_remapped += costline_count
+
+        self.stdout.write(
+            f"Remapped {total_jobs_remapped} jobs and "
+            f"{total_costlines_remapped} costlines"
+        )
+
+        return {
+            "remapped_jobs": total_jobs_remapped,
+            "remapped_costlines": total_costlines_remapped,
+        }
 
     def process_contacts(self, dry_run):
         """Phase 1: Link/Create contacts for all clients with jobs + test client"""
@@ -312,22 +451,21 @@ class Command(BaseCommand):
                 "would_process": len(staff_to_sync),
             }
 
-        # Clear the prod xero_user_id values - they're for the wrong Xero tenant
-        # We need to clear them so PayrollEmployeeSyncService will process these staff
-        staff_ids = [s.id for s in staff_to_sync]
+        # Clear prod xero_user_id in memory only (not DB) so sync_staff
+        # will process them. DB keeps prod IDs as crash recovery — if the
+        # process dies mid-way, re-running will still find unprocessed staff.
+        # sync_staff's _link_staff() saves the new dev ID to DB on success.
         self.stdout.write(
-            f"Clearing {len(staff_ids)} prod xero_user_id values before re-linking..."
+            f"Clearing {len(staff_to_sync)} prod xero_user_id values in memory before re-linking..."
         )
-        Staff.objects.filter(id__in=staff_ids).update(xero_user_id=None)
-
-        # Refetch the staff (now without xero_user_id)
-        staff_queryset = Staff.objects.filter(id__in=staff_ids)
+        for staff in staff_to_sync:
+            staff.xero_user_id = None
 
         # Use PayrollEmployeeSyncService to link (by job_title UUID, email, or name)
         # and create missing employees in dev's Xero
         self.stdout.write("Syncing staff with Xero Payroll...")
         summary = PayrollEmployeeSyncService.sync_staff(
-            staff_queryset=staff_queryset,
+            staff_queryset=staff_to_sync,
             dry_run=False,
             allow_create=True,  # Create if not found in dev's Xero
         )

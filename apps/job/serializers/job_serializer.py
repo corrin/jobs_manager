@@ -12,7 +12,11 @@ from apps.client.models import Client, ClientContact
 from apps.job.models import Job, JobEvent, JobFile
 from apps.workflow.models import XeroPayItem
 
-from .costing_serializer import CostSetSerializer, TimesheetCostLineSerializer
+from .costing_serializer import (
+    CostSetSerializer,
+    CostSetSummaryOnlySerializer,
+    TimesheetCostLineSerializer,
+)
 from .job_file_serializer import JobFileSerializer
 from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
 
@@ -445,6 +449,36 @@ class JobDataSerializer(serializers.Serializer):
     company_defaults = CompanyDefaultsJobDetailSerializer(read_only=True)
 
 
+class JobSummarySerializer(JobSerializer):
+    """Job serializer with cost set summaries only (no cost lines)."""
+
+    @extend_schema_field(CostSetSummaryOnlySerializer)
+    def get_latest_estimate(self, obj) -> dict | None:
+        cost_set = obj.get_latest("estimate")
+        return CostSetSummaryOnlySerializer(cost_set).data if cost_set else None
+
+    @extend_schema_field(CostSetSummaryOnlySerializer)
+    def get_latest_quote(self, obj) -> dict | None:
+        cost_set = obj.get_latest("quote")
+        return CostSetSummaryOnlySerializer(cost_set).data if cost_set else None
+
+    @extend_schema_field(CostSetSummaryOnlySerializer)
+    def get_latest_actual(self, obj) -> dict | None:
+        cost_set = obj.get_latest("actual")
+        return CostSetSummaryOnlySerializer(cost_set).data if cost_set else None
+
+
+class JobSummaryDataSerializer(serializers.Serializer):
+    job = JobSummarySerializer()
+    events = JobEventSerializer(many=True, read_only=True)
+    company_defaults = CompanyDefaultsJobDetailSerializer(read_only=True)
+
+
+class JobSummaryResponseSerializer(serializers.Serializer):
+    success = serializers.BooleanField(default=True)
+    data = JobSummaryDataSerializer()
+
+
 class CompleteJobSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source="client.name", read_only=True)
     job_status = serializers.CharField(source="status")
@@ -651,6 +685,7 @@ class ModernTimesheetSummarySerializer(serializers.Serializer):
     total_cost = serializers.FloatField()
     total_revenue = serializers.FloatField()
     entry_count = serializers.IntegerField()
+    scheduled_hours = serializers.FloatField()
 
 
 class ModernTimesheetEntryGetResponseSerializer(serializers.Serializer):
@@ -739,18 +774,16 @@ class WeeklyMetricsSerializer(serializers.Serializer):
 # JobView Enhancement Serializers
 
 
-class JobClientHeaderSerializer(serializers.Serializer):
-    """Serializer for client data in job header response"""
-
-    id = serializers.UUIDField()
-    name = serializers.CharField()
-
-
 class JobHeaderResponseSerializer(serializers.ModelSerializer):
     """Serializer for job header response - essential job data for fast loading."""
 
     job_id = serializers.UUIDField(source="id")
-    client = JobClientHeaderSerializer()
+    client_id = serializers.UUIDField(
+        source="client.id", read_only=True, allow_null=True
+    )
+    client_name = serializers.CharField(
+        source="client.name", read_only=True, allow_null=True
+    )
     contact_id = serializers.UUIDField(
         source="contact.id", read_only=True, allow_null=True
     )
@@ -770,7 +803,8 @@ class JobHeaderResponseSerializer(serializers.ModelSerializer):
         # Derive fields from Job.JOB_DIRECT_FIELDS, plus special fields
         fields = [
             "job_id",
-            "client",
+            "client_id",
+            "client_name",
             "contact_id",
             "contact_name",
             "quoted",

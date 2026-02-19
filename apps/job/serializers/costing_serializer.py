@@ -1,6 +1,5 @@
 import logging
 from decimal import Decimal
-from pprint import pprint
 
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -180,8 +179,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
 
         if kind == "time" and meta.get("created_from_timesheet"):
             line_id = self.validated_data.get("id")
-            logger.info(f"Starting to autocalculate unit cost for cost line {line_id}")
-            pprint(self.validated_data)
+            logger.debug(f"Starting to autocalculate unit cost for cost line {line_id}")
             # Auto-calculate unit_cost from staff wage_rate and rate multiplier
             staff_id = meta.get("staff_id")
 
@@ -210,7 +208,7 @@ class CostLineCreateUpdateSerializer(serializers.ModelSerializer):
                 rate_multiplier = Decimal(rate_multiplier_value)
                 final_wage = wage_rate * rate_multiplier
                 self.validated_data["unit_cost"] = final_wage
-                logger.info(
+                logger.debug(
                     f"Auto-calculated unit_cost: {final_wage} for staff {staff_id}"
                 )
 
@@ -311,6 +309,20 @@ class CostSetSerializer(serializers.ModelSerializer):
         model = CostSet
         fields = CostSet.COSTSET_ALL_FIELDS + ["cost_lines"]
         read_only_fields = fields
+
+
+class CostSetSummaryOnlySerializer(CostSetSerializer):
+    """CostSet serializer that includes summary but omits cost lines.
+
+    Subclasses CostSetSerializer so the schema reuses the same component
+    (no duplicate enum for the ``kind`` field). Only overrides cost_lines
+    to return an empty list.
+    """
+
+    cost_lines = serializers.SerializerMethodField()
+
+    def get_cost_lines(self, obj) -> list:
+        return []
 
 
 class CostLineErrorResponseSerializer(serializers.Serializer):

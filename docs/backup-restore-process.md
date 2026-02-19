@@ -608,10 +608,11 @@ Get-Content logs\seed_xero_output.log -Tail 50 -Wait
 
 **What this does:**
 1. Clears production Xero IDs (clients, jobs, stock, purchase orders, staff)
-2. Links/creates contacts in Xero for all clients
-3. Creates projects in Xero for all jobs
-4. Syncs stock items to Xero inventory (using account codes from Step 23)
-5. Links/creates payroll employees for all active staff (uses Staff UUID in job_title for reliable re-linking)
+2. Remaps XeroPayItem FK references (Job.default_xero_pay_item, CostLine.xero_pay_item) from prod UUIDs to dev UUIDs by matching pay item names
+3. Links/creates contacts in Xero for all clients
+4. Creates projects in Xero for all jobs
+5. Syncs stock items to Xero inventory (using account codes from Step 23)
+6. Links/creates payroll employees for all active staff (uses Staff UUID in job_title for reliable re-linking)
 
 **Monitor progress:**
 

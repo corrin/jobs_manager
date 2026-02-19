@@ -18,6 +18,7 @@ from .job_costline_views import (
 from .job_file_detail_view import BinaryFileRenderer, JobFileDetailView
 from .job_file_thumbnail_view import JobFileThumbnailView
 from .job_files_collection_view import JobFilesCollectionView
+from .job_profitability_report_views import JobProfitabilityReportView
 from .job_quote_chat_views import (
     BaseJobQuoteChatView,
     JobQuoteChatHistoryView,
@@ -38,6 +39,7 @@ from .job_rest_views import (
     JobQuoteAcceptRestView,
     JobQuoteRestView,
     JobStatusChoicesRestView,
+    JobSummaryRestView,
     JobTimelineRestView,
     JobUndoChangeRestView,
     WeeklyMetricsRestView,
@@ -154,6 +156,7 @@ __all__ = [
     "JobFilesCollectionView",
     "JobHeaderRestView",
     "JobInvoicesRestView",
+    "JobProfitabilityReportView",
     "JobQuoteAcceptRestView",
     "JobQuoteChatHistoryView",
     "JobQuoteChatInteractionView",
@@ -161,6 +164,7 @@ __all__ = [
     "JobQuoteRestView",
     "JobQuoteRevisionView",
     "JobStatusChoicesRestView",
+    "JobSummaryRestView",
     "JobTimelineRestView",
     "JobUndoChangeRestView",
     "LinkQuoteSheetAPIView",

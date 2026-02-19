@@ -1,5 +1,7 @@
+from decimal import Decimal
+
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
+from django.db import models
 
 
 class CompanyDefaults(models.Model):
@@ -19,6 +21,16 @@ class CompanyDefaults(models.Model):
     wage_rate = models.DecimalField(
         max_digits=6, decimal_places=2, default=32.00
     )  # rate per hour
+    annual_leave_loading = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=8.00,
+        help_text="Percentage added to base_wage_rate to get costing wage_rate (8.00 = 8%)",
+    )
+    financial_year_start_month = models.IntegerField(
+        default=4,
+        help_text="Month the financial year starts (1=January, 4=April, 7=July, etc.)",
+    )
 
     starting_job_number = models.IntegerField(
         default=1,
@@ -172,34 +184,55 @@ class CompanyDefaults(models.Model):
         help_text="Name of the test client used for testing (e.g., 'ABC Carpet Cleaning TEST IGNORE'). This client's name is preserved during data backports.",
     )
 
-    # KPI thresholds
-    billable_threshold_green = models.DecimalField(
+    # KPI thresholds — all daily unless noted otherwise
+    kpi_daily_billable_hours_green = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=45.0,
-        verbose_name="Green Threshold of Billable Hours",
-        help_text="Daily billable hours above this threshold are marked in green",
+        default=0,
+        verbose_name="Daily billable hours (green)",
+        help_text="Daily total billable hours across all staff above which the day is green",
     )
-    billable_threshold_amber = models.DecimalField(
+    kpi_daily_billable_hours_amber = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=30.0,
-        verbose_name="Amber Threshold of Billable Hours",
-        help_text="Daily billable hours between this threshold and the green threshold are marked in amber",
+        default=0,
+        verbose_name="Daily billable hours (amber)",
+        help_text="Daily total billable hours across all staff above which the day is amber",
     )
-    daily_gp_target = models.DecimalField(
+    kpi_daily_gp_target = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        default=1250.0,
-        verbose_name="Daily Goal of Gross Profit",
-        help_text="Daily gross profit goal in dolars",
+        default=0,
+        verbose_name="Daily gross profit target",
+        help_text="Daily gross profit target in dollars",
     )
-    shop_hours_target_percentage = models.DecimalField(
+    kpi_daily_shop_hours_percentage = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=20.0,
-        verbose_name="Hours percentage goal in Shop Jobs",
-        help_text="Target percentage of hours worked in shop jobs",
+        default=0,
+        verbose_name="Daily shop hours percentage target",
+        help_text="Target percentage of daily hours spent on shop (non-billable) jobs",
+    )
+    kpi_job_gp_target_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        verbose_name="Target GP % per job",
+        help_text="Target gross profit percentage for individual jobs",
+    )
+    kpi_daily_gp_green = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Daily GP (green)",
+        help_text="Daily gross profit above which the day is green",
+    )
+    kpi_daily_gp_amber = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Daily GP (amber)",
+        help_text="Daily gross profit above which the day is amber",
     )
 
     class Meta:
@@ -210,7 +243,33 @@ class CompanyDefaults(models.Model):
         if not self.pk and CompanyDefaults.objects.exists():
             raise ValidationError("There can be only one CompanyDefaults instance")
         self.is_primary = True
-        return super().save(*args, **kwargs)
+
+        # Check if annual_leave_loading changed - if so, recompute all staff wage_rates
+        loading_changed = False
+        if self.pk:
+            try:
+                old = CompanyDefaults.objects.get(pk=self.pk)
+                loading_changed = old.annual_leave_loading != self.annual_leave_loading
+            except CompanyDefaults.DoesNotExist:
+                pass
+
+        result = super().save(*args, **kwargs)
+
+        if loading_changed:
+            self._recompute_all_staff_wage_rates()
+
+        return result
+
+    def _recompute_all_staff_wage_rates(self):
+        """Bulk-recompute wage_rate for all staff based on current annual_leave_loading."""
+        from apps.accounts.models import Staff
+
+        loading_multiplier = Decimal("1") + self.annual_leave_loading / Decimal("100")
+        for staff in Staff.objects.filter(base_wage_rate__gt=0):
+            staff.wage_rate = (staff.base_wage_rate * loading_multiplier).quantize(
+                Decimal("0.01")
+            )
+            staff.save(update_fields=["wage_rate", "updated_at"])
 
     @classmethod
     def get_instance(cls) -> "CompanyDefaults":
@@ -218,8 +277,7 @@ class CompanyDefaults(models.Model):
         Get the singleton instance.
         This is the preferred way to get the CompanyDefaults instance.
         """
-        with transaction.atomic():
-            return cls.objects.get()
+        return cls.objects.get()
 
     @property
     def llm_api_key(self):

@@ -58,6 +58,15 @@ class CostLineCreateView(APIView):
             return CostLineCreateUpdateSerializer
         return CostLineSerializer
 
+    @extend_schema(
+        request=CostLineCreateUpdateSerializer,
+        responses={
+            201: CostLineSerializer,
+            400: CostLineErrorResponseSerializer,
+            403: CostLineErrorResponseSerializer,
+            500: CostLineErrorResponseSerializer,
+        },
+    )
     def post(self, request, job_id, kind="actual"):
         """Create a new cost line"""
         if kind != "actual" and not getattr(request.user, "is_office_staff", False):
@@ -172,7 +181,14 @@ class CostLineUpdateView(APIView):
                 location=OpenApiParameter.PATH,
                 description="ID of the CostLine to update",
             )
-        ]
+        ],
+        request=CostLineCreateUpdateSerializer,
+        responses={
+            200: CostLineSerializer,
+            400: CostLineErrorResponseSerializer,
+            403: CostLineErrorResponseSerializer,
+            500: CostLineErrorResponseSerializer,
+        },
     )
     def patch(self, request, cost_line_id):
         """

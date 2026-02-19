@@ -91,6 +91,7 @@ tabulate = "^0.9.0"
 google-api-python-client-stubs = "^1.29.0"
 google-auth-stubs = "^0.3.0"
 debugpy = "^1.8.19"
+pytest-django = "^4.12.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -194,6 +195,11 @@ per-file-ignores = [
     "check_db.py:E402",
     "test_gzip.py:E402",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "jobs_manager.settings"
+testpaths = ["apps"]
+addopts = "-q"
 
 [tool.django-stubs]
 django_settings_module = "jobs_manager.settings"

@@ -78,6 +78,7 @@
 | `/rest/jobs/<uuid:job_id>/quote/` | `job_rest_views.JobQuoteRestView` | `jobs:job_quote_rest` | REST view for Job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/accept/` | `job_rest_views.JobQuoteAcceptRestView` | `jobs:job_quote_accept_rest` | REST view for accepting job quotes. |
 | `/rest/jobs/<uuid:job_id>/quote/status/` | `quote_import_views.QuoteImportStatusView` | `jobs:quote_import_status` | Get current quote import status and latest quote information. |
+| `/rest/jobs/<uuid:job_id>/summary/` | `job_rest_views.JobSummaryRestView` | `jobs:job_summary_rest` | REST view for Job summary data (no cost lines or events). |
 | `/rest/jobs/<uuid:job_id>/timeline/` | `job_rest_views.JobTimelineRestView` | `jobs:job_timeline_rest` | REST view for unified Job timeline. |
 | `/rest/jobs/<uuid:job_id>/undo-change/` | `job_rest_views.JobUndoChangeRestView` | `jobs:job_undo_change_rest` | Undo a previously applied job delta. |
 | `/rest/jobs/<uuid:job_id>/workshop-pdf/` | `workshop_pdf_view.WorkshopPDFView` | `jobs:workshop-pdf` | API view for generating and serving workshop PDF documents for jobs. |
@@ -89,6 +90,7 @@
 | `/rest/jobs/status-choices/` | `job_rest_views.JobStatusChoicesRestView` | `jobs:job_status_choices_rest` | REST view for Job status choices. |
 | `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
+| `/rest/reports/job-profitability/` | `job_profitability_report_views.JobProfitabilityReportView` | `jobs:job_profitability_report` | API view for job profitability reporting. |
 | `/rest/safety-ai/generate-controls/` | `safety_viewsets.AIGenerateControlsView` | `jobs:ai_generate_controls` | Generate controls for hazards using AI. |
 | `/rest/safety-ai/generate-hazards/` | `safety_viewsets.AIGenerateHazardsView` | `jobs:ai_generate_hazards` | Generate hazards for a task description using AI. |
 | `/rest/safety-ai/improve-document/` | `safety_viewsets.AIImproveDocumentView` | `jobs:ai_improve_document` | Improve an entire document using AI. |

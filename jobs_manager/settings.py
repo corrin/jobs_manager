@@ -339,6 +339,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "COERCE_DECIMAL_TO_STRING": False,
+    "EXCEPTION_HANDLER": "jobs_manager.exception_handlers.custom_exception_handler",
 }
 
 SIMPLE_JWT = {
@@ -417,20 +418,25 @@ SPECTACULAR_SETTINGS = {
     # on request bodies. This creates e.g. ClientContact (response) and
     # ClientContactRequest (request) schemas automatically.
     "COMPONENT_SPLIT_REQUEST": True,
-    # DRF Spectacular auto-generates enum names based on content hashes when multiple
-    # models have fields with the same name (e.g., "status", "type", "kind").
-    # ENUM_NAME_OVERRIDES maps hash-based names to actual choice tuples for better naming.
+    # ENUM_NAME_OVERRIDES: key = desired schema name, value = choices tuple.
+    # Resolves collisions where multiple models share a field name (e.g. "kind",
+    # "status") but have different choice sets.
     "ENUM_NAME_OVERRIDES": {
-        "TypeC98Enum": (
+        "AllocationTypeEnum": (
             ("stock", "Stock"),
             ("job", "Job"),
         ),
-        "Kind332Enum": (
+        "CostLineKindEnum": (
             ("time", "Time"),
             ("material", "Material"),
             ("adjust", "Adjustment"),
         ),
-        "Status1beEnum": (
+        "CostSetKindEnum": (
+            ("estimate", "Estimate"),
+            ("quote", "Quote"),
+            ("actual", "Actual"),
+        ),
+        "InvoiceStatusEnum": (
             ("DRAFT", "Draft"),
             ("SUBMITTED", "Submitted"),
             ("AUTHORISED", "Authorised"),
@@ -438,7 +444,7 @@ SPECTACULAR_SETTINGS = {
             ("VOIDED", "Voided"),
             ("PAID", "Paid"),
         ),
-        "Status7aeEnum": (
+        "QuoteStatusEnum": (
             ("DRAFT", "Draft"),
             ("SENT", "Sent"),
             ("DECLINED", "Declined"),
@@ -446,7 +452,7 @@ SPECTACULAR_SETTINGS = {
             ("INVOICED", "Invoiced"),
             ("DELETED", "Deleted"),
         ),
-        "Status7b9Enum": (
+        "JobStatusEnum": (
             ("draft", "Draft"),
             ("awaiting_approval", "Awaiting Approval"),
             ("approved", "Approved"),
@@ -761,9 +767,14 @@ LOGGING = {
             "level": "INFO",
             "propagate": True,
         },
+        "auth": {
+            "handlers": ["auth_file", "console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
     "root": {
-        "handlers": ["console", "app_file", "mail_admins"],
+        "handlers": ["console", "app_file"],
         "level": "DEBUG",
     },
 }

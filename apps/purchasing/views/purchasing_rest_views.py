@@ -394,6 +394,15 @@ class PurchaseOrderListCreateRestView(APIView):
         serializer = PurchaseOrderListSerializer(data, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        operation_id="createPurchaseOrder",
+        request=PurchaseOrderCreateSerializer,
+        responses={
+            status.HTTP_201_CREATED: PurchaseOrderCreateResponseSerializer,
+            status.HTTP_400_BAD_REQUEST: PurchasingErrorResponseSerializer,
+            status.HTTP_500_INTERNAL_SERVER_ERROR: PurchasingErrorResponseSerializer,
+        },
+    )
     def post(self, request):
         """Create new purchase order."""
         serializer = PurchaseOrderCreateSerializer(data=request.data)
@@ -446,7 +455,7 @@ class PurchaseOrderDetailRestView(PurchaseOrderETagMixin, APIView):
         queryset = (
             PurchaseOrder.objects.all()
             .select_related("supplier")
-            .prefetch_related("po_lines")
+            .prefetch_related("po_lines__job__client")
         )
         po = get_object_or_404(queryset, id=po_id)
         serializer = PurchaseOrderDetailSerializer(po)

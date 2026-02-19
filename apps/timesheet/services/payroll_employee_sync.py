@@ -354,7 +354,7 @@ class PayrollEmployeeSyncService:
             # Working hours from Staff model - all days must be defined
             "hours_per_week": cls._get_hours_per_week(staff),
             # Hourly wage rate from Staff model
-            "wage_rate": float(staff.wage_rate) if staff.wage_rate else None,
+            "wage_rate": float(staff.base_wage_rate) if staff.base_wage_rate else None,
             # Generated demo payroll data (see demo_payroll_data.py)
             "ird_number": generate_ird_number(employee_index + 1),
             "bank_account_number": get_bank_account(employee_index + 1),

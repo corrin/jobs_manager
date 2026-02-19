@@ -42,7 +42,11 @@ class Job(models.Model):
     JOB_DIRECT_FIELDS = [
         "job_number",
         "name",
+        "description",
         "status",
+        "order_number",
+        "delivery_date",
+        "notes",
         "pricing_methodology",
         "price_cap",
         "speed_quality_tradeoff",
@@ -109,6 +113,11 @@ class Job(models.Model):
         blank=True,
     )
     delivery_date = models.DateField(null=True, blank=True)
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Set automatically when job moves to recently_completed or archived",
+    )
     status: str = models.CharField(
         max_length=30, choices=JOB_STATUS_CHOICES, default="draft"
     )  # type: ignore
@@ -311,6 +320,14 @@ class Job(models.Model):
         status_display = self.get_status_display()
         return f"[Job {self.job_number}] {self.name} ({status_display})"
 
+    def get_absolute_url(self) -> str:
+        """Front-end URL for this job."""
+        from django.conf import settings
+
+        if not getattr(settings, "FRONT_END_URL", ""):
+            raise ValueError("FRONT_END_URL is not configured")
+        return f"{settings.FRONT_END_URL.rstrip('/')}/jobs/{self.id}"
+
     def get_latest(self, kind: str) -> Optional["CostSet"]:
         """
         Returns the respective CostSet or None.
@@ -382,7 +399,7 @@ class Job(models.Model):
         ]
 
     @property
-    def completion_date(self) -> Optional[date]:
+    def last_financial_activity_date(self) -> Optional[date]:
         """Returns the latest accounting_date from actual CostLines."""
         return self.latest_actual.cost_lines.aggregate(latest=Max("accounting_date"))[
             "latest"
@@ -578,6 +595,14 @@ class Job(models.Model):
             description=f"Status changed from '{old_display}' to '{new_display}'. Job moved to new workflow stage.",
             staff=self._current_staff,
         )
+
+        # Set completed_at on first transition to a completed status
+        if new_status in ("recently_completed", "archived") and not self.completed_at:
+            self.completed_at = timezone.now()
+
+        # Clear completed_at if moved back to a non-completed status
+        if new_status not in ("recently_completed", "archived"):
+            self.completed_at = None
 
         # Special handling for rejected jobs
         if (

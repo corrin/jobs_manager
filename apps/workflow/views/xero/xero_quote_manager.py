@@ -24,6 +24,7 @@ from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import (  # Assuming format_date is needed
     format_date,
     parse_xero_api_error_message,
+    sanitize_for_xero,
 )
 
 # Import error persistence service
@@ -57,6 +58,11 @@ class XeroQuoteManager(XeroDocumentManager):
             str(self.job.quote.xero_id)
             if hasattr(self.job, "quote") and self.job.quote
             else None
+        )
+
+    def _create_history_record(self, xero_document_id, history_records):
+        self.xero_api.create_quote_history(
+            self.xero_tenant_id, xero_document_id, history_records
         )
 
     def _get_xero_update_method(self):
@@ -114,7 +120,7 @@ class XeroQuoteManager(XeroDocumentManager):
             for cl in latest_quote.cost_lines.all():
                 line_items.append(
                     LineItem(
-                        description=cl.desc,
+                        description=sanitize_for_xero(cl.desc),
                         quantity=float(cl.quantity),
                         unit_amount=float(cl.unit_rev),
                         account_code=self._get_account_code(),
@@ -136,7 +142,7 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return [
                 LineItem(
-                    description=self.job.description,
+                    description=sanitize_for_xero(self.job.description),
                     quantity=1.0,
                     unit_amount=float(total_amount),
                     account_code=self._get_account_code(),
@@ -222,6 +228,7 @@ class XeroQuoteManager(XeroDocumentManager):
                     client=self.client,
                     date=timezone.now().date(),
                     status=QuoteStatus.DRAFT,  # Set local status
+                    number=getattr(xero_quote_data, "quote_number", None),
                     total_excl_tax=Decimal(getattr(xero_quote_data, "sub_total", 0)),
                     total_incl_tax=Decimal(getattr(xero_quote_data, "total", 0)),
                     xero_last_modified=timezone.now(),  # Use current time as approximation
@@ -237,6 +244,8 @@ class XeroQuoteManager(XeroDocumentManager):
                 logger.info(
                     f"Quote {quote.id} created successfully for job {self.job.id}"
                 )
+
+                self._add_xero_history_note(str(xero_quote_id))
 
                 # Create a job event for quote creation
                 from apps.job.models import JobEvent

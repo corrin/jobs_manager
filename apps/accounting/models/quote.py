@@ -24,6 +24,7 @@ class Quote(models.Model):
     total_incl_tax = models.DecimalField(max_digits=10, decimal_places=2)
     xero_last_modified = models.DateTimeField(null=True, blank=True)
     xero_last_synced = models.DateTimeField(default=timezone.now)
+    number = models.CharField(max_length=255, null=True, blank=True)
     online_url = models.URLField(null=True, blank=True)
     raw_json = models.JSONField(null=True, blank=True)
 

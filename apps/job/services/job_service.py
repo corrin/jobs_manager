@@ -76,7 +76,7 @@ def get_job_total_value(job: Job) -> Decimal:
         return total_invoiced
 
     # No invoices - check pricing methodology
-    if job.pricing_methodology == "quote":
+    if job.pricing_methodology == "fixed_price":
         quote = job.get_latest("quote")
         if quote and quote.summary:
             return Decimal(str(quote.summary.get("rev", 0)))
@@ -91,13 +91,23 @@ def get_job_total_value(job: Job) -> Decimal:
 
 def recalculate_job_invoicing_state(job_id: str) -> None:
     try:
-        job = Job.objects.only("id", "fully_invoiced", "latest_actual").get(pk=job_id)
-
         INVOICE_VALID_STATUSES = [
             status
             for (status, _) in InvoiceStatus.choices
             if status not in ["VOIDED", "DELETED"]
         ]
+
+        has_invoices = Invoice.objects.filter(
+            job_id=job_id, status__in=INVOICE_VALID_STATUSES
+        ).exists()
+
+        if not has_invoices:
+            updated = Job.objects.filter(pk=job_id).update(fully_invoiced=False)
+            if not updated:
+                raise Job.DoesNotExist
+            return
+
+        job = Job.objects.select_related("latest_actual", "latest_quote").get(pk=job_id)
 
         total_invoiced = Decimal(
             Invoice.objects.filter(
@@ -105,12 +115,14 @@ def recalculate_job_invoicing_state(job_id: str) -> None:
             ).aggregate(total=Coalesce(Sum("total_excl_tax"), Decimal("0")))["total"]
         )
 
-        if job.latest_actual.total_revenue <= total_invoiced:
-            job.fully_invoiced = True
-            job.save(update_fields=["fully_invoiced"])
+        # Fixed-price jobs compare against quote; T&M against actuals
+        if job.pricing_methodology == "fixed_price" and job.latest_quote:
+            target_amount = Decimal(str(job.latest_quote.total_revenue))
         else:
-            job.fully_invoiced = False
-            job.save(update_fields=["fully_invoiced"])
+            target_amount = Decimal(str(job.latest_actual.total_revenue))
+
+        job.fully_invoiced = total_invoiced >= target_amount
+        job.save(update_fields=["fully_invoiced"])
     except Job.DoesNotExist:
         logger.error("Provided job id doesn't exist")
         raise

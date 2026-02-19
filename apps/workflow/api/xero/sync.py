@@ -501,6 +501,7 @@ def transform_quote(xero_quote, xero_id):
     defaults = {
         "client": client,
         "date": raw_json.get("_date"),
+        "number": getattr(xero_quote, "quote_number", None),
         "status": status,
         "total_excl_tax": Decimal(str(raw_json.get("_sub_total", 0))),
         "total_incl_tax": Decimal(str(raw_json.get("_total", 0))),
@@ -852,10 +853,31 @@ def sync_clients(xero_contacts):
                         client = matching_client
                         created = False
                     else:
-                        # ERROR: Name exists but already linked to different Xero contact
-                        raise ValueError(
-                            f"Name '{contact_name}' already linked to Xero ID {matching_client.xero_contact_id}, cannot link to {contact.contact_id}"
-                        )
+                        if contact.contact_status == "ARCHIVED":
+                            # Archived contact with same name as an existing client
+                            # linked to a different (active) Xero contact. This
+                            # commonly happens when Xero merges contacts — the old
+                            # record is archived. Create a separate archived client.
+                            logger.warning(
+                                f"Archived Xero contact '{contact_name}' ({contact.contact_id}) "
+                                f"has same name as client already linked to {matching_client.xero_contact_id}. "
+                                f"Creating separate archived client record."
+                            )
+                            client = Client.objects.create(
+                                xero_contact_id=contact.contact_id,
+                                raw_json=raw_json,
+                                xero_last_modified=timezone.now(),
+                                xero_archived=True,
+                                xero_merged_into_id=getattr(
+                                    contact, "merged_to_contact_id", None
+                                ),
+                            )
+                            created = True
+                        else:
+                            # Active contact name collision — real conflict
+                            raise ValueError(
+                                f"Name '{contact_name}' already linked to Xero ID {matching_client.xero_contact_id}, cannot link to {contact.contact_id}"
+                            )
                 else:
                     # No existing client with this name - safe to create new one
                     client = Client.objects.create(
@@ -1472,8 +1494,11 @@ def sync_job_to_xero(job):
 
     # Prepare project data
     # Include job number in name to ensure uniqueness (multiple jobs can have same name)
+    sanitized_name = job.name.replace("<", "(").replace(">", ")") if job.name else ""
     project_name = (
-        f"Job {job.job_number}: {job.name}" if job.name else f"Job {job.job_number}"
+        f"Job {job.job_number}: {sanitized_name}"
+        if sanitized_name
+        else f"Job {job.job_number}"
     )
     project_data = {
         "name": project_name,

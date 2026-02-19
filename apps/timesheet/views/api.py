@@ -340,7 +340,10 @@ class DailyTimesheetAPIView(APIView):
                 is_weekend = target_date.weekday() >= 5
 
                 # Adjust scheduled hours based on weekend feature flag
-                scheduled_hours = 0.0 if is_weekend else 8.0
+                if is_weekend and not weekend_enabled:
+                    scheduled_hours = 0.0
+                else:
+                    scheduled_hours = float(staff.get_scheduled_hours(target_date))
 
                 initials = f"{staff.first_name[0]}{staff.last_name[0]}".upper()
                 staff_data = {

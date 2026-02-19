@@ -33,6 +33,7 @@ from apps.job.serializers.job_serializer import (
     ModernTimesheetJobGetResponseSerializer,
 )
 from apps.workflow.models import XeroPayItem
+from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
 
@@ -251,6 +252,7 @@ class ModernTimesheetEntryView(APIView):
                     "total_cost": float(total_cost),
                     "total_revenue": float(total_revenue),
                     "entry_count": len(cost_lines),
+                    "scheduled_hours": float(staff.get_scheduled_hours(parsed_date)),
                 },
             }
 
@@ -353,6 +355,11 @@ class ModernTimesheetEntryView(APIView):
             # Get rate multiplier from the selected XeroPayItem
             xero_pay_item = XeroPayItem.objects.get(id=xero_pay_item_id)
             rate_multiplier = xero_pay_item.multiplier
+            if rate_multiplier is None:
+                raise ValueError(
+                    f"XeroPayItem '{xero_pay_item.name}' has NULL multiplier — "
+                    f"re-run Xero pay item sync to fix"
+                )
 
             # Get rates from staff and job
             wage_rate = hourly_rate if hourly_rate else staff.wage_rate
@@ -423,6 +430,7 @@ class ModernTimesheetEntryView(APIView):
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
+            persist_app_error(e)
             logger.error(f"Error creating timesheet entry: {e}")
             error_response = {"error": "Failed to create timesheet entry"}
             error_serializer = ModernTimesheetErrorResponseSerializer(

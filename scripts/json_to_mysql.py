@@ -81,6 +81,7 @@ class JSONToMySQLConverter:
             "accounts.staff": "workflow_staff",
             "client.client": "workflow_client",
             "client.clientcontact": "client_contact",
+            "client.supplierpickupaddress": "client_supplier_pickup_address",
             "quoting.supplierpricelist": "quoting_supplierpricelist",
             "quoting.supplierproduct": "quoting_supplierproduct",
             "quoting.scrapejob": "quoting_scrapejob",
@@ -107,6 +108,7 @@ class JSONToMySQLConverter:
                 "latest_estimate": "latest_estimate_id",
                 "latest_quote": "latest_quote_id",
                 "latest_actual": "latest_actual_id",
+                "default_xero_pay_item": "default_xero_pay_item_id",
             },
             "workflow_jobpricing": {
                 "job": "job_id",
@@ -142,6 +144,9 @@ class JSONToMySQLConverter:
             "client_contact": {
                 "client": "client_id",
             },
+            "client_supplier_pickup_address": {
+                "client": "client_id",
+            },
             "quoting_supplierproduct": {
                 "price_list": "price_list_id",
                 "supplier": "supplier_id",
@@ -158,10 +163,13 @@ class JSONToMySQLConverter:
             },
             "job_costline": {
                 "cost_set": "cost_set_id",
+                "xero_pay_item": "xero_pay_item_id",
             },
             "workflow_purchaseorder": {
                 "supplier": "supplier_id",
                 "job": "job_id",
+                "created_by": "created_by_id",
+                "pickup_address": "pickup_address_id",
             },
             "workflow_purchaseorderline": {
                 "purchase_order": "purchase_order_id",

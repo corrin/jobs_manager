@@ -144,6 +144,7 @@ class KanbanService:
             "created_by_id": str(job.created_by.id) if job.created_by else None,
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "priority": job.priority,
+            "shop_job": job.shop_job,
             "badge_label": badge_info["label"],
             "badge_color": badge_info["color_class"],
         }
@@ -359,6 +360,8 @@ class KanbanService:
                 | Q(job_number__icontains=q)
                 | Q(description__icontains=q)
                 | Q(client__name__icontains=q)
+                | Q(invoices__number__icontains=q)
+                | Q(quote__number__icontains=q)
             )
 
         # Apply filters with early returns for invalid data
@@ -412,7 +415,7 @@ class KanbanService:
             case "false":
                 jobs_query = jobs_query.filter(rejected_flag=False)
 
-        return jobs_query.order_by("-created_at")
+        return jobs_query.distinct().order_by("-created_at")
 
     @staticmethod
     def get_jobs_by_kanban_column(
@@ -484,6 +487,7 @@ class KanbanService:
                 "jobs": formatted_jobs,
                 "total": total_count,
                 "filtered_count": len(formatted_jobs),
+                "has_more": total_count > len(formatted_jobs),
             }
 
         except Exception as e:
