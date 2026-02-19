@@ -24,6 +24,7 @@ from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import (  # Assuming format_date is needed
     format_date,
     parse_xero_api_error_message,
+    sanitize_for_xero,
 )
 
 # Import error persistence service
@@ -119,7 +120,7 @@ class XeroQuoteManager(XeroDocumentManager):
             for cl in latest_quote.cost_lines.all():
                 line_items.append(
                     LineItem(
-                        description=cl.desc,
+                        description=sanitize_for_xero(cl.desc),
                         quantity=float(cl.quantity),
                         unit_amount=float(cl.unit_rev),
                         account_code=self._get_account_code(),
@@ -141,7 +142,7 @@ class XeroQuoteManager(XeroDocumentManager):
 
             return [
                 LineItem(
-                    description=self.job.description,
+                    description=sanitize_for_xero(self.job.description),
                     quantity=1.0,
                     unit_amount=float(total_amount),
                     account_code=self._get_account_code(),

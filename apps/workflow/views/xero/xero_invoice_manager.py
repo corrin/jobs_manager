@@ -28,6 +28,7 @@ from .xero_base_manager import XeroDocumentManager
 from .xero_helpers import (  # Assuming format_date is needed
     format_date,
     parse_xero_api_error_message,
+    sanitize_for_xero,
 )
 
 logger = logging.getLogger("xero")
@@ -168,9 +169,9 @@ class XeroInvoiceManager(XeroDocumentManager):
 
         description = f"Job: {self.job.job_number}"
         if self.job.description:
-            description += f" - {self.job.description}"
+            description += f" - {sanitize_for_xero(self.job.description)}"
         else:
-            description += f" - {self.job.name}"
+            description += f" - {sanitize_for_xero(self.job.name)}"
 
         return [
             LineItem(

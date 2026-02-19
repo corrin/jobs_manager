@@ -5,6 +5,11 @@ from datetime import date
 from typing import Any, Dict, List, Optional
 
 
+def sanitize_for_xero(text: str) -> str:
+    """Replace angle braces with parentheses to avoid breaking Xero's XML API."""
+    return text.replace("<", "(").replace(">", ")")
+
+
 def clean_payload(payload):
     """Remove null fields from payload."""
     if isinstance(payload, dict):
