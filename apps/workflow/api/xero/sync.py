@@ -853,10 +853,31 @@ def sync_clients(xero_contacts):
                         client = matching_client
                         created = False
                     else:
-                        # ERROR: Name exists but already linked to different Xero contact
-                        raise ValueError(
-                            f"Name '{contact_name}' already linked to Xero ID {matching_client.xero_contact_id}, cannot link to {contact.contact_id}"
-                        )
+                        if contact.contact_status == "ARCHIVED":
+                            # Archived contact with same name as an existing client
+                            # linked to a different (active) Xero contact. This
+                            # commonly happens when Xero merges contacts — the old
+                            # record is archived. Create a separate archived client.
+                            logger.warning(
+                                f"Archived Xero contact '{contact_name}' ({contact.contact_id}) "
+                                f"has same name as client already linked to {matching_client.xero_contact_id}. "
+                                f"Creating separate archived client record."
+                            )
+                            client = Client.objects.create(
+                                xero_contact_id=contact.contact_id,
+                                raw_json=raw_json,
+                                xero_last_modified=timezone.now(),
+                                xero_archived=True,
+                                xero_merged_into_id=getattr(
+                                    contact, "merged_to_contact_id", None
+                                ),
+                            )
+                            created = True
+                        else:
+                            # Active contact name collision — real conflict
+                            raise ValueError(
+                                f"Name '{contact_name}' already linked to Xero ID {matching_client.xero_contact_id}, cannot link to {contact.contact_id}"
+                            )
                 else:
                     # No existing client with this name - safe to create new one
                     client = Client.objects.create(
