@@ -104,12 +104,18 @@ class KanbanJobSerializer(serializers.Serializer):
     created_at = serializers.CharField(
         allow_null=True
     )  # Formatted as string by service
+    delivery_date = serializers.CharField(allow_null=True)
 
     # Priority
     priority = serializers.FloatField()
 
     # Shop job flag
     shop_job = serializers.BooleanField()
+
+    # Budget status
+    over_budget = serializers.BooleanField()
+    quote_revenue = serializers.FloatField()
+    time_and_materials_revenue = serializers.FloatField()
 
 
 class FetchAllJobsResponseSerializer(serializers.Serializer):
@@ -186,12 +192,18 @@ class KanbanColumnJobSerializer(serializers.Serializer):
 
     # Dates
     created_at = serializers.CharField(allow_null=True)
+    delivery_date = serializers.CharField(allow_null=True)
 
     # Priority
     priority = serializers.FloatField()
 
     # Shop job flag
     shop_job = serializers.BooleanField()
+
+    # Budget status
+    over_budget = serializers.BooleanField()
+    quote_revenue = serializers.FloatField()
+    time_and_materials_revenue = serializers.FloatField()
 
     # Badge information (specific to column view)
     badge_label = serializers.CharField()
