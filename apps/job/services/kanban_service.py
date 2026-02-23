@@ -120,6 +120,15 @@ class KanbanService:
         # Get badge info
         badge_info = KanbanCategorizationService.get_badge_info(job.status)
 
+        # Precomputed revenue totals from CostSet summaries
+        if not job.latest_quote_id:
+            raise ValueError(f"Job #{job.job_number} has no quote CostSet")
+        if not job.latest_actual_id:
+            raise ValueError(f"Job #{job.job_number} has no actual CostSet")
+        quote_revenue = job.latest_quote.summary["rev"]
+        time_and_materials_revenue = job.latest_actual.summary["rev"]
+        over_budget = quote_revenue > 0 and time_and_materials_revenue > quote_revenue
+
         return {
             "id": str(job.id),
             "name": job.name,
@@ -143,8 +152,14 @@ class KanbanService:
             "speed_quality_tradeoff": job.speed_quality_tradeoff,
             "created_by_id": str(job.created_by.id) if job.created_by else None,
             "created_at": job.created_at.isoformat() if job.created_at else None,
+            "delivery_date": (
+                job.delivery_date.isoformat() if job.delivery_date else None
+            ),
             "priority": job.priority,
             "shop_job": job.shop_job,
+            "over_budget": over_budget,
+            "quote_revenue": quote_revenue,
+            "time_and_materials_revenue": time_and_materials_revenue,
             "badge_label": badge_info["label"],
             "badge_color": badge_info["color_class"],
         }
@@ -452,7 +467,7 @@ class KanbanService:
             valid_statuses = [column.status_key]  # Only the column's main status
             jobs_query = (
                 Job.objects.filter(status__in=valid_statuses)
-                .select_related("client")
+                .select_related("client", "latest_quote", "latest_actual")
                 .prefetch_related("people")
             )
             jobs_query = KanbanService.filter_kanban_jobs(jobs_query)
