@@ -13,6 +13,10 @@ from apps.accounting.views.staff_performance_views import (
     StaffPerformanceTemplateView,
 )
 from apps.workflow.api.reports import CompanyProfitAndLossReport, JobMovementMetricsView
+from apps.workflow.api.reports.payroll_reconciliation import (
+    PayrollDateRangeView,
+    PayrollReconciliationReport,
+)
 
 app_name = "accounting"
 
@@ -32,6 +36,16 @@ urlpatterns = [
         "api/reports/job-movement/",
         JobMovementMetricsView.as_view(),
         name="api_job_movement",
+    ),
+    path(
+        "api/reports/payroll-date-range/",
+        PayrollDateRangeView.as_view(),
+        name="api_payroll_date_range",
+    ),
+    path(
+        "api/reports/payroll-reconciliation/",
+        PayrollReconciliationReport.as_view(),
+        name="api_payroll_reconciliation",
     ),
     path(
         "api/reports/profit-and-loss/",
