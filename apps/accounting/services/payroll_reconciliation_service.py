@@ -39,11 +39,19 @@ class PayrollReconciliationService:
             staff_map = _build_staff_xero_map()
 
             # --- Discover Xero weeks ---
-            pay_runs = XeroPayRun.objects.filter(
-                pay_run_status="Posted",
-                period_start_date__gte=start_date,
-                period_end_date__lte=end_date,
-            ).order_by("period_start_date")
+            # Filter by overlap: Xero periods start on Sunday while JM
+            # weeks are Monday-based, so requiring period_start >= start
+            # would miss the first week when the caller passes an aligned
+            # Monday.
+            pay_runs = (
+                XeroPayRun.objects.filter(
+                    pay_run_status="Posted",
+                    period_end_date__gte=start_date,
+                    period_start_date__lte=end_date,
+                )
+                .prefetch_related("pay_slips")
+                .order_by("period_start_date")
+            )
 
             xero_weeks: dict[date, list[XeroPayRun]] = defaultdict(list)
             for pr in pay_runs:
