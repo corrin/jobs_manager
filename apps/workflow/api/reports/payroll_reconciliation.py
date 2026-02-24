@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.accounting.serializers.core import StandardErrorSerializer
 from apps.accounting.serializers.payroll_reconciliation_serializers import (
+    PayrollDateRangeResponseSerializer,
     PayrollReconciliationResponseSerializer,
 )
 from apps.accounting.services.payroll_reconciliation_service import (
@@ -124,3 +125,70 @@ class PayrollReconciliationReport(APIView):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 details={"error_id": str(app_error.id)},
             )
+
+
+class PayrollDateRangeView(APIView):
+    """Snap arbitrary dates to pay-period-aligned week boundaries."""
+
+    serializer_class = PayrollDateRangeResponseSerializer
+
+    @extend_schema(
+        summary="Get pay-period aligned date range",
+        description=(
+            "Given arbitrary start/end dates, returns the Monday on or before "
+            "start_date and the Sunday on or after end_date."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Start date to align (YYYY-MM-DD).",
+            ),
+            OpenApiParameter(
+                name="end_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="End date to align (YYYY-MM-DD).",
+            ),
+        ],
+        responses={
+            200: PayrollDateRangeResponseSerializer,
+            400: StandardErrorSerializer,
+        },
+    )
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+
+        if not start_date_str or not end_date_str:
+            return _build_error_response(
+                message="start_date and end_date query params required (YYYY-MM-DD)",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return _build_error_response(
+                message="Invalid date format, use YYYY-MM-DD",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if start_date > end_date:
+            return _build_error_response(
+                message="start_date must be before end_date",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        data = PayrollReconciliationService.get_aligned_date_range(
+            start_date=start_date, end_date=end_date
+        )
+
+        response_serializer = PayrollDateRangeResponseSerializer(data=data)
+        response_serializer.is_valid(raise_exception=True)
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)

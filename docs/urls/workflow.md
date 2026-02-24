@@ -17,6 +17,7 @@
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
 | `/api/reports/job-movement/` | `JobMovementMetricsView` | `accounting:api_job_movement` | API endpoint for job movement and conversion metrics. |
+| `/api/reports/payroll-date-range/` | `PayrollDateRangeView` | `accounting:api_payroll_date_range` | Snap arbitrary dates to pay-period-aligned week boundaries. |
 | `/api/reports/payroll-reconciliation/` | `PayrollReconciliationReport` | `accounting:api_payroll_reconciliation` | Weekly payroll reconciliation: Xero pay runs vs JM time CostLines. |
 | `/api/reports/profit-and-loss/` | `CompanyProfitAndLossReport` | `accounting:api_profit_and_loss` | No description available |
 

@@ -28,6 +28,7 @@ try:
             StandardErrorSerializer,
         )
         from .payroll_reconciliation_serializers import (
+            PayrollDateRangeResponseSerializer,
             PayrollGrandTotalsSerializer,
             PayrollHeatmapRowSerializer,
             PayrollHeatmapSerializer,
@@ -55,6 +56,7 @@ __all__ = [
     "KPIMonthlyTotalsSerializer",
     "KPIProfitBreakdownSerializer",
     "KPIThresholdsSerializer",
+    "PayrollDateRangeResponseSerializer",
     "PayrollGrandTotalsSerializer",
     "PayrollHeatmapRowSerializer",
     "PayrollHeatmapSerializer",

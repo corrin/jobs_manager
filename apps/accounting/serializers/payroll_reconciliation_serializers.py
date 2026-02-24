@@ -38,9 +38,9 @@ class PayrollWeekSerializer(serializers.Serializer[Any]):
     """One week of reconciliation data (pay run vs JM CostLines)."""
 
     week_start = serializers.DateField()
-    xero_period_start = serializers.DateField()
-    xero_period_end = serializers.DateField()
-    payment_date = serializers.DateField()
+    xero_period_start = serializers.DateField(allow_null=True)
+    xero_period_end = serializers.DateField(allow_null=True)
+    payment_date = serializers.DateField(allow_null=True)
     totals = PayrollWeekTotalsSerializer()
     mismatch_count = serializers.IntegerField()
     staff = PayrollStaffWeekSerializer(many=True)
@@ -92,3 +92,10 @@ class PayrollReconciliationResponseSerializer(serializers.Serializer[Any]):
     staff_summaries = PayrollStaffSummarySerializer(many=True)
     heatmap = PayrollHeatmapSerializer()
     grand_totals = PayrollGrandTotalsSerializer()
+
+
+class PayrollDateRangeResponseSerializer(serializers.Serializer[Any]):
+    """Response for the pay-period date alignment endpoint."""
+
+    aligned_start = serializers.DateField()
+    aligned_end = serializers.DateField()

@@ -24,6 +24,10 @@ class PayrollReconciliationService:
     def get_reconciliation_data(start_date: date, end_date: date) -> dict[str, Any]:
         """Build the full payroll reconciliation report.
 
+        Discovers weeks from both Xero pay runs and JM CostLines, then
+        cross-compares.  Weeks that exist only on one side are included
+        with the missing side showing zeros / null dates.
+
         Args:
             start_date: Inclusive start of the reporting window.
             end_date: Inclusive end of the reporting window.
@@ -33,13 +37,44 @@ class PayrollReconciliationService:
         """
         try:
             staff_map = _build_staff_xero_map()
+
+            # --- Discover Xero weeks ---
             pay_runs = XeroPayRun.objects.filter(
                 pay_run_status="Posted",
                 period_start_date__gte=start_date,
                 period_end_date__lte=end_date,
             ).order_by("period_start_date")
 
-            weeks = [_reconcile_week(pr, staff_map) for pr in pay_runs]
+            xero_weeks: dict[date, list[XeroPayRun]] = defaultdict(list)
+            for pr in pay_runs:
+                monday = _get_monday(pr.period_start_date + timedelta(days=1))
+                xero_weeks[monday].append(pr)
+
+            # --- Discover JM weeks ---
+            jm_time_dates = (
+                CostLine.objects.filter(
+                    kind="time",
+                    cost_set__kind="actual",
+                    accounting_date__gte=start_date,
+                    accounting_date__lte=end_date,
+                )
+                .values_list("accounting_date", flat=True)
+                .distinct()
+            )
+            jm_mondays: set[date] = {_get_monday(d) for d in jm_time_dates}
+
+            # --- Union ---
+            all_mondays = sorted(set(xero_weeks.keys()) | jm_mondays)
+
+            # --- Reconcile each Monday ---
+            weeks = [
+                _reconcile_week(
+                    monday,
+                    xero_weeks.get(monday),
+                    staff_map,
+                )
+                for monday in all_mondays
+            ]
 
             grand_xero = sum(w["totals"]["xero_gross"] for w in weeks)
             grand_jm = sum(w["totals"]["jm_cost"] for w in weeks)
@@ -65,6 +100,20 @@ class PayrollReconciliationService:
                 additional_context={"operation": "payroll_reconciliation"},
             )
 
+    @staticmethod
+    def get_aligned_date_range(start_date: date, end_date: date) -> dict[str, date]:
+        """Snap arbitrary dates to pay-period-aligned week boundaries.
+
+        Returns the Monday on or before ``start_date`` and the Sunday on
+        or after ``end_date``.
+        """
+        aligned_start = _get_monday(start_date)
+        aligned_end = _get_monday(end_date) + timedelta(days=6)
+        return {
+            "aligned_start": aligned_start,
+            "aligned_end": aligned_end,
+        }
+
 
 # ---------------------------------------------------------------------------
 # Private helpers
@@ -86,21 +135,27 @@ def _build_staff_xero_map() -> dict[str, Staff]:
 
 
 def _get_xero_week_data(
-    pay_run: XeroPayRun, staff_map: dict[str, Staff]
+    pay_runs: list[XeroPayRun], staff_map: dict[str, Staff]
 ) -> dict[str, dict[str, Any]]:
-    """Xero payslip data for one pay run, keyed by staff display name."""
+    """Xero payslip data summed across all pay runs for one week."""
     result: dict[str, dict[str, Any]] = {}
-    for slip in pay_run.pay_slips.all():
-        emp_id = str(slip.xero_employee_id)
-        staff = staff_map.get(emp_id)
-        name = staff.get_display_name() if staff else slip.employee_name
-        result[name] = {
-            "xero_name": slip.employee_name,
-            "hours": float(slip.timesheet_hours + slip.leave_hours),
-            "timesheet_hours": float(slip.timesheet_hours),
-            "leave_hours": float(slip.leave_hours),
-            "gross": float(slip.gross_earnings),
-        }
+    for pay_run in pay_runs:
+        for slip in pay_run.pay_slips.all():
+            emp_id = str(slip.xero_employee_id)
+            staff = staff_map.get(emp_id)
+            name = staff.get_display_name() if staff else slip.employee_name
+            if name not in result:
+                result[name] = {
+                    "xero_name": slip.employee_name,
+                    "hours": 0.0,
+                    "timesheet_hours": 0.0,
+                    "leave_hours": 0.0,
+                    "gross": 0.0,
+                }
+            result[name]["hours"] += float(slip.timesheet_hours + slip.leave_hours)
+            result[name]["timesheet_hours"] += float(slip.timesheet_hours)
+            result[name]["leave_hours"] += float(slip.leave_hours)
+            result[name]["gross"] += float(slip.gross_earnings)
     return result
 
 
@@ -136,14 +191,29 @@ def _get_jm_week_data(week_start: date, week_end: date) -> dict[str, dict[str, f
     }
 
 
-def _reconcile_week(pay_run: XeroPayRun, staff_map: dict[str, Staff]) -> dict[str, Any]:
-    """Reconcile one pay run against JM data for the corresponding week."""
-    xero_start = pay_run.period_start_date
-    xero_end = pay_run.period_end_date
-    jm_week_start = _get_monday(xero_start + timedelta(days=1))
-    jm_week_end = jm_week_start + timedelta(days=6)
+def _reconcile_week(
+    monday: date,
+    xero_pay_runs: list[XeroPayRun] | None,
+    staff_map: dict[str, Staff],
+) -> dict[str, Any]:
+    """Reconcile one week.  Xero pay runs may be None for JM-only weeks."""
+    jm_week_start = monday
+    jm_week_end = monday + timedelta(days=6)
 
-    xero_data = _get_xero_week_data(pay_run, staff_map)
+    xero_data: dict[str, dict[str, Any]] = {}
+    xero_period_start: str | None = None
+    xero_period_end: str | None = None
+    payment_date: str | None = None
+
+    if xero_pay_runs:
+        xero_data = _get_xero_week_data(xero_pay_runs, staff_map)
+        # Use the earliest period start / latest period end across pay runs
+        xero_period_start = min(
+            pr.period_start_date for pr in xero_pay_runs
+        ).isoformat()
+        xero_period_end = max(pr.period_end_date for pr in xero_pay_runs).isoformat()
+        payment_date = max(pr.payment_date for pr in xero_pay_runs).isoformat()
+
     jm_data = _get_jm_week_data(jm_week_start, jm_week_end)
 
     all_names = sorted(set(xero_data.keys()) | set(jm_data.keys()))
@@ -209,9 +279,9 @@ def _reconcile_week(pay_run: XeroPayRun, staff_map: dict[str, Staff]) -> dict[st
 
     return {
         "week_start": jm_week_start.isoformat(),
-        "xero_period_start": xero_start.isoformat(),
-        "xero_period_end": xero_end.isoformat(),
-        "payment_date": pay_run.payment_date.isoformat(),
+        "xero_period_start": xero_period_start,
+        "xero_period_end": xero_period_end,
+        "payment_date": payment_date,
         "totals": {
             "xero_gross": total_xero_gross,
             "jm_cost": total_jm_cost,
