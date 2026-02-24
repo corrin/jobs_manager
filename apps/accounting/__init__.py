@@ -3,63 +3,8 @@
 from .apps import AccountingConfig
 from .enums import InvoiceStatus, QuoteStatus
 
-# Conditional imports (only when Django is ready)
-try:
-    from django.apps import apps
-
-    if apps.ready:
-        from .serializers import (
-            JobAgingFinancialDataSerializer,
-            JobAgingJobDataSerializer,
-            JobAgingQuerySerializer,
-            JobAgingResponseSerializer,
-            JobAgingTimingDataSerializer,
-            KPICalendarDataSerializer,
-            KPICalendarErrorResponseSerializer,
-            KPIDayDataSerializer,
-            KPIDetailsSerializer,
-            KPIJobBreakdownSerializer,
-            KPIMonthlyTotalsSerializer,
-            KPIProfitBreakdownSerializer,
-            KPIThresholdsSerializer,
-            StaffPerformanceErrorResponseSerializer,
-            StaffPerformanceJobBreakdownSerializer,
-            StaffPerformancePeriodSummarySerializer,
-            StaffPerformanceResponseSerializer,
-            StaffPerformanceStaffDataSerializer,
-            StaffPerformanceTeamAveragesSerializer,
-            StandardErrorSerializer,
-        )
-        from .services import JobAgingService, KPIService, StaffPerformanceService
-except (ImportError, RuntimeError):
-    # Django not ready or circular import, skip conditional imports
-    pass
-
 __all__ = [
     "AccountingConfig",
     "InvoiceStatus",
-    "JobAgingFinancialDataSerializer",
-    "JobAgingJobDataSerializer",
-    "JobAgingQuerySerializer",
-    "JobAgingResponseSerializer",
-    "JobAgingService",
-    "JobAgingTimingDataSerializer",
-    "KPICalendarDataSerializer",
-    "KPICalendarErrorResponseSerializer",
-    "KPIDayDataSerializer",
-    "KPIDetailsSerializer",
-    "KPIJobBreakdownSerializer",
-    "KPIMonthlyTotalsSerializer",
-    "KPIProfitBreakdownSerializer",
-    "KPIService",
-    "KPIThresholdsSerializer",
     "QuoteStatus",
-    "StaffPerformanceErrorResponseSerializer",
-    "StaffPerformanceJobBreakdownSerializer",
-    "StaffPerformancePeriodSummarySerializer",
-    "StaffPerformanceResponseSerializer",
-    "StaffPerformanceService",
-    "StaffPerformanceStaffDataSerializer",
-    "StaffPerformanceTeamAveragesSerializer",
-    "StandardErrorSerializer",
 ]

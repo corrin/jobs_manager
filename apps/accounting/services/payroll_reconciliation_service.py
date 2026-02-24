@@ -1,0 +1,297 @@
+import logging
+from collections import defaultdict
+from datetime import date, timedelta
+from decimal import Decimal
+from typing import Any
+
+from apps.accounts.models import Staff
+from apps.job.models import CostLine
+from apps.workflow.exceptions import AlreadyLoggedException
+from apps.workflow.models.xero_payroll import XeroPayRun
+
+from .core import _persist_and_raise
+
+logger = logging.getLogger(__name__)
+
+ZERO = Decimal("0")
+THRESHOLD = Decimal("0.50")
+
+
+class PayrollReconciliationService:
+    """Reconciles Xero pay runs against JM CostLine time entries."""
+
+    @staticmethod
+    def get_reconciliation_data(start_date: date, end_date: date) -> dict[str, Any]:
+        """Build the full payroll reconciliation report.
+
+        Args:
+            start_date: Inclusive start of the reporting window.
+            end_date: Inclusive end of the reporting window.
+
+        Returns:
+            Dict matching PayrollReconciliationResponseSerializer shape.
+        """
+        try:
+            staff_map = _build_staff_xero_map()
+            pay_runs = XeroPayRun.objects.filter(
+                pay_run_status="Posted",
+                period_start_date__gte=start_date,
+                period_end_date__lte=end_date,
+            ).order_by("period_start_date")
+
+            weeks = [_reconcile_week(pr, staff_map) for pr in pay_runs]
+
+            grand_xero = sum(w["totals"]["xero_gross"] for w in weeks)
+            grand_jm = sum(w["totals"]["jm_cost"] for w in weeks)
+            grand_diff = grand_jm - grand_xero
+            grand_pct = (grand_diff / grand_xero * 100) if grand_xero else 0.0
+
+            return {
+                "weeks": weeks,
+                "staff_summaries": _build_staff_summaries(weeks),
+                "heatmap": _build_heatmap(weeks),
+                "grand_totals": {
+                    "xero_gross": round(grand_xero, 2),
+                    "jm_cost": round(grand_jm, 2),
+                    "diff": round(grand_diff, 2),
+                    "diff_pct": round(grand_pct, 1),
+                },
+            }
+        except AlreadyLoggedException:
+            raise
+        except Exception as exc:
+            _persist_and_raise(
+                exc,
+                additional_context={"operation": "payroll_reconciliation"},
+            )
+
+
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
+
+
+def _get_monday(d: date) -> date:
+    return d - timedelta(days=d.weekday())
+
+
+def _build_staff_xero_map() -> dict[str, Staff]:
+    """Map xero_employee_id (str) -> Staff object."""
+    return {
+        s.xero_user_id: s
+        for s in Staff.objects.exclude(xero_user_id__isnull=True).exclude(
+            xero_user_id=""
+        )
+    }
+
+
+def _get_xero_week_data(
+    pay_run: XeroPayRun, staff_map: dict[str, Staff]
+) -> dict[str, dict[str, Any]]:
+    """Xero payslip data for one pay run, keyed by staff display name."""
+    result: dict[str, dict[str, Any]] = {}
+    for slip in pay_run.pay_slips.all():
+        emp_id = str(slip.xero_employee_id)
+        staff = staff_map.get(emp_id)
+        name = staff.get_display_name() if staff else slip.employee_name
+        result[name] = {
+            "xero_name": slip.employee_name,
+            "hours": float(slip.timesheet_hours + slip.leave_hours),
+            "timesheet_hours": float(slip.timesheet_hours),
+            "leave_hours": float(slip.leave_hours),
+            "gross": float(slip.gross_earnings),
+        }
+    return result
+
+
+def _get_jm_week_data(week_start: date, week_end: date) -> dict[str, dict[str, float]]:
+    """JM CostLine time data for one week, keyed by staff display name."""
+    lines = CostLine.objects.filter(
+        kind="time",
+        cost_set__kind="actual",
+        accounting_date__gte=week_start,
+        accounting_date__lte=week_end,
+    )
+
+    staff_by_id = {str(s.id): s for s in Staff.objects.all()}
+
+    by_name: dict[str, dict[str, Decimal]] = defaultdict(
+        lambda: {"hours": ZERO, "cost": ZERO}
+    )
+    for line in lines:
+        meta = line.meta or {}
+        staff_id = meta.get("staff_id")
+        if not staff_id:
+            continue
+        staff = staff_by_id.get(staff_id)
+        if not staff:
+            continue
+        name = staff.get_display_name()
+        by_name[name]["hours"] += line.quantity or ZERO
+        by_name[name]["cost"] += line.total_cost or ZERO
+
+    return {
+        k: {"hours": float(v["hours"]), "cost": float(v["cost"])}
+        for k, v in by_name.items()
+    }
+
+
+def _reconcile_week(pay_run: XeroPayRun, staff_map: dict[str, Staff]) -> dict[str, Any]:
+    """Reconcile one pay run against JM data for the corresponding week."""
+    xero_start = pay_run.period_start_date
+    xero_end = pay_run.period_end_date
+    jm_week_start = _get_monday(xero_start + timedelta(days=1))
+    jm_week_end = jm_week_start + timedelta(days=6)
+
+    xero_data = _get_xero_week_data(pay_run, staff_map)
+    jm_data = _get_jm_week_data(jm_week_start, jm_week_end)
+
+    all_names = sorted(set(xero_data.keys()) | set(jm_data.keys()))
+
+    staff_rows: list[dict[str, Any]] = []
+    total_xero_gross = 0.0
+    total_jm_cost = 0.0
+    total_xero_hours = 0.0
+    total_jm_hours = 0.0
+    mismatch_count = 0
+
+    for name in all_names:
+        xero = xero_data.get(name, {})
+        jm = jm_data.get(name, {})
+
+        xero_gross = xero.get("gross", 0.0)
+        jm_cost = jm.get("cost", 0.0)
+        xero_hrs = xero.get("hours", 0.0)
+        jm_hrs = jm.get("hours", 0.0)
+        cost_diff = jm_cost - xero_gross
+        hrs_diff = jm_hrs - xero_hrs
+
+        xero_rate = xero_gross / xero_hrs if xero_hrs else 0.0
+        jm_rate = jm_cost / jm_hrs if jm_hrs else 0.0
+        hours_cost_impact = hrs_diff * xero_rate
+        rate_cost_impact = cost_diff - hours_cost_impact
+
+        total_xero_gross += xero_gross
+        total_jm_cost += jm_cost
+        total_xero_hours += xero_hrs
+        total_jm_hours += jm_hrs
+
+        if name not in xero_data:
+            row_status = "jm_only"
+        elif name not in jm_data:
+            row_status = "xero_only"
+        elif abs(cost_diff) > float(THRESHOLD):
+            row_status = "mismatch"
+        else:
+            row_status = "ok"
+
+        if row_status != "ok":
+            mismatch_count += 1
+
+        staff_rows.append(
+            {
+                "name": name,
+                "xero_hours": xero_hrs,
+                "xero_timesheet_hours": xero.get("timesheet_hours", 0.0),
+                "xero_leave_hours": xero.get("leave_hours", 0.0),
+                "xero_gross": xero_gross,
+                "xero_rate": round(xero_rate, 2),
+                "jm_hours": jm_hrs,
+                "jm_cost": jm_cost,
+                "jm_rate": round(jm_rate, 2),
+                "hours_diff": hrs_diff,
+                "cost_diff": cost_diff,
+                "hours_cost_impact": round(hours_cost_impact, 2),
+                "rate_cost_impact": round(rate_cost_impact, 2),
+                "status": row_status,
+            }
+        )
+
+    return {
+        "week_start": jm_week_start.isoformat(),
+        "xero_period_start": xero_start.isoformat(),
+        "xero_period_end": xero_end.isoformat(),
+        "payment_date": pay_run.payment_date.isoformat(),
+        "totals": {
+            "xero_gross": total_xero_gross,
+            "jm_cost": total_jm_cost,
+            "diff": total_jm_cost - total_xero_gross,
+            "xero_hours": total_xero_hours,
+            "jm_hours": total_jm_hours,
+        },
+        "mismatch_count": mismatch_count,
+        "staff": staff_rows,
+    }
+
+
+def _build_staff_summaries(weeks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Aggregate per-staff totals across all weeks."""
+    by_name: dict[str, dict[str, float]] = defaultdict(
+        lambda: {
+            "xero_hours": 0.0,
+            "xero_gross": 0.0,
+            "jm_hours": 0.0,
+            "jm_cost": 0.0,
+            "hours_cost_impact": 0.0,
+            "rate_cost_impact": 0.0,
+            "weeks_with_mismatch": 0,
+            "weeks_present": 0,
+        }
+    )
+
+    for week in weeks:
+        for row in week["staff"]:
+            name = row["name"]
+            s = by_name[name]
+            s["xero_hours"] += row["xero_hours"]
+            s["xero_gross"] += row["xero_gross"]
+            s["jm_hours"] += row["jm_hours"]
+            s["jm_cost"] += row["jm_cost"]
+            s["hours_cost_impact"] += row["hours_cost_impact"]
+            s["rate_cost_impact"] += row["rate_cost_impact"]
+            s["weeks_present"] += 1
+            if row["status"] != "ok":
+                s["weeks_with_mismatch"] += 1
+
+    result = []
+    for name in sorted(by_name):
+        s = by_name[name]
+        cost_diff = s["jm_cost"] - s["xero_gross"]
+        hours_diff = s["jm_hours"] - s["xero_hours"]
+        result.append(
+            {
+                "name": name,
+                "xero_hours": round(s["xero_hours"], 2),
+                "xero_gross": round(s["xero_gross"], 2),
+                "jm_hours": round(s["jm_hours"], 2),
+                "jm_cost": round(s["jm_cost"], 2),
+                "hours_diff": round(hours_diff, 2),
+                "cost_diff": round(cost_diff, 2),
+                "hours_cost_impact": round(s["hours_cost_impact"], 2),
+                "rate_cost_impact": round(s["rate_cost_impact"], 2),
+                "weeks_present": s["weeks_present"],
+                "weeks_with_mismatch": s["weeks_with_mismatch"],
+            }
+        )
+
+    return result
+
+
+def _build_heatmap(weeks: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build week x staff grid of cost differences for heatmap display."""
+    all_names: set[str] = set()
+    for week in weeks:
+        for row in week["staff"]:
+            all_names.add(row["name"])
+
+    staff_names = sorted(all_names)
+    rows: list[dict[str, Any]] = []
+    for week in weeks:
+        cells: dict[str, float | None] = {}
+        staff_by_name = {r["name"]: r for r in week["staff"]}
+        for name in staff_names:
+            row = staff_by_name.get(name)
+            cells[name] = round(row["cost_diff"], 2) if row else None
+        rows.append({"week_start": week["week_start"], "cells": cells})
+
+    return {"staff_names": staff_names, "rows": rows}

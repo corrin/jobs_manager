@@ -8,6 +8,7 @@ try:
 
     if apps.ready:
         from .job_movement import JobMovementMetricsView
+        from .payroll_reconciliation import PayrollReconciliationReport
         from .pnl import CompanyProfitAndLossReport
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -16,5 +17,6 @@ except (ImportError, RuntimeError):
 __all__ = [
     "CompanyProfitAndLossReport",
     "JobMovementMetricsView",
+    "PayrollReconciliationReport",
     "format_period_label",
 ]
