@@ -1,13 +1,9 @@
 """
-ProcessDocument model for Job Safety Analysis (JSA), Safe Work Procedure (SWP),
-and Standard Operating Procedure (SOP) documents.
+ProcessDocument model for business process documents.
 
-JSAs are generated from jobs and use job context for AI generation, but persist as
-reference documents even after jobs are archived.
-
-SWPs are standalone documents not linked to any job, used for generic workshop procedures.
-
-Document content is stored in Google Docs - this model stores metadata and the Doc reference.
+Covers procedures, forms, registers, and reference documents.
+Documents may be linked to jobs or standalone.
+Content is stored in Google Docs - this model stores metadata and the Doc reference.
 """
 
 import uuid
@@ -17,18 +13,26 @@ from django.db import models
 
 class ProcessDocument(models.Model):
     """
-    Unified model for JSA, SWP, and SOP process documents.
+    Unified model for business process documents.
 
     Document content is stored in Google Docs. This model stores:
     - Metadata (type, title, job link, dates)
     - Google Doc reference (ID and URL)
-    - AI generation context tracking
+    - Classification tags and template/record workflow
     """
 
     DOCUMENT_TYPES = [
-        ("jsa", "Job Safety Analysis"),
-        ("swp", "Safe Work Procedure"),
-        ("sop", "Standard Operating Procedure"),
+        ("procedure", "Procedure"),
+        ("form", "Form"),
+        ("register", "Register"),
+        ("reference", "Reference"),
+    ]
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("active", "Active"),
+        ("completed", "Completed"),
+        ("archived", "Archived"),
     ]
 
     # Primary key
@@ -36,9 +40,36 @@ class ProcessDocument(models.Model):
 
     # Document type
     document_type = models.CharField(
-        max_length=3,
+        max_length=20,
         choices=DOCUMENT_TYPES,
-        help_text="Type of process document (JSA, SWP, or SOP)",
+        help_text="Document type: procedure, form, register, or reference",
+    )
+
+    # Classification
+    tags = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='Free-text tags, e.g. ["safety", "machinery", "sop"]',
+    )
+
+    # Template/record workflow
+    is_template = models.BooleanField(
+        default=False,
+        help_text="True if this is a template that can be filled in to create records",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="active",
+        help_text="Document lifecycle status",
+    )
+    parent_template = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="completed_records",
+        help_text="Template this record was created from",
     )
 
     # Optional job link - required for JSA, null for SWP
@@ -92,19 +123,16 @@ class ProcessDocument(models.Model):
         verbose_name_plural = "Process Documents"
 
     def __str__(self):
-        doc_types = {"jsa": "JSA", "swp": "SWP", "sop": "SOP"}
-        doc_type = doc_types.get(self.document_type, "DOC")
-        return f"{doc_type}: {self.title}"
+        return f"{self.get_document_type_display()}: {self.title}"
 
     def clean(self):
         """Validate model constraints."""
         from django.core.exceptions import ValidationError
 
-        # JSAs should have a job link (at creation time)
-        # Note: We don't enforce this strictly because JSAs can outlive their jobs
-        if self.document_type == "jsa" and not self.job and not self.pk:
+        # Templates cannot have a parent_template
+        if self.is_template and self.parent_template:
             raise ValidationError(
-                {"job": "JSA documents must be linked to a job at creation."}
+                {"parent_template": "A template cannot itself have a parent template."}
             )
 
     @property
