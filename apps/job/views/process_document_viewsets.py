@@ -5,7 +5,7 @@ Uses DRF ViewSets for automatic schema generation and reduced boilerplate.
 """
 
 from django.shortcuts import get_object_or_404
-from drf_spectacular.utils import OpenApiParameter, extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,6 +17,7 @@ from apps.job.serializers.process_document_serializer import (
     ProcessDocumentSerializer,
     SWPGenerateRequestSerializer,
 )
+from apps.workflow.services.error_persistence import persist_app_error
 
 
 # Serializers for content endpoint (defined here to keep schema close to view)
@@ -144,10 +145,25 @@ class ProcessDocumentViewSet(
         parameters=[
             OpenApiParameter(
                 name="type",
-                description="Filter by document type (jsa/swp/sop)",
+                description="Filter by document type (procedure/form/register/reference)",
                 required=False,
             ),
             OpenApiParameter(name="q", description="Search by title", required=False),
+            OpenApiParameter(
+                name="tags",
+                description="Comma-separated tags; ALL must match",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Filter by status (draft/active/completed/archived)",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="is_template",
+                description="Filter by template flag (true/false)",
+                required=False,
+            ),
         ]
     )
     def list(self, request, *args, **kwargs):
@@ -159,6 +175,15 @@ class ProcessDocumentViewSet(
             qs = qs.filter(document_type=doc_type)
         if query := self.request.query_params.get("q"):
             qs = qs.filter(title__icontains=query)
+        if tags_param := self.request.query_params.get("tags"):
+            for tag in tags_param.split(","):
+                tag = tag.strip()
+                if tag:
+                    qs = qs.filter(tags__contains=[tag])
+        if status_param := self.request.query_params.get("status"):
+            qs = qs.filter(status=status_param)
+        if is_template_param := self.request.query_params.get("is_template"):
+            qs = qs.filter(is_template=is_template_param.lower() == "true")
         return qs
 
 
@@ -170,7 +195,7 @@ class JSAListView(APIView):
     @extend_schema(responses=ProcessDocumentListSerializer(many=True))
     def get(self, request, job_id):
         job = get_object_or_404(Job, pk=job_id)
-        jsas = ProcessDocument.objects.filter(job=job, document_type="jsa")
+        jsas = ProcessDocument.objects.filter(job=job, tags__contains=["jsa"])
         return Response(ProcessDocumentListSerializer(jsas, many=True).data)
 
 
@@ -197,7 +222,7 @@ class SWPListView(APIView):
 
     @extend_schema(responses=ProcessDocumentListSerializer(many=True))
     def get(self, request):
-        swps = ProcessDocument.objects.filter(document_type="swp")
+        swps = ProcessDocument.objects.filter(tags__contains=["swp"])
         return Response(ProcessDocumentListSerializer(swps, many=True).data)
 
 
@@ -227,7 +252,7 @@ class SOPListView(APIView):
 
     @extend_schema(responses=ProcessDocumentListSerializer(many=True))
     def get(self, request):
-        sops = ProcessDocument.objects.filter(document_type="sop")
+        sops = ProcessDocument.objects.filter(tags__contains=["sop"])
         return Response(ProcessDocumentListSerializer(sops, many=True).data)
 
 
@@ -375,3 +400,55 @@ class AIImproveDocumentView(APIView):
             document_type=request.data.get("document_type", "swp"),
         )
         return Response(improved)
+
+
+class ProcessDocumentFillView(APIView):
+    """Create a new record from a template."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=inline_serializer(
+            "FillRequest",
+            fields={
+                "job_id": serializers.UUIDField(required=False, allow_null=True),
+            },
+        ),
+        responses=ProcessDocumentSerializer,
+    )
+    def post(self, request, pk):
+        try:
+            from apps.job.services.process_document_service import (
+                ProcessDocumentService,
+            )
+
+            record = ProcessDocumentService().fill_template(
+                template_id=pk,
+                job_id=request.data.get("job_id"),
+            )
+            return Response(
+                ProcessDocumentSerializer(record).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as exc:
+            persist_app_error(exc)
+            raise
+
+
+class ProcessDocumentCompleteView(APIView):
+    """Mark a document as completed (read-only)."""
+
+    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+
+    @extend_schema(request=None, responses=ProcessDocumentSerializer)
+    def post(self, request, pk):
+        try:
+            from apps.job.services.process_document_service import (
+                ProcessDocumentService,
+            )
+
+            doc = ProcessDocumentService().complete_document(pk)
+            return Response(ProcessDocumentSerializer(doc).data)
+        except Exception as exc:
+            persist_app_error(exc)
+            raise

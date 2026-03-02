@@ -52,7 +52,9 @@ from apps.job.views.process_document_viewsets import (
     AIImproveSectionView,
     JSAGenerateView,
     JSAListView,
+    ProcessDocumentCompleteView,
     ProcessDocumentContentView,
+    ProcessDocumentFillView,
     ProcessDocumentViewSet,
     SOPGenerateView,
     SOPListView,
@@ -315,6 +317,17 @@ rest_urlpatterns = [
         "rest/process-documents/<uuid:pk>/content/",
         ProcessDocumentContentView.as_view(),
         name="process_document_content",
+    ),
+    # Process Document workflow actions
+    path(
+        "rest/process-documents/<uuid:pk>/fill/",
+        ProcessDocumentFillView.as_view(),
+        name="process_document_fill",
+    ),
+    path(
+        "rest/process-documents/<uuid:pk>/complete/",
+        ProcessDocumentCompleteView.as_view(),
+        name="process_document_complete",
     ),
     # JSA (nested under jobs)
     path(

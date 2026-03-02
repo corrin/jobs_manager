@@ -90,7 +90,9 @@
 | `/rest/jobs/status-choices/` | `job_rest_views.JobStatusChoicesRestView` | `jobs:job_status_choices_rest` | REST view for Job status choices. |
 | `/rest/jobs/weekly-metrics/` | `job_rest_views.WeeklyMetricsRestView` | `jobs:weekly_metrics_rest` | REST view for fetching weekly metrics. |
 | `/rest/month-end/` | `month_end_rest_view.MonthEndRestView` | `jobs:month_end_rest` | REST API view for month-end processing of special jobs and stock data. |
+| `/rest/process-documents/<uuid:pk>/complete/` | `process_document_viewsets.ProcessDocumentCompleteView` | `jobs:process_document_complete` | Mark a document as completed (read-only). |
 | `/rest/process-documents/<uuid:pk>/content/` | `process_document_viewsets.ProcessDocumentContentView` | `jobs:process_document_content` | GET/PUT content for a process document stored in Google Docs. |
+| `/rest/process-documents/<uuid:pk>/fill/` | `process_document_viewsets.ProcessDocumentFillView` | `jobs:process_document_fill` | Create a new record from a template. |
 | `/rest/reports/job-profitability/` | `job_profitability_report_views.JobProfitabilityReportView` | `jobs:job_profitability_report` | API view for job profitability reporting. |
 | `/rest/safety-ai/generate-controls/` | `process_document_viewsets.AIGenerateControlsView` | `jobs:ai_generate_controls` | Generate controls for hazards using AI. |
 | `/rest/safety-ai/generate-hazards/` | `process_document_viewsets.AIGenerateHazardsView` | `jobs:ai_generate_hazards` | Generate hazards for a task description using AI. |
