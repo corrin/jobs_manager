@@ -1,10 +1,11 @@
 """
-SafetyDocumentService - Orchestrates JSA/SWP generation workflow.
+ProcessDocumentService - Orchestrates JSA/SWP/SOP generation workflow.
 
 Handles:
 - Generating new JSAs from job context
 - Generating new SWPs (standalone)
-- Creating Google Docs with formatted safety content
+- Generating new SOPs (standalone)
+- Creating Google Docs with formatted process document content
 """
 
 import logging
@@ -12,7 +13,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
-from apps.job.models import Job, JobEvent, SafetyDocument
+from apps.job.models import Job, JobEvent, ProcessDocument
 from apps.job.services.google_docs_service import GoogleDocsService
 from apps.job.services.safety_ai_service import SafetyAIService
 from apps.workflow.models import CompanyDefaults
@@ -21,11 +22,11 @@ from apps.workflow.services.error_persistence import persist_app_error
 logger = logging.getLogger(__name__)
 
 
-class SafetyDocumentService:
+class ProcessDocumentService:
     """
-    Service for managing safety document lifecycle.
+    Service for managing process document lifecycle.
 
-    Orchestrates JSA/SWP generation with AI content and Google Docs creation.
+    Orchestrates JSA/SWP/SOP generation with AI content and Google Docs creation.
     """
 
     def __init__(self):
@@ -34,7 +35,7 @@ class SafetyDocumentService:
         self.docs_service = GoogleDocsService()
 
     @transaction.atomic
-    def generate_jsa(self, job: Job) -> SafetyDocument:
+    def generate_jsa(self, job: Job) -> ProcessDocument:
         """
         Generate a new JSA for a job using AI and create Google Doc.
 
@@ -42,7 +43,7 @@ class SafetyDocumentService:
             job: The job to generate a JSA for
 
         Returns:
-            Created SafetyDocument with Google Doc URL
+            Created ProcessDocument with Google Doc URL
         """
         logger.info(f"Generating JSA for job {job.job_number}: {job.name}")
 
@@ -55,15 +56,15 @@ class SafetyDocumentService:
             company_name = company.company_name
 
             # Create Google Doc with formatted content
-            doc_result = self.docs_service.create_safety_document(
+            doc_result = self.docs_service.create_process_document(
                 document_type="jsa",
                 title=jsa_content.get("title", job.name),
                 content=jsa_content,
                 job=job,
             )
 
-            # Create SafetyDocument record
-            jsa = SafetyDocument.objects.create(
+            # Create ProcessDocument record
+            jsa = ProcessDocument.objects.create(
                 document_type="jsa",
                 job=job,
                 title=jsa_content.get("title", job.name),
@@ -103,7 +104,7 @@ class SafetyDocumentService:
         description: str,
         site_location: str = "",
         document_number: str = "",
-    ) -> SafetyDocument:
+    ) -> ProcessDocument:
         """
         Generate a new SWP (standalone) using AI and create Google Doc.
 
@@ -114,7 +115,7 @@ class SafetyDocumentService:
             document_number: Optional document number (e.g., '307')
 
         Returns:
-            Created SafetyDocument with Google Doc URL
+            Created ProcessDocument with Google Doc URL
         """
         logger.info(f"Generating SWP: {title} (doc #{document_number or 'N/A'})")
 
@@ -131,7 +132,7 @@ class SafetyDocumentService:
             company_name = company.company_name
 
             # Create Google Doc with formatted content
-            doc_result = self.docs_service.create_safety_document(
+            doc_result = self.docs_service.create_process_document(
                 document_type="swp",
                 title=swp_content.get("title", title),
                 content=swp_content,
@@ -139,8 +140,8 @@ class SafetyDocumentService:
                 document_number=document_number,
             )
 
-            # Create SafetyDocument record
-            swp = SafetyDocument.objects.create(
+            # Create ProcessDocument record
+            swp = ProcessDocument.objects.create(
                 document_type="swp",
                 job=None,  # SWPs are standalone
                 document_number=document_number or None,
@@ -165,7 +166,7 @@ class SafetyDocumentService:
         title: str,
         description: str,
         document_number: str = "",
-    ) -> SafetyDocument:
+    ) -> ProcessDocument:
         """
         Generate a new SOP (Standard Operating Procedure) using AI and create Google Doc.
 
@@ -177,7 +178,7 @@ class SafetyDocumentService:
             document_number: Optional document number (e.g., '307')
 
         Returns:
-            Created SafetyDocument with Google Doc URL
+            Created ProcessDocument with Google Doc URL
         """
         logger.info(f"Generating SOP: {title} (doc #{document_number or 'N/A'})")
 
@@ -194,7 +195,7 @@ class SafetyDocumentService:
             company_name = company.company_name
 
             # Create Google Doc with formatted content
-            doc_result = self.docs_service.create_safety_document(
+            doc_result = self.docs_service.create_process_document(
                 document_type="sop",
                 title=sop_content.get("title", title),
                 content=sop_content,
@@ -202,8 +203,8 @@ class SafetyDocumentService:
                 document_number=document_number,
             )
 
-            # Create SafetyDocument record
-            sop = SafetyDocument.objects.create(
+            # Create ProcessDocument record
+            sop = ProcessDocument.objects.create(
                 document_type="sop",
                 job=None,  # SOPs are standalone
                 document_number=document_number or None,

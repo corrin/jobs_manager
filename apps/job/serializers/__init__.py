@@ -137,6 +137,12 @@ try:
             KanbanSuccessResponseSerializer,
             WorkshopJobSerializer,
         )
+        from .process_document_serializer import (
+            ProcessDocumentErrorResponseSerializer,
+            ProcessDocumentListSerializer,
+            ProcessDocumentSerializer,
+            SWPGenerateRequestSerializer,
+        )
         from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
         from .quote_sync_serializer import (
             ApplyQuoteErrorResponseSerializer,
@@ -149,12 +155,6 @@ try:
             QuoteChangesSerializer,
             QuoteSyncErrorResponseSerializer,
             ValidationReportSerializer,
-        )
-        from .safety_document_serializer import (
-            SWPGenerateRequestSerializer,
-            SafetyDocumentErrorResponseSerializer,
-            SafetyDocumentListSerializer,
-            SafetyDocumentSerializer,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -271,6 +271,9 @@ __all__ = [
     "MonthEndStockHistorySerializer",
     "MonthEndStockJobSerializer",
     "PreviewQuoteResponseSerializer",
+    "ProcessDocumentErrorResponseSerializer",
+    "ProcessDocumentListSerializer",
+    "ProcessDocumentSerializer",
     "QuoteChangesSerializer",
     "QuoteImportStatusResponseSerializer",
     "QuoteRevisionResponseSerializer",
@@ -280,9 +283,6 @@ __all__ = [
     "QuoteSpreadsheetSerializer",
     "QuoteSyncErrorResponseSerializer",
     "SWPGenerateRequestSerializer",
-    "SafetyDocumentErrorResponseSerializer",
-    "SafetyDocumentListSerializer",
-    "SafetyDocumentSerializer",
     "TimelineEntrySerializer",
     "TimesheetCostLineSerializer",
     "UploadedFileSerializer",

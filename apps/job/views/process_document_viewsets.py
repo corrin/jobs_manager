@@ -1,5 +1,5 @@
 """
-Safety document ViewSets (JSA/SWP/SOP).
+Process document ViewSets (JSA/SWP/SOP).
 
 Uses DRF ViewSets for automatic schema generation and reduced boilerplate.
 """
@@ -10,18 +10,18 @@ from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.models import Job, SafetyDocument
+from apps.job.models import Job, ProcessDocument
 from apps.job.permissions import IsOfficeStaff
-from apps.job.serializers.safety_document_serializer import (
-    SafetyDocumentListSerializer,
-    SafetyDocumentSerializer,
+from apps.job.serializers.process_document_serializer import (
+    ProcessDocumentListSerializer,
+    ProcessDocumentSerializer,
     SWPGenerateRequestSerializer,
 )
 
 
 # Serializers for content endpoint (defined here to keep schema close to view)
-class SafetyDocumentContentResponseSerializer(serializers.Serializer):
-    """Response when reading safety document content from Google Docs."""
+class ProcessDocumentContentResponseSerializer(serializers.Serializer):
+    """Response when reading process document content from Google Docs."""
 
     title = serializers.CharField()
     document_type = serializers.CharField()
@@ -33,8 +33,8 @@ class SafetyDocumentContentResponseSerializer(serializers.Serializer):
     raw_text = serializers.CharField()
 
 
-class SafetyDocumentContentUpdateSerializer(serializers.Serializer):
-    """Request body for updating safety document content in Google Docs."""
+class ProcessDocumentContentUpdateSerializer(serializers.Serializer):
+    """Request body for updating process document content in Google Docs."""
 
     title = serializers.CharField(required=False)
     site_location = serializers.CharField(required=False)
@@ -46,9 +46,9 @@ class SafetyDocumentContentUpdateSerializer(serializers.Serializer):
     additional_notes = serializers.CharField(required=False)
 
 
-class SafetyDocumentContentView(APIView):
+class ProcessDocumentContentView(APIView):
     """
-    GET/PUT content for a safety document stored in Google Docs.
+    GET/PUT content for a process document stored in Google Docs.
 
     - GET: Fetch current content from Google Docs
     - PUT: Push updated content to Google Docs
@@ -62,14 +62,14 @@ class SafetyDocumentContentView(APIView):
         return [permissions.IsAuthenticated(), IsOfficeStaff()]
 
     def _get_document(self, pk):
-        doc = get_object_or_404(SafetyDocument, pk=pk)
+        doc = get_object_or_404(ProcessDocument, pk=pk)
         if not doc.google_doc_id:
             return None, Response(
                 {"error": "No Google Doc linked"}, status=status.HTTP_404_NOT_FOUND
             )
         return doc, None
 
-    @extend_schema(responses=SafetyDocumentContentResponseSerializer)
+    @extend_schema(responses=ProcessDocumentContentResponseSerializer)
     def get(self, request, pk):
         doc, error_response = self._get_document(pk)
         if error_response:
@@ -92,8 +92,8 @@ class SafetyDocumentContentView(APIView):
         )
 
     @extend_schema(
-        request=SafetyDocumentContentUpdateSerializer,
-        responses=SafetyDocumentSerializer,
+        request=ProcessDocumentContentUpdateSerializer,
+        responses=ProcessDocumentSerializer,
     )
     def put(self, request, pk):
         doc, error_response = self._get_document(pk)
@@ -106,28 +106,28 @@ class SafetyDocumentContentView(APIView):
         doc.title = request.data.get("title", doc.title)
         doc.site_location = request.data.get("site_location", doc.site_location)
         doc.save()
-        return Response(SafetyDocumentSerializer(doc).data)
+        return Response(ProcessDocumentSerializer(doc).data)
 
 
-class SafetyDocumentViewSet(
+class ProcessDocumentViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     """
-    ViewSet for SafetyDocument CRUD operations.
+    ViewSet for ProcessDocument CRUD operations.
 
     Endpoints:
-    - GET    /rest/safety-documents/              - list all documents
-    - GET    /rest/safety-documents/<id>/         - retrieve document
-    - DELETE /rest/safety-documents/<id>/         - delete document
+    - GET    /rest/process-documents/              - list all documents
+    - GET    /rest/process-documents/<id>/         - retrieve document
+    - DELETE /rest/process-documents/<id>/         - delete document
 
-    Note: Content endpoints (GET/PUT) are handled by SafetyDocumentContentView.
+    Note: Content endpoints (GET/PUT) are handled by ProcessDocumentContentView.
     """
 
-    queryset = SafetyDocument.objects.all()
-    serializer_class = SafetyDocumentSerializer
+    queryset = ProcessDocument.objects.all()
+    serializer_class = ProcessDocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
@@ -137,8 +137,8 @@ class SafetyDocumentViewSet(
 
     def get_serializer_class(self):
         if self.action == "list":
-            return SafetyDocumentListSerializer
-        return SafetyDocumentSerializer
+            return ProcessDocumentListSerializer
+        return ProcessDocumentSerializer
 
     @extend_schema(
         parameters=[
@@ -154,7 +154,7 @@ class SafetyDocumentViewSet(
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = SafetyDocument.objects.all()
+        qs = ProcessDocument.objects.all()
         if doc_type := self.request.query_params.get("type"):
             qs = qs.filter(document_type=doc_type)
         if query := self.request.query_params.get("q"):
@@ -167,11 +167,11 @@ class JSAListView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=SafetyDocumentListSerializer(many=True))
+    @extend_schema(responses=ProcessDocumentListSerializer(many=True))
     def get(self, request, job_id):
         job = get_object_or_404(Job, pk=job_id)
-        jsas = SafetyDocument.objects.filter(job=job, document_type="jsa")
-        return Response(SafetyDocumentListSerializer(jsas, many=True).data)
+        jsas = ProcessDocument.objects.filter(job=job, document_type="jsa")
+        return Response(ProcessDocumentListSerializer(jsas, many=True).data)
 
 
 class JSAGenerateView(APIView):
@@ -179,14 +179,14 @@ class JSAGenerateView(APIView):
 
     permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
-    @extend_schema(request=None, responses=SafetyDocumentSerializer)
+    @extend_schema(request=None, responses=ProcessDocumentSerializer)
     def post(self, request, job_id):
         job = get_object_or_404(Job, pk=job_id)
-        from apps.job.services.safety_document_service import SafetyDocumentService
+        from apps.job.services.process_document_service import ProcessDocumentService
 
-        jsa = SafetyDocumentService().generate_jsa(job)
+        jsa = ProcessDocumentService().generate_jsa(job)
         return Response(
-            SafetyDocumentSerializer(jsa).data, status=status.HTTP_201_CREATED
+            ProcessDocumentSerializer(jsa).data, status=status.HTTP_201_CREATED
         )
 
 
@@ -195,10 +195,10 @@ class SWPListView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=SafetyDocumentListSerializer(many=True))
+    @extend_schema(responses=ProcessDocumentListSerializer(many=True))
     def get(self, request):
-        swps = SafetyDocument.objects.filter(document_type="swp")
-        return Response(SafetyDocumentListSerializer(swps, many=True).data)
+        swps = ProcessDocument.objects.filter(document_type="swp")
+        return Response(ProcessDocumentListSerializer(swps, many=True).data)
 
 
 class SWPGenerateView(APIView):
@@ -207,16 +207,16 @@ class SWPGenerateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
-        request=SWPGenerateRequestSerializer, responses=SafetyDocumentSerializer
+        request=SWPGenerateRequestSerializer, responses=ProcessDocumentSerializer
     )
     def post(self, request):
         ser = SWPGenerateRequestSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        from apps.job.services.safety_document_service import SafetyDocumentService
+        from apps.job.services.process_document_service import ProcessDocumentService
 
-        swp = SafetyDocumentService().generate_swp(**ser.validated_data)
+        swp = ProcessDocumentService().generate_swp(**ser.validated_data)
         return Response(
-            SafetyDocumentSerializer(swp).data, status=status.HTTP_201_CREATED
+            ProcessDocumentSerializer(swp).data, status=status.HTTP_201_CREATED
         )
 
 
@@ -225,10 +225,10 @@ class SOPListView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=SafetyDocumentListSerializer(many=True))
+    @extend_schema(responses=ProcessDocumentListSerializer(many=True))
     def get(self, request):
-        sops = SafetyDocument.objects.filter(document_type="sop")
-        return Response(SafetyDocumentListSerializer(sops, many=True).data)
+        sops = ProcessDocument.objects.filter(document_type="sop")
+        return Response(ProcessDocumentListSerializer(sops, many=True).data)
 
 
 # Request serializer for SOP generation
@@ -246,16 +246,16 @@ class SOPGenerateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
-        request=SOPGenerateRequestSerializer, responses=SafetyDocumentSerializer
+        request=SOPGenerateRequestSerializer, responses=ProcessDocumentSerializer
     )
     def post(self, request):
         ser = SOPGenerateRequestSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        from apps.job.services.safety_document_service import SafetyDocumentService
+        from apps.job.services.process_document_service import ProcessDocumentService
 
-        sop = SafetyDocumentService().generate_sop(**ser.validated_data)
+        sop = ProcessDocumentService().generate_sop(**ser.validated_data)
         return Response(
-            SafetyDocumentSerializer(sop).data, status=status.HTTP_201_CREATED
+            ProcessDocumentSerializer(sop).data, status=status.HTTP_201_CREATED
         )
 
 

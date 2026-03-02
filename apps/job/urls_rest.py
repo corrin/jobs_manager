@@ -45,32 +45,32 @@ from apps.job.views.modern_timesheet_views import (
     ModernTimesheetJobView,
 )
 from apps.job.views.month_end_rest_view import MonthEndRestView
-from apps.job.views.quote_import_views import QuoteImportStatusView
-from apps.job.views.quote_sync_views import (
-    ApplyQuoteAPIView,
-    LinkQuoteSheetAPIView,
-    PreviewQuoteAPIView,
-)
-from apps.job.views.safety_viewsets import (
+from apps.job.views.process_document_viewsets import (
     AIGenerateControlsView,
     AIGenerateHazardsView,
     AIImproveDocumentView,
     AIImproveSectionView,
     JSAGenerateView,
     JSAListView,
-    SafetyDocumentContentView,
-    SafetyDocumentViewSet,
+    ProcessDocumentContentView,
+    ProcessDocumentViewSet,
     SOPGenerateView,
     SOPListView,
     SWPGenerateView,
     SWPListView,
+)
+from apps.job.views.quote_import_views import QuoteImportStatusView
+from apps.job.views.quote_sync_views import (
+    ApplyQuoteAPIView,
+    LinkQuoteSheetAPIView,
+    PreviewQuoteAPIView,
 )
 from apps.job.views.workshop_pdf_view import WorkshopPDFView
 
 # Router for ViewSets
 router = DefaultRouter()
 router.register(
-    r"rest/safety-documents", SafetyDocumentViewSet, basename="safety-document"
+    r"rest/process-documents", ProcessDocumentViewSet, basename="process-document"
 )
 
 # URLs for new REST views
@@ -310,11 +310,11 @@ rest_urlpatterns = [
         DataIntegrityReportView.as_view(),
         name="data_integrity_scan",
     ),
-    # Safety Document Content (separate from ViewSet for clean GET/PUT)
+    # Process Document Content (separate from ViewSet for clean GET/PUT)
     path(
-        "rest/safety-documents/<uuid:pk>/content/",
-        SafetyDocumentContentView.as_view(),
-        name="safety_document_content",
+        "rest/process-documents/<uuid:pk>/content/",
+        ProcessDocumentContentView.as_view(),
+        name="process_document_content",
     ),
     # JSA (nested under jobs)
     path(

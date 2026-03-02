@@ -1,5 +1,5 @@
 """
-Serializers for SafetyDocument (JSA/SWP) API endpoints.
+Serializers for ProcessDocument (JSA/SWP/SOP) API endpoints.
 
 Document content is stored in Google Docs - these serializers handle
 metadata and the Google Doc reference.
@@ -7,12 +7,12 @@ metadata and the Google Doc reference.
 
 from rest_framework import serializers
 
-from apps.job.models import SafetyDocument
+from apps.job.models import ProcessDocument
 
 
-class SafetyDocumentSerializer(serializers.ModelSerializer):
+class ProcessDocumentSerializer(serializers.ModelSerializer):
     """
-    Main serializer for SafetyDocument model.
+    Main serializer for ProcessDocument model.
 
     Returns document metadata and Google Docs URL for editing.
     """
@@ -31,7 +31,7 @@ class SafetyDocumentSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = SafetyDocument
+        model = ProcessDocument
         fields = [
             "id",
             "document_type",
@@ -58,9 +58,9 @@ class SafetyDocumentSerializer(serializers.ModelSerializer):
         ]
 
 
-class SafetyDocumentListSerializer(serializers.ModelSerializer):
+class ProcessDocumentListSerializer(serializers.ModelSerializer):
     """
-    Lightweight serializer for listing safety documents.
+    Lightweight serializer for listing process documents.
     """
 
     job_number = serializers.CharField(
@@ -70,7 +70,7 @@ class SafetyDocumentListSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = SafetyDocument
+        model = ProcessDocument
         fields = [
             "id",
             "document_type",
@@ -107,7 +107,7 @@ class SWPGenerateRequestSerializer(serializers.Serializer):
     )
 
 
-class SafetyDocumentErrorResponseSerializer(serializers.Serializer):
+class ProcessDocumentErrorResponseSerializer(serializers.Serializer):
     """Serializer for error responses."""
 
     status = serializers.CharField(default="error")

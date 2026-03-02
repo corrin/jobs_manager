@@ -79,7 +79,7 @@ try:
             ReorderJobAPIView,
             UpdateJobStatusAPIView,
         )
-        from .safety_viewsets import (
+        from .process_document_viewsets import (
             AIGenerateControlsView,
             AIGenerateHazardsView,
             AIImproveDocumentView,
@@ -94,15 +94,15 @@ try:
             ImproveSectionResponseSerializer,
             JSAGenerateView,
             JSAListView,
+            ProcessDocumentContentResponseSerializer,
+            ProcessDocumentContentUpdateSerializer,
+            ProcessDocumentContentView,
+            ProcessDocumentViewSet,
             SOPGenerateRequestSerializer,
             SOPGenerateView,
             SOPListView,
             SWPGenerateView,
             SWPListView,
-            SafetyDocumentContentResponseSerializer,
-            SafetyDocumentContentUpdateSerializer,
-            SafetyDocumentContentView,
-            SafetyDocumentViewSet,
         )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
@@ -173,6 +173,10 @@ __all__ = [
     "ModernTimesheetJobView",
     "MonthEndRestView",
     "PreviewQuoteAPIView",
+    "ProcessDocumentContentResponseSerializer",
+    "ProcessDocumentContentUpdateSerializer",
+    "ProcessDocumentContentView",
+    "ProcessDocumentViewSet",
     "QuoteImportPreviewView",
     "QuoteImportStatusView",
     "QuoteImportView",
@@ -182,10 +186,6 @@ __all__ = [
     "SOPListView",
     "SWPGenerateView",
     "SWPListView",
-    "SafetyDocumentContentResponseSerializer",
-    "SafetyDocumentContentUpdateSerializer",
-    "SafetyDocumentContentView",
-    "SafetyDocumentViewSet",
     "StandardResultsSetPagination",
     "UpdateJobStatusAPIView",
     "WeeklyMetricsRestView",

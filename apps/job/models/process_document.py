@@ -1,5 +1,6 @@
 """
-SafetyDocument model for Job Safety Analysis (JSA) and Safe Work Procedure (SWP) documents.
+ProcessDocument model for Job Safety Analysis (JSA), Safe Work Procedure (SWP),
+and Standard Operating Procedure (SOP) documents.
 
 JSAs are generated from jobs and use job context for AI generation, but persist as
 reference documents even after jobs are archived.
@@ -14,9 +15,9 @@ import uuid
 from django.db import models
 
 
-class SafetyDocument(models.Model):
+class ProcessDocument(models.Model):
     """
-    Unified model for JSA and SWP safety documents.
+    Unified model for JSA, SWP, and SOP process documents.
 
     Document content is stored in Google Docs. This model stores:
     - Metadata (type, title, job link, dates)
@@ -37,18 +38,18 @@ class SafetyDocument(models.Model):
     document_type = models.CharField(
         max_length=3,
         choices=DOCUMENT_TYPES,
-        help_text="Type of safety document (JSA or SWP)",
+        help_text="Type of process document (JSA, SWP, or SOP)",
     )
 
     # Optional job link - required for JSA, null for SWP
     # Uses SET_NULL so JSAs persist even after job deletion
     job = models.ForeignKey(
         "Job",
-        related_name="safety_documents",
+        related_name="process_documents",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        help_text="Linked job (required for JSA, null for SWP)",
+        help_text="Linked job (required for JSA, null for SWP/SOP)",
     )
 
     # Timestamps
@@ -64,7 +65,7 @@ class SafetyDocument(models.Model):
     )
     title = models.CharField(
         max_length=255,
-        help_text="Job name for JSA, procedure name for SWP",
+        help_text="Job name for JSA, procedure name for SWP/SOP",
     )
     company_name = models.CharField(max_length=255)
     site_location = models.CharField(
@@ -87,8 +88,8 @@ class SafetyDocument(models.Model):
     class Meta:
         db_table = "workflow_safetydocument"
         ordering = ["-created_at"]
-        verbose_name = "Safety Document"
-        verbose_name_plural = "Safety Documents"
+        verbose_name = "Process Document"
+        verbose_name_plural = "Process Documents"
 
     def __str__(self):
         doc_types = {"jsa": "JSA", "swp": "SWP", "sop": "SOP"}

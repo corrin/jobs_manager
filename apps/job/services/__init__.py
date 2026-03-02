@@ -24,7 +24,7 @@ try:
         from .google_docs_service import (
             GoogleDocResult,
             GoogleDocsService,
-            SafetyDocumentContent,
+            ProcessDocumentContent,
         )
         from .import_quote_service import (
             QuoteImportError,
@@ -58,10 +58,10 @@ try:
         from .mcp_chat_service import MCPChatService
         from .month_end_service import MonthEndService
         from .paid_flag_service import PaidFlagResult, PaidFlagService
+        from .process_document_service import ProcessDocumentService
         from .quote_mode_controller import QuoteModeController
         from .quote_sync_service import apply_quote, link_quote_sheet, preview_quote
         from .safety_ai_service import SafetyAIService
-        from .safety_document_service import SafetyDocumentService
         from .workshop_pdf_service import (
             add_delivery_docket_details_table,
             add_handover_section,
@@ -113,12 +113,12 @@ __all__ = [
     "PaidFlagResult",
     "PaidFlagService",
     "PreconditionFailed",
+    "ProcessDocumentContent",
+    "ProcessDocumentService",
     "QuoteImportError",
     "QuoteImportResult",
     "QuoteModeController",
     "SafetyAIService",
-    "SafetyDocumentContent",
-    "SafetyDocumentService",
     "WorkshopTimesheetService",
     "add_delivery_docket_details_table",
     "add_handover_section",

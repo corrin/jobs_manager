@@ -1,8 +1,8 @@
 """
-GoogleDocsService - Creates and manages Google Docs for JSA/SWP documents.
+GoogleDocsService - Creates and manages Google Docs for JSA/SWP/SOP documents.
 
 Provides:
-- Creating new Google Docs from AI-generated SafetyDocument content
+- Creating new Google Docs from AI-generated ProcessDocument content
 - Reading content from existing Google Docs
 - Updating existing Google Docs with new content
 - Structured formatting with headers, tables, and bullet lists
@@ -45,8 +45,8 @@ class GoogleDocResult:
 
 
 @dataclass
-class SafetyDocumentContent:
-    """Structured content from a safety document."""
+class ProcessDocumentContent:
+    """Structured content from a process document."""
 
     title: str
     document_type: str  # 'jsa' or 'swp'
@@ -59,14 +59,14 @@ class SafetyDocumentContent:
 
 
 class GoogleDocsService:
-    """Service for creating formatted Google Docs from safety documents."""
+    """Service for creating formatted Google Docs from process documents."""
 
     def __init__(self):
         """Initialize the service."""
         company = CompanyDefaults.get_instance()
         self.company_name = company.company_name
 
-    def create_safety_document(
+    def create_process_document(
         self,
         document_type: str,
         title: str,
@@ -75,7 +75,7 @@ class GoogleDocsService:
         document_number: str = "",
     ) -> GoogleDocResult:
         """
-        Create a formatted Google Doc from AI-generated safety content.
+        Create a formatted Google Doc from AI-generated process document content.
 
         Args:
             document_type: 'jsa' or 'swp'
@@ -128,7 +128,7 @@ class GoogleDocsService:
             _set_public_edit_permissions(document_id)
 
             edit_url = f"https://docs.google.com/document/d/{document_id}/edit"
-            logger.info(f"Created safety document: {edit_url}")
+            logger.info(f"Created process document: {edit_url}")
 
             return GoogleDocResult(document_id=document_id, edit_url=edit_url)
 
@@ -139,7 +139,7 @@ class GoogleDocsService:
             persist_app_error(e)
             raise RuntimeError(f"Failed to create Google Doc: {str(e)}") from e
 
-    def read_document(self, document_id: str) -> SafetyDocumentContent:
+    def read_document(self, document_id: str) -> ProcessDocumentContent:
         """
         Read content from an existing Google Doc.
 
@@ -147,7 +147,7 @@ class GoogleDocsService:
             document_id: Google Docs document ID
 
         Returns:
-            SafetyDocumentContent with parsed content
+            ProcessDocumentContent with parsed content
 
         Raises:
             RuntimeError: If document cannot be read
@@ -197,7 +197,7 @@ class GoogleDocsService:
 
             # Get current document to determine its type and title
             doc = docs_service.documents().get(documentId=document_id).execute()
-            title = doc.get("title", "Safety Document")
+            title = doc.get("title", "Process Document")
 
             # Determine document type from title
             document_type = "jsa" if "JSA" in title.upper() else "swp"
@@ -252,7 +252,7 @@ class GoogleDocsService:
                 self._add_tasks_table(document_id, tasks)
 
             edit_url = f"https://docs.google.com/document/d/{document_id}/edit"
-            logger.info(f"Updated safety document: {edit_url}")
+            logger.info(f"Updated process document: {edit_url}")
 
             return GoogleDocResult(document_id=document_id, edit_url=edit_url)
 
@@ -294,7 +294,7 @@ class GoogleDocsService:
 
     def _parse_document_content(
         self, doc: dict, raw_text: str
-    ) -> SafetyDocumentContent:
+    ) -> ProcessDocumentContent:
         """Parse structured content from document."""
         title = doc.get("title", "")
         document_type = "jsa" if "JSA" in title.upper() else "swp"
@@ -357,7 +357,7 @@ class GoogleDocsService:
             elif current_section == "notes" and line_stripped:
                 additional_notes += line_stripped + " "
 
-        return SafetyDocumentContent(
+        return ProcessDocumentContent(
             title=clean_title.strip(),
             document_type=document_type,
             description=description.strip(),
