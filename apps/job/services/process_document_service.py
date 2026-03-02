@@ -222,3 +222,66 @@ class ProcessDocumentService:
             logger.exception(f"Failed to generate SOP: {title}")
             persist_app_error(exc)
             raise
+
+    @transaction.atomic
+    def fill_template(self, template_id, job_id=None):
+        """Create a new record from a template by copying the Google Doc."""
+        try:
+            template = ProcessDocument.objects.get(pk=template_id)
+            if not template.is_template:
+                raise ValueError("Document is not a template")
+
+            # Copy Google Doc if it exists
+            google_doc_id = ""
+            google_doc_url = ""
+            if template.google_doc_id:
+                result = self.docs_service.copy_document(
+                    template.google_doc_id,
+                    title=f"{template.title} - {timezone.now().strftime('%Y-%m-%d')}",
+                )
+                google_doc_id = result.document_id
+                google_doc_url = result.edit_url
+
+            record = ProcessDocument.objects.create(
+                document_type=template.document_type,
+                tags=list(template.tags),  # Copy, don't share reference
+                title=template.title,
+                document_number=template.document_number,
+                company_name=template.company_name,
+                site_location=template.site_location,
+                google_doc_id=google_doc_id,
+                google_doc_url=google_doc_url,
+                is_template=False,
+                status="draft",
+                parent_template=template,
+                job_id=job_id,
+            )
+            logger.info("Created record %s from template %s", record.pk, template.pk)
+            return record
+
+        except Exception as exc:
+            logger.exception("Failed to fill template %s", template_id)
+            persist_app_error(exc)
+            raise
+
+    @transaction.atomic
+    def complete_document(self, document_id):
+        """Mark a document as completed and set Google Doc to read-only."""
+        try:
+            doc = ProcessDocument.objects.get(pk=document_id)
+            if doc.status == "completed":
+                raise ValueError("Document is already completed")
+
+            doc.status = "completed"
+            doc.save(update_fields=["status", "updated_at"])
+
+            if doc.google_doc_id:
+                self.docs_service.set_readonly(doc.google_doc_id)
+
+            logger.info("Completed document %s", doc.pk)
+            return doc
+
+        except Exception as exc:
+            logger.exception("Failed to complete document %s", document_id)
+            persist_app_error(exc)
+            raise

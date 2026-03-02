@@ -263,6 +263,46 @@ class GoogleDocsService:
             persist_app_error(e)
             raise RuntimeError(f"Failed to update Google Doc: {str(e)}") from e
 
+    def copy_document(self, source_doc_id: str, title: str) -> GoogleDocResult:
+        """Copy a Google Doc, returning the new document's ID and URL."""
+        try:
+            drive_service = _svc("drive", "v3")
+            copied = (
+                drive_service.files()
+                .copy(
+                    fileId=source_doc_id,
+                    body={"name": title},
+                )
+                .execute()
+            )
+            doc_id = copied["id"]
+            edit_url = f"https://docs.google.com/document/d/{doc_id}/edit"
+            self._move_to_safety_folder(doc_id)
+            _set_public_edit_permissions(doc_id)
+            return GoogleDocResult(document_id=doc_id, edit_url=edit_url)
+        except HttpError as exc:
+            persist_app_error(exc)
+            raise RuntimeError(f"Failed to copy Google Doc: {exc.reason}") from exc
+        except Exception as exc:
+            persist_app_error(exc)
+            raise RuntimeError(f"Failed to copy Google Doc: {str(exc)}") from exc
+
+    def set_readonly(self, document_id: str) -> None:
+        """Remove public edit permissions from a Google Doc, making it read-only."""
+        drive_service = _svc("drive", "v3")
+        try:
+            permissions_response = (
+                drive_service.permissions().list(fileId=document_id).execute()
+            )
+            for perm in permissions_response.get("permissions", []):
+                if perm.get("role") == "writer" and perm.get("type") == "anyone":
+                    drive_service.permissions().delete(
+                        fileId=document_id, permissionId=perm["id"]
+                    ).execute()
+        except Exception as exc:
+            persist_app_error(exc)
+            raise
+
     def _extract_raw_text(self, doc: dict) -> str:
         """Extract all text content from a Google Doc."""
         text_parts: list[str] = []
