@@ -20,14 +20,7 @@ detect_environment() {
 create_backup() {
     [ "$ENV" != "PROD" ] && return
     echo "=== Creating backup ==="
-    local release_date=$(date +%Y%m%d_%H%M%S)
-    local backup_dir="/var/backups/jobs_manager/$release_date"
-
-    mkdir -p "$backup_dir"
-    tar -zcf "$backup_dir/code_backup.tar.gz" -C "$PROJECT_DIR" . --exclude='gunicorn.sock'
-    mysqldump -u root jobs_manager | gzip > "$backup_dir/database_backup.sql.gz"
-    rclone copy "$backup_dir" "gdrive:msm_backups/$release_date"
-    echo "Backup completed: $backup_dir"
+    sudo /usr/local/bin/backup_db.sh
 }
 
 deploy_application() {
