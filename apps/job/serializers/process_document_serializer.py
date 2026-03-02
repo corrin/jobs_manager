@@ -7,7 +7,7 @@ metadata and the Google Doc reference.
 
 from rest_framework import serializers
 
-from apps.job.models import ProcessDocument
+from apps.job.models import ProcessDocument, ProcessDocumentEntry
 
 
 class ProcessDocumentSerializer(serializers.ModelSerializer):
@@ -30,6 +30,13 @@ class ProcessDocumentSerializer(serializers.ModelSerializer):
         help_text="Linked job number (null for SWPs)",
     )
 
+    parent_template_id = serializers.UUIDField(
+        source="parent_template.id",
+        read_only=True,
+        allow_null=True,
+        help_text="ID of the template this record was created from",
+    )
+
     class Meta:
         model = ProcessDocument
         fields = [
@@ -45,6 +52,10 @@ class ProcessDocumentSerializer(serializers.ModelSerializer):
             "site_location",
             "google_doc_id",
             "google_doc_url",
+            "tags",
+            "is_template",
+            "status",
+            "parent_template_id",
         ]
         read_only_fields = [
             "id",
@@ -81,7 +92,35 @@ class ProcessDocumentListSerializer(serializers.ModelSerializer):
             "title",
             "site_location",
             "google_doc_url",
+            "tags",
+            "is_template",
+            "status",
         ]
+
+
+class ProcessDocumentEntrySerializer(serializers.ModelSerializer):
+    """
+    Serializer for ProcessDocumentEntry - individual entries in structured documents.
+    """
+
+    entered_by_name = serializers.CharField(
+        source="entered_by.get_display_name",
+        read_only=True,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = ProcessDocumentEntry
+        fields = [
+            "id",
+            "document",
+            "entry_date",
+            "entered_by",
+            "entered_by_name",
+            "data",
+            "created_at",
+        ]
+        read_only_fields = ["id", "created_at", "entered_by_name"]
 
 
 class SWPGenerateRequestSerializer(serializers.Serializer):
