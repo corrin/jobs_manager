@@ -80,6 +80,68 @@ Response: full detail shape of the newly created record (status="draft").
 
 No request body. Response: full detail shape with status="completed".
 
+### form_schema field
+
+Documents with `document_type: "form"` and `is_template: true` include a `form_schema` that defines the fields for structured data entry. The schema is copied to filled records so the frontend always has it available.
+
+```json
+{
+  "fields": [
+    {"key": "equipment_name", "label": "Equipment Name", "type": "text", "required": true},
+    {"key": "fault_description", "label": "Fault Description", "type": "textarea"},
+    {"key": "condition", "label": "Condition", "type": "select", "options": ["OK", "Needs Repair", "Out of Service"]},
+    {"key": "inspected", "label": "Inspected", "type": "boolean"},
+    {"key": "date_checked", "label": "Date Checked", "type": "date"},
+    {"key": "quantity", "label": "Quantity", "type": "number"}
+  ]
+}
+```
+
+**Field types:** `text`, `textarea`, `date`, `boolean`, `number`, `select`
+
+- `select` fields include an `options` array
+- `required: true` means the field must be filled before saving an entry
+- Documents without a schema return `form_schema: {}`
+
+### Entries endpoints
+
+**GET /rest/process-documents/<id>/entries/** — list all entries for a document
+
+Response:
+```json
+[
+  {
+    "id": "uuid",
+    "document": "parent-document-uuid",
+    "entry_date": "2026-03-03",
+    "entered_by": "staff-uuid",
+    "entered_by_name": "John Smith",
+    "data": {
+      "equipment_name": "Press Brake",
+      "condition": "OK",
+      "inspected": true
+    },
+    "created_at": "2026-03-03T10:00:00Z"
+  }
+]
+```
+
+**POST /rest/process-documents/<id>/entries/** — add an entry
+
+Request:
+```json
+{
+  "entry_date": "2026-03-03",
+  "data": {
+    "equipment_name": "Press Brake",
+    "condition": "OK",
+    "inspected": true
+  }
+}
+```
+
+`entered_by` is set automatically from the authenticated user. The `data` object keys should match the `key` values from `form_schema.fields`.
+
 ## Existing endpoints preserved
 
 These still work and return the same data (now filtered by tags internally):
@@ -144,6 +206,27 @@ A browsable library of all process documents. This is the main entry point.
 - If has google_doc_url: "Open in Google Docs" button (external link)
 - If has parent_template: link back to the template
 
+**Two content modes based on document type:**
+
+**A. Google Docs documents** (procedures, references — have `google_doc_url`, empty `form_schema`):
+- Show "Open in Google Docs" button (opens in new tab)
+- Content is managed entirely in Google Docs
+
+**B. Structured form documents** (forms, registers — have `form_schema` with fields):
+- Render an entries table using `form_schema.fields` as column definitions
+- Each row is a `ProcessDocumentEntry` from the entries endpoint
+- Below the table: an inline form or "Add Entry" button that opens a form
+- The form renders fields dynamically from `form_schema.fields`:
+  - `text` → text input
+  - `textarea` → multi-line text input
+  - `date` → date picker
+  - `boolean` → checkbox
+  - `number` → number input
+  - `select` → dropdown with `options` array
+- Fields with `required: true` must be filled before submission
+- The form also includes an `entry_date` date picker (defaults to today)
+- On submit → POST to entries endpoint, then refresh the entries table
+
 **Completed records section (if template):**
 - List of records created from this template (via parent_template)
 - Table with: date created, status, linked job, link to record
@@ -161,6 +244,19 @@ The existing `/safety/jsa` and `/safety/swp` routes can remain as they are — t
 
 type ProcessDocumentType = 'procedure' | 'form' | 'register' | 'reference'
 type ProcessDocumentStatus = 'draft' | 'active' | 'completed' | 'archived'
+type FormFieldType = 'text' | 'textarea' | 'date' | 'boolean' | 'number' | 'select'
+
+interface FormField {
+  key: string
+  label: string
+  type: FormFieldType
+  required?: boolean
+  options?: string[]  // only for type: 'select'
+}
+
+interface FormSchema {
+  fields: FormField[]
+}
 
 interface ProcessDocument {
   id: string
@@ -177,6 +273,7 @@ interface ProcessDocument {
   job_number: string | null
   company_name: string
   site_location: string
+  form_schema: FormSchema | Record<string, never>  // {} when no schema
   created_at: string
   updated_at: string
 }
@@ -192,8 +289,19 @@ interface ProcessDocumentList {
   google_doc_url: string
   job_number: string | null
   site_location: string
+  form_schema: FormSchema | Record<string, never>
   created_at: string
   updated_at: string
+}
+
+interface ProcessDocumentEntry {
+  id: string
+  document: string
+  entry_date: string
+  entered_by: string | null
+  entered_by_name: string | null
+  data: Record<string, unknown>  // keys match form_schema field keys
+  created_at: string
 }
 ```
 
@@ -207,6 +315,7 @@ The existing `safetyDocuments` store can be extended or a new `processDocuments`
 state: {
   documents: ProcessDocumentList[]
   currentDocument: ProcessDocument | null
+  entries: ProcessDocumentEntry[]
   isLoading: boolean
   error: string | null
   filters: {
@@ -226,6 +335,8 @@ actions: {
   deleteDocument(id)        // DELETE /rest/process-documents/<id>/
   fillTemplate(id, jobId?)  // POST /rest/process-documents/<id>/fill/
   completeDocument(id)      // POST /rest/process-documents/<id>/complete/
+  loadEntries(id)           // GET /rest/process-documents/<id>/entries/
+  addEntry(id, data)        // POST /rest/process-documents/<id>/entries/
   setFilters(filters)       // Update filters and reload
 }
 ```
@@ -234,6 +345,9 @@ actions: {
 
 - The existing Safety Wizard modal and AI generation features continue to work unchanged — they create ProcessDocuments with appropriate tags
 - Google Docs links should open in a new tab
-- The "Fill in this form" action creates a copy and navigates to the new record's detail page
+- The "Fill in this form" action creates a new record (via fill endpoint) and navigates to the new record's detail page
 - Tag filtering should feel fast — consider debouncing search input
 - Document numbers sort numerically, not alphabetically (e.g. "3" before "100")
+- To determine whether to show Google Docs view vs structured form view, check `form_schema.fields` — if it has fields, render the form; otherwise show Google Docs link
+- Form templates have no `google_doc_url` — their content is entirely structured data via entries
+- The entries endpoint does not yet exist in the backend — it needs to be wired up (viewset + URL conf)
