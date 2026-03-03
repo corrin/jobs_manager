@@ -179,11 +179,22 @@ class Command(BaseCommand):
             action="store_true",
             help="Create records with empty google_doc fields (for testing)",
         )
+        parser.add_argument(
+            "--credentials",
+            help="Path to Google service account JSON key file (overrides default)",
+        )
+        parser.add_argument(
+            "--impersonate",
+            help="Email address to impersonate via domain-wide delegation "
+            "(e.g. office@morrissheetmetal.co.nz)",
+        )
 
     def handle(self, *args, **options):
         folder_path = Path(options["folder"])
         dry_run = options["dry_run"]
         skip_upload = options["skip_upload"]
+        self._credentials_file = options.get("credentials")
+        self._impersonate_email = options.get("impersonate")
 
         if not folder_path.exists():
             raise CommandError(f"Folder does not exist: {folder_path}")
@@ -378,6 +389,27 @@ class Command(BaseCommand):
 
         return resolved
 
+    def _get_drive_service(self):
+        """Get a Google Drive service, optionally with custom credentials."""
+        if self._credentials_file:
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+
+            scopes = [
+                "https://www.googleapis.com/auth/drive",
+                "https://www.googleapis.com/auth/documents",
+            ]
+            creds = service_account.Credentials.from_service_account_file(
+                self._credentials_file, scopes=scopes
+            )
+            if self._impersonate_email:
+                creds = creds.with_subject(self._impersonate_email)
+            return build("drive", "v3", credentials=creds, cache_discovery=False)
+
+        from apps.job.importers.google_sheets import _svc
+
+        return _svc("drive", "v3")
+
     def _upload_to_google_docs(self, file_path: Path, title: str) -> tuple:
         """
         Upload a .doc/.docx file to Google Drive, converting to Google Docs format.
@@ -387,10 +419,10 @@ class Command(BaseCommand):
         """
         from googleapiclient.http import MediaFileUpload
 
-        from apps.job.importers.google_sheets import _set_public_edit_permissions, _svc
+        from apps.job.importers.google_sheets import _set_public_edit_permissions
         from apps.job.services.google_docs_service import GoogleDocsService
 
-        drive_service = _svc("drive", "v3")
+        drive_service = self._get_drive_service()
 
         ext = file_path.suffix.lower()
         mime_types = {
