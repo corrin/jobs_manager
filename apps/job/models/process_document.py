@@ -116,6 +116,13 @@ class ProcessDocument(models.Model):
         help_text="URL to edit the document in Google Docs",
     )
 
+    # Form schema for structured entry templates
+    form_schema = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="JSON schema defining entry fields for form templates",
+    )
+
     class Meta:
         db_table = "workflow_safetydocument"
         ordering = ["-created_at"]

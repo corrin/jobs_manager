@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from apps.job.models import Job, ProcessDocument
 from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.process_document_serializer import (
+    ProcessDocumentCreateSerializer,
     ProcessDocumentListSerializer,
     ProcessDocumentSerializer,
     SWPGenerateRequestSerializer,
@@ -139,7 +140,23 @@ class ProcessDocumentViewSet(
     def get_serializer_class(self):
         if self.action == "list":
             return ProcessDocumentListSerializer
+        if self.action == "create":
+            return ProcessDocumentCreateSerializer
         return ProcessDocumentSerializer
+
+    @extend_schema(
+        request=ProcessDocumentCreateSerializer,
+        responses={201: ProcessDocumentSerializer},
+    )
+    def create(self, request, *args, **kwargs):
+        ser = ProcessDocumentCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        from apps.job.services.process_document_service import ProcessDocumentService
+
+        doc = ProcessDocumentService().create_blank_document(**ser.validated_data)
+        return Response(
+            ProcessDocumentSerializer(doc).data, status=status.HTTP_201_CREATED
+        )
 
     @extend_schema(
         parameters=[

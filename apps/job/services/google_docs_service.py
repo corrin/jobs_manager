@@ -420,6 +420,60 @@ class GoogleDocsService:
 
         return document_id
 
+    def create_blank_in_folder(self, title: str, folder_id: str) -> GoogleDocResult:
+        """
+        Create a blank Google Doc in the specified folder.
+
+        Args:
+            title: Document title
+            folder_id: Google Drive folder ID to place the document in
+
+        Returns:
+            GoogleDocResult with document_id and edit_url
+
+        Raises:
+            RuntimeError: If document creation fails
+        """
+        try:
+            document_id = self._create_blank_document(title)
+            self._move_to_folder(document_id, folder_id)
+            _set_public_edit_permissions(document_id)
+            edit_url = f"https://docs.google.com/document/d/{document_id}/edit"
+            logger.info(f"Created blank document in folder: {edit_url}")
+            return GoogleDocResult(document_id=document_id, edit_url=edit_url)
+        except HttpError as e:
+            persist_app_error(e)
+            raise RuntimeError(f"Google API error: {e.reason}") from e
+        except Exception as e:
+            persist_app_error(e)
+            raise RuntimeError(f"Failed to create Google Doc: {str(e)}") from e
+
+    def _move_to_folder(self, document_id: str, folder_id: str) -> None:
+        """Move document to the specified folder (supports shared drives)."""
+        drive_service = _svc("drive", "v3")
+
+        file = (
+            drive_service.files()
+            .get(
+                fileId=document_id,
+                fields="parents",
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
+
+        previous_parents = ",".join(file.get("parents", []))
+
+        drive_service.files().update(
+            fileId=document_id,
+            addParents=folder_id,
+            removeParents=previous_parents,
+            fields="id, parents",
+            supportsAllDrives=True,
+        ).execute()
+
+        logger.info(f"Moved document {document_id} to folder {folder_id}")
+
     def _get_or_create_safety_folder(self) -> str:
         """Get or create the SafetyDocuments folder in Drive."""
         drive_service = _svc("drive", "v3")

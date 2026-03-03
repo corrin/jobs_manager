@@ -56,6 +56,7 @@ class ProcessDocumentSerializer(serializers.ModelSerializer):
             "is_template",
             "status",
             "parent_template_id",
+            "form_schema",
         ]
         read_only_fields = [
             "id",
@@ -95,6 +96,7 @@ class ProcessDocumentListSerializer(serializers.ModelSerializer):
             "tags",
             "is_template",
             "status",
+            "form_schema",
         ]
 
 
@@ -121,6 +123,44 @@ class ProcessDocumentEntrySerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = ["id", "created_at", "entered_by_name"]
+
+
+class ProcessDocumentCreateSerializer(serializers.Serializer):
+    """Request serializer for creating a blank process document."""
+
+    document_type = serializers.ChoiceField(
+        choices=ProcessDocument.DOCUMENT_TYPES,
+        help_text="Document type: procedure, form, register, or reference",
+    )
+    title = serializers.CharField(
+        max_length=255,
+        help_text="Document title",
+    )
+    document_number = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Optional document number",
+    )
+    tags = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        default=list,
+        help_text="Optional list of tags",
+    )
+    is_template = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="Whether this is a template",
+    )
+    site_location = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Optional site location",
+    )
 
 
 class SWPGenerateRequestSerializer(serializers.Serializer):

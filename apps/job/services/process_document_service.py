@@ -224,6 +224,64 @@ class ProcessDocumentService:
             raise
 
     @transaction.atomic
+    def create_blank_document(
+        self,
+        document_type: str,
+        title: str,
+        tags: list[str] | None = None,
+        is_template: bool = False,
+        document_number: str = "",
+        site_location: str = "",
+    ) -> ProcessDocument:
+        """
+        Create a blank ProcessDocument with a new Google Doc.
+
+        Args:
+            document_type: One of ProcessDocument.DOCUMENT_TYPES
+            title: Document title
+            tags: Optional list of tags
+            is_template: Whether this is a template
+            document_number: Optional document number
+            site_location: Optional site location
+
+        Returns:
+            Created ProcessDocument with Google Doc URL
+        """
+        valid_types = [t[0] for t in ProcessDocument.DOCUMENT_TYPES]
+        if document_type not in valid_types:
+            raise ValueError(
+                f"Invalid document_type '{document_type}'. "
+                f"Must be one of: {valid_types}"
+            )
+
+        company = CompanyDefaults.get_instance()
+        folder_id = company.gdrive_reference_library_folder_id
+        if not folder_id:
+            raise ValueError(
+                "gdrive_reference_library_folder_id is not configured in CompanyDefaults"
+            )
+
+        doc_result = self.docs_service.create_blank_in_folder(
+            title=title, folder_id=folder_id
+        )
+
+        doc = ProcessDocument.objects.create(
+            document_type=document_type,
+            title=title,
+            tags=tags or [],
+            is_template=is_template,
+            document_number=document_number or None,
+            company_name=company.company_name,
+            site_location=site_location,
+            status="draft",
+            google_doc_id=doc_result.document_id,
+            google_doc_url=doc_result.edit_url,
+        )
+
+        logger.info(f"Created blank document: {doc.pk} -> {doc_result.edit_url}")
+        return doc
+
+    @transaction.atomic
     def fill_template(self, template_id, job_id=None):
         """Create a new record from a template by copying the Google Doc."""
         try:
@@ -245,6 +303,7 @@ class ProcessDocumentService:
             record = ProcessDocument.objects.create(
                 document_type=template.document_type,
                 tags=list(template.tags),  # Copy, don't share reference
+                form_schema=dict(template.form_schema) if template.form_schema else {},
                 title=template.title,
                 document_number=template.document_number,
                 company_name=template.company_name,

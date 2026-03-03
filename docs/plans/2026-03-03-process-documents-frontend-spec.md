@@ -20,6 +20,8 @@ GET    /rest/process-documents/<id>/content/       # read Google Docs content
 PUT    /rest/process-documents/<id>/content/       # update Google Docs content
 POST   /rest/process-documents/<id>/fill/          # create record from template
 POST   /rest/process-documents/<id>/complete/      # mark as completed (read-only)
+GET    /rest/process-documents/<id>/entries/        # list entries for a document
+POST   /rest/process-documents/<id>/entries/        # add an entry to a document
 ```
 
 ### Query parameters for list endpoint
@@ -45,7 +47,8 @@ POST   /rest/process-documents/<id>/complete/      # mark as completed (read-onl
   "job_number": null,
   "created_at": "2026-03-03T10:00:00Z",
   "updated_at": "2026-03-03T10:00:00Z",
-  "site_location": ""
+  "site_location": "",
+  "form_schema": {}
 }
 ```
 
@@ -57,7 +60,8 @@ POST   /rest/process-documents/<id>/complete/      # mark as completed (read-onl
   "job_id": null,
   "company_name": "Morris Sheetmetal",
   "google_doc_id": "1abc...",
-  "parent_template_id": null
+  "parent_template_id": null,
+  "form_schema": {}
 }
 ```
 

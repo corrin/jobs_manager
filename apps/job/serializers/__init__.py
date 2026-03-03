@@ -138,6 +138,7 @@ try:
             WorkshopJobSerializer,
         )
         from .process_document_serializer import (
+            ProcessDocumentCreateSerializer,
             ProcessDocumentEntrySerializer,
             ProcessDocumentErrorResponseSerializer,
             ProcessDocumentListSerializer,
@@ -272,6 +273,7 @@ __all__ = [
     "MonthEndStockHistorySerializer",
     "MonthEndStockJobSerializer",
     "PreviewQuoteResponseSerializer",
+    "ProcessDocumentCreateSerializer",
     "ProcessDocumentEntrySerializer",
     "ProcessDocumentErrorResponseSerializer",
     "ProcessDocumentListSerializer",
