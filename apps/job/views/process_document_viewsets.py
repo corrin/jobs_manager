@@ -267,8 +267,14 @@ class ProcessDocumentEntryViewSet(
 
     def get_queryset(self):
         return ProcessDocumentEntry.objects.filter(
-            document_id=self.kwargs["document_pk"]
+            document_id=self.kwargs["document_pk"],
+            is_active=True,
         ).order_by("-entry_date", "-created_at")
+
+    def perform_destroy(self, instance):
+        """Soft delete - set is_active=False instead of actually deleting."""
+        instance.is_active = False
+        instance.save(update_fields=["is_active"])
 
     @extend_schema(responses=ProcessDocumentEntrySerializer(many=True))
     def list(self, request, *args, **kwargs):

@@ -8,6 +8,7 @@ rather than prose (which lives in Google Docs).
 import uuid
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class ProcessDocumentEntry(models.Model):
@@ -44,7 +45,17 @@ class ProcessDocumentEntry(models.Model):
         help_text="Entry data - schema varies by document type",
     )
 
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text="Soft delete flag - inactive entries are hidden from normal queries",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+
+    history: HistoricalRecords = HistoricalRecords(
+        table_name="workflow_historicalprocessdocumententry"
+    )
 
     class Meta:
         db_table = "workflow_processdocumententry"

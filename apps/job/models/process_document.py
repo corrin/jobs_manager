@@ -9,6 +9,7 @@ Content is stored in Google Docs - this model stores metadata and the Doc refere
 import uuid
 
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 
 class ProcessDocument(models.Model):
@@ -141,6 +142,10 @@ class ProcessDocument(models.Model):
             raise ValidationError(
                 {"parent_template": "A template cannot itself have a parent template."}
             )
+
+    history: HistoricalRecords = HistoricalRecords(
+        table_name="workflow_historicalprocessdocument"
+    )
 
     @property
     def has_google_doc(self) -> bool:
