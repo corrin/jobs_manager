@@ -143,6 +143,7 @@ try:
             ProcessDocumentErrorResponseSerializer,
             ProcessDocumentListSerializer,
             ProcessDocumentSerializer,
+            ProcessDocumentUpdateSerializer,
             SWPGenerateRequestSerializer,
         )
         from .quote_spreadsheet_serializer import QuoteSpreadsheetSerializer
@@ -278,6 +279,7 @@ __all__ = [
     "ProcessDocumentErrorResponseSerializer",
     "ProcessDocumentListSerializer",
     "ProcessDocumentSerializer",
+    "ProcessDocumentUpdateSerializer",
     "QuoteChangesSerializer",
     "QuoteImportStatusResponseSerializer",
     "QuoteRevisionResponseSerializer",

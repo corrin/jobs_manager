@@ -54,6 +54,7 @@ from apps.job.views.process_document_viewsets import (
     JSAListView,
     ProcessDocumentCompleteView,
     ProcessDocumentContentView,
+    ProcessDocumentEntryViewSet,
     ProcessDocumentFillView,
     ProcessDocumentViewSet,
     SOPGenerateView,
@@ -328,6 +329,19 @@ rest_urlpatterns = [
         "rest/process-documents/<uuid:pk>/complete/",
         ProcessDocumentCompleteView.as_view(),
         name="process_document_complete",
+    ),
+    # Process Document Entries (nested under document)
+    path(
+        "rest/process-documents/<uuid:document_pk>/entries/",
+        ProcessDocumentEntryViewSet.as_view({"get": "list", "post": "create"}),
+        name="process_document_entries",
+    ),
+    path(
+        "rest/process-documents/<uuid:document_pk>/entries/<uuid:pk>/",
+        ProcessDocumentEntryViewSet.as_view(
+            {"put": "update", "patch": "partial_update", "delete": "destroy"}
+        ),
+        name="process_document_entry_detail",
     ),
     # JSA (nested under jobs)
     path(

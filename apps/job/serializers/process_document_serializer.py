@@ -100,6 +100,33 @@ class ProcessDocumentListSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProcessDocumentUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for updating ProcessDocument metadata."""
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "title",
+            "document_number",
+            "tags",
+            "document_type",
+            "is_template",
+            "form_schema",
+            "site_location",
+            "status",
+        ]
+        extra_kwargs = {
+            "title": {"required": False},
+            "document_number": {"required": False},
+            "tags": {"required": False},
+            "document_type": {"required": False},
+            "is_template": {"required": False},
+            "form_schema": {"required": False},
+            "site_location": {"required": False},
+            "status": {"required": False},
+        }
+
+
 class ProcessDocumentEntrySerializer(serializers.ModelSerializer):
     """
     Serializer for ProcessDocumentEntry - individual entries in structured documents.
@@ -122,7 +149,7 @@ class ProcessDocumentEntrySerializer(serializers.ModelSerializer):
             "data",
             "created_at",
         ]
-        read_only_fields = ["id", "created_at", "entered_by_name"]
+        read_only_fields = ["id", "document", "entered_by", "created_at"]
 
 
 class ProcessDocumentCreateSerializer(serializers.Serializer):

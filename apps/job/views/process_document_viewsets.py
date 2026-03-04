@@ -10,12 +10,14 @@ from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.models import Job, ProcessDocument
+from apps.job.models import Job, ProcessDocument, ProcessDocumentEntry
 from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.process_document_serializer import (
     ProcessDocumentCreateSerializer,
+    ProcessDocumentEntrySerializer,
     ProcessDocumentListSerializer,
     ProcessDocumentSerializer,
+    ProcessDocumentUpdateSerializer,
     SWPGenerateRequestSerializer,
 )
 from apps.workflow.services.error_persistence import persist_app_error
@@ -114,6 +116,7 @@ class ProcessDocumentContentView(APIView):
 class ProcessDocumentViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
@@ -122,7 +125,10 @@ class ProcessDocumentViewSet(
 
     Endpoints:
     - GET    /rest/process-documents/              - list all documents
+    - POST   /rest/process-documents/              - create document
     - GET    /rest/process-documents/<id>/         - retrieve document
+    - PUT    /rest/process-documents/<id>/         - update document
+    - PATCH  /rest/process-documents/<id>/         - partial update document
     - DELETE /rest/process-documents/<id>/         - delete document
 
     Note: Content endpoints (GET/PUT) are handled by ProcessDocumentContentView.
@@ -142,6 +148,8 @@ class ProcessDocumentViewSet(
             return ProcessDocumentListSerializer
         if self.action == "create":
             return ProcessDocumentCreateSerializer
+        if self.action in {"update", "partial_update"}:
+            return ProcessDocumentUpdateSerializer
         return ProcessDocumentSerializer
 
     @extend_schema(
@@ -157,6 +165,28 @@ class ProcessDocumentViewSet(
         return Response(
             ProcessDocumentSerializer(doc).data, status=status.HTTP_201_CREATED
         )
+
+    @extend_schema(
+        request=ProcessDocumentUpdateSerializer,
+        responses=ProcessDocumentSerializer,
+    )
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        ser = ProcessDocumentUpdateSerializer(
+            instance, data=request.data, partial=partial
+        )
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ProcessDocumentSerializer(instance).data)
+
+    @extend_schema(
+        request=ProcessDocumentUpdateSerializer,
+        responses=ProcessDocumentSerializer,
+    )
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
 
     @extend_schema(
         parameters=[
@@ -181,6 +211,12 @@ class ProcessDocumentViewSet(
                 description="Filter by template flag (true/false)",
                 required=False,
             ),
+            OpenApiParameter(
+                name="parent_template_id",
+                description="Filter by parent template UUID",
+                required=False,
+                type=str,
+            ),
         ]
     )
     def list(self, request, *args, **kwargs):
@@ -201,7 +237,70 @@ class ProcessDocumentViewSet(
             qs = qs.filter(status=status_param)
         if is_template_param := self.request.query_params.get("is_template"):
             qs = qs.filter(is_template=is_template_param.lower() == "true")
+        if parent_template_id := self.request.query_params.get("parent_template_id"):
+            qs = qs.filter(parent_template_id=parent_template_id)
         return qs
+
+
+class ProcessDocumentEntryViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    CRUD endpoints for ProcessDocumentEntry, nested under a document.
+
+    Endpoints:
+    - GET    /rest/process-documents/<id>/entries/              - list entries
+    - POST   /rest/process-documents/<id>/entries/              - create entry
+    - PUT    /rest/process-documents/<id>/entries/<entry_id>/   - update entry
+    - DELETE /rest/process-documents/<id>/entries/<entry_id>/   - delete entry
+    """
+
+    serializer_class = ProcessDocumentEntrySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_document(self):
+        return get_object_or_404(ProcessDocument, pk=self.kwargs["document_pk"])
+
+    def get_queryset(self):
+        return ProcessDocumentEntry.objects.filter(
+            document_id=self.kwargs["document_pk"]
+        ).order_by("-entry_date", "-created_at")
+
+    @extend_schema(responses=ProcessDocumentEntrySerializer(many=True))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ProcessDocumentEntrySerializer,
+        responses={201: ProcessDocumentEntrySerializer},
+    )
+    def create(self, request, *args, **kwargs):
+        document = self.get_document()
+        ser = ProcessDocumentEntrySerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        ser.save(document=document, entered_by=request.user)
+        return Response(
+            ProcessDocumentEntrySerializer(ser.instance).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(
+        request=ProcessDocumentEntrySerializer,
+        responses=ProcessDocumentEntrySerializer,
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ProcessDocumentEntrySerializer,
+        responses=ProcessDocumentEntrySerializer,
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
 
 
 class JSAListView(APIView):
