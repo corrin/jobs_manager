@@ -4,6 +4,11 @@
 
 The backend `SafetyDocument` model has been renamed to `ProcessDocument` with expanded functionality. The frontend needs a new **Process Documents** section that replaces the current Safety Documents UI, providing a browsable library of company process documents (SOPs, policies, forms, registers, references).
 
+There are two kinds of documents:
+
+- **Prose documents** (procedures, references, some registers) — content lives in Google Docs. The frontend links out to the Google Doc for viewing/editing.
+- **Form documents** (inspection checklists, training sign-offs, meeting minutes, etc.) — content is structured data. These have NO Google Doc. The frontend renders a dynamic form from `form_schema` and stores entries as `ProcessDocumentEntry` rows.
+
 Existing JSA/SWP/SOP functionality should continue to work — it's now a subset of the broader Process Documents system.
 
 ## API Changes
@@ -43,12 +48,12 @@ POST   /rest/process-documents/<id>/entries/        # add an entry to a document
   "tags": ["safety", "sop", "machinery"],
   "is_template": false,
   "status": "active",
+  "form_schema": {},
   "google_doc_url": "https://docs.google.com/document/d/.../edit",
   "job_number": null,
   "created_at": "2026-03-03T10:00:00Z",
   "updated_at": "2026-03-03T10:00:00Z",
-  "site_location": "",
-  "form_schema": {}
+  "site_location": ""
 }
 ```
 
@@ -60,12 +65,11 @@ POST   /rest/process-documents/<id>/entries/        # add an entry to a document
   "job_id": null,
   "company_name": "Morris Sheetmetal",
   "google_doc_id": "1abc...",
-  "parent_template_id": null,
-  "form_schema": {}
+  "parent_template_id": null
 }
 ```
 
-### Fill endpoint (POST /rest/process-documents/<id>/fill/)
+### Fill endpoint (POST /rest/process-documents/\<id\>/fill/)
 
 Request:
 ```json
@@ -74,9 +78,9 @@ Request:
 }
 ```
 
-Response: full detail shape of the newly created record (status="draft").
+Response: full detail shape of the newly created record (status="draft"). The new record inherits `form_schema` from the template.
 
-### Complete endpoint (POST /rest/process-documents/<id>/complete/)
+### Complete endpoint (POST /rest/process-documents/\<id\>/complete/)
 
 No request body. Response: full detail shape with status="completed".
 
@@ -105,7 +109,7 @@ Documents with `document_type: "form"` and `is_template: true` include a `form_s
 
 ### Entries endpoints
 
-**GET /rest/process-documents/<id>/entries/** — list all entries for a document
+**GET /rest/process-documents/\<id\>/entries/** — list all entries for a document
 
 Response:
 ```json
@@ -126,7 +130,7 @@ Response:
 ]
 ```
 
-**POST /rest/process-documents/<id>/entries/** — add an entry
+**POST /rest/process-documents/\<id\>/entries/** — add an entry
 
 Request:
 ```json
@@ -193,7 +197,7 @@ A browsable library of all process documents. This is the main entry point.
 - Type dropdown (procedure/form/register/reference)
 - Tags input (free text, comma-separated or tag chips)
 - Is template checkbox
-- Submit → POST to `/rest/process-documents/`
+- Submit -> POST to `/rest/process-documents/`
 
 ### 2. Process Document Detail (`/process-documents/:id`)
 
@@ -203,33 +207,37 @@ A browsable library of all process documents. This is the main entry point.
 - Tags: editable tag chips
 - If template: "Fill in this form" button (prominent)
 - If draft: "Mark as completed" button
-- If has google_doc_url: "Open in Google Docs" button (external link)
 - If has parent_template: link back to the template
 
 **Two content modes based on document type:**
 
-**A. Google Docs documents** (procedures, references — have `google_doc_url`, empty `form_schema`):
+**A. Prose documents** (`google_doc_url` is set, `form_schema` is empty):
+- Procedures, references, some registers — content lives in Google Docs
 - Show "Open in Google Docs" button (opens in new tab)
-- Content is managed entirely in Google Docs
+- Optionally show embedded content via the `/content/` endpoint
 
-**B. Structured form documents** (forms, registers — have `form_schema` with fields):
-- Render an entries table using `form_schema.fields` as column definitions
-- Each row is a `ProcessDocumentEntry` from the entries endpoint
-- Below the table: an inline form or "Add Entry" button that opens a form
-- The form renders fields dynamically from `form_schema.fields`:
-  - `text` → text input
-  - `textarea` → multi-line text input
-  - `date` → date picker
-  - `boolean` → checkbox
-  - `number` → number input
-  - `select` → dropdown with `options` array
+**B. Form documents** (`form_schema` has fields, no `google_doc_url`):
+- Inspection checklists, training sign-offs, meeting minutes, etc.
+- Content is structured data stored as `ProcessDocumentEntry` rows
+- **Template view** (`is_template: true`): shows the schema fields as a preview, "Fill in this form" button, and a list of completed records created from this template
+- **Filled record view** (`is_template: false`, has `parent_template_id`): renders the data-entry form and entries table
+
+**Form entry UI (for filled form records):**
+- Render each field from `form_schema.fields` as the appropriate input:
+  - `text` -> text input
+  - `textarea` -> multi-line textarea
+  - `date` -> date picker
+  - `boolean` -> checkbox
+  - `number` -> number input
+  - `select` -> dropdown populated from `options` array
 - Fields with `required: true` must be filled before submission
-- The form also includes an `entry_date` date picker (defaults to today)
-- On submit → POST to entries endpoint, then refresh the entries table
+- Include an `entry_date` date picker (defaults to today)
+- Submit -> POST to `/rest/process-documents/<id>/entries/`
+- Below the form: table of existing entries, newest first, showing entry_date, entered_by_name, and data values as columns derived from `form_schema.fields`
 
 **Completed records section (if template):**
 - List of records created from this template (via parent_template)
-- Table with: date created, status, linked job, link to record
+- Table with: date created, status, linked job, entry count, link to record
 
 ### 3. Navigation
 
@@ -266,6 +274,7 @@ interface ProcessDocument {
   tags: string[]
   is_template: boolean
   status: ProcessDocumentStatus
+  form_schema: FormSchema | Record<string, never>  // {} when no schema
   google_doc_id: string
   google_doc_url: string
   parent_template_id: string | null
@@ -273,7 +282,6 @@ interface ProcessDocument {
   job_number: string | null
   company_name: string
   site_location: string
-  form_schema: FormSchema | Record<string, never>  // {} when no schema
   created_at: string
   updated_at: string
 }
@@ -286,10 +294,10 @@ interface ProcessDocumentList {
   tags: string[]
   is_template: boolean
   status: ProcessDocumentStatus
+  form_schema: FormSchema | Record<string, never>
   google_doc_url: string
   job_number: string | null
   site_location: string
-  form_schema: FormSchema | Record<string, never>
   created_at: string
   updated_at: string
 }
@@ -345,9 +353,7 @@ actions: {
 
 - The existing Safety Wizard modal and AI generation features continue to work unchanged — they create ProcessDocuments with appropriate tags
 - Google Docs links should open in a new tab
-- The "Fill in this form" action creates a new record (via fill endpoint) and navigates to the new record's detail page
+- Form templates have NO Google Doc — the frontend renders forms natively using `form_schema`
+- The "Fill in this form" action creates a new record (via fill endpoint) and navigates to the new record's detail page, where the user can start adding entries
 - Tag filtering should feel fast — consider debouncing search input
 - Document numbers sort numerically, not alphabetically (e.g. "3" before "100")
-- To determine whether to show Google Docs view vs structured form view, check `form_schema.fields` — if it has fields, render the form; otherwise show Google Docs link
-- Form templates have no `google_doc_url` — their content is entirely structured data via entries
-- The entries endpoint does not yet exist in the backend — it needs to be wired up (viewset + URL conf)
