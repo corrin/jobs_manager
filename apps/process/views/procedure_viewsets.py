@@ -31,6 +31,7 @@ from apps.process.serializers.procedure_serializer import (
 
 PROCEDURE_CATEGORIES = {
     "safety": {"document_type": "procedure", "tags": ["safety"]},
+    "jsa": {"document_type": "procedure", "tags": ["jsa"]},
     "training": {"document_type": "procedure", "tags": ["training"]},
     "reference": {"document_type": "reference", "tags": []},
 }
