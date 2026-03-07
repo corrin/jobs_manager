@@ -10,7 +10,7 @@ def convert_document_types_forward(apps, schema_editor):
     ProcessDocument = apps.get_model("job", "ProcessDocument")
 
     mapping = {
-        "jsa": {"document_type": "form", "tags": ["safety", "jsa"]},
+        "jsa": {"document_type": "procedure", "tags": ["safety", "jsa"]},
         "swp": {"document_type": "procedure", "tags": ["safety", "swp"]},
         "sop": {"document_type": "procedure", "tags": ["sop"]},
     }
@@ -27,8 +27,8 @@ def convert_document_types_reverse(apps, schema_editor):
     """Reverse: convert new types back to old JSA/SWP/SOP types (best-effort)."""
     ProcessDocument = apps.get_model("job", "ProcessDocument")
 
-    # Forms tagged with "jsa" -> jsa
-    for doc in ProcessDocument.objects.filter(document_type="form"):
+    # Procedures tagged with "jsa" -> jsa
+    for doc in ProcessDocument.objects.filter(document_type="procedure"):
         tags = doc.tags or []
         if "jsa" in tags:
             doc.document_type = "jsa"

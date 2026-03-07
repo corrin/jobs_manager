@@ -10,123 +10,6 @@ from rest_framework import serializers
 from apps.job.models import ProcessDocument, ProcessDocumentEntry
 
 
-class ProcessDocumentSerializer(serializers.ModelSerializer):
-    """
-    Main serializer for ProcessDocument model.
-
-    Returns document metadata and Google Docs URL for editing.
-    """
-
-    job_id = serializers.UUIDField(
-        source="job.id",
-        read_only=True,
-        allow_null=True,
-        help_text="Linked job ID (null for SWPs)",
-    )
-    job_number = serializers.CharField(
-        source="job.job_number",
-        read_only=True,
-        allow_null=True,
-        help_text="Linked job number (null for SWPs)",
-    )
-
-    parent_template_id = serializers.UUIDField(
-        source="parent_template.id",
-        read_only=True,
-        allow_null=True,
-        help_text="ID of the template this record was created from",
-    )
-
-    class Meta:
-        model = ProcessDocument
-        fields = [
-            "id",
-            "document_type",
-            "document_number",
-            "job_id",
-            "job_number",
-            "created_at",
-            "updated_at",
-            "title",
-            "company_name",
-            "site_location",
-            "google_doc_id",
-            "google_doc_url",
-            "tags",
-            "is_template",
-            "status",
-            "parent_template_id",
-            "form_schema",
-        ]
-        read_only_fields = [
-            "id",
-            "document_type",
-            "job_id",
-            "job_number",
-            "created_at",
-            "updated_at",
-            "google_doc_id",
-            "google_doc_url",
-        ]
-
-
-class ProcessDocumentListSerializer(serializers.ModelSerializer):
-    """
-    Lightweight serializer for listing process documents.
-    """
-
-    job_number = serializers.CharField(
-        source="job.job_number",
-        read_only=True,
-        allow_null=True,
-    )
-
-    class Meta:
-        model = ProcessDocument
-        fields = [
-            "id",
-            "document_type",
-            "document_number",
-            "job_number",
-            "created_at",
-            "updated_at",
-            "title",
-            "site_location",
-            "google_doc_url",
-            "tags",
-            "is_template",
-            "status",
-            "form_schema",
-        ]
-
-
-class ProcessDocumentUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating ProcessDocument metadata."""
-
-    class Meta:
-        model = ProcessDocument
-        fields = [
-            "title",
-            "document_number",
-            "tags",
-            "document_type",
-            "is_template",
-            "form_schema",
-            "site_location",
-            "status",
-        ]
-        extra_kwargs = {
-            "title": {"required": False},
-            "document_number": {"required": False},
-            "tags": {"required": False},
-            "document_type": {"required": False},
-            "is_template": {"required": False},
-            "form_schema": {"required": False},
-            "site_location": {"required": False},
-            "status": {"required": False},
-        }
-
-
 class ProcessDocumentEntrySerializer(serializers.ModelSerializer):
     """
     Serializer for ProcessDocumentEntry - individual entries in structured documents.
@@ -152,44 +35,6 @@ class ProcessDocumentEntrySerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "document", "entered_by", "created_at"]
 
 
-class ProcessDocumentCreateSerializer(serializers.Serializer):
-    """Request serializer for creating a blank process document."""
-
-    document_type = serializers.ChoiceField(
-        choices=ProcessDocument.DOCUMENT_TYPES,
-        help_text="Document type: procedure, form, register, or reference",
-    )
-    title = serializers.CharField(
-        max_length=255,
-        help_text="Document title",
-    )
-    document_number = serializers.CharField(
-        max_length=50,
-        required=False,
-        allow_blank=True,
-        default="",
-        help_text="Optional document number",
-    )
-    tags = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        default=list,
-        help_text="Optional list of tags",
-    )
-    is_template = serializers.BooleanField(
-        required=False,
-        default=False,
-        help_text="Whether this is a template",
-    )
-    site_location = serializers.CharField(
-        max_length=255,
-        required=False,
-        allow_blank=True,
-        default="",
-        help_text="Optional site location",
-    )
-
-
 class SWPGenerateRequestSerializer(serializers.Serializer):
     """Request serializer for generating a new SWP (standalone)."""
 
@@ -211,6 +56,205 @@ class SWPGenerateRequestSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="Optional site location for the procedure",
     )
+
+
+class ProcedureListSerializer(serializers.ModelSerializer):
+    """List serializer for procedure endpoints — includes google_doc_url, excludes form_schema."""
+
+    job_number = serializers.CharField(
+        source="job.job_number", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "id",
+            "document_type",
+            "document_number",
+            "title",
+            "site_location",
+            "google_doc_url",
+            "job_number",
+            "tags",
+            "is_template",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class ProcedureDetailSerializer(serializers.ModelSerializer):
+    """Detail serializer for procedures — adds google_doc_id, company_name, job_id, parent_template_id."""
+
+    job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
+    job_number = serializers.CharField(
+        source="job.job_number", read_only=True, allow_null=True
+    )
+    parent_template_id = serializers.UUIDField(
+        source="parent_template.id", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "id",
+            "document_type",
+            "document_number",
+            "title",
+            "company_name",
+            "site_location",
+            "google_doc_id",
+            "google_doc_url",
+            "job_id",
+            "job_number",
+            "tags",
+            "is_template",
+            "status",
+            "parent_template_id",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "document_type",
+            "created_at",
+            "updated_at",
+            "google_doc_id",
+            "google_doc_url",
+        ]
+
+
+class ProcedureCreateSerializer(serializers.Serializer):
+    """Request serializer for creating a blank procedure."""
+
+    title = serializers.CharField(max_length=255)
+    document_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
+    tags = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    site_location = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default=""
+    )
+    is_template = serializers.BooleanField(required=False, default=False)
+
+
+class ProcedureUpdateSerializer(serializers.ModelSerializer):
+    """Update serializer for procedures."""
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "title",
+            "document_number",
+            "tags",
+            "site_location",
+            "status",
+            "is_template",
+        ]
+        extra_kwargs = {
+            "title": {"required": False},
+            "document_number": {"required": False},
+            "tags": {"required": False},
+            "site_location": {"required": False},
+            "status": {"required": False},
+            "is_template": {"required": False},
+        }
+
+
+class FormListSerializer(serializers.ModelSerializer):
+    """List serializer for form endpoints — includes form_schema, excludes google_doc_url/google_doc_id."""
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "id",
+            "document_type",
+            "document_number",
+            "title",
+            "tags",
+            "is_template",
+            "status",
+            "form_schema",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class FormDetailSerializer(serializers.ModelSerializer):
+    """Detail serializer for forms — adds company_name, site_location, job_id, job_number, parent_template_id."""
+
+    job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
+    job_number = serializers.CharField(
+        source="job.job_number", read_only=True, allow_null=True
+    )
+    parent_template_id = serializers.UUIDField(
+        source="parent_template.id", read_only=True, allow_null=True
+    )
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "id",
+            "document_type",
+            "document_number",
+            "title",
+            "company_name",
+            "site_location",
+            "tags",
+            "is_template",
+            "status",
+            "form_schema",
+            "parent_template_id",
+            "job_id",
+            "job_number",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "document_type",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class FormCreateSerializer(serializers.Serializer):
+    """Request serializer for creating a form document (no Google Doc)."""
+
+    title = serializers.CharField(max_length=255)
+    document_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
+    tags = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
+    )
+    form_schema = serializers.JSONField(required=False, default=dict)
+    is_template = serializers.BooleanField(required=False, default=False)
+
+
+class FormUpdateSerializer(serializers.ModelSerializer):
+    """Update serializer for forms."""
+
+    class Meta:
+        model = ProcessDocument
+        fields = [
+            "title",
+            "document_number",
+            "tags",
+            "form_schema",
+            "status",
+            "is_template",
+        ]
+        extra_kwargs = {
+            "title": {"required": False},
+            "document_number": {"required": False},
+            "tags": {"required": False},
+            "form_schema": {"required": False},
+            "status": {"required": False},
+            "is_template": {"required": False},
+        }
 
 
 class ProcessDocumentErrorResponseSerializer(serializers.Serializer):

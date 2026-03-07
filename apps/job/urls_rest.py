@@ -1,5 +1,4 @@
-from django.urls import include, path
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 
 from apps.job.views.data_integrity_views import DataIntegrityReportView
 from apps.job.views.data_quality_report_views import ArchivedJobsComplianceView
@@ -50,17 +49,16 @@ from apps.job.views.process_document_viewsets import (
     AIGenerateHazardsView,
     AIImproveDocumentView,
     AIImproveSectionView,
+    FormViewSet,
     JSAGenerateView,
     JSAListView,
+    ProcedureViewSet,
     ProcessDocumentCompleteView,
     ProcessDocumentContentView,
     ProcessDocumentEntryViewSet,
     ProcessDocumentFillView,
-    ProcessDocumentViewSet,
     SOPGenerateView,
-    SOPListView,
     SWPGenerateView,
-    SWPListView,
 )
 from apps.job.views.quote_import_views import QuoteImportStatusView
 from apps.job.views.quote_sync_views import (
@@ -69,12 +67,6 @@ from apps.job.views.quote_sync_views import (
     PreviewQuoteAPIView,
 )
 from apps.job.views.workshop_pdf_view import WorkshopPDFView
-
-# Router for ViewSets
-router = DefaultRouter()
-router.register(
-    r"rest/process-documents", ProcessDocumentViewSet, basename="process-document"
-)
 
 # URLs for new REST views
 rest_urlpatterns = [
@@ -313,37 +305,81 @@ rest_urlpatterns = [
         DataIntegrityReportView.as_view(),
         name="data_integrity_scan",
     ),
-    # Process Document Content (separate from ViewSet for clean GET/PUT)
+    # ─── Procedures (written docs, Google Doc-backed) ───────────────────────
+    # Generation endpoints must come BEFORE the <str:category> patterns
     path(
-        "rest/process-documents/<uuid:pk>/content/",
+        "rest/procedures/safety/generate-sop/",
+        SOPGenerateView.as_view(),
+        name="sop_generate",
+    ),
+    path(
+        "rest/procedures/safety/generate-swp/",
+        SWPGenerateView.as_view(),
+        name="swp_generate",
+    ),
+    path(
+        "rest/procedures/<str:category>/",
+        ProcedureViewSet.as_view({"get": "list", "post": "create"}),
+        name="procedure_list",
+    ),
+    path(
+        "rest/procedures/<str:category>/<uuid:pk>/",
+        ProcedureViewSet.as_view(
+            {
+                "get": "retrieve",
+                "put": "update",
+                "patch": "partial_update",
+                "delete": "destroy",
+            }
+        ),
+        name="procedure_detail",
+    ),
+    path(
+        "rest/procedures/<str:category>/<uuid:pk>/content/",
         ProcessDocumentContentView.as_view(),
-        name="process_document_content",
+        name="procedure_content",
     ),
-    # Process Document workflow actions
+    # ─── Forms (fillable templates with entries) ──────────────────────────
     path(
-        "rest/process-documents/<uuid:pk>/fill/",
+        "rest/forms/<str:category>/",
+        FormViewSet.as_view({"get": "list", "post": "create"}),
+        name="form_list",
+    ),
+    path(
+        "rest/forms/<str:category>/<uuid:pk>/",
+        FormViewSet.as_view(
+            {
+                "get": "retrieve",
+                "put": "update",
+                "patch": "partial_update",
+                "delete": "destroy",
+            }
+        ),
+        name="form_detail",
+    ),
+    path(
+        "rest/forms/<str:category>/<uuid:pk>/fill/",
         ProcessDocumentFillView.as_view(),
-        name="process_document_fill",
+        name="form_fill",
     ),
     path(
-        "rest/process-documents/<uuid:pk>/complete/",
+        "rest/forms/<str:category>/<uuid:pk>/complete/",
         ProcessDocumentCompleteView.as_view(),
-        name="process_document_complete",
+        name="form_complete",
     ),
-    # Process Document Entries (nested under document)
     path(
-        "rest/process-documents/<uuid:document_pk>/entries/",
+        "rest/forms/<str:category>/<uuid:document_pk>/entries/",
         ProcessDocumentEntryViewSet.as_view({"get": "list", "post": "create"}),
-        name="process_document_entries",
+        name="form_entries",
     ),
     path(
-        "rest/process-documents/<uuid:document_pk>/entries/<uuid:pk>/",
+        "rest/forms/<str:category>/<uuid:document_pk>/entries/<uuid:pk>/",
         ProcessDocumentEntryViewSet.as_view(
             {"put": "update", "patch": "partial_update", "delete": "destroy"}
         ),
-        name="process_document_entry_detail",
+        name="form_entry_detail",
     ),
-    # JSA (nested under jobs)
+    # ─── JSA (nested under jobs, unchanged) ───────────────────────────────
     path(
         "rest/jobs/<uuid:job_id>/jsa/",
         JSAListView.as_view(),
@@ -354,12 +390,6 @@ rest_urlpatterns = [
         JSAGenerateView.as_view(),
         name="jsa_generate",
     ),
-    # SWP
-    path("rest/swp/", SWPListView.as_view(), name="swp_list"),
-    path("rest/swp/generate/", SWPGenerateView.as_view(), name="swp_generate"),
-    # SOP
-    path("rest/sop/", SOPListView.as_view(), name="sop_list"),
-    path("rest/sop/generate/", SOPGenerateView.as_view(), name="sop_generate"),
     # Safety AI
     path(
         "rest/safety-ai/generate-hazards/",
@@ -381,6 +411,4 @@ rest_urlpatterns = [
         AIImproveDocumentView.as_view(),
         name="ai_improve_document",
     ),
-    # Include router URLs (must be last to avoid conflicts)
-    path("", include(router.urls)),
 ]

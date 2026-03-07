@@ -207,3 +207,61 @@ class TestProcessDocumentServiceCreateBlank:
                 document_type="procedure",
                 title="No folder",
             )
+
+
+@pytest.mark.django_db
+class TestProcessDocumentServiceCreateForm:
+    def test_create_form_document_happy_path(self):
+        CompanyDefaults.objects.create(company_name="Morris Sheetmetal")
+
+        service = _make_service()
+        doc = service.create_form_document(
+            title="Inspection Checklist",
+            document_type="form",
+            tags=["safety", "inspection"],
+            is_template=True,
+            document_number="110",
+            form_schema={"fields": [{"key": "item", "type": "text"}]},
+        )
+
+        assert doc.document_type == "form"
+        assert doc.title == "Inspection Checklist"
+        assert doc.tags == ["safety", "inspection"]
+        assert doc.is_template is True
+        assert doc.document_number == "110"
+        assert doc.company_name == "Morris Sheetmetal"
+        assert doc.status == "active"  # template → active
+        assert doc.form_schema == {"fields": [{"key": "item", "type": "text"}]}
+        assert doc.google_doc_id == ""
+        assert doc.google_doc_url == ""
+
+    def test_create_form_document_record_gets_draft_status(self):
+        CompanyDefaults.objects.create(company_name="Test")
+
+        service = _make_service()
+        doc = service.create_form_document(
+            title="Filled checklist",
+            document_type="form",
+            is_template=False,
+        )
+
+        assert doc.status == "draft"
+
+    def test_create_form_document_register_type(self):
+        CompanyDefaults.objects.create(company_name="Test")
+
+        service = _make_service()
+        doc = service.create_form_document(
+            title="Chemical Register",
+            document_type="register",
+        )
+
+        assert doc.document_type == "register"
+
+    def test_create_form_document_rejects_procedure_type(self):
+        service = _make_service()
+        with pytest.raises(ValueError, match="form.*register"):
+            service.create_form_document(
+                title="Not a form",
+                document_type="procedure",
+            )

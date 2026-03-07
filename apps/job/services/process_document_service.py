@@ -65,7 +65,8 @@ class ProcessDocumentService:
 
             # Create ProcessDocument record
             jsa = ProcessDocument.objects.create(
-                document_type="jsa",
+                document_type="procedure",
+                tags=["jsa", "safety"],
                 job=job,
                 title=jsa_content.get("title", job.name),
                 company_name=company_name,
@@ -142,7 +143,8 @@ class ProcessDocumentService:
 
             # Create ProcessDocument record
             swp = ProcessDocument.objects.create(
-                document_type="swp",
+                document_type="procedure",
+                tags=["swp", "safety"],
                 job=None,  # SWPs are standalone
                 document_number=document_number or None,
                 title=swp_content.get("title", title),
@@ -205,7 +207,8 @@ class ProcessDocumentService:
 
             # Create ProcessDocument record
             sop = ProcessDocument.objects.create(
-                document_type="sop",
+                document_type="procedure",
+                tags=["sop", "safety"],
                 job=None,  # SOPs are standalone
                 document_number=document_number or None,
                 title=sop_content.get("title", title),
@@ -279,6 +282,52 @@ class ProcessDocumentService:
         )
 
         logger.info(f"Created blank document: {doc.pk} -> {doc_result.edit_url}")
+        return doc
+
+    @transaction.atomic
+    def create_form_document(
+        self,
+        title: str,
+        document_type: str = "form",
+        tags: list[str] | None = None,
+        is_template: bool = False,
+        document_number: str = "",
+        form_schema: dict | None = None,
+    ) -> ProcessDocument:
+        """
+        Create a form/register ProcessDocument without a Google Doc.
+
+        Args:
+            title: Document title
+            document_type: Must be "form" or "register"
+            tags: Optional list of tags
+            is_template: Whether this is a template
+            document_number: Optional document number
+            form_schema: Optional JSON schema for form fields
+
+        Returns:
+            Created ProcessDocument (no Google Doc)
+        """
+        if document_type not in ("form", "register"):
+            raise ValueError(
+                f"create_form_document only accepts 'form' or 'register', "
+                f"got '{document_type}'"
+            )
+
+        company = CompanyDefaults.get_instance()
+
+        doc = ProcessDocument.objects.create(
+            document_type=document_type,
+            title=title,
+            tags=tags or [],
+            is_template=is_template,
+            document_number=document_number or None,
+            company_name=company.company_name,
+            form_schema=form_schema or {},
+            status="active" if is_template else "draft",
+        )
+
+        logger.info(f"Created form document: {doc.pk} (type={document_type})")
         return doc
 
     @transaction.atomic

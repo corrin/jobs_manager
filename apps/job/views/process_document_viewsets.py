@@ -1,9 +1,13 @@
 """
-Process document ViewSets (JSA/SWP/SOP).
+Process document ViewSets and views.
 
-Uses DRF ViewSets for automatic schema generation and reduced boilerplate.
+Organized by interaction model:
+- ProcedureViewSet: Written documents people read (Google Doc-backed)
+- FormViewSet: Fillable templates with entries (form_schema, no Google Docs)
+- JSA/AI views: Unchanged
 """
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import mixins, permissions, serializers, status, viewsets
@@ -13,14 +17,368 @@ from rest_framework.views import APIView
 from apps.job.models import Job, ProcessDocument, ProcessDocumentEntry
 from apps.job.permissions import IsOfficeStaff
 from apps.job.serializers.process_document_serializer import (
-    ProcessDocumentCreateSerializer,
+    FormCreateSerializer,
+    FormDetailSerializer,
+    FormListSerializer,
+    FormUpdateSerializer,
+    ProcedureCreateSerializer,
+    ProcedureDetailSerializer,
+    ProcedureListSerializer,
+    ProcedureUpdateSerializer,
     ProcessDocumentEntrySerializer,
-    ProcessDocumentListSerializer,
-    ProcessDocumentSerializer,
-    ProcessDocumentUpdateSerializer,
     SWPGenerateRequestSerializer,
 )
 from apps.workflow.services.error_persistence import persist_app_error
+
+# ─── Category → queryset filter mappings ──────────────────────────────────────
+
+PROCEDURE_CATEGORIES = {
+    "safety": {"document_type": "procedure", "tags": ["safety"]},
+    "training": {"document_type": "procedure", "tags": ["training"]},
+    "reference": {"document_type": "reference", "tags": []},
+}
+
+FORM_CATEGORIES = {
+    "safety": {
+        "document_type": "form",
+        "tags_any": ["safety", "inspection", "hazard-id", "maintenance"],
+    },
+    "training": {"document_type": "form", "tags": ["training"]},
+    "incident": {"document_type": "form", "tags": ["incident"]},
+    "meeting": {
+        "document_type": "form",
+        "tags_any": ["meeting", "administration"],
+    },
+    "register": {"document_type": "register", "tags": []},
+}
+
+
+def _apply_category_filter(qs, category_map, category):
+    """Apply category-specific filters to a queryset."""
+    config = category_map.get(category)
+    if config is None:
+        return None  # signals invalid category
+
+    qs = qs.select_related("job", "parent_template").filter(
+        document_type=config["document_type"]
+    )
+
+    if tags := config.get("tags"):
+        for tag in tags:
+            qs = qs.filter(tags__contains=[tag])
+    elif tags_any := config.get("tags_any"):
+        tag_q = Q()
+        for tag in tags_any:
+            tag_q |= Q(tags__contains=[tag])
+        qs = qs.filter(tag_q)
+
+    return qs
+
+
+def _apply_common_filters(qs, request):
+    """Apply shared query-param filters (q, tags, status, is_template, parent_template_id)."""
+    if query := request.query_params.get("q"):
+        qs = qs.filter(title__icontains=query)
+    if tags_param := request.query_params.get("tags"):
+        for tag in tags_param.split(","):
+            tag = tag.strip()
+            if tag:
+                qs = qs.filter(tags__contains=[tag])
+    if status_param := request.query_params.get("status"):
+        qs = qs.filter(status=status_param)
+    if is_template_param := request.query_params.get("is_template"):
+        qs = qs.filter(is_template=is_template_param.lower() == "true")
+    if parent_template_id := request.query_params.get("parent_template_id"):
+        qs = qs.filter(parent_template_id=parent_template_id)
+    return qs
+
+
+# ─── Procedure ViewSet ────────────────────────────────────────────────────────
+
+
+class ProcedureViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    CRUD for procedure documents (Google Doc-backed written documents).
+
+    Category is taken from the URL kwarg, e.g. /rest/procedures/safety/.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsOfficeStaff()]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ProcedureListSerializer
+        if self.action == "create":
+            return ProcedureCreateSerializer
+        if self.action in {"update", "partial_update"}:
+            return ProcedureUpdateSerializer
+        return ProcedureDetailSerializer
+
+    def _get_category(self):
+        return self.kwargs.get("category", "")
+
+    def get_queryset(self):
+        category = self._get_category()
+        qs = _apply_category_filter(
+            ProcessDocument.objects.all(), PROCEDURE_CATEGORIES, category
+        )
+        if qs is None:
+            return ProcessDocument.objects.none()
+        return _apply_common_filters(qs, self.request)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", description="Search by title", required=False),
+            OpenApiParameter(
+                name="tags",
+                description="Comma-separated tags; ALL must match",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Filter by status (draft/active/completed/archived)",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="is_template",
+                description="Filter by template flag (true/false)",
+                required=False,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        category = self._get_category()
+        if category not in PROCEDURE_CATEGORIES:
+            return Response(
+                {"error": f"Unknown procedure category: {category}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        category = self._get_category()
+        if category not in PROCEDURE_CATEGORIES:
+            return Response(
+                {"error": f"Unknown procedure category: {category}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        request=ProcedureCreateSerializer,
+        responses={201: ProcedureDetailSerializer},
+    )
+    def create(self, request, *args, **kwargs):
+        category = self._get_category()
+        if category not in PROCEDURE_CATEGORIES:
+            return Response(
+                {"error": f"Unknown procedure category: {category}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        ser = ProcedureCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        config = PROCEDURE_CATEGORIES[category]
+        from apps.job.services.process_document_service import ProcessDocumentService
+
+        # Merge category tags with any user-supplied tags
+        tags = list(ser.validated_data.get("tags") or [])
+        for tag in config.get("tags", []):
+            if tag not in tags:
+                tags.append(tag)
+
+        doc = ProcessDocumentService().create_blank_document(
+            document_type=config["document_type"],
+            title=ser.validated_data["title"],
+            document_number=ser.validated_data.get("document_number", ""),
+            tags=tags,
+            is_template=ser.validated_data.get("is_template", False),
+            site_location=ser.validated_data.get("site_location", ""),
+        )
+        return Response(
+            ProcedureDetailSerializer(doc).data, status=status.HTTP_201_CREATED
+        )
+
+    @extend_schema(
+        request=ProcedureUpdateSerializer,
+        responses=ProcedureDetailSerializer,
+    )
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        ser = ProcedureUpdateSerializer(instance, data=request.data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(ProcedureDetailSerializer(instance).data)
+
+    @extend_schema(
+        request=ProcedureUpdateSerializer,
+        responses=ProcedureDetailSerializer,
+    )
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+
+# ─── Form ViewSet ─────────────────────────────────────────────────────────────
+
+
+class FormViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """
+    CRUD for form/register documents (fillable templates with entries, no Google Docs).
+
+    Category is taken from the URL kwarg, e.g. /rest/forms/safety/.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in {"list", "retrieve"}:
+            return [permissions.IsAuthenticated()]
+        return [permissions.IsAuthenticated(), IsOfficeStaff()]
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return FormListSerializer
+        if self.action == "create":
+            return FormCreateSerializer
+        if self.action in {"update", "partial_update"}:
+            return FormUpdateSerializer
+        return FormDetailSerializer
+
+    def _get_category(self):
+        return self.kwargs.get("category", "")
+
+    def get_queryset(self):
+        category = self._get_category()
+        qs = _apply_category_filter(
+            ProcessDocument.objects.all(), FORM_CATEGORIES, category
+        )
+        if qs is None:
+            return ProcessDocument.objects.none()
+        return _apply_common_filters(qs, self.request)
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", description="Search by title", required=False),
+            OpenApiParameter(
+                name="tags",
+                description="Comma-separated tags; ALL must match",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="status",
+                description="Filter by status (draft/active/completed/archived)",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="is_template",
+                description="Filter by template flag (true/false)",
+                required=False,
+            ),
+            OpenApiParameter(
+                name="parent_template_id",
+                description="Filter by parent template UUID",
+                required=False,
+                type=str,
+            ),
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        category = self._get_category()
+        if category not in FORM_CATEGORIES:
+            return Response(
+                {"error": f"Unknown form category: {category}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return super().list(request, *args, **kwargs)
+
+    def retrieve(self, request, *args, **kwargs):
+        category = self._get_category()
+        if category not in FORM_CATEGORIES:
+            return Response(
+                {"error": f"Unknown form category: {category}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        request=FormCreateSerializer,
+        responses={201: FormDetailSerializer},
+    )
+    def create(self, request, *args, **kwargs):
+        category = self._get_category()
+        if category not in FORM_CATEGORIES:
+            return Response(
+                {"error": f"Unknown form category: {category}"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        ser = FormCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+
+        config = FORM_CATEGORIES[category]
+        from apps.job.services.process_document_service import ProcessDocumentService
+
+        # Merge category tags with any user-supplied tags
+        tags = list(ser.validated_data.get("tags") or [])
+        # For tags_any categories, add only the primary tag (first in list) to new documents
+        for tag in config.get("tags", config.get("tags_any", []))[:1]:
+            if tag not in tags:
+                tags.append(tag)
+
+        doc = ProcessDocumentService().create_form_document(
+            document_type=config["document_type"],
+            title=ser.validated_data["title"],
+            document_number=ser.validated_data.get("document_number", ""),
+            tags=tags,
+            is_template=ser.validated_data.get("is_template", False),
+            form_schema=ser.validated_data.get("form_schema", {}),
+        )
+        return Response(FormDetailSerializer(doc).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=FormUpdateSerializer,
+        responses=FormDetailSerializer,
+    )
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        ser = FormUpdateSerializer(instance, data=request.data, partial=partial)
+        ser.is_valid(raise_exception=True)
+        ser.save()
+        return Response(FormDetailSerializer(instance).data)
+
+    @extend_schema(
+        request=FormUpdateSerializer,
+        responses=FormDetailSerializer,
+    )
+    def partial_update(self, request, *args, **kwargs):
+        kwargs["partial"] = True
+        return self.update(request, *args, **kwargs)
+
+
+# ─── Content View (unchanged, used by procedures) ─────────────────────────────
 
 
 # Serializers for content endpoint (defined here to keep schema close to view)
@@ -97,7 +455,7 @@ class ProcessDocumentContentView(APIView):
 
     @extend_schema(
         request=ProcessDocumentContentUpdateSerializer,
-        responses=ProcessDocumentSerializer,
+        responses=ProcedureDetailSerializer,
     )
     def put(self, request, pk):
         doc, error_response = self._get_document(pk)
@@ -110,136 +468,10 @@ class ProcessDocumentContentView(APIView):
         doc.title = request.data.get("title", doc.title)
         doc.site_location = request.data.get("site_location", doc.site_location)
         doc.save()
-        return Response(ProcessDocumentSerializer(doc).data)
+        return Response(ProcedureDetailSerializer(doc).data)
 
 
-class ProcessDocumentViewSet(
-    mixins.ListModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
-    """
-    ViewSet for ProcessDocument CRUD operations.
-
-    Endpoints:
-    - GET    /rest/process-documents/              - list all documents
-    - POST   /rest/process-documents/              - create document
-    - GET    /rest/process-documents/<id>/         - retrieve document
-    - PUT    /rest/process-documents/<id>/         - update document
-    - PATCH  /rest/process-documents/<id>/         - partial update document
-    - DELETE /rest/process-documents/<id>/         - delete document
-
-    Note: Content endpoints (GET/PUT) are handled by ProcessDocumentContentView.
-    """
-
-    queryset = ProcessDocument.objects.all()
-    serializer_class = ProcessDocumentSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_permissions(self):
-        if self.action in {"list", "retrieve"}:
-            return [permissions.IsAuthenticated()]
-        return [permissions.IsAuthenticated(), IsOfficeStaff()]
-
-    def get_serializer_class(self):
-        if self.action == "list":
-            return ProcessDocumentListSerializer
-        if self.action == "create":
-            return ProcessDocumentCreateSerializer
-        if self.action in {"update", "partial_update"}:
-            return ProcessDocumentUpdateSerializer
-        return ProcessDocumentSerializer
-
-    @extend_schema(
-        request=ProcessDocumentCreateSerializer,
-        responses={201: ProcessDocumentSerializer},
-    )
-    def create(self, request, *args, **kwargs):
-        ser = ProcessDocumentCreateSerializer(data=request.data)
-        ser.is_valid(raise_exception=True)
-        from apps.job.services.process_document_service import ProcessDocumentService
-
-        doc = ProcessDocumentService().create_blank_document(**ser.validated_data)
-        return Response(
-            ProcessDocumentSerializer(doc).data, status=status.HTTP_201_CREATED
-        )
-
-    @extend_schema(
-        request=ProcessDocumentUpdateSerializer,
-        responses=ProcessDocumentSerializer,
-    )
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop("partial", False)
-        instance = self.get_object()
-        ser = ProcessDocumentUpdateSerializer(
-            instance, data=request.data, partial=partial
-        )
-        ser.is_valid(raise_exception=True)
-        ser.save()
-        return Response(ProcessDocumentSerializer(instance).data)
-
-    @extend_schema(
-        request=ProcessDocumentUpdateSerializer,
-        responses=ProcessDocumentSerializer,
-    )
-    def partial_update(self, request, *args, **kwargs):
-        kwargs["partial"] = True
-        return self.update(request, *args, **kwargs)
-
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name="type",
-                description="Filter by document type (procedure/form/register/reference)",
-                required=False,
-            ),
-            OpenApiParameter(name="q", description="Search by title", required=False),
-            OpenApiParameter(
-                name="tags",
-                description="Comma-separated tags; ALL must match",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="status",
-                description="Filter by status (draft/active/completed/archived)",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="is_template",
-                description="Filter by template flag (true/false)",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="parent_template_id",
-                description="Filter by parent template UUID",
-                required=False,
-                type=str,
-            ),
-        ]
-    )
-    def list(self, request, *args, **kwargs):
-        return super().list(request, *args, **kwargs)
-
-    def get_queryset(self):
-        qs = ProcessDocument.objects.all()
-        if doc_type := self.request.query_params.get("type"):
-            qs = qs.filter(document_type=doc_type)
-        if query := self.request.query_params.get("q"):
-            qs = qs.filter(title__icontains=query)
-        if tags_param := self.request.query_params.get("tags"):
-            for tag in tags_param.split(","):
-                tag = tag.strip()
-                if tag:
-                    qs = qs.filter(tags__contains=[tag])
-        if status_param := self.request.query_params.get("status"):
-            qs = qs.filter(status=status_param)
-        if is_template_param := self.request.query_params.get("is_template"):
-            qs = qs.filter(is_template=is_template_param.lower() == "true")
-        if parent_template_id := self.request.query_params.get("parent_template_id"):
-            qs = qs.filter(parent_template_id=parent_template_id)
-        return qs
+# ─── Entry ViewSet (used by forms) ────────────────────────────────────────────
 
 
 class ProcessDocumentEntryViewSet(
@@ -250,13 +482,13 @@ class ProcessDocumentEntryViewSet(
     viewsets.GenericViewSet,
 ):
     """
-    CRUD endpoints for ProcessDocumentEntry, nested under a document.
+    CRUD endpoints for ProcessDocumentEntry, nested under a form document.
 
     Endpoints:
-    - GET    /rest/process-documents/<id>/entries/              - list entries
-    - POST   /rest/process-documents/<id>/entries/              - create entry
-    - PUT    /rest/process-documents/<id>/entries/<entry_id>/   - update entry
-    - DELETE /rest/process-documents/<id>/entries/<entry_id>/   - delete entry
+    - GET    /rest/forms/<category>/<id>/entries/              - list entries
+    - POST   /rest/forms/<category>/<id>/entries/              - create entry
+    - PUT    /rest/forms/<category>/<id>/entries/<entry_id>/   - update entry
+    - DELETE /rest/forms/<category>/<id>/entries/<entry_id>/   - delete entry
     """
 
     serializer_class = ProcessDocumentEntrySerializer
@@ -286,6 +518,11 @@ class ProcessDocumentEntryViewSet(
     )
     def create(self, request, *args, **kwargs):
         document = self.get_document()
+        if document.document_type not in ("form", "register"):
+            return Response(
+                {"error": "Entries can only be added to form or register documents"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         ser = ProcessDocumentEntrySerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         ser.save(document=document, entered_by=request.user)
@@ -309,16 +546,19 @@ class ProcessDocumentEntryViewSet(
         return super().partial_update(request, *args, **kwargs)
 
 
+# ─── JSA views (unchanged) ────────────────────────────────────────────────────
+
+
 class JSAListView(APIView):
     """List all JSAs for a job."""
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(responses=ProcessDocumentListSerializer(many=True))
+    @extend_schema(responses=ProcedureListSerializer(many=True))
     def get(self, request, job_id):
         job = get_object_or_404(Job, pk=job_id)
         jsas = ProcessDocument.objects.filter(job=job, tags__contains=["jsa"])
-        return Response(ProcessDocumentListSerializer(jsas, many=True).data)
+        return Response(ProcedureListSerializer(jsas, many=True).data)
 
 
 class JSAGenerateView(APIView):
@@ -326,26 +566,18 @@ class JSAGenerateView(APIView):
 
     permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
-    @extend_schema(request=None, responses=ProcessDocumentSerializer)
+    @extend_schema(request=None, responses=ProcedureDetailSerializer)
     def post(self, request, job_id):
         job = get_object_or_404(Job, pk=job_id)
         from apps.job.services.process_document_service import ProcessDocumentService
 
         jsa = ProcessDocumentService().generate_jsa(job)
         return Response(
-            ProcessDocumentSerializer(jsa).data, status=status.HTTP_201_CREATED
+            ProcedureDetailSerializer(jsa).data, status=status.HTTP_201_CREATED
         )
 
 
-class SWPListView(APIView):
-    """List all Safe Work Procedures."""
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(responses=ProcessDocumentListSerializer(many=True))
-    def get(self, request):
-        swps = ProcessDocument.objects.filter(tags__contains=["swp"])
-        return Response(ProcessDocumentListSerializer(swps, many=True).data)
+# ─── SWP/SOP Generate views (moved under /rest/procedures/safety/) ────────────
 
 
 class SWPGenerateView(APIView):
@@ -354,7 +586,7 @@ class SWPGenerateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
-        request=SWPGenerateRequestSerializer, responses=ProcessDocumentSerializer
+        request=SWPGenerateRequestSerializer, responses=ProcedureDetailSerializer
     )
     def post(self, request):
         ser = SWPGenerateRequestSerializer(data=request.data)
@@ -363,19 +595,8 @@ class SWPGenerateView(APIView):
 
         swp = ProcessDocumentService().generate_swp(**ser.validated_data)
         return Response(
-            ProcessDocumentSerializer(swp).data, status=status.HTTP_201_CREATED
+            ProcedureDetailSerializer(swp).data, status=status.HTTP_201_CREATED
         )
-
-
-class SOPListView(APIView):
-    """List all Standard Operating Procedures."""
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(responses=ProcessDocumentListSerializer(many=True))
-    def get(self, request):
-        sops = ProcessDocument.objects.filter(tags__contains=["sop"])
-        return Response(ProcessDocumentListSerializer(sops, many=True).data)
 
 
 # Request serializer for SOP generation
@@ -393,7 +614,7 @@ class SOPGenerateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
 
     @extend_schema(
-        request=SOPGenerateRequestSerializer, responses=ProcessDocumentSerializer
+        request=SOPGenerateRequestSerializer, responses=ProcedureDetailSerializer
     )
     def post(self, request):
         ser = SOPGenerateRequestSerializer(data=request.data)
@@ -402,11 +623,68 @@ class SOPGenerateView(APIView):
 
         sop = ProcessDocumentService().generate_sop(**ser.validated_data)
         return Response(
-            ProcessDocumentSerializer(sop).data, status=status.HTTP_201_CREATED
+            ProcedureDetailSerializer(sop).data, status=status.HTTP_201_CREATED
         )
 
 
-# Request/Response serializers for AI endpoints
+# ─── Fill / Complete views (moved under /rest/forms/) ─────────────────────────
+
+
+class ProcessDocumentFillView(APIView):
+    """Create a new record from a template."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=inline_serializer(
+            "FillRequest",
+            fields={
+                "job_id": serializers.UUIDField(required=False, allow_null=True),
+            },
+        ),
+        responses=FormDetailSerializer,
+    )
+    def post(self, request, pk, **kwargs):
+        try:
+            from apps.job.services.process_document_service import (
+                ProcessDocumentService,
+            )
+
+            record = ProcessDocumentService().fill_template(
+                template_id=pk,
+                job_id=request.data.get("job_id"),
+            )
+            return Response(
+                FormDetailSerializer(record).data,
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as exc:
+            persist_app_error(exc)
+            raise
+
+
+class ProcessDocumentCompleteView(APIView):
+    """Mark a document as completed (read-only)."""
+
+    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
+
+    @extend_schema(request=None, responses=FormDetailSerializer)
+    def post(self, request, pk, **kwargs):
+        try:
+            from apps.job.services.process_document_service import (
+                ProcessDocumentService,
+            )
+
+            doc = ProcessDocumentService().complete_document(pk)
+            return Response(FormDetailSerializer(doc).data)
+        except Exception as exc:
+            persist_app_error(exc)
+            raise
+
+
+# ─── AI views (unchanged) ─────────────────────────────────────────────────────
+
+
 class GenerateHazardsRequestSerializer(serializers.Serializer):
     task_description = serializers.CharField()
 
@@ -522,55 +800,3 @@ class AIImproveDocumentView(APIView):
             document_type=request.data.get("document_type", "swp"),
         )
         return Response(improved)
-
-
-class ProcessDocumentFillView(APIView):
-    """Create a new record from a template."""
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(
-        request=inline_serializer(
-            "FillRequest",
-            fields={
-                "job_id": serializers.UUIDField(required=False, allow_null=True),
-            },
-        ),
-        responses=ProcessDocumentSerializer,
-    )
-    def post(self, request, pk):
-        try:
-            from apps.job.services.process_document_service import (
-                ProcessDocumentService,
-            )
-
-            record = ProcessDocumentService().fill_template(
-                template_id=pk,
-                job_id=request.data.get("job_id"),
-            )
-            return Response(
-                ProcessDocumentSerializer(record).data,
-                status=status.HTTP_201_CREATED,
-            )
-        except Exception as exc:
-            persist_app_error(exc)
-            raise
-
-
-class ProcessDocumentCompleteView(APIView):
-    """Mark a document as completed (read-only)."""
-
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
-
-    @extend_schema(request=None, responses=ProcessDocumentSerializer)
-    def post(self, request, pk):
-        try:
-            from apps.job.services.process_document_service import (
-                ProcessDocumentService,
-            )
-
-            doc = ProcessDocumentService().complete_document(pk)
-            return Response(ProcessDocumentSerializer(doc).data)
-        except Exception as exc:
-            persist_app_error(exc)
-            raise
