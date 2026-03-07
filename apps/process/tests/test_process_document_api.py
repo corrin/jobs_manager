@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.models import Staff
-from apps.job.models import ProcessDocument
+from apps.process.models import ProcessDocument
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ class TestProcedureAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/procedures/safety/")
+        resp = api_client.get("/process/rest/procedures/safety/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
         assert resp.data[0]["title"] == "Drill Press SOP"
@@ -66,7 +66,7 @@ class TestProcedureAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/procedures/training/")
+        resp = api_client.get("/process/rest/procedures/training/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
         assert resp.data[0]["title"] == "Induction Plan"
@@ -79,7 +79,7 @@ class TestProcedureAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/procedures/reference/")
+        resp = api_client.get("/process/rest/procedures/reference/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
         assert resp.data[0]["title"] == "Org Chart"
@@ -93,14 +93,14 @@ class TestProcedureAPI:
             form_schema={"fields": []},
         )
 
-        resp = api_client.get(f"/job/rest/procedures/safety/{doc.pk}/")
+        resp = api_client.get(f"/process/rest/procedures/safety/{doc.pk}/")
         assert resp.status_code == status.HTTP_200_OK
         assert "form_schema" not in resp.data
         assert "google_doc_url" in resp.data
         assert "google_doc_id" in resp.data
 
     def test_unknown_category_returns_404(self, api_client):
-        resp = api_client.get("/job/rest/procedures/nonexistent/")
+        resp = api_client.get("/process/rest/procedures/nonexistent/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_list_excludes_form_schema(self, api_client):
@@ -112,7 +112,7 @@ class TestProcedureAPI:
             form_schema={"fields": []},
         )
 
-        resp = api_client.get("/job/rest/procedures/safety/")
+        resp = api_client.get("/process/rest/procedures/safety/")
         assert resp.status_code == status.HTTP_200_OK
         assert "form_schema" not in resp.data[0]
         assert "google_doc_url" in resp.data[0]
@@ -131,12 +131,12 @@ class TestProcedureAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/procedures/safety/?tags=swp")
+        resp = api_client.get("/process/rest/procedures/safety/?tags=swp")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
         assert resp.data[0]["title"] == "SWP1"
 
-    @patch("apps.job.services.process_document_service.ProcessDocumentService")
+    @patch("apps.process.services.process_document_service.ProcessDocumentService")
     def test_create_procedure(self, MockService, api_client):
         doc = ProcessDocument.objects.create(
             document_type="procedure",
@@ -148,7 +148,7 @@ class TestProcedureAPI:
         MockService.return_value.create_blank_document.return_value = doc
 
         resp = api_client.post(
-            "/job/rest/procedures/safety/",
+            "/process/rest/procedures/safety/",
             {"title": "New SWP"},
             format="json",
         )
@@ -165,7 +165,7 @@ class TestProcedureAPI:
         )
 
         resp = api_client.patch(
-            f"/job/rest/procedures/safety/{doc.pk}/",
+            f"/process/rest/procedures/safety/{doc.pk}/",
             {"title": "New Title"},
             format="json",
         )
@@ -180,7 +180,7 @@ class TestProcedureAPI:
             company_name="Test",
         )
 
-        resp = api_client.delete(f"/job/rest/procedures/safety/{doc.pk}/")
+        resp = api_client.delete(f"/process/rest/procedures/safety/{doc.pk}/")
         assert resp.status_code == status.HTTP_204_NO_CONTENT
         assert not ProcessDocument.objects.filter(pk=doc.pk).exists()
 
@@ -204,7 +204,7 @@ class TestFormAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/forms/safety/")
+        resp = api_client.get("/process/rest/forms/safety/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
         assert resp.data[0]["title"] == "Ladder Inspection"
@@ -217,7 +217,7 @@ class TestFormAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/forms/training/")
+        resp = api_client.get("/process/rest/forms/training/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
 
@@ -229,7 +229,7 @@ class TestFormAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/forms/incident/")
+        resp = api_client.get("/process/rest/forms/incident/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
 
@@ -247,7 +247,7 @@ class TestFormAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/forms/meeting/")
+        resp = api_client.get("/process/rest/forms/meeting/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 2
 
@@ -259,7 +259,7 @@ class TestFormAPI:
             company_name="Test",
         )
 
-        resp = api_client.get("/job/rest/forms/register/")
+        resp = api_client.get("/process/rest/forms/register/")
         assert resp.status_code == status.HTTP_200_OK
         assert len(resp.data) == 1
 
@@ -272,14 +272,14 @@ class TestFormAPI:
             form_schema={"fields": [{"key": "item", "type": "text"}]},
         )
 
-        resp = api_client.get(f"/job/rest/forms/safety/{doc.pk}/")
+        resp = api_client.get(f"/process/rest/forms/safety/{doc.pk}/")
         assert resp.status_code == status.HTTP_200_OK
         assert "form_schema" in resp.data
         assert "google_doc_url" not in resp.data
         assert "google_doc_id" not in resp.data
 
     def test_unknown_category_returns_404(self, api_client):
-        resp = api_client.get("/job/rest/forms/nonexistent/")
+        resp = api_client.get("/process/rest/forms/nonexistent/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_entry_guard_rejects_procedure_document(self, api_client):
@@ -291,7 +291,7 @@ class TestFormAPI:
         )
 
         resp = api_client.post(
-            f"/job/rest/forms/safety/{doc.pk}/entries/",
+            f"/process/rest/forms/safety/{doc.pk}/entries/",
             {"entry_date": "2026-03-07", "data": {"note": "test"}},
             format="json",
         )
@@ -307,7 +307,7 @@ class TestFormAPI:
         )
 
         resp = api_client.post(
-            f"/job/rest/forms/safety/{doc.pk}/entries/",
+            f"/process/rest/forms/safety/{doc.pk}/entries/",
             {"entry_date": "2026-03-07", "data": {"note": "test"}},
             format="json",
         )
@@ -322,13 +322,13 @@ class TestFormAPI:
         )
 
         resp = api_client.post(
-            f"/job/rest/forms/register/{doc.pk}/entries/",
+            f"/process/rest/forms/register/{doc.pk}/entries/",
             {"entry_date": "2026-03-07", "data": {"chemical": "acetone"}},
             format="json",
         )
         assert resp.status_code == status.HTTP_201_CREATED
 
-    @patch("apps.job.services.process_document_service.ProcessDocumentService")
+    @patch("apps.process.services.process_document_service.ProcessDocumentService")
     def test_create_form(self, MockService, api_client):
         doc = ProcessDocument.objects.create(
             document_type="form",
@@ -341,7 +341,7 @@ class TestFormAPI:
         MockService.return_value.create_form_document.return_value = doc
 
         resp = api_client.post(
-            "/job/rest/forms/safety/",
+            "/process/rest/forms/safety/",
             {
                 "title": "New Checklist",
                 "form_schema": {"fields": [{"key": "item", "type": "text"}]},
@@ -362,7 +362,7 @@ class TestFormAPI:
         )
 
         resp = api_client.patch(
-            f"/job/rest/forms/safety/{doc.pk}/",
+            f"/process/rest/forms/safety/{doc.pk}/",
             {"title": "Updated Form"},
             format="json",
         )
@@ -377,7 +377,7 @@ class TestFormAPI:
             company_name="Test",
         )
 
-        resp = api_client.delete(f"/job/rest/forms/safety/{doc.pk}/")
+        resp = api_client.delete(f"/process/rest/forms/safety/{doc.pk}/")
         assert resp.status_code == status.HTTP_204_NO_CONTENT
         assert not ProcessDocument.objects.filter(pk=doc.pk).exists()
 
@@ -388,13 +388,13 @@ class TestFormAPI:
 @pytest.mark.django_db
 class TestRemovedEndpoints:
     def test_process_documents_endpoint_removed(self, api_client):
-        resp = api_client.get("/job/rest/process-documents/")
+        resp = api_client.get("/process/rest/process-documents/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_sop_list_endpoint_removed(self, api_client):
-        resp = api_client.get("/job/rest/sop/")
+        resp = api_client.get("/process/rest/sop/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND
 
     def test_swp_list_endpoint_removed(self, api_client):
-        resp = api_client.get("/job/rest/swp/")
+        resp = api_client.get("/process/rest/swp/")
         assert resp.status_code == status.HTTP_404_NOT_FOUND

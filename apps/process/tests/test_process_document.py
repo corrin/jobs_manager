@@ -1,6 +1,6 @@
 import pytest
 
-from apps.job.models import ProcessDocument, ProcessDocumentEntry
+from apps.process.models import ProcessDocument, ProcessDocumentEntry
 
 
 @pytest.mark.django_db

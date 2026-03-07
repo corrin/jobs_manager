@@ -20,6 +20,7 @@ urlpatterns = [
     path("clients/", include("apps.client.urls_rest", namespace="clients")),
     path("purchasing/", include("apps.purchasing.urls", namespace="purchasing")),
     path("accounting/", include("apps.accounting.urls", namespace="accounting")),
+    path("process/", include("apps.process.urls", namespace="process")),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]

@@ -14,9 +14,10 @@ from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.job.models import Job, ProcessDocument, ProcessDocumentEntry
+from apps.job.models import Job
 from apps.job.permissions import IsOfficeStaff
-from apps.job.serializers.process_document_serializer import (
+from apps.process.models import ProcessDocument, ProcessDocumentEntry
+from apps.process.serializers.process_document_serializer import (
     FormCreateSerializer,
     FormDetailSerializer,
     FormListSerializer,
@@ -192,7 +193,9 @@ class ProcedureViewSet(
         ser.is_valid(raise_exception=True)
 
         config = PROCEDURE_CATEGORIES[category]
-        from apps.job.services.process_document_service import ProcessDocumentService
+        from apps.process.services.process_document_service import (
+            ProcessDocumentService,
+        )
 
         # Merge category tags with any user-supplied tags
         tags = list(ser.validated_data.get("tags") or [])
@@ -338,7 +341,9 @@ class FormViewSet(
         ser.is_valid(raise_exception=True)
 
         config = FORM_CATEGORIES[category]
-        from apps.job.services.process_document_service import ProcessDocumentService
+        from apps.process.services.process_document_service import (
+            ProcessDocumentService,
+        )
 
         # Merge category tags with any user-supplied tags
         tags = list(ser.validated_data.get("tags") or [])
@@ -437,7 +442,7 @@ class ProcessDocumentContentView(APIView):
         if error_response:
             return error_response
 
-        from apps.job.services.google_docs_service import GoogleDocsService
+        from apps.process.services.google_docs_service import GoogleDocsService
 
         content = GoogleDocsService().read_document(doc.google_doc_id)
         return Response(
@@ -462,7 +467,7 @@ class ProcessDocumentContentView(APIView):
         if error_response:
             return error_response
 
-        from apps.job.services.google_docs_service import GoogleDocsService
+        from apps.process.services.google_docs_service import GoogleDocsService
 
         GoogleDocsService().update_document(doc.google_doc_id, request.data)
         doc.title = request.data.get("title", doc.title)
@@ -569,7 +574,9 @@ class JSAGenerateView(APIView):
     @extend_schema(request=None, responses=ProcedureDetailSerializer)
     def post(self, request, job_id):
         job = get_object_or_404(Job, pk=job_id)
-        from apps.job.services.process_document_service import ProcessDocumentService
+        from apps.process.services.process_document_service import (
+            ProcessDocumentService,
+        )
 
         jsa = ProcessDocumentService().generate_jsa(job)
         return Response(
@@ -591,7 +598,9 @@ class SWPGenerateView(APIView):
     def post(self, request):
         ser = SWPGenerateRequestSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        from apps.job.services.process_document_service import ProcessDocumentService
+        from apps.process.services.process_document_service import (
+            ProcessDocumentService,
+        )
 
         swp = ProcessDocumentService().generate_swp(**ser.validated_data)
         return Response(
@@ -619,7 +628,9 @@ class SOPGenerateView(APIView):
     def post(self, request):
         ser = SOPGenerateRequestSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
-        from apps.job.services.process_document_service import ProcessDocumentService
+        from apps.process.services.process_document_service import (
+            ProcessDocumentService,
+        )
 
         sop = ProcessDocumentService().generate_sop(**ser.validated_data)
         return Response(
@@ -736,7 +747,7 @@ class AIGenerateHazardsView(APIView):
         responses=GenerateHazardsResponseSerializer,
     )
     def post(self, request):
-        from apps.job.services.safety_ai_service import SafetyAIService
+        from apps.process.services.safety_ai_service import SafetyAIService
 
         hazards = SafetyAIService().generate_hazards(
             request.data.get("task_description", "")
@@ -754,7 +765,7 @@ class AIGenerateControlsView(APIView):
         responses=GenerateControlsResponseSerializer,
     )
     def post(self, request):
-        from apps.job.services.safety_ai_service import SafetyAIService
+        from apps.process.services.safety_ai_service import SafetyAIService
 
         controls = SafetyAIService().generate_controls(
             hazards=request.data.get("hazards", []),
@@ -773,7 +784,7 @@ class AIImproveSectionView(APIView):
         responses=ImproveSectionResponseSerializer,
     )
     def post(self, request):
-        from apps.job.services.safety_ai_service import SafetyAIService
+        from apps.process.services.safety_ai_service import SafetyAIService
 
         text = SafetyAIService().improve_section(
             section_text=request.data.get("section_text", ""),
@@ -793,7 +804,7 @@ class AIImproveDocumentView(APIView):
         responses=ImproveDocumentResponseSerializer,
     )
     def post(self, request):
-        from apps.job.services.safety_ai_service import SafetyAIService
+        from apps.process.services.safety_ai_service import SafetyAIService
 
         improved = SafetyAIService().improve_document(
             raw_text=request.data.get("raw_text", ""),

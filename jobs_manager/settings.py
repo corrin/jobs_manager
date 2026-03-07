@@ -194,6 +194,7 @@ INSTALLED_APPS = [
     "apps.quoting.apps.QuotingConfig",
     "apps.client.apps.ClientConfig",
     "apps.purchasing.apps.PurchasingConfig",
+    "apps.process.apps.ProcessConfig",
     "channels",
     "mcp_server",
     "drf_spectacular",

@@ -76,7 +76,7 @@ class ProcessDocument(models.Model):
     # Optional job link - required for JSA, null for SWP
     # Uses SET_NULL so JSAs persist even after job deletion
     job = models.ForeignKey(
-        "Job",
+        "job.Job",
         related_name="process_documents",
         on_delete=models.SET_NULL,
         null=True,
@@ -125,7 +125,7 @@ class ProcessDocument(models.Model):
     )
 
     class Meta:
-        db_table = "workflow_safetydocument"
+        db_table = "process_document"
         ordering = ["-created_at"]
         verbose_name = "Process Document"
         verbose_name_plural = "Process Documents"
@@ -144,7 +144,7 @@ class ProcessDocument(models.Model):
             )
 
     history: HistoricalRecords = HistoricalRecords(
-        table_name="workflow_historicalprocessdocument"
+        table_name="process_historicaldocument"
     )
 
     @property

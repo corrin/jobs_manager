@@ -15,7 +15,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.job.models import ProcessDocument
+from apps.process.models import ProcessDocument
 from apps.workflow.models import CompanyDefaults
 
 # Maps individual doc numbers to (document_type, tags, is_template)

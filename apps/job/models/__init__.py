@@ -6,8 +6,6 @@ from .job_delta_rejection import JobDeltaRejection
 from .job_event import JobEvent
 from .job_file import JobFile
 from .job_quote_chat import JobQuoteChat
-from .process_document import ProcessDocument
-from .process_document_entry import ProcessDocumentEntry
 from .spreadsheet import QuoteSpreadsheet
 
 __all__ = [
@@ -18,7 +16,5 @@ __all__ = [
     "JobEvent",
     "JobFile",
     "JobQuoteChat",
-    "ProcessDocument",
-    "ProcessDocumentEntry",
     "QuoteSpreadsheet",
 ]

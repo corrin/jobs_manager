@@ -7,7 +7,7 @@ metadata and the Google Doc reference.
 
 from rest_framework import serializers
 
-from apps.job.models import ProcessDocument, ProcessDocumentEntry
+from apps.process.models import ProcessDocument, ProcessDocumentEntry
 
 
 class ProcessDocumentEntrySerializer(serializers.ModelSerializer):

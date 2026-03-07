@@ -13,9 +13,10 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 
-from apps.job.models import Job, JobEvent, ProcessDocument
-from apps.job.services.google_docs_service import GoogleDocsService
-from apps.job.services.safety_ai_service import SafetyAIService
+from apps.job.models import Job, JobEvent
+from apps.process.models import ProcessDocument
+from apps.process.services.google_docs_service import GoogleDocsService
+from apps.process.services.safety_ai_service import SafetyAIService
 from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 

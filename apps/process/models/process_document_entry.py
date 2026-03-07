@@ -53,12 +53,10 @@ class ProcessDocumentEntry(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    history: HistoricalRecords = HistoricalRecords(
-        table_name="workflow_historicalprocessdocumententry"
-    )
+    history: HistoricalRecords = HistoricalRecords(table_name="process_historicalentry")
 
     class Meta:
-        db_table = "workflow_processdocumententry"
+        db_table = "process_entry"
         ordering = ["-entry_date", "-created_at"]
         verbose_name = "Process Document Entry"
         verbose_name_plural = "Process Document Entries"

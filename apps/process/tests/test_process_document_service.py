@@ -2,17 +2,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.job.models import ProcessDocument
-from apps.job.services.google_docs_service import GoogleDocResult
-from apps.job.services.process_document_service import ProcessDocumentService
+from apps.process.models import ProcessDocument
+from apps.process.services.google_docs_service import GoogleDocResult
+from apps.process.services.process_document_service import ProcessDocumentService
 from apps.workflow.models import CompanyDefaults
 
 
 def _make_service():
     """Create a ProcessDocumentService with external dependencies mocked out."""
     with (
-        patch("apps.job.services.process_document_service.SafetyAIService"),
-        patch("apps.job.services.process_document_service.GoogleDocsService"),
+        patch("apps.process.services.process_document_service.SafetyAIService"),
+        patch("apps.process.services.process_document_service.GoogleDocsService"),
     ):
         service = ProcessDocumentService()
     # Replace docs_service with a fresh mock so callers can set return values
