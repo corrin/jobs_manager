@@ -13,6 +13,11 @@ from apps.process.models import Form, FormEntry
 class FormEntrySerializer(serializers.ModelSerializer):
     """Serializer for FormEntry — filled-in instances of forms."""
 
+    staff_name = serializers.CharField(
+        source="staff.get_display_name",
+        read_only=True,
+        allow_null=True,
+    )
     entered_by_name = serializers.CharField(
         source="entered_by.get_display_name",
         read_only=True,
@@ -31,6 +36,8 @@ class FormEntrySerializer(serializers.ModelSerializer):
             "form",
             "job",
             "job_number",
+            "staff",
+            "staff_name",
             "entry_date",
             "entered_by",
             "entered_by_name",

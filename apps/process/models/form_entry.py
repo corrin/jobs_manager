@@ -41,11 +41,21 @@ class FormEntry(models.Model):
         help_text="Date this entry relates to",
     )
 
+    staff = models.ForeignKey(
+        "accounts.Staff",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="form_entries",
+        help_text="Staff member this entry is about (e.g. inductee, trainee)",
+    )
+
     entered_by = models.ForeignKey(
         "accounts.Staff",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
+        related_name="form_entries_created",
         help_text="Staff member who created this entry",
     )
 
