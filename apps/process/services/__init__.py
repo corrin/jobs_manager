@@ -5,21 +5,23 @@ try:
     from django.apps import apps
 
     if apps.ready:
+        from .form_service import FormService
         from .google_docs_service import (
             GoogleDocResult,
             GoogleDocsService,
             ProcessDocumentContent,
         )
-        from .process_document_service import ProcessDocumentService
+        from .procedure_service import ProcedureService
         from .safety_ai_service import SafetyAIService
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
 
 __all__ = [
+    "FormService",
     "GoogleDocResult",
     "GoogleDocsService",
+    "ProcedureService",
     "ProcessDocumentContent",
-    "ProcessDocumentService",
     "SafetyAIService",
 ]

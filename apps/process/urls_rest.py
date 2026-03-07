@@ -1,18 +1,20 @@
 from django.urls import path
 
-from apps.process.views.process_document_viewsets import (
+from apps.process.views.form_viewsets import (
+    FormCompleteView,
+    FormEntryViewSet,
+    FormFillView,
+    FormViewSet,
+)
+from apps.process.views.procedure_viewsets import (
     AIGenerateControlsView,
     AIGenerateHazardsView,
     AIImproveDocumentView,
     AIImproveSectionView,
-    FormViewSet,
     JSAGenerateView,
     JSAListView,
+    ProcedureContentView,
     ProcedureViewSet,
-    ProcessDocumentCompleteView,
-    ProcessDocumentContentView,
-    ProcessDocumentEntryViewSet,
-    ProcessDocumentFillView,
     SOPGenerateView,
     SWPGenerateView,
 )
@@ -49,7 +51,7 @@ rest_urlpatterns = [
     ),
     path(
         "rest/procedures/<str:category>/<uuid:pk>/content/",
-        ProcessDocumentContentView.as_view(),
+        ProcedureContentView.as_view(),
         name="procedure_content",
     ),
     # ─── Forms (fillable templates with entries) ──────────────────────────
@@ -72,22 +74,22 @@ rest_urlpatterns = [
     ),
     path(
         "rest/forms/<str:category>/<uuid:pk>/fill/",
-        ProcessDocumentFillView.as_view(),
+        FormFillView.as_view(),
         name="form_fill",
     ),
     path(
         "rest/forms/<str:category>/<uuid:pk>/complete/",
-        ProcessDocumentCompleteView.as_view(),
+        FormCompleteView.as_view(),
         name="form_complete",
     ),
     path(
         "rest/forms/<str:category>/<uuid:document_pk>/entries/",
-        ProcessDocumentEntryViewSet.as_view({"get": "list", "post": "create"}),
+        FormEntryViewSet.as_view({"get": "list", "post": "create"}),
         name="form_entries",
     ),
     path(
         "rest/forms/<str:category>/<uuid:document_pk>/entries/<uuid:pk>/",
-        ProcessDocumentEntryViewSet.as_view(
+        FormEntryViewSet.as_view(
             {"put": "update", "patch": "partial_update", "delete": "destroy"}
         ),
         name="form_entry_detail",

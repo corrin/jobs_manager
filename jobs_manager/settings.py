@@ -463,11 +463,19 @@ SPECTACULAR_SETTINGS = {
             ("special", "Special"),
             ("archived", "Archived"),
         ),
-        "ProcessDocumentStatusEnum": (
+        "ProcessStatusEnum": (
             ("draft", "Draft"),
             ("active", "Active"),
             ("completed", "Completed"),
             ("archived", "Archived"),
+        ),
+        "ProcedureDocumentTypeEnum": (
+            ("procedure", "Procedure"),
+            ("reference", "Reference"),
+        ),
+        "FormDocumentTypeEnum": (
+            ("form", "Form"),
+            ("register", "Register"),
         ),
     },
 }

@@ -1,12 +1,12 @@
 """
-Management command to import Dropbox Health & Safety documents into ProcessDocument records.
+Management command to import Dropbox Health & Safety documents into Procedure/Form records.
 
 Walks a folder structure finding .doc and .docx files with Doc.NNN naming convention
-and creates ProcessDocument records with appropriate type, tags, and metadata.
+and creates Procedure or Form records with appropriate type, tags, and metadata.
 
 Two import paths based on DOC_MAPPING:
-- Prose docs (is_template=False): uploaded to Google Drive, stored with google_doc_id
-- Form templates (is_template=True): Django-only records, no Google Doc
+- Prose docs (is_template=False): uploaded to Google Drive, stored as Procedure
+- Form templates (is_template=True): Django-only Form records, no Google Doc
 """
 
 import re
@@ -15,7 +15,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.process.models import ProcessDocument
+from apps.process.models import Form, Procedure
 from apps.workflow.models import CompanyDefaults
 
 # Maps individual doc numbers to (document_type, tags, is_template)
@@ -116,7 +116,7 @@ DOC_MAPPING = {
 }
 
 # Form schemas for template documents.
-# Each defines the fields for ONE ProcessDocumentEntry row.
+# Each defines the fields for ONE FormEntry row.
 # Field types: text, textarea, date, boolean, number, select
 FORM_SCHEMAS = {
     # Inspection/Maintenance
@@ -627,7 +627,7 @@ def _extract_doc_info(filename: str) -> tuple:
 
 
 class Command(BaseCommand):
-    help = "Import Dropbox Health & Safety documents into ProcessDocument records"
+    help = "Import Dropbox Health & Safety documents into Procedure/Form records"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -678,10 +678,15 @@ class Command(BaseCommand):
         resolved = self._resolve_duplicates(candidates)
 
         # Phase 3: filter out already-imported documents
+        resolved_keys = list(resolved.keys())
         existing_numbers = set(
-            ProcessDocument.objects.filter(
-                document_number__in=list(resolved.keys())
-            ).values_list("document_number", flat=True)
+            Procedure.objects.filter(document_number__in=resolved_keys).values_list(
+                "document_number", flat=True
+            )
+        ) | set(
+            Form.objects.filter(document_number__in=resolved_keys).values_list(
+                "document_number", flat=True
+            )
         )
 
         imported_count = 0
@@ -726,7 +731,7 @@ class Command(BaseCommand):
             if is_template:
                 # Form templates — Django only, no Google Doc
                 schema = FORM_SCHEMAS.get(doc_number, {})
-                doc = ProcessDocument.objects.create(
+                doc = Form.objects.create(
                     document_type=doc_type,
                     tags=tags,
                     is_template=True,
@@ -734,10 +739,9 @@ class Command(BaseCommand):
                     document_number=doc_number,
                     title=title,
                     company_name=company_name,
-                    site_location="",
                     form_schema=schema,
                 )
-                ProcessDocument.objects.filter(pk=doc.pk).update(created_at=file_ctime)
+                Form.objects.filter(pk=doc.pk).update(created_at=file_ctime)
                 self.stdout.write(
                     self.style.SUCCESS(
                         f'{path_label} Imported Doc.{doc_number} "{title}" '
@@ -751,10 +755,9 @@ class Command(BaseCommand):
                     f"Doc.{doc_number} {title}",
                     company.gdrive_reference_library_folder_id,
                 )
-                doc = ProcessDocument.objects.create(
+                doc = Procedure.objects.create(
                     document_type=doc_type,
                     tags=tags,
-                    is_template=False,
                     status="active",
                     document_number=doc_number,
                     title=title,
@@ -763,7 +766,7 @@ class Command(BaseCommand):
                     google_doc_id=google_doc_id,
                     google_doc_url=google_doc_url,
                 )
-                ProcessDocument.objects.filter(pk=doc.pk).update(created_at=file_ctime)
+                Procedure.objects.filter(pk=doc.pk).update(created_at=file_ctime)
                 self.stdout.write(
                     self.style.SUCCESS(
                         f'{path_label} Imported Doc.{doc_number} "{title}" '

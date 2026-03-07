@@ -5,16 +5,18 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .process_document_serializer import (
+        from .form_serializer import (
             FormCreateSerializer,
             FormDetailSerializer,
+            FormEntrySerializer,
             FormListSerializer,
             FormUpdateSerializer,
+        )
+        from .procedure_serializer import (
             ProcedureCreateSerializer,
             ProcedureDetailSerializer,
             ProcedureListSerializer,
             ProcedureUpdateSerializer,
-            ProcessDocumentEntrySerializer,
             ProcessDocumentErrorResponseSerializer,
             SWPGenerateRequestSerializer,
         )
@@ -25,13 +27,13 @@ except (ImportError, RuntimeError):
 __all__ = [
     "FormCreateSerializer",
     "FormDetailSerializer",
+    "FormEntrySerializer",
     "FormListSerializer",
     "FormUpdateSerializer",
     "ProcedureCreateSerializer",
     "ProcedureDetailSerializer",
     "ProcedureListSerializer",
     "ProcedureUpdateSerializer",
-    "ProcessDocumentEntrySerializer",
     "ProcessDocumentErrorResponseSerializer",
     "SWPGenerateRequestSerializer",
 ]

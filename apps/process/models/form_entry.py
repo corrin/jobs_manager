@@ -1,5 +1,5 @@
 """
-ProcessDocumentEntry - generic line entries for structured forms and registers.
+FormEntry — individual rows in structured forms and registers.
 
 Used for documents where content is structured data (inspections, logs, checklists)
 rather than prose (which lives in Google Docs).
@@ -11,9 +11,9 @@ from django.db import models
 from simple_history.models import HistoricalRecords
 
 
-class ProcessDocumentEntry(models.Model):
+class FormEntry(models.Model):
     """
-    A single entry/line in a structured process document.
+    A single entry/line in a structured form or register.
 
     The `data` JSON field schema varies by document type. Each form type
     defines its own expected fields.
@@ -21,11 +21,11 @@ class ProcessDocumentEntry(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    document = models.ForeignKey(
-        "ProcessDocument",
+    form = models.ForeignKey(
+        "Form",
         related_name="entries",
         on_delete=models.CASCADE,
-        help_text="Parent process document",
+        help_text="Parent form document",
     )
 
     entry_date = models.DateField(
@@ -53,13 +53,15 @@ class ProcessDocumentEntry(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    history: HistoricalRecords = HistoricalRecords(table_name="process_historicalentry")
+    history: HistoricalRecords = HistoricalRecords(
+        table_name="process_historicalformentry"
+    )
 
     class Meta:
-        db_table = "process_entry"
+        db_table = "process_form_entry"
         ordering = ["-entry_date", "-created_at"]
-        verbose_name = "Process Document Entry"
-        verbose_name_plural = "Process Document Entries"
+        verbose_name = "Form Entry"
+        verbose_name_plural = "Form Entries"
 
     def __str__(self):
-        return f"Entry {self.entry_date} on {self.document.title}"
+        return f"Entry {self.entry_date} on {self.form.title}"
