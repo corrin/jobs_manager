@@ -194,6 +194,7 @@ INSTALLED_APPS = [
     "apps.quoting.apps.QuotingConfig",
     "apps.client.apps.ClientConfig",
     "apps.purchasing.apps.PurchasingConfig",
+    "apps.process.apps.ProcessConfig",
     "channels",
     "mcp_server",
     "drf_spectacular",
@@ -461,6 +462,24 @@ SPECTACULAR_SETTINGS = {
             ("recently_completed", "Recently Completed"),
             ("special", "Special"),
             ("archived", "Archived"),
+        ),
+        "ProcedureStatusEnum": (
+            ("draft", "Draft"),
+            ("active", "Active"),
+            ("completed", "Completed"),
+            ("archived", "Archived"),
+        ),
+        "FormStatusEnum": (
+            ("active", "Active"),
+            ("archived", "Archived"),
+        ),
+        "ProcedureDocumentTypeEnum": (
+            ("procedure", "Procedure"),
+            ("reference", "Reference"),
+        ),
+        "FormDocumentTypeEnum": (
+            ("form", "Form"),
+            ("register", "Register"),
         ),
     },
 }

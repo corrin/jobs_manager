@@ -94,6 +94,14 @@ repos:
         files: '^apps/.+\.py$'
         types: [python]
 
+      # drf-spectacular schema validation - catches enum naming collisions, broken refs, etc.
+      - id: spectacular-validate
+        name: Validate OpenAPI schema
+        entry: poetry run python manage.py spectacular --validate --fail-on-warn --file /dev/null
+        language: system
+        pass_filenames: false
+        always_run: true
+
       # Custom duplicate finder - catches class attribute duplicates that other tools miss
       - id: find-duplicates
         name: Check for duplicate definitions from bad merges

@@ -1,8 +1,8 @@
 """
-GoogleDocsService - Creates and manages Google Docs for JSA/SWP documents.
+GoogleDocsService - Creates and manages Google Docs for JSA/SWP/SOP documents.
 
 Provides:
-- Creating new Google Docs from AI-generated SafetyDocument content
+- Creating new Google Docs from AI-generated ProcessDocument content
 - Reading content from existing Google Docs
 - Updating existing Google Docs with new content
 - Structured formatting with headers, tables, and bullet lists
@@ -45,8 +45,8 @@ class GoogleDocResult:
 
 
 @dataclass
-class SafetyDocumentContent:
-    """Structured content from a safety document."""
+class ProcessDocumentContent:
+    """Structured content from a process document."""
 
     title: str
     document_type: str  # 'jsa' or 'swp'
@@ -59,14 +59,14 @@ class SafetyDocumentContent:
 
 
 class GoogleDocsService:
-    """Service for creating formatted Google Docs from safety documents."""
+    """Service for creating formatted Google Docs from process documents."""
 
     def __init__(self):
         """Initialize the service."""
         company = CompanyDefaults.get_instance()
         self.company_name = company.company_name
 
-    def create_safety_document(
+    def create_process_document(
         self,
         document_type: str,
         title: str,
@@ -75,7 +75,7 @@ class GoogleDocsService:
         document_number: str = "",
     ) -> GoogleDocResult:
         """
-        Create a formatted Google Doc from AI-generated safety content.
+        Create a formatted Google Doc from AI-generated process document content.
 
         Args:
             document_type: 'jsa' or 'swp'
@@ -128,7 +128,7 @@ class GoogleDocsService:
             _set_public_edit_permissions(document_id)
 
             edit_url = f"https://docs.google.com/document/d/{document_id}/edit"
-            logger.info(f"Created safety document: {edit_url}")
+            logger.info(f"Created process document: {edit_url}")
 
             return GoogleDocResult(document_id=document_id, edit_url=edit_url)
 
@@ -139,7 +139,7 @@ class GoogleDocsService:
             persist_app_error(e)
             raise RuntimeError(f"Failed to create Google Doc: {str(e)}") from e
 
-    def read_document(self, document_id: str) -> SafetyDocumentContent:
+    def read_document(self, document_id: str) -> ProcessDocumentContent:
         """
         Read content from an existing Google Doc.
 
@@ -147,7 +147,7 @@ class GoogleDocsService:
             document_id: Google Docs document ID
 
         Returns:
-            SafetyDocumentContent with parsed content
+            ProcessDocumentContent with parsed content
 
         Raises:
             RuntimeError: If document cannot be read
@@ -197,7 +197,7 @@ class GoogleDocsService:
 
             # Get current document to determine its type and title
             doc = docs_service.documents().get(documentId=document_id).execute()
-            title = doc.get("title", "Safety Document")
+            title = doc.get("title", "Process Document")
 
             # Determine document type from title
             document_type = "jsa" if "JSA" in title.upper() else "swp"
@@ -252,7 +252,7 @@ class GoogleDocsService:
                 self._add_tasks_table(document_id, tasks)
 
             edit_url = f"https://docs.google.com/document/d/{document_id}/edit"
-            logger.info(f"Updated safety document: {edit_url}")
+            logger.info(f"Updated process document: {edit_url}")
 
             return GoogleDocResult(document_id=document_id, edit_url=edit_url)
 
@@ -262,6 +262,46 @@ class GoogleDocsService:
         except Exception as e:
             persist_app_error(e)
             raise RuntimeError(f"Failed to update Google Doc: {str(e)}") from e
+
+    def copy_document(self, source_doc_id: str, title: str) -> GoogleDocResult:
+        """Copy a Google Doc, returning the new document's ID and URL."""
+        try:
+            drive_service = _svc("drive", "v3")
+            copied = (
+                drive_service.files()
+                .copy(
+                    fileId=source_doc_id,
+                    body={"name": title},
+                )
+                .execute()
+            )
+            doc_id = copied["id"]
+            edit_url = f"https://docs.google.com/document/d/{doc_id}/edit"
+            self._move_to_safety_folder(doc_id)
+            _set_public_edit_permissions(doc_id)
+            return GoogleDocResult(document_id=doc_id, edit_url=edit_url)
+        except HttpError as exc:
+            persist_app_error(exc)
+            raise RuntimeError(f"Failed to copy Google Doc: {exc.reason}") from exc
+        except Exception as exc:
+            persist_app_error(exc)
+            raise RuntimeError(f"Failed to copy Google Doc: {str(exc)}") from exc
+
+    def set_readonly(self, document_id: str) -> None:
+        """Remove public edit permissions from a Google Doc, making it read-only."""
+        drive_service = _svc("drive", "v3")
+        try:
+            permissions_response = (
+                drive_service.permissions().list(fileId=document_id).execute()
+            )
+            for perm in permissions_response.get("permissions", []):
+                if perm.get("role") == "writer" and perm.get("type") == "anyone":
+                    drive_service.permissions().delete(
+                        fileId=document_id, permissionId=perm["id"]
+                    ).execute()
+        except Exception as exc:
+            persist_app_error(exc)
+            raise
 
     def _extract_raw_text(self, doc: dict) -> str:
         """Extract all text content from a Google Doc."""
@@ -294,7 +334,7 @@ class GoogleDocsService:
 
     def _parse_document_content(
         self, doc: dict, raw_text: str
-    ) -> SafetyDocumentContent:
+    ) -> ProcessDocumentContent:
         """Parse structured content from document."""
         title = doc.get("title", "")
         document_type = "jsa" if "JSA" in title.upper() else "swp"
@@ -357,7 +397,7 @@ class GoogleDocsService:
             elif current_section == "notes" and line_stripped:
                 additional_notes += line_stripped + " "
 
-        return SafetyDocumentContent(
+        return ProcessDocumentContent(
             title=clean_title.strip(),
             document_type=document_type,
             description=description.strip(),
@@ -379,6 +419,60 @@ class GoogleDocsService:
             raise RuntimeError("Failed to get document ID from created document")
 
         return document_id
+
+    def create_blank_in_folder(self, title: str, folder_id: str) -> GoogleDocResult:
+        """
+        Create a blank Google Doc in the specified folder.
+
+        Args:
+            title: Document title
+            folder_id: Google Drive folder ID to place the document in
+
+        Returns:
+            GoogleDocResult with document_id and edit_url
+
+        Raises:
+            RuntimeError: If document creation fails
+        """
+        try:
+            document_id = self._create_blank_document(title)
+            self._move_to_folder(document_id, folder_id)
+            _set_public_edit_permissions(document_id)
+            edit_url = f"https://docs.google.com/document/d/{document_id}/edit"
+            logger.info(f"Created blank document in folder: {edit_url}")
+            return GoogleDocResult(document_id=document_id, edit_url=edit_url)
+        except HttpError as e:
+            persist_app_error(e)
+            raise RuntimeError(f"Google API error: {e.reason}") from e
+        except Exception as e:
+            persist_app_error(e)
+            raise RuntimeError(f"Failed to create Google Doc: {str(e)}") from e
+
+    def _move_to_folder(self, document_id: str, folder_id: str) -> None:
+        """Move document to the specified folder (supports shared drives)."""
+        drive_service = _svc("drive", "v3")
+
+        file = (
+            drive_service.files()
+            .get(
+                fileId=document_id,
+                fields="parents",
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
+
+        previous_parents = ",".join(file.get("parents", []))
+
+        drive_service.files().update(
+            fileId=document_id,
+            addParents=folder_id,
+            removeParents=previous_parents,
+            fields="id, parents",
+            supportsAllDrives=True,
+        ).execute()
+
+        logger.info(f"Moved document {document_id} to folder {folder_id}")
 
     def _get_or_create_safety_folder(self) -> str:
         """Get or create the SafetyDocuments folder in Drive."""

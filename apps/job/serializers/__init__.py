@@ -150,12 +150,6 @@ try:
             QuoteSyncErrorResponseSerializer,
             ValidationReportSerializer,
         )
-        from .safety_document_serializer import (
-            SWPGenerateRequestSerializer,
-            SafetyDocumentErrorResponseSerializer,
-            SafetyDocumentListSerializer,
-            SafetyDocumentSerializer,
-        )
 except (ImportError, RuntimeError):
     # Django not ready or circular import, skip conditional imports
     pass
@@ -279,10 +273,6 @@ __all__ = [
     "QuoteSerializer",
     "QuoteSpreadsheetSerializer",
     "QuoteSyncErrorResponseSerializer",
-    "SWPGenerateRequestSerializer",
-    "SafetyDocumentErrorResponseSerializer",
-    "SafetyDocumentListSerializer",
-    "SafetyDocumentSerializer",
     "TimelineEntrySerializer",
     "TimesheetCostLineSerializer",
     "UploadedFileSerializer",

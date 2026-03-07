@@ -72,6 +72,32 @@ class CompanyDefaults(models.Model):
         max_length=100,
     )
 
+    # Google Shared Drive — Operations Manual folder hierarchy
+    google_shared_drive_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Google Shared Drive ID for the company shared drive",
+    )
+    gdrive_how_we_work_folder_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Folder ID for '01 - How we work' (policies, basics)",
+    )
+    gdrive_sops_folder_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Folder ID for '02 - SOPs' (standard operating procedures)",
+    )
+    gdrive_reference_library_folder_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Folder ID for '03 - Reference Library' (reference documents, forms, registers)",
+    )
+
     # Xero integration
     xero_tenant_id = models.CharField(
         max_length=100,
