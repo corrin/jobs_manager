@@ -35,7 +35,6 @@ class TestFormAPI:
             document_type="form",
             title="Ladder Inspection",
             tags=["safety", "inspection"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/forms/safety/")
@@ -48,7 +47,6 @@ class TestFormAPI:
             document_type="form",
             title="Training Record",
             tags=["training"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/forms/training/")
@@ -60,7 +58,6 @@ class TestFormAPI:
             document_type="form",
             title="Incident Report",
             tags=["incident"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/forms/incident/")
@@ -72,13 +69,11 @@ class TestFormAPI:
             document_type="form",
             title="Meeting Agenda",
             tags=["meeting"],
-            company_name="Test",
         )
         Form.objects.create(
             document_type="form",
             title="Admin Form",
             tags=["administration"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/forms/meeting/")
@@ -90,7 +85,6 @@ class TestFormAPI:
             document_type="register",
             title="Chemical Register",
             tags=[],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/forms/register/")
@@ -102,7 +96,6 @@ class TestFormAPI:
             document_type="form",
             title="Checklist",
             tags=["safety"],
-            company_name="Test",
             form_schema={"fields": [{"key": "item", "type": "text"}]},
         )
 
@@ -121,7 +114,6 @@ class TestFormAPI:
             document_type="form",
             title="Checklist",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.post(
@@ -136,7 +128,6 @@ class TestFormAPI:
             document_type="register",
             title="Chemical Register",
             tags=[],
-            company_name="Test",
         )
 
         resp = api_client.post(
@@ -152,7 +143,6 @@ class TestFormAPI:
             document_type="form",
             title="New Checklist",
             tags=["safety"],
-            company_name="Test",
             status="draft",
             form_schema={"fields": [{"key": "item", "type": "text"}]},
         )
@@ -176,7 +166,6 @@ class TestFormAPI:
             document_type="form",
             title="Old Form",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.patch(
@@ -192,7 +181,6 @@ class TestFormAPI:
             document_type="form",
             title="To Delete",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.delete(f"/process/rest/forms/safety/{doc.pk}/")

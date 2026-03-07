@@ -45,8 +45,6 @@ class Form(models.Model):
         blank=True,
         null=True,
     )
-    company_name = models.CharField(max_length=255)
-
     tags = models.JSONField(
         default=list,
         blank=True,

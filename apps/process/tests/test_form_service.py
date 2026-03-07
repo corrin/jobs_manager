@@ -1,18 +1,12 @@
-from unittest.mock import MagicMock, patch
-
 import pytest
 
 from apps.process.models import Form
 from apps.process.services.form_service import FormService
-from apps.workflow.models import CompanyDefaults
 
 
 def _make_service():
-    """Create a FormService with external dependencies mocked out."""
-    with patch("apps.process.services.form_service.GoogleDocsService"):
-        service = FormService()
-    service.docs_service = MagicMock()
-    return service
+    """Create a FormService."""
+    return FormService()
 
 
 @pytest.mark.django_db
@@ -24,7 +18,6 @@ class TestFormServiceFillTemplate:
             document_number="110",
             tags=["safety", "inspection"],
             is_template=True,
-            company_name="Morris Sheetmetal",
         )
 
         service = _make_service()
@@ -35,7 +28,6 @@ class TestFormServiceFillTemplate:
         assert record.is_template is False
         assert record.document_type == "form"
         assert record.tags == ["safety", "inspection"]
-        assert record.company_name == "Morris Sheetmetal"
 
     def test_fill_template_copies_form_schema(self):
         schema = {
@@ -48,7 +40,6 @@ class TestFormServiceFillTemplate:
             document_type="form",
             title="Checklist",
             is_template=True,
-            company_name="Test",
             form_schema=schema,
         )
 
@@ -63,7 +54,6 @@ class TestFormServiceFillTemplate:
             document_type="form",
             title="Not a template",
             is_template=False,
-            company_name="Test",
         )
         service = _make_service()
         with pytest.raises(ValueError, match="not a template"):
@@ -77,7 +67,6 @@ class TestFormServiceComplete:
             document_type="form",
             title="Filled Form",
             status="draft",
-            company_name="Test",
         )
 
         service = _make_service()
@@ -92,7 +81,6 @@ class TestFormServiceComplete:
             document_type="form",
             title="Done",
             status="completed",
-            company_name="Test",
         )
         service = _make_service()
         with pytest.raises(ValueError, match="already completed"):
@@ -102,8 +90,6 @@ class TestFormServiceComplete:
 @pytest.mark.django_db
 class TestFormServiceCreateForm:
     def test_create_form_happy_path(self):
-        CompanyDefaults.objects.create(company_name="Morris Sheetmetal")
-
         service = _make_service()
         doc = service.create_form(
             title="Inspection Checklist",
@@ -119,13 +105,10 @@ class TestFormServiceCreateForm:
         assert doc.tags == ["safety", "inspection"]
         assert doc.is_template is True
         assert doc.document_number == "110"
-        assert doc.company_name == "Morris Sheetmetal"
         assert doc.status == "active"
         assert doc.form_schema == {"fields": [{"key": "item", "type": "text"}]}
 
     def test_create_form_record_gets_draft_status(self):
-        CompanyDefaults.objects.create(company_name="Test")
-
         service = _make_service()
         doc = service.create_form(
             title="Filled checklist",
@@ -136,8 +119,6 @@ class TestFormServiceCreateForm:
         assert doc.status == "draft"
 
     def test_create_form_register_type(self):
-        CompanyDefaults.objects.create(company_name="Test")
-
         service = _make_service()
         doc = service.create_form(
             title="Chemical Register",

@@ -45,7 +45,6 @@ class TestProcedureServiceCreateBlank:
         assert doc.tags == ["welding", "safety"]
         assert doc.document_number == "301"
         assert doc.site_location == "Workshop"
-        assert doc.company_name == "Morris Sheetmetal"
         assert doc.status == "draft"
         assert doc.google_doc_id == "new-doc-id"
         assert (

@@ -663,7 +663,6 @@ class Command(BaseCommand):
 
         # Load company config — needed for Google Drive folder IDs
         company = CompanyDefaults.get_instance()
-        company_name = company.company_name
 
         if not dry_run and not company.gdrive_reference_library_folder_id:
             raise CommandError(
@@ -728,17 +727,16 @@ class Command(BaseCommand):
                 file_path.stat().st_ctime, tz=timezone.utc
             )
 
-            if is_template:
-                # Form templates — Django only, no Google Doc
+            if doc_type in ("form", "register"):
+                # Form/register — Django only, no Google Doc
                 schema = FORM_SCHEMAS.get(doc_number, {})
                 doc = Form.objects.create(
                     document_type=doc_type,
                     tags=tags,
-                    is_template=True,
+                    is_template=is_template,
                     status="active",
                     document_number=doc_number,
                     title=title,
-                    company_name=company_name,
                     form_schema=schema,
                 )
                 Form.objects.filter(pk=doc.pk).update(created_at=file_ctime)
@@ -749,7 +747,7 @@ class Command(BaseCommand):
                     )
                 )
             else:
-                # Prose docs — upload to Google Drive
+                # Prose docs (procedure/reference) — upload to Google Drive
                 google_doc_id, google_doc_url = self._upload_to_google_docs(
                     file_path,
                     f"Doc.{doc_number} {title}",
@@ -761,7 +759,6 @@ class Command(BaseCommand):
                     status="active",
                     document_number=doc_number,
                     title=title,
-                    company_name=company_name,
                     site_location="",
                     google_doc_id=google_doc_id,
                     google_doc_url=google_doc_url,

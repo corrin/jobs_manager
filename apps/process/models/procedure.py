@@ -45,7 +45,6 @@ class Procedure(models.Model):
         null=True,
         help_text="Document number (e.g. '307' for section 3, doc 7)",
     )
-    company_name = models.CharField(max_length=255)
     site_location = models.CharField(
         max_length=500,
         blank=True,

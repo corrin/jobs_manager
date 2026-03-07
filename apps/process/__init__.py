@@ -2,6 +2,17 @@
 
 from .apps import ProcessConfig
 
+# Conditional imports (only when Django is ready)
+try:
+    from django.apps import apps
+
+    if apps.ready:
+        from .urls_rest import CategoriesView
+except (ImportError, RuntimeError):
+    # Django not ready or circular import, skip conditional imports
+    pass
+
 __all__ = [
+    "CategoriesView",
     "ProcessConfig",
 ]

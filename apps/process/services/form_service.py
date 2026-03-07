@@ -12,8 +12,6 @@ import logging
 from django.db import transaction
 
 from apps.process.models import Form
-from apps.process.services.google_docs_service import GoogleDocsService
-from apps.workflow.models import CompanyDefaults
 from apps.workflow.services.error_persistence import persist_app_error
 
 logger = logging.getLogger(__name__)
@@ -21,9 +19,6 @@ logger = logging.getLogger(__name__)
 
 class FormService:
     """Service for managing form/register lifecycle."""
-
-    def __init__(self):
-        self.docs_service = GoogleDocsService()
 
     @transaction.atomic
     def create_form(
@@ -42,15 +37,12 @@ class FormService:
                 f"got '{document_type}'"
             )
 
-        company = CompanyDefaults.get_instance()
-
         doc = Form.objects.create(
             document_type=document_type,
             title=title,
             tags=tags or [],
             is_template=is_template,
             document_number=document_number or None,
-            company_name=company.company_name,
             form_schema=form_schema or {},
             status="active" if is_template else "draft",
         )
@@ -72,7 +64,6 @@ class FormService:
                 form_schema=dict(template.form_schema) if template.form_schema else {},
                 title=template.title,
                 document_number=template.document_number,
-                company_name=template.company_name,
                 is_template=False,
                 status="draft",
                 parent_template=template,

@@ -35,7 +35,6 @@ class TestProcedureAPI:
             document_type="procedure",
             title="Drill Press SOP",
             tags=["safety", "sop"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/procedures/safety/")
@@ -48,13 +47,11 @@ class TestProcedureAPI:
             document_type="procedure",
             title="Induction Plan",
             tags=["training"],
-            company_name="Test",
         )
         Procedure.objects.create(
             document_type="procedure",
             title="Safety SOP",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/procedures/training/")
@@ -67,7 +64,6 @@ class TestProcedureAPI:
             document_type="reference",
             title="Org Chart",
             tags=[],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/procedures/reference/")
@@ -80,7 +76,6 @@ class TestProcedureAPI:
             document_type="procedure",
             title="SWP",
             tags=["safety", "swp"],
-            company_name="Test",
         )
 
         resp = api_client.get(f"/process/rest/procedures/safety/{doc.pk}/")
@@ -98,7 +93,6 @@ class TestProcedureAPI:
             document_type="procedure",
             title="SWP",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/procedures/safety/")
@@ -111,13 +105,11 @@ class TestProcedureAPI:
             document_type="procedure",
             title="SWP1",
             tags=["safety", "swp"],
-            company_name="Test",
         )
         Procedure.objects.create(
             document_type="procedure",
             title="SOP1",
             tags=["safety", "sop"],
-            company_name="Test",
         )
 
         resp = api_client.get("/process/rest/procedures/safety/?tags=swp")
@@ -131,7 +123,6 @@ class TestProcedureAPI:
             document_type="procedure",
             title="New SWP",
             tags=["safety"],
-            company_name="Test",
             status="draft",
         )
         MockService.return_value.create_blank_procedure.return_value = doc
@@ -150,7 +141,6 @@ class TestProcedureAPI:
             document_type="procedure",
             title="Old Title",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.patch(
@@ -166,7 +156,6 @@ class TestProcedureAPI:
             document_type="procedure",
             title="To Delete",
             tags=["safety"],
-            company_name="Test",
         )
 
         resp = api_client.delete(f"/process/rest/procedures/safety/{doc.pk}/")

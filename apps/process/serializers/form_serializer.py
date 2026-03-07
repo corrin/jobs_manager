@@ -53,7 +53,7 @@ class FormListSerializer(serializers.ModelSerializer):
 
 
 class FormDetailSerializer(serializers.ModelSerializer):
-    """Detail serializer for forms — adds company_name, job_id, job_number, parent_template_id."""
+    """Detail serializer for forms — adds job_id, job_number, parent_template_id."""
 
     job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
     job_number = serializers.CharField(
@@ -70,7 +70,6 @@ class FormDetailSerializer(serializers.ModelSerializer):
             "document_type",
             "document_number",
             "title",
-            "company_name",
             "tags",
             "is_template",
             "status",

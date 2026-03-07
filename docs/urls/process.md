@@ -5,6 +5,7 @@
 ### Rest Management
 | URL Pattern | View | Name | Description |
 |-------------|------|------|-------------|
+| `/rest/categories/` | `CategoriesView` | `process:process_categories` | Return available categories for procedures and forms. |
 | `/rest/forms/<str:category>/<uuid:pk>/complete/` | `form_viewsets.FormCompleteView` | `process:form_complete` | Mark a form as completed. |
 | `/rest/forms/<str:category>/<uuid:pk>/fill/` | `form_viewsets.FormFillView` | `process:form_fill` | Create a new record from a template. |
 | `/rest/jobs/<uuid:job_id>/jsa/` | `procedure_viewsets.JSAListView` | `process:jsa_list` | List all JSAs for a job. |

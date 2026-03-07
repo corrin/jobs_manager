@@ -58,7 +58,7 @@ class ProcedureListSerializer(serializers.ModelSerializer):
 
 
 class ProcedureDetailSerializer(serializers.ModelSerializer):
-    """Detail serializer for procedures — adds google_doc_id, company_name, job_id."""
+    """Detail serializer for procedures — adds google_doc_id, job_id."""
 
     job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
     job_number = serializers.CharField(
@@ -72,7 +72,6 @@ class ProcedureDetailSerializer(serializers.ModelSerializer):
             "document_type",
             "document_number",
             "title",
-            "company_name",
             "site_location",
             "google_doc_id",
             "google_doc_url",

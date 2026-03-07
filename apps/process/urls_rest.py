@@ -1,12 +1,18 @@
 from django.urls import path
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import permissions, serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.process.views.form_viewsets import (
+    FORM_CATEGORIES,
     FormCompleteView,
     FormEntryViewSet,
     FormFillView,
     FormViewSet,
 )
 from apps.process.views.procedure_viewsets import (
+    PROCEDURE_CATEGORIES,
     AIGenerateControlsView,
     AIGenerateHazardsView,
     AIImproveDocumentView,
@@ -19,7 +25,33 @@ from apps.process.views.procedure_viewsets import (
     SWPGenerateView,
 )
 
+
+class CategoriesView(APIView):
+    """Return available categories for procedures and forms."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        responses=inline_serializer(
+            "CategoriesResponse",
+            fields={
+                "procedures": serializers.ListField(child=serializers.CharField()),
+                "forms": serializers.ListField(child=serializers.CharField()),
+            },
+        ),
+    )
+    def get(self, request):
+        return Response(
+            {
+                "procedures": list(PROCEDURE_CATEGORIES.keys()),
+                "forms": list(FORM_CATEGORIES.keys()),
+            }
+        )
+
+
 rest_urlpatterns = [
+    # ─── Categories (discovery endpoint for frontend navigation) ────────────
+    path("rest/categories/", CategoriesView.as_view(), name="process_categories"),
     # ─── Procedures (written docs, Google Doc-backed) ───────────────────────
     # Generation endpoints must come BEFORE the <str:category> patterns
     path(

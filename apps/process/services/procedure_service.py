@@ -42,9 +42,6 @@ class ProcedureService:
         try:
             jsa_content = self.ai_service.generate_full_jsa(job=job)
 
-            company = CompanyDefaults.get_instance()
-            company_name = company.company_name
-
             doc_result = self.docs_service.create_process_document(
                 document_type="jsa",
                 title=jsa_content.get("title", job.name),
@@ -57,7 +54,6 @@ class ProcedureService:
                 tags=["jsa", "safety"],
                 job=job,
                 title=jsa_content.get("title", job.name),
-                company_name=company_name,
                 site_location=jsa_content.get("site_location", ""),
                 google_doc_id=doc_result.document_id,
                 google_doc_url=doc_result.edit_url,
@@ -103,9 +99,6 @@ class ProcedureService:
                 site_location=site_location,
             )
 
-            company = CompanyDefaults.get_instance()
-            company_name = company.company_name
-
             doc_result = self.docs_service.create_process_document(
                 document_type="swp",
                 title=swp_content.get("title", title),
@@ -120,7 +113,6 @@ class ProcedureService:
                 job=None,
                 document_number=document_number or None,
                 title=swp_content.get("title", title),
-                company_name=company_name,
                 site_location=swp_content.get("site_location", site_location),
                 google_doc_id=doc_result.document_id,
                 google_doc_url=doc_result.edit_url,
@@ -151,9 +143,6 @@ class ProcedureService:
                 document_number=document_number,
             )
 
-            company = CompanyDefaults.get_instance()
-            company_name = company.company_name
-
             doc_result = self.docs_service.create_process_document(
                 document_type="sop",
                 title=sop_content.get("title", title),
@@ -168,7 +157,6 @@ class ProcedureService:
                 job=None,
                 document_number=document_number or None,
                 title=sop_content.get("title", title),
-                company_name=company_name,
                 site_location="",
                 google_doc_id=doc_result.document_id,
                 google_doc_url=doc_result.edit_url,
@@ -215,7 +203,6 @@ class ProcedureService:
             title=title,
             tags=tags or [],
             document_number=document_number or None,
-            company_name=company.company_name,
             site_location=site_location,
             status="draft",
             google_doc_id=doc_result.document_id,

@@ -12,7 +12,6 @@ class TestForm:
             document_number="110",
             tags=["safety", "inspection"],
             is_template=True,
-            company_name="Morris Sheetmetal",
         )
         assert template.is_template is True
         assert template.status == "active"
@@ -23,21 +22,19 @@ class TestForm:
             title="Ladder Inspection",
             document_number="110",
             is_template=True,
-            company_name="Morris Sheetmetal",
         )
         record = Form.objects.create(
             document_type="form",
             title="Ladder Inspection",
             status="completed",
             parent_template=template,
-            company_name="Morris Sheetmetal",
         )
         assert record.parent_template == template
         assert template.completed_records.count() == 1
 
     def test_filter_by_document_type(self):
-        Form.objects.create(document_type="form", title="Form", company_name="Test")
-        Form.objects.create(document_type="register", title="Reg", company_name="Test")
+        Form.objects.create(document_type="form", title="Form")
+        Form.objects.create(document_type="register", title="Reg")
         assert Form.objects.filter(document_type="form").count() == 1
         assert Form.objects.filter(document_type="register").count() == 1
 
@@ -45,7 +42,6 @@ class TestForm:
         doc = Form.objects.create(
             document_type="form",
             title="Safety Checklist",
-            company_name="Test",
         )
         assert "Form" in str(doc)
         assert "Safety Checklist" in str(doc)
@@ -57,7 +53,6 @@ class TestFormEntry:
         doc = Form.objects.create(
             document_type="register",
             title="Maintenance Log",
-            company_name="Test",
         )
         entry = FormEntry.objects.create(
             form=doc,
@@ -76,7 +71,6 @@ class TestFormEntry:
         doc = Form.objects.create(
             document_type="register",
             title="Maintenance Log",
-            company_name="Test",
         )
         FormEntry.objects.create(
             form=doc,
