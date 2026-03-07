@@ -1,5 +1,5 @@
 """
-FormEntry — individual rows in structured forms and registers.
+FormEntry — filled-in instances of structured forms and registers.
 
 Used for documents where content is structured data (inspections, logs, checklists)
 rather than prose (which lives in Google Docs).
@@ -13,7 +13,7 @@ from simple_history.models import HistoricalRecords
 
 class FormEntry(models.Model):
     """
-    A single entry/line in a structured form or register.
+    A filled-in instance of a Form definition.
 
     The `data` JSON field schema varies by document type. Each form type
     defines its own expected fields.
@@ -25,7 +25,16 @@ class FormEntry(models.Model):
         "Form",
         related_name="entries",
         on_delete=models.CASCADE,
-        help_text="Parent form document",
+        help_text="Form definition this entry belongs to",
+    )
+
+    job = models.ForeignKey(
+        "job.Job",
+        related_name="form_entries",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        help_text="Linked job (e.g. incident forms)",
     )
 
     entry_date = models.DateField(

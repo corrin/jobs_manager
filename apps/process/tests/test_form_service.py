@@ -1,6 +1,6 @@
 import pytest
 
-from apps.process.models import Form
+from apps.process.models import Form, FormEntry
 from apps.process.services.form_service import FormService
 
 
@@ -10,81 +10,46 @@ def _make_service():
 
 
 @pytest.mark.django_db
-class TestFormServiceFillTemplate:
-    def test_fill_template_creates_record(self):
-        template = Form.objects.create(
+class TestFormServiceCreateEntry:
+    def test_create_entry_returns_form_entry(self):
+        form = Form.objects.create(
             document_type="form",
             title="Inspection Form",
             document_number="110",
             tags=["safety", "inspection"],
-            is_template=True,
         )
 
         service = _make_service()
-        record = service.fill_template(template_id=template.pk)
+        entry = service.create_entry(form_id=form.pk)
 
-        assert record.parent_template == template
-        assert record.status == "draft"
-        assert record.is_template is False
-        assert record.document_type == "form"
-        assert record.tags == ["safety", "inspection"]
+        assert isinstance(entry, FormEntry)
+        assert entry.form == form
 
-    def test_fill_template_copies_form_schema(self):
-        schema = {
-            "fields": [
-                {"key": "item", "label": "Item", "type": "text", "required": True},
-                {"key": "checked", "label": "Checked", "type": "boolean"},
-            ]
-        }
-        template = Form.objects.create(
+    def test_create_entry_with_job(self, job):
+        form = Form.objects.create(
+            document_type="form",
+            title="Incident Report",
+        )
+
+        service = _make_service()
+        entry = service.create_entry(form_id=form.pk, job_id=job.pk)
+
+        assert entry.job == job
+
+    def test_create_entry_with_data(self):
+        form = Form.objects.create(
             document_type="form",
             title="Checklist",
-            is_template=True,
-            form_schema=schema,
+            form_schema={"fields": [{"key": "item", "type": "text"}]},
         )
 
         service = _make_service()
-        record = service.fill_template(template_id=template.pk)
-
-        assert record.form_schema == schema
-        assert record.form_schema is not template.form_schema
-
-    def test_fill_non_template_raises(self):
-        doc = Form.objects.create(
-            document_type="form",
-            title="Not a template",
-            is_template=False,
-        )
-        service = _make_service()
-        with pytest.raises(ValueError, match="not a template"):
-            service.fill_template(template_id=doc.pk)
-
-
-@pytest.mark.django_db
-class TestFormServiceComplete:
-    def test_complete_form(self):
-        doc = Form.objects.create(
-            document_type="form",
-            title="Filled Form",
-            status="draft",
+        entry = service.create_entry(
+            form_id=form.pk,
+            data={"item": "Ladder"},
         )
 
-        service = _make_service()
-        result = service.complete_form(doc.pk)
-
-        assert result.status == "completed"
-        doc.refresh_from_db()
-        assert doc.status == "completed"
-
-    def test_complete_already_completed_raises(self):
-        doc = Form.objects.create(
-            document_type="form",
-            title="Done",
-            status="completed",
-        )
-        service = _make_service()
-        with pytest.raises(ValueError, match="already completed"):
-            service.complete_form(doc.pk)
+        assert entry.data == {"item": "Ladder"}
 
 
 @pytest.mark.django_db
@@ -95,7 +60,6 @@ class TestFormServiceCreateForm:
             title="Inspection Checklist",
             document_type="form",
             tags=["safety", "inspection"],
-            is_template=True,
             document_number="110",
             form_schema={"fields": [{"key": "item", "type": "text"}]},
         )
@@ -103,20 +67,9 @@ class TestFormServiceCreateForm:
         assert doc.document_type == "form"
         assert doc.title == "Inspection Checklist"
         assert doc.tags == ["safety", "inspection"]
-        assert doc.is_template is True
         assert doc.document_number == "110"
         assert doc.status == "active"
         assert doc.form_schema == {"fields": [{"key": "item", "type": "text"}]}
-
-    def test_create_form_record_gets_draft_status(self):
-        service = _make_service()
-        doc = service.create_form(
-            title="Filled checklist",
-            document_type="form",
-            is_template=False,
-        )
-
-        assert doc.status == "draft"
 
     def test_create_form_register_type(self):
         service = _make_service()

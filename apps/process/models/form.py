@@ -1,5 +1,5 @@
 """
-Form model — structured entry documents (forms, registers).
+Form model — definition/template for structured entry documents (forms, registers).
 
 Forms are append-only logs. Registers allow editing entries.
 Both use FormEntry for structured data rows.
@@ -13,10 +13,10 @@ from simple_history.models import HistoricalRecords
 
 class Form(models.Model):
     """
-    A structured entry document (form or register).
+    A form/register definition (template).
 
-    No Google Doc — data is stored as FormEntry rows.
-    Templates define the schema; records are filled instances.
+    Defines the schema and metadata. Filled-in instances are FormEntry rows,
+    not additional Form records.
     """
 
     DOCUMENT_TYPES = [
@@ -25,9 +25,7 @@ class Form(models.Model):
     ]
 
     STATUS_CHOICES = [
-        ("draft", "Draft"),
         ("active", "Active"),
-        ("completed", "Completed"),
         ("archived", "Archived"),
     ]
 
@@ -57,28 +55,6 @@ class Form(models.Model):
         default="active",
     )
 
-    is_template = models.BooleanField(
-        default=False,
-        help_text="True if this is a template that can be filled in to create records",
-    )
-    parent_template = models.ForeignKey(
-        "self",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="completed_records",
-        help_text="Template this record was created from",
-    )
-
-    job = models.ForeignKey(
-        "job.Job",
-        related_name="forms",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        help_text="Linked job (e.g. incident forms)",
-    )
-
     form_schema = models.JSONField(
         default=dict,
         blank=True,
@@ -98,11 +74,3 @@ class Form(models.Model):
 
     def __str__(self):
         return f"{self.get_document_type_display()}: {self.title}"
-
-    def clean(self):
-        from django.core.exceptions import ValidationError
-
-        if self.is_template and self.parent_template:
-            raise ValidationError(
-                {"parent_template": "A template cannot itself have a parent template."}
-            )

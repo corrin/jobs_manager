@@ -5,32 +5,15 @@ from apps.process.models import Form, FormEntry
 
 @pytest.mark.django_db
 class TestForm:
-    def test_create_template_form(self):
-        template = Form.objects.create(
+    def test_create_form_definition(self):
+        form = Form.objects.create(
             document_type="form",
             title="Ladder Inspection Checklist",
             document_number="110",
             tags=["safety", "inspection"],
-            is_template=True,
         )
-        assert template.is_template is True
-        assert template.status == "active"
-
-    def test_completed_record_links_to_template(self):
-        template = Form.objects.create(
-            document_type="form",
-            title="Ladder Inspection",
-            document_number="110",
-            is_template=True,
-        )
-        record = Form.objects.create(
-            document_type="form",
-            title="Ladder Inspection",
-            status="completed",
-            parent_template=template,
-        )
-        assert record.parent_template == template
-        assert template.completed_records.count() == 1
+        assert form.status == "active"
+        assert form.document_type == "form"
 
     def test_filter_by_document_type(self):
         Form.objects.create(document_type="form", title="Form")
@@ -66,6 +49,21 @@ class TestFormEntry:
         assert entry.form == doc
         assert entry.data["equipment"] == "Drill Press"
         assert doc.entries.count() == 1
+
+    def test_entry_with_job(self, job):
+        doc = Form.objects.create(
+            document_type="form",
+            title="Incident Report",
+            tags=["incident"],
+        )
+        entry = FormEntry.objects.create(
+            form=doc,
+            job=job,
+            entry_date="2026-03-03",
+            data={"description": "test"},
+        )
+        assert entry.job == job
+        assert job.form_entries.count() == 1
 
     def test_cascade_delete(self):
         doc = Form.objects.create(

@@ -11,10 +11,15 @@ from apps.process.models import Form, FormEntry
 
 
 class FormEntrySerializer(serializers.ModelSerializer):
-    """Serializer for FormEntry — individual entries in structured forms."""
+    """Serializer for FormEntry — filled-in instances of forms."""
 
     entered_by_name = serializers.CharField(
         source="entered_by.get_display_name",
+        read_only=True,
+        allow_null=True,
+    )
+    job_number = serializers.CharField(
+        source="job.job_number",
         read_only=True,
         allow_null=True,
     )
@@ -24,6 +29,8 @@ class FormEntrySerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "form",
+            "job",
+            "job_number",
             "entry_date",
             "entered_by",
             "entered_by_name",
@@ -36,6 +43,8 @@ class FormEntrySerializer(serializers.ModelSerializer):
 class FormListSerializer(serializers.ModelSerializer):
     """List serializer for form endpoints — includes form_schema."""
 
+    entry_count = serializers.IntegerField(read_only=True, default=0)
+
     class Meta:
         model = Form
         fields = [
@@ -44,24 +53,16 @@ class FormListSerializer(serializers.ModelSerializer):
             "document_number",
             "title",
             "tags",
-            "is_template",
             "status",
             "form_schema",
+            "entry_count",
             "created_at",
             "updated_at",
         ]
 
 
 class FormDetailSerializer(serializers.ModelSerializer):
-    """Detail serializer for forms — adds job_id, job_number, parent_template_id."""
-
-    job_id = serializers.UUIDField(source="job.id", read_only=True, allow_null=True)
-    job_number = serializers.CharField(
-        source="job.job_number", read_only=True, allow_null=True
-    )
-    parent_template_id = serializers.UUIDField(
-        source="parent_template.id", read_only=True, allow_null=True
-    )
+    """Detail serializer for forms."""
 
     class Meta:
         model = Form
@@ -71,12 +72,8 @@ class FormDetailSerializer(serializers.ModelSerializer):
             "document_number",
             "title",
             "tags",
-            "is_template",
             "status",
             "form_schema",
-            "parent_template_id",
-            "job_id",
-            "job_number",
             "created_at",
             "updated_at",
         ]
@@ -99,7 +96,6 @@ class FormCreateSerializer(serializers.Serializer):
         child=serializers.CharField(), required=False, default=list
     )
     form_schema = serializers.JSONField(required=False, default=dict)
-    is_template = serializers.BooleanField(required=False, default=False)
 
 
 class FormUpdateSerializer(serializers.ModelSerializer):
@@ -113,7 +109,6 @@ class FormUpdateSerializer(serializers.ModelSerializer):
             "tags",
             "form_schema",
             "status",
-            "is_template",
         ]
         extra_kwargs = {
             "title": {"required": False},
@@ -121,5 +116,4 @@ class FormUpdateSerializer(serializers.ModelSerializer):
             "tags": {"required": False},
             "form_schema": {"required": False},
             "status": {"required": False},
-            "is_template": {"required": False},
         }

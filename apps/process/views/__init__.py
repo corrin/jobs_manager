@@ -5,12 +5,7 @@ try:
     from django.apps import apps
 
     if apps.ready:
-        from .form_viewsets import (
-            FormCompleteView,
-            FormEntryViewSet,
-            FormFillView,
-            FormViewSet,
-        )
+        from .form_viewsets import FormEntryViewSet, FormFillView, FormViewSet
         from .procedure_viewsets import (
             AIGenerateControlsView,
             AIGenerateHazardsView,
@@ -43,7 +38,6 @@ __all__ = [
     "AIGenerateHazardsView",
     "AIImproveDocumentView",
     "AIImproveSectionView",
-    "FormCompleteView",
     "FormEntryViewSet",
     "FormFillView",
     "FormViewSet",

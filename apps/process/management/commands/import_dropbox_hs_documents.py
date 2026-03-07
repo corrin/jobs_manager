@@ -5,8 +5,8 @@ Walks a folder structure finding .doc and .docx files with Doc.NNN naming conven
 and creates Procedure or Form records with appropriate type, tags, and metadata.
 
 Two import paths based on DOC_MAPPING:
-- Prose docs (is_template=False): uploaded to Google Drive, stored as Procedure
-- Form templates (is_template=True): Django-only Form records, no Google Doc
+- Prose docs: uploaded to Google Drive, stored as Procedure
+- Form/register definitions: Django-only Form records, no Google Doc
 """
 
 import re
@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.process.models import Form, Procedure
 from apps.workflow.models import CompanyDefaults
 
-# Maps individual doc numbers to (document_type, tags, is_template)
+# Maps individual doc numbers to (document_type, tags, is_form_or_register)
 DOC_MAPPING = {
     # Policies (procedures with policy tag)
     "100": ("procedure", ["safety", "policy"], False),
@@ -711,8 +711,8 @@ class Command(BaseCommand):
                 )
                 continue
 
-            doc_type, tags, is_template = DOC_MAPPING[doc_number]
-            path_label = "[TEMPLATE]" if is_template else "[GDOC]"
+            doc_type, tags, _is_form = DOC_MAPPING[doc_number]
+            path_label = "[FORM]" if doc_type in ("form", "register") else "[GDOC]"
 
             if dry_run:
                 self.stdout.write(
@@ -733,7 +733,6 @@ class Command(BaseCommand):
                 doc = Form.objects.create(
                     document_type=doc_type,
                     tags=tags,
-                    is_template=is_template,
                     status="active",
                     document_number=doc_number,
                     title=title,

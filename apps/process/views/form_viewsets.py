@@ -2,13 +2,13 @@
 Form ViewSets and views.
 
 Covers:
-- FormViewSet: CRUD for form/register documents
+- FormViewSet: CRUD for form/register definitions
 - FormEntryViewSet: CRUD for entries within forms
-- FormFillView: Create a record from a template
-- FormCompleteView: Mark a form as completed
+- FormFillView: Create a FormEntry from a Form definition
+- FormCompleteView: Mark a FormEntry as completed
 """
 
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import mixins, permissions, serializers, status, viewsets
@@ -49,9 +49,7 @@ def _apply_category_filter(qs, category_map, category):
     if config is None:
         return None
 
-    qs = qs.select_related("job", "parent_template").filter(
-        document_type=config["document_type"]
-    )
+    qs = qs.filter(document_type=config["document_type"])
 
     if tags := config.get("tags"):
         for tag in tags:
@@ -66,7 +64,7 @@ def _apply_category_filter(qs, category_map, category):
 
 
 def _apply_common_filters(qs, request):
-    """Apply shared query-param filters (q, tags, status, is_template, parent_template_id)."""
+    """Apply shared query-param filters (q, tags, status)."""
     if query := request.query_params.get("q"):
         qs = qs.filter(title__icontains=query)
     if tags_param := request.query_params.get("tags"):
@@ -76,10 +74,6 @@ def _apply_common_filters(qs, request):
                 qs = qs.filter(tags__contains=[tag])
     if status_param := request.query_params.get("status"):
         qs = qs.filter(status=status_param)
-    if is_template_param := request.query_params.get("is_template"):
-        qs = qs.filter(is_template=is_template_param.lower() == "true")
-    if parent_template_id := request.query_params.get("parent_template_id"):
-        qs = qs.filter(parent_template_id=parent_template_id)
     return qs
 
 
@@ -95,7 +89,7 @@ class FormViewSet(
     viewsets.GenericViewSet,
 ):
     """
-    CRUD for form/register documents (fillable templates with entries, no Google Docs).
+    CRUD for form/register definitions (fillable templates with entries, no Google Docs).
 
     Category is taken from the URL kwarg, e.g. /rest/forms/safety/.
     """
@@ -124,6 +118,7 @@ class FormViewSet(
         qs = _apply_category_filter(Form.objects.all(), FORM_CATEGORIES, category)
         if qs is None:
             return Form.objects.none()
+        qs = qs.annotate(entry_count=Count("entries"))
         return _apply_common_filters(qs, self.request)
 
     @extend_schema(
@@ -136,19 +131,8 @@ class FormViewSet(
             ),
             OpenApiParameter(
                 name="status",
-                description="Filter by status (draft/active/completed/archived)",
+                description="Filter by status (active/archived)",
                 required=False,
-            ),
-            OpenApiParameter(
-                name="is_template",
-                description="Filter by template flag (true/false)",
-                required=False,
-            ),
-            OpenApiParameter(
-                name="parent_template_id",
-                description="Filter by parent template UUID",
-                required=False,
-                type=str,
             ),
         ]
     )
@@ -200,7 +184,6 @@ class FormViewSet(
             title=ser.validated_data["title"],
             document_number=ser.validated_data.get("document_number", ""),
             tags=tags,
-            is_template=ser.validated_data.get("is_template", False),
             form_schema=ser.validated_data.get("form_schema", {}),
         )
         return Response(FormDetailSerializer(doc).data, status=status.HTTP_201_CREATED)
@@ -253,10 +236,14 @@ class FormEntryViewSet(
         return get_object_or_404(Form, pk=self.kwargs["document_pk"])
 
     def get_queryset(self):
-        return FormEntry.objects.filter(
-            form_id=self.kwargs["document_pk"],
-            is_active=True,
-        ).order_by("-entry_date", "-created_at")
+        return (
+            FormEntry.objects.filter(
+                form_id=self.kwargs["document_pk"],
+                is_active=True,
+            )
+            .select_related("job")
+            .order_by("-entry_date", "-created_at")
+        )
 
     def perform_destroy(self, instance):
         """Soft delete — set is_active=False instead of actually deleting."""
@@ -300,7 +287,7 @@ class FormEntryViewSet(
 
 
 class FormFillView(APIView):
-    """Create a new record from a template."""
+    """Create a new FormEntry from a Form definition."""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -309,39 +296,27 @@ class FormFillView(APIView):
             "FillRequest",
             fields={
                 "job_id": serializers.UUIDField(required=False, allow_null=True),
+                "entry_date": serializers.DateField(required=False),
+                "data": serializers.JSONField(required=False),
             },
         ),
-        responses=FormDetailSerializer,
+        responses=FormEntrySerializer,
     )
     def post(self, request, pk, **kwargs):
         try:
             from apps.process.services.form_service import FormService
 
-            record = FormService().fill_template(
-                template_id=pk,
+            entry = FormService().create_entry(
+                form_id=pk,
                 job_id=request.data.get("job_id"),
+                entered_by=request.user,
+                entry_date=request.data.get("entry_date"),
+                data=request.data.get("data"),
             )
             return Response(
-                FormDetailSerializer(record).data,
+                FormEntrySerializer(entry).data,
                 status=status.HTTP_201_CREATED,
             )
-        except Exception as exc:
-            persist_app_error(exc)
-            raise
-
-
-class FormCompleteView(APIView):
-    """Mark a form as completed."""
-
-    permission_classes = [permissions.IsAuthenticated, IsOfficeStaff]
-
-    @extend_schema(request=None, responses=FormDetailSerializer)
-    def post(self, request, pk, **kwargs):
-        try:
-            from apps.process.services.form_service import FormService
-
-            doc = FormService().complete_form(pk)
-            return Response(FormDetailSerializer(doc).data)
         except Exception as exc:
             persist_app_error(exc)
             raise

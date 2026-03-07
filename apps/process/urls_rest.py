@@ -6,7 +6,6 @@ from rest_framework.views import APIView
 
 from apps.process.views.form_viewsets import (
     FORM_CATEGORIES,
-    FormCompleteView,
     FormEntryViewSet,
     FormFillView,
     FormViewSet,
@@ -86,7 +85,7 @@ rest_urlpatterns = [
         ProcedureContentView.as_view(),
         name="procedure_content",
     ),
-    # ─── Forms (fillable templates with entries) ──────────────────────────
+    # ─── Forms (definitions with entries) ──────────────────────────────────
     path(
         "rest/forms/<str:category>/",
         FormViewSet.as_view({"get": "list", "post": "create"}),
@@ -108,11 +107,6 @@ rest_urlpatterns = [
         "rest/forms/<str:category>/<uuid:pk>/fill/",
         FormFillView.as_view(),
         name="form_fill",
-    ),
-    path(
-        "rest/forms/<str:category>/<uuid:pk>/complete/",
-        FormCompleteView.as_view(),
-        name="form_complete",
     ),
     path(
         "rest/forms/<str:category>/<uuid:document_pk>/entries/",

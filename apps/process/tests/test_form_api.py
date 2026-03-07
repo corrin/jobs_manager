@@ -143,7 +143,7 @@ class TestFormAPI:
             document_type="form",
             title="New Checklist",
             tags=["safety"],
-            status="draft",
+            status="active",
             form_schema={"fields": [{"key": "item", "type": "text"}]},
         )
         MockService.return_value.create_form.return_value = doc
@@ -186,3 +186,18 @@ class TestFormAPI:
         resp = api_client.delete(f"/process/rest/forms/safety/{doc.pk}/")
         assert resp.status_code == status.HTTP_204_NO_CONTENT
         assert not Form.objects.filter(pk=doc.pk).exists()
+
+    def test_fill_creates_entry(self, api_client):
+        form = Form.objects.create(
+            document_type="form",
+            title="Inspection Form",
+            tags=["safety"],
+        )
+
+        resp = api_client.post(
+            f"/process/rest/forms/safety/{form.pk}/fill/",
+            {"data": {"item": "Ladder"}},
+            format="json",
+        )
+        assert resp.status_code == status.HTTP_201_CREATED
+        assert str(resp.data["form"]) == str(form.pk)
