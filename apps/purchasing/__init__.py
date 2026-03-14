@@ -15,6 +15,7 @@ try:
             PurchaseOrderLine,
             PurchaseOrderSupplierQuote,
             Stock,
+            StockMovement,
         )
         from .serializers import (
             AllJobsResponseSerializer,
@@ -118,6 +119,7 @@ __all__ = [
     "StockDeactivateResponseSerializer",
     "StockItemSerializer",
     "StockListSerializer",
+    "StockMovement",
     "SupplierPriceStatusItemSerializer",
     "SupplierPriceStatusResponseSerializer",
     "XeroItemListResponseSerializer",

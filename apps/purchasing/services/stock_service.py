@@ -3,11 +3,11 @@ from decimal import Decimal
 from typing import Any, Optional
 from uuid import UUID
 
-from django.db import connection, transaction
+from django.db import transaction
 from django.utils import timezone
 
 from apps.job.models import CostLine, CostSet, Job
-from apps.purchasing.models import Stock
+from apps.purchasing.models import Stock, StockMovement
 from apps.workflow.models import CompanyDefaults
 
 logger = logging.getLogger(__name__)
@@ -20,30 +20,38 @@ def merge_stock_into(source_stock_id: UUID, target_stock_id: UUID) -> None:
 
     Moves:
     - child_stock_splits (source_parent_stock FK)
-    - CostLine ext_refs['stock_id'] references (JSON update)
+    - StockMovement.stock references
 
     Then deletes the source stock.
     """
     source_str = str(source_stock_id)
-    target_str = str(target_stock_id)
+
+    source = Stock.objects.select_for_update().get(id=source_stock_id)
+    target = Stock.objects.select_for_update().get(id=target_stock_id)
 
     # 1. Move child stock splits (FK)
     Stock.objects.filter(source_parent_stock_id=source_stock_id).update(
         source_parent_stock_id=target_stock_id
     )
 
-    # 2. Update CostLine ext_refs JSON where stock_id matches source
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            UPDATE job_costline
-            SET ext_refs = JSON_SET(ext_refs, '$.stock_id', %s)
-            WHERE JSON_EXTRACT(ext_refs, '$.stock_id') = %s
-            """,
-            [target_str, source_str],
-        )
+    # 2. Repoint any movements tied to the source stock
+    StockMovement.objects.filter(stock=source).update(stock=target)
 
-    # 3. Delete the source stock
+    # 3. Move quantity into target and log movement
+    target.quantity += source.quantity
+    target.save(update_fields=["quantity"])
+    StockMovement.objects.create(
+        stock=target,
+        movement_type="merge",
+        quantity_delta=source.quantity,
+        unit_cost=source.unit_cost,
+        unit_revenue=source.unit_revenue,
+        source=source.source,
+        source_parent_stock=source,
+        metadata={"source_stock_id": source_str},
+    )
+
+    # 4. Delete the source stock
     Stock.objects.filter(id=source_stock_id).delete()
 
     logger.info(f"Merged stock {source_stock_id} into {target_stock_id}")
@@ -112,7 +120,7 @@ def consume_stock(
                 unit_cost=unit_cost,
                 unit_rev=unit_rev,
                 accounting_date=timezone.now().date(),
-                ext_refs={"stock_id": str(item.id)},
+                ext_refs={},
                 meta={
                     "consumed_by": (
                         str(getattr(user, "id", None))
@@ -121,6 +129,20 @@ def consume_stock(
                     )
                 },
             )
+            movement = StockMovement.objects.create(
+                stock=item,
+                movement_type="consume",
+                quantity_delta=-qty,
+                unit_cost=unit_cost,
+                unit_revenue=unit_rev,
+                source="costline_consume",
+                source_cost_line=cost_line,
+                metadata={"job_id": str(job.id)},
+            )
+            cost_line.ext_refs = {
+                "stock_movement_id": str(movement.id),
+            }
+            cost_line.save(update_fields=["ext_refs"])
             logger.info(
                 "Consumed %s of stock %s for job %s and created new line with id: %s",
                 qty,
@@ -136,7 +158,8 @@ def consume_stock(
         line.unit_cost = unit_cost
         line.unit_rev = unit_rev
         line.accounting_date = timezone.now().date()
-        line.ext_refs = {"stock_id": str(item.id)}
+        line.ext_refs = {**(line.ext_refs or {})}
+        line.ext_refs.pop("stock_id", None)
         line.meta = {
             "consumed_by": (
                 str(getattr(user, "id", None)) if getattr(user, "id", None) else None
@@ -154,4 +177,17 @@ def consume_stock(
                 "meta",
             ]
         )
+        movement = StockMovement.objects.create(
+            stock=item,
+            movement_type="consume",
+            quantity_delta=-qty,
+            unit_cost=unit_cost,
+            unit_revenue=unit_rev,
+            source="costline_consume",
+            source_cost_line=line,
+            metadata={"job_id": str(job.id)},
+        )
+        line.ext_refs["stock_movement_id"] = str(movement.id)
+        line.ext_refs.pop("stock_id", None)
+        line.save(update_fields=["ext_refs"])
     return line
